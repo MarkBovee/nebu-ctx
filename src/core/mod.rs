@@ -1,4 +1,5 @@
 pub mod a2a;
+pub mod store;
 pub mod adaptive;
 pub mod adaptive_mode_policy;
 pub mod adaptive_thresholds;
