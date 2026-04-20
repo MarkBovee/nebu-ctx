@@ -121,6 +121,8 @@ Copy `homeassistant/` to your HA addons directory, configure Postgres URL in add
 
 Built with Rust. See [docs/plans/nebula-server-roadmap.md](docs/plans/nebula-server-roadmap.md) for the full roadmap.
 
+**Learning Rust?** Read [docs/technical-architecture.md](docs/technical-architecture.md) — explains every module, how MCP tools work end-to-end, the cache/compression engine, shared state patterns, and key Rust concepts with code examples.
+
 ```bash
 # Build
 cargo build
