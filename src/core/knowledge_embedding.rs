@@ -328,7 +328,7 @@ mod tests {
         let _lock = crate::core::data_dir::test_env_lock();
         let tmp = tempfile::tempdir().expect("tempdir");
         std::env::set_var(
-            "LEAN_CTX_DATA_DIR",
+            "NEBULA_CTX_DATA_DIR",
             tmp.path().to_string_lossy().to_string(),
         );
 
@@ -346,7 +346,7 @@ mod tests {
         reset("projhash").expect("reset");
         assert!(KnowledgeEmbeddingIndex::load("projhash").is_none());
 
-        std::env::remove_var("LEAN_CTX_DATA_DIR");
+        std::env::remove_var("NEBULA_CTX_DATA_DIR");
     }
 
     #[test]

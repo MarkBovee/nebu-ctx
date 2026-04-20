@@ -1,17 +1,17 @@
-# lean-ctx — Token Optimization for Pi
+# nebula-ctx — Token Optimization for Pi
 
-lean-ctx is installed as a Pi Package with first-class MCP support. All bash, read, grep, find, and ls calls are automatically routed through lean-ctx for 60-90% token savings. Additionally, 46 MCP tools are available for advanced operations.
+nebula-ctx is installed as a Pi Package with first-class MCP support. All bash, read, grep, find, and ls calls are automatically routed through nebula-ctx for 60-90% token savings. Additionally, 46 MCP tools are available for advanced operations.
 
 ## How it works
 
-- **bash** commands are compressed via lean-ctx's 90+ shell patterns
+- **bash** commands are compressed via nebula-ctx's 90+ shell patterns
 - **read** uses 10 read modes (auto/full/map/signatures/diff/task/reference/aggressive/entropy/lines) based on file type + task
 - **grep** results are grouped and compressed
 - **find** and **ls** output is compressed and .gitignore-aware
 
 ## MCP tools available
 
-In addition to the built-in tool overrides, lean-ctx provides these MCP tools:
+In addition to the built-in tool overrides, nebula-ctx provides these MCP tools:
 
 - **ctx_session** — Session state management
 - **ctx_knowledge** — Project knowledge graph (cross-session memory)
@@ -42,8 +42,8 @@ kubectl get pods    # automatically compressed
 
 ## Checking status
 
-Use `/lean-ctx` in Pi to verify which binary is active and see MCP bridge status.
+Use `/nebula-ctx` in Pi to verify which binary is active and see MCP bridge status.
 
 ## Dashboard
 
-Run `lean-ctx dashboard` in a separate terminal to see real-time token savings.
+Run `nebula-ctx dashboard` in a separate terminal to see real-time token savings.

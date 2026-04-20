@@ -207,10 +207,10 @@ OUTPUT EFFICIENCY:\n\
 }
 
 fn should_use_unified(client_name: &str) -> bool {
-    if std::env::var("LEAN_CTX_FULL_TOOLS").is_ok() {
+    if std::env::var("NEBULA_CTX_FULL_TOOLS").is_ok() {
         return false;
     }
-    if std::env::var("LEAN_CTX_UNIFIED").is_ok() {
+    if std::env::var("NEBULA_CTX_UNIFIED").is_ok() {
         return true;
     }
     let _ = client_name;

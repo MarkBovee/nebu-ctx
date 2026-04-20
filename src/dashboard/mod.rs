@@ -10,14 +10,14 @@ const DASHBOARD_HTML: &str = include_str!("dashboard.html");
 
 pub async fn start(port: Option<u16>, host: Option<String>) {
     let port = port.unwrap_or_else(|| {
-        std::env::var("LEAN_CTX_PORT")
+        std::env::var("NEBULA_CTX_PORT")
             .ok()
             .and_then(|p| p.parse().ok())
             .unwrap_or(DEFAULT_PORT)
     });
 
     let host = host.unwrap_or_else(|| {
-        std::env::var("LEAN_CTX_HOST")
+        std::env::var("NEBULA_CTX_HOST")
             .ok()
             .unwrap_or_else(|| DEFAULT_HOST.to_string())
     });
@@ -259,8 +259,8 @@ fn route_response(
             ("200 OK", "application/json", json)
         }
         "/api/gain" => {
-            let env_model = std::env::var("LEAN_CTX_MODEL")
-                .or_else(|_| std::env::var("LCTX_MODEL"))
+            let env_model = std::env::var("NEBULA_CTX_MODEL")
+                .or_else(|_| std::env::var("NCTX_MODEL"))
                 .ok();
             let engine = crate::core::gain::GainEngine::load();
             let payload = serde_json::json!({
@@ -510,13 +510,13 @@ fn route_response(
             let mut html = DASHBOARD_HTML.to_string();
             if let Some(ref tok) = query_token {
                 let script = format!(
-                    "<script>window.__LEAN_CTX_TOKEN__=\"{}\";</script>",
+                    "<script>window.__NEBULA_CTX_TOKEN__=\"{}\";</script>",
                     tok.replace('"', "")
                 );
                 html = html.replacen("<head>", &format!("<head>{script}"), 1);
             } else if let Some(ref t) = token {
                 let script = format!(
-                    "<script>window.__LEAN_CTX_TOKEN__=\"{}\";</script>",
+                    "<script>window.__NEBULA_CTX_TOKEN__=\"{}\";</script>",
                     t.as_str()
                 );
                 html = html.replacen("<head>", &format!("<head>{script}"), 1);
@@ -916,7 +916,7 @@ fn build_agents_json() -> String {
 }
 
 fn detect_project_root_for_dashboard() -> String {
-    if let Ok(explicit) = std::env::var("LEAN_CTX_DASHBOARD_PROJECT") {
+    if let Ok(explicit) = std::env::var("NEBULA_CTX_DASHBOARD_PROJECT") {
         if !explicit.trim().is_empty() {
             return promote_to_git_root(&explicit);
         }

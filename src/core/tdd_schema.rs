@@ -60,7 +60,7 @@ pub fn tdd_schema_value() -> Value {
                 "Stable ordering for ledgers and reports."
             ],
             "local_first": [
-                "All files stored under LEAN_CTX_DATA_DIR by default.",
+                "All files stored under NEBULA_CTX_DATA_DIR by default.",
                 "No raw prompts stored."
             ]
         }

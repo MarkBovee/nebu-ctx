@@ -42,13 +42,13 @@ pub fn exec(command: &str) -> i32 {
     let command = crate::tools::ctx_shell::normalize_command_for_shell(command);
     let command = command.as_str();
 
-    if std::env::var("LEAN_CTX_DISABLED").is_ok() || std::env::var("LEAN_CTX_ACTIVE").is_ok() {
+    if std::env::var("NEBULA_CTX_DISABLED").is_ok() || std::env::var("NEBULA_CTX_ACTIVE").is_ok() {
         return exec_inherit(command, &shell, &shell_flag);
     }
 
     let cfg = config::Config::load();
-    let force_compress = std::env::var("LEAN_CTX_COMPRESS").is_ok();
-    let raw_mode = std::env::var("LEAN_CTX_RAW").is_ok();
+    let force_compress = std::env::var("NEBULA_CTX_COMPRESS").is_ok();
+    let raw_mode = std::env::var("NEBULA_CTX_RAW").is_ok();
 
     if raw_mode || (!force_compress && is_excluded_command(command, &cfg.excluded_commands)) {
         return exec_inherit(command, &shell, &shell_flag);
@@ -68,7 +68,7 @@ fn exec_inherit(command: &str, shell: &str, shell_flag: &str) -> i32 {
     let status = Command::new(shell)
         .arg(shell_flag)
         .arg(command)
-        .env("LEAN_CTX_ACTIVE", "1")
+        .env("NEBULA_CTX_ACTIVE", "1")
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
@@ -105,7 +105,7 @@ fn exec_buffered(command: &str, shell: &str, shell_flag: &str, cfg: &config::Con
     let child = Command::new(shell)
         .arg(shell_flag)
         .arg(command)
-        .env("LEAN_CTX_ACTIVE", "1")
+        .env("NEBULA_CTX_ACTIVE", "1")
         .env_remove("DISPLAY")
         .env_remove("XAUTHORITY")
         .env_remove("WAYLAND_DISPLAY")
@@ -526,7 +526,7 @@ pub fn shell_and_flag() -> (String, String) {
 }
 
 fn detect_shell() -> String {
-    if let Ok(shell) = std::env::var("LEAN_CTX_SHELL") {
+    if let Ok(shell) = std::env::var("NEBULA_CTX_SHELL") {
         return shell;
     }
 

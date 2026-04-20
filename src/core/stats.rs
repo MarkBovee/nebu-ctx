@@ -571,8 +571,8 @@ pub struct CostModel {
 
 impl Default for CostModel {
     fn default() -> Self {
-        let env_model = std::env::var("LEAN_CTX_MODEL")
-            .or_else(|_| std::env::var("LCTX_MODEL"))
+        let env_model = std::env::var("NEBULA_CTX_MODEL")
+            .or_else(|_| std::env::var("NCTX_MODEL"))
             .ok();
         let pricing = crate::core::gain::model_pricing::ModelPricing::load();
         let quote = pricing.quote(env_model.as_deref());
@@ -651,8 +651,8 @@ fn format_usd(amount: f64) -> String {
 }
 
 fn usd_estimate(tokens: u64) -> String {
-    let env_model = std::env::var("LEAN_CTX_MODEL")
-        .or_else(|_| std::env::var("LCTX_MODEL"))
+    let env_model = std::env::var("NEBULA_CTX_MODEL")
+        .or_else(|_| std::env::var("NCTX_MODEL"))
         .ok();
     let pricing = crate::core::gain::model_pricing::ModelPricing::load();
     let quote = pricing.quote(env_model.as_deref());

@@ -917,7 +917,7 @@ pub fn cmd_filter(args: &[String]) {
 }
 
 fn quiet_enabled() -> bool {
-    matches!(std::env::var("LEAN_CTX_QUIET"), Ok(v) if v.trim() == "1")
+    matches!(std::env::var("NEBULA_CTX_QUIET"), Ok(v) if v.trim() == "1")
 }
 
 macro_rules! qprintln {
@@ -1035,9 +1035,9 @@ pub fn cmd_init(args: &[String]) {
 }
 
 pub fn cmd_init_quiet(args: &[String]) {
-    std::env::set_var("LEAN_CTX_QUIET", "1");
+    std::env::set_var("NEBULA_CTX_QUIET", "1");
     cmd_init(args);
-    std::env::remove_var("LEAN_CTX_QUIET");
+    std::env::remove_var("NEBULA_CTX_QUIET");
 }
 
 pub fn load_shell_history_pub() -> Vec<String> {
@@ -1267,7 +1267,7 @@ mod tests {
 export PATH="$HOME/bin:$PATH"
 
 # nebula-ctx shell hook — transparent CLI compression (90+ patterns)
-if [ -z "$LEAN_CTX_ACTIVE" ]; then
+if [ -z "$NEBULA_CTX_ACTIVE" ]; then
 alias git='nebula-ctx -c git'
 alias npm='nebula-ctx -c npm'
 fi
@@ -1286,7 +1286,7 @@ export EDITOR=vim
 
     #[test]
     fn test_remove_nebula_ctx_block_fish() {
-        let input = "# other fish config\nset -x FOO bar\n\n# nebula-ctx shell hook — transparent CLI compression (90+ patterns)\nif not set -q LEAN_CTX_ACTIVE\n\talias git 'nebula-ctx -c git'\n\talias npm 'nebula-ctx -c npm'\nend\n\n# more config\nset -x BAZ qux\n";
+        let input = "# other fish config\nset -x FOO bar\n\n# nebula-ctx shell hook — transparent CLI compression (90+ patterns)\nif not set -q NEBULA_CTX_ACTIVE\n\talias git 'nebula-ctx -c git'\n\talias npm 'nebula-ctx -c npm'\nend\n\n# more config\nset -x BAZ qux\n";
         let result = remove_nebula_ctx_block(input);
         assert!(!result.contains("nebula-ctx"), "block should be removed");
         assert!(result.contains("set -x FOO"), "other content preserved");
@@ -1295,7 +1295,7 @@ export EDITOR=vim
 
     #[test]
     fn test_remove_nebula_ctx_block_ps() {
-        let input = "# PowerShell profile\n$env:FOO = 'bar'\n\n# nebula-ctx shell hook — transparent CLI compression (90+ patterns)\nif (-not $env:LEAN_CTX_ACTIVE) {\n  $LeanCtxBin = \"C:\\\\bin\\\\nebula-ctx.exe\"\n  function git { & $LeanCtxBin -c \"git $($args -join ' ')\" }\n}\n\n# other stuff\n$env:EDITOR = 'vim'\n";
+        let input = "# PowerShell profile\n$env:FOO = 'bar'\n\n# nebula-ctx shell hook — transparent CLI compression (90+ patterns)\nif (-not $env:NEBULA_CTX_ACTIVE) {\n  $LeanCtxBin = \"C:\\\\bin\\\\nebula-ctx.exe\"\n  function git { & $LeanCtxBin -c \"git $($args -join ' ')\" }\n}\n\n# other stuff\n$env:EDITOR = 'vim'\n";
         let result = remove_nebula_ctx_block_ps(input);
         assert!(
             !result.contains("nebula-ctx shell hook"),
@@ -1307,7 +1307,7 @@ export EDITOR=vim
 
     #[test]
     fn test_remove_nebula_ctx_block_ps_nested() {
-        let input = "# PowerShell profile\n$env:FOO = 'bar'\n\n# nebula-ctx shell hook — transparent CLI compression (90+ patterns)\nif (-not $env:LEAN_CTX_ACTIVE) {\n  $LeanCtxBin = \"nebula-ctx\"\n  function _lc {\n    & $LeanCtxBin -c \"$($args -join ' ')\"\n  }\n  if (Get-Command nebula-ctx -ErrorAction SilentlyContinue) {\n    function git { _lc git @args }\n    foreach ($c in @('npm','pnpm')) {\n      if ($a) {\n        Set-Variable -Name \"_lc_$c\" -Value $a.Source -Scope Script\n      }\n    }\n  }\n}\n\n# other stuff\n$env:EDITOR = 'vim'\n";
+        let input = "# PowerShell profile\n$env:FOO = 'bar'\n\n# nebula-ctx shell hook — transparent CLI compression (90+ patterns)\nif (-not $env:NEBULA_CTX_ACTIVE) {\n  $LeanCtxBin = \"nebula-ctx\"\n  function _lc {\n    & $LeanCtxBin -c \"$($args -join ' ')\"\n  }\n  if (Get-Command nebula-ctx -ErrorAction SilentlyContinue) {\n    function git { _lc git @args }\n    foreach ($c in @('npm','pnpm')) {\n      if ($a) {\n        Set-Variable -Name \"_lc_$c\" -Value $a.Source -Scope Script\n      }\n    }\n  }\n}\n\n# other stuff\n$env:EDITOR = 'vim'\n";
         let result = remove_nebula_ctx_block_ps(input);
         assert!(
             !result.contains("nebula-ctx shell hook"),
@@ -1330,7 +1330,7 @@ export EDITOR=vim
         let binary = "/usr/local/bin/nebula-ctx";
         let hook = format!(
             r#"_lc() {{
-    if [ -n "${{LEAN_CTX_DISABLED:-}}" ] || [ ! -t 1 ]; then
+    if [ -n "${{NEBULA_CTX_DISABLED:-}}" ] || [ ! -t 1 ]; then
         command "$@"
         return
     fi
@@ -1342,8 +1342,8 @@ export EDITOR=vim
             "bash/zsh hook must contain pipe guard [ ! -t 1 ]"
         );
         assert!(
-            hook.contains("LEAN_CTX_DISABLED") && hook.contains("! -t 1"),
-            "pipe guard must be in the same conditional as LEAN_CTX_DISABLED"
+            hook.contains("NEBULA_CTX_DISABLED") && hook.contains("! -t 1"),
+            "pipe guard must be in the same conditional as NEBULA_CTX_DISABLED"
         );
     }
 
@@ -1397,7 +1397,7 @@ nebula-ctx-mode() {{
 
     #[test]
     fn test_fish_hook_contains_pipe_guard() {
-        let hook = "function _lc\n\tif set -q LEAN_CTX_DISABLED; or not isatty stdout\n\t\tcommand $argv\n\t\treturn\n\tend\nend";
+        let hook = "function _lc\n\tif set -q NEBULA_CTX_DISABLED; or not isatty stdout\n\t\tcommand $argv\n\t\treturn\n\tend\nend";
         assert!(
             hook.contains("isatty stdout"),
             "fish hook must contain pipe guard (isatty stdout)"
@@ -1406,7 +1406,7 @@ nebula-ctx-mode() {{
 
     #[test]
     fn test_powershell_hook_contains_pipe_guard() {
-        let hook = "function _lc { if ($env:LEAN_CTX_DISABLED -or [Console]::IsOutputRedirected) { & @args; return } }";
+        let hook = "function _lc { if ($env:NEBULA_CTX_DISABLED -or [Console]::IsOutputRedirected) { & @args; return } }";
         assert!(
             hook.contains("IsOutputRedirected"),
             "PowerShell hook must contain pipe guard ([Console]::IsOutputRedirected)"
@@ -1425,16 +1425,16 @@ nebula-ctx-on() {
     for _lc_cmd in "${_nebula_ctx_cmds[@]}"; do
         alias "$_lc_cmd"='nebula-ctx -c '"$_lc_cmd"
     done
-    export LEAN_CTX_ENABLED=1
+    export NEBULA_CTX_ENABLED=1
     [ -t 1 ] && echo "nebula-ctx: ON"
 }
 
 nebula-ctx-off() {
-    unset LEAN_CTX_ENABLED
+    unset NEBULA_CTX_ENABLED
     [ -t 1 ] && echo "nebula-ctx: OFF"
 }
 
-if [ -z "${LEAN_CTX_ACTIVE:-}" ] && [ "${LEAN_CTX_ENABLED:-1}" != "0" ]; then
+if [ -z "${NEBULA_CTX_ACTIVE:-}" ] && [ "${NEBULA_CTX_ENABLED:-1}" != "0" ]; then
     nebula-ctx-on
 fi
 # nebula-ctx shell hook — end
@@ -1458,7 +1458,7 @@ export EDITOR=vim
         let tmp = tempfile::tempdir().expect("tempdir");
         let data_dir = tmp.path().join("data");
         std::fs::create_dir_all(&data_dir).expect("mkdir data");
-        std::env::set_var("LEAN_CTX_DATA_DIR", &data_dir);
+        std::env::set_var("NEBULA_CTX_DATA_DIR", &data_dir);
 
         write_env_sh_for_containers("alias git='nebula-ctx -c git'\n");
         let env_sh = data_dir.join("env.sh");
@@ -1467,6 +1467,6 @@ export EDITOR=vim
         assert!(content.contains("claude mcp list"));
         assert!(content.contains("nebula-ctx init --agent claude"));
 
-        std::env::remove_var("LEAN_CTX_DATA_DIR");
+        std::env::remove_var("NEBULA_CTX_DATA_DIR");
     }
 }

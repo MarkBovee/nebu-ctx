@@ -10,7 +10,7 @@ fn credentials_path() -> PathBuf {
 }
 
 pub fn api_url() -> String {
-    std::env::var("LEAN_CTX_API_URL").unwrap_or_else(|_| "https://api.leanctx.com".to_string())
+    std::env::var("NEBULA_CTX_API_URL").unwrap_or_else(|_| "https://api.leanctx.com".to_string())
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]

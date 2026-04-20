@@ -1,10 +1,10 @@
-use lean_ctx::core::tokens::count_tokens;
-use lean_ctx::server::build_instructions_for_test;
-use lean_ctx::tools::CrpMode;
+use nebula_ctx::core::tokens::count_tokens;
+use nebula_ctx::server::build_instructions_for_test;
+use nebula_ctx::tools::CrpMode;
 
 fn main() {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-    let path = format!("{home}/.lean-ctx/token_impact.txt");
+    let path = format!("{home}/.nebula-ctx/token_impact.txt");
 
     let old_proactive = "PROACTIVE: ctx_overview(task) at start | ctx_preload(task) for focused context | ctx_compress when context grows | ctx_session load on new chat\n\nOTHER TOOLS: ctx_session (memory), ctx_knowledge (project facts), ctx_agent (coordination), ctx_metrics, ctx_analyze, ctx_benchmark, ctx_cache, ctx_wrapped, ctx_compress";
     let new_autonomy = "AUTONOMY: lean-ctx auto-runs ctx_overview, ctx_preload, ctx_dedup, ctx_compress behind the scenes.\nFocus on: ctx_read, ctx_shell, ctx_search, ctx_tree. Use ctx_session for memory, ctx_knowledge for project facts.";

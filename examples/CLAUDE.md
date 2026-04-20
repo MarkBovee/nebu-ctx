@@ -1,6 +1,6 @@
-# lean-ctx — Token Optimization
+# nebula-ctx — Token Optimization
 
-lean-ctx is configured as an MCP server. Use lean-ctx MCP tools instead of built-in tools:
+nebula-ctx is configured as an MCP server. Use nebula-ctx MCP tools instead of built-in tools:
 
 | Built-in | Use instead | Why |
 |----------|-------------|-----|
@@ -9,12 +9,12 @@ lean-ctx is configured as an MCP server. Use lean-ctx MCP tools instead of built
 | Grep / rg | `ctx_search` | Compact context, token-efficient results |
 | ls / find | `ctx_tree` | Compact directory maps with file counts |
 
-For shell commands that don't have MCP equivalents, prefix with `lean-ctx -c`:
+For shell commands that don't have MCP equivalents, prefix with `nebula-ctx -c`:
 
 ```bash
-lean-ctx -c git status    # compressed output
-lean-ctx -c cargo test    # compressed output
-lean-ctx -c npm install   # compressed output
+nebula-ctx -c git status    # compressed output
+nebula-ctx -c cargo test    # compressed output
+nebula-ctx -c npm install   # compressed output
 ```
 
 ## ctx_read Modes
@@ -29,4 +29,4 @@ lean-ctx -c npm install   # compressed output
 Use native Edit/StrReplace when available. If Edit requires Read and Read is unavailable,
 use `ctx_edit(path, old_string, new_string)` — it reads, replaces, and writes in one MCP call.
 NEVER loop trying to make Edit work. If it fails, switch to ctx_edit immediately.
-Write, Delete have no lean-ctx equivalent — use them normally.
+Write, Delete have no nebula-ctx equivalent — use them normally.

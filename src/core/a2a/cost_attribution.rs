@@ -246,7 +246,7 @@ pub fn format_cost_report(store: &CostStore, limit: usize) -> String {
     lines.push(format!(
         "Total: {total_in} input + {total_out} output tokens = ${total_cost:.4}"
     ));
-    if let Ok(m) = std::env::var("LEAN_CTX_MODEL").or_else(|_| std::env::var("LCTX_MODEL")) {
+    if let Ok(m) = std::env::var("NEBULA_CTX_MODEL").or_else(|_| std::env::var("NCTX_MODEL")) {
         if !m.trim().is_empty() {
             let pricing = crate::core::gain::model_pricing::ModelPricing::load();
             let q = pricing.quote(Some(&m));

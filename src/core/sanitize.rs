@@ -69,7 +69,7 @@ pub fn fence_content(label: &str, content: &str) -> String {
     let mut bytes = [0u8; 16];
     let _ = getrandom::fill(&mut bytes);
     let token = to_hex(&bytes);
-    let marker = format!("LCTX_{label}_{token}");
+    let marker = format!("NCTX_{label}_{token}");
     format!("‹‹‹{marker}›››\n{content}\n‹‹‹{marker}›››")
 }
 

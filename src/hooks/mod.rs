@@ -4,7 +4,7 @@ pub mod agents;
 use agents::*;
 
 fn mcp_server_quiet_mode() -> bool {
-    std::env::var_os("LEAN_CTX_MCP_SERVER").is_some()
+    std::env::var_os("NEBULA_CTX_MCP_SERVER").is_some()
 }
 
 /// Silently refresh all hook scripts for agents that are already configured.
@@ -129,7 +129,7 @@ pub fn generate_rewrite_script(binary: &str) -> String {
 # nebula-ctx PreToolUse hook — rewrites bash commands to nebula-ctx equivalents
 set -euo pipefail
 
-LEAN_CTX_BIN="{binary}"
+NEBULA_CTX_BIN="{binary}"
 
 INPUT=$(cat)
 TOOL=$(echo "$INPUT" | grep -oE '"tool_name":"([^"\\]|\\.)*"' | head -1 | sed 's/^"tool_name":"//;s/"$//' | sed 's/\\"/"/g;s/\\\\/\\/g')
@@ -140,7 +140,7 @@ fi
 
 CMD=$(echo "$INPUT" | grep -oE '"command":"([^"\\]|\\.)*"' | head -1 | sed 's/^"command":"//;s/"$//' | sed 's/\\"/"/g;s/\\\\/\\/g')
 
-if [ -z "$CMD" ] || echo "$CMD" | grep -qE "^(nebula-ctx |$LEAN_CTX_BIN )"; then
+if [ -z "$CMD" ] || echo "$CMD" | grep -qE "^(nebula-ctx |$NEBULA_CTX_BIN )"; then
   exit 0
 fi
 
@@ -148,7 +148,7 @@ case "$CMD" in
   {case_pattern})
     # Shell-escape then JSON-escape (two passes)
     SHELL_ESC=$(printf '%s' "$CMD" | sed 's/\\/\\\\/g;s/"/\\"/g')
-    REWRITE="$LEAN_CTX_BIN -c \"$SHELL_ESC\""
+    REWRITE="$NEBULA_CTX_BIN -c \"$SHELL_ESC\""
     JSON_CMD=$(printf '%s' "$REWRITE" | sed 's/\\/\\\\/g;s/"/\\"/g')
     printf '{{"hookSpecificOutput":{{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":{{"command":"%s"}}}}}}' "$JSON_CMD"
     ;;
@@ -164,14 +164,14 @@ pub fn generate_compact_rewrite_script(binary: &str) -> String {
         r#"#!/usr/bin/env bash
 # nebula-ctx hook — rewrites shell commands
 set -euo pipefail
-LEAN_CTX_BIN="{binary}"
+NEBULA_CTX_BIN="{binary}"
 INPUT=$(cat)
 CMD=$(echo "$INPUT" | grep -oE '"command":"([^"\\]|\\.)*"' | head -1 | sed 's/^"command":"//;s/"$//' | sed 's/\\"/"/g;s/\\\\/\\/g' 2>/dev/null || echo "")
-if [ -z "$CMD" ] || echo "$CMD" | grep -qE "^(nebula-ctx |$LEAN_CTX_BIN )"; then exit 0; fi
+if [ -z "$CMD" ] || echo "$CMD" | grep -qE "^(nebula-ctx |$NEBULA_CTX_BIN )"; then exit 0; fi
 case "$CMD" in
   {case_pattern})
     SHELL_ESC=$(printf '%s' "$CMD" | sed 's/\\/\\\\/g;s/"/\\"/g')
-    REWRITE="$LEAN_CTX_BIN -c \"$SHELL_ESC\""
+    REWRITE="$NEBULA_CTX_BIN -c \"$SHELL_ESC\""
     JSON_CMD=$(printf '%s' "$REWRITE" | sed 's/\\/\\\\/g;s/"/\\"/g')
     printf '{{"hookSpecificOutput":{{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":{{"command":"%s"}}}}}}' "$JSON_CMD" ;;
   *) exit 0 ;;
@@ -274,16 +274,16 @@ pub fn install_project_rules() {
     }
 }
 
-const PROJECT_LEAN_CTX_MD_MARKER: &str = "<!-- nebula-ctx-owned: PROJECT-LEAN-CTX.md v1 -->";
-const PROJECT_LEAN_CTX_MD: &str = "LEAN-CTX.md";
+const PROJECT_NEBULA_CTX_MD_MARKER: &str = "<!-- nebula-ctx-owned: PROJECT-NEBULA-CTX.md v1 -->";
+const PROJECT_NEBULA_CTX_MD: &str = "NEBULA-CTX.md";
 const PROJECT_AGENTS_MD: &str = "AGENTS.md";
 const AGENTS_BLOCK_START: &str = "<!-- nebula-ctx -->";
 const AGENTS_BLOCK_END: &str = "<!-- /nebula-ctx -->";
 
 fn ensure_project_agents_integration(cwd: &std::path::Path) {
-    let nebula_ctx_md = cwd.join(PROJECT_LEAN_CTX_MD);
+    let nebula_ctx_md = cwd.join(PROJECT_NEBULA_CTX_MD);
     let desired = format!(
-        "{PROJECT_LEAN_CTX_MD_MARKER}\n{}\n",
+        "{PROJECT_NEBULA_CTX_MD_MARKER}\n{}\n",
         crate::rules_inject::rules_dedicated_markdown()
     );
 
@@ -291,7 +291,7 @@ fn ensure_project_agents_integration(cwd: &std::path::Path) {
         write_file(&nebula_ctx_md, &desired);
     } else if std::fs::read_to_string(&nebula_ctx_md)
         .unwrap_or_default()
-        .contains(PROJECT_LEAN_CTX_MD_MARKER)
+        .contains(PROJECT_NEBULA_CTX_MD_MARKER)
     {
         let current = std::fs::read_to_string(&nebula_ctx_md).unwrap_or_default();
         if !current.contains(crate::rules_inject::RULES_VERSION_STR) {
@@ -303,7 +303,7 @@ fn ensure_project_agents_integration(cwd: &std::path::Path) {
         "{AGENTS_BLOCK_START}\n\
 ## nebula-ctx\n\n\
 Prefer nebula-ctx MCP tools over native equivalents for token savings.\n\
-Full rules: @{PROJECT_LEAN_CTX_MD}\n\
+Full rules: @{PROJECT_NEBULA_CTX_MD}\n\
 {AGENTS_BLOCK_END}\n"
     );
 
@@ -324,7 +324,7 @@ Full rules: @{PROJECT_LEAN_CTX_MD}\n\
         return;
     }
 
-    if existing.contains("nebula-ctx") && existing.contains(PROJECT_LEAN_CTX_MD) {
+    if existing.contains("nebula-ctx") && existing.contains(PROJECT_NEBULA_CTX_MD) {
         return;
     }
 
@@ -505,7 +505,7 @@ fn full_server_entry(binary: &str) -> serde_json::Value {
     let auto_approve = crate::core::editor_registry::auto_approve_tools();
     serde_json::json!({
         "command": binary,
-        "env": { "LEAN_CTX_DATA_DIR": data_dir },
+        "env": { "NEBULA_CTX_DATA_DIR": data_dir },
         "autoApprove": auto_approve
     })
 }
@@ -789,7 +789,7 @@ mod tests {
             "script should not contain rg pattern"
         );
         assert!(
-            script.contains("LEAN_CTX_BIN=\"/usr/bin/nebula-ctx\""),
+            script.contains("NEBULA_CTX_BIN=\"/usr/bin/nebula-ctx\""),
             "script missing binary path"
         );
     }

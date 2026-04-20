@@ -217,8 +217,8 @@ fn draw(f: &mut ratatui::Frame, state: &AppState) {
 fn draw_header(f: &mut ratatui::Frame, area: Rect, state: &AppState) {
     let saved = format_tokens(state.total_saved);
     let pct = format!("{:.0}%", state.savings_pct());
-    let env_model = std::env::var("LEAN_CTX_MODEL")
-        .or_else(|_| std::env::var("LCTX_MODEL"))
+    let env_model = std::env::var("NEBULA_CTX_MODEL")
+        .or_else(|_| std::env::var("NCTX_MODEL"))
         .ok();
     let pricing = ModelPricing::load();
     let quote = pricing.quote(env_model.as_deref());

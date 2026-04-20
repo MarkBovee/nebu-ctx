@@ -97,7 +97,7 @@ fn nebula_ctx_server_entry(binary: &str, data_dir: &str, include_auto_approve: b
     let mut entry = serde_json::json!({
         "command": binary,
         "env": {
-            "LEAN_CTX_DATA_DIR": data_dir
+            "NEBULA_CTX_DATA_DIR": data_dir
         }
     });
     if include_auto_approve {
@@ -359,7 +359,7 @@ fn write_vscode_mcp(
     let data_dir = crate::core::data_dir::nebula_ctx_data_dir()
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
-    let desired = serde_json::json!({ "type": "stdio", "command": binary, "args": [], "env": { "LEAN_CTX_DATA_DIR": data_dir } });
+    let desired = serde_json::json!({ "type": "stdio", "command": binary, "args": [], "env": { "NEBULA_CTX_DATA_DIR": data_dir } });
 
     if target.config_path.exists() {
         let content = std::fs::read_to_string(&target.config_path).map_err(|e| e.to_string())?;
@@ -417,7 +417,7 @@ fn write_vscode_mcp_fresh(
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let content = serde_json::to_string_pretty(&serde_json::json!({
-        "servers": { "nebula-ctx": { "type": "stdio", "command": binary, "args": [], "env": { "LEAN_CTX_DATA_DIR": data_dir } } }
+        "servers": { "nebula-ctx": { "type": "stdio", "command": binary, "args": [], "env": { "NEBULA_CTX_DATA_DIR": data_dir } } }
     }))
     .map_err(|e| e.to_string())?;
     crate::config_io::write_atomic_with_backup(path, &content)?;
@@ -443,7 +443,7 @@ fn write_opencode_config(
         "type": "local",
         "command": [binary],
         "enabled": true,
-        "environment": { "LEAN_CTX_DATA_DIR": data_dir }
+        "environment": { "NEBULA_CTX_DATA_DIR": data_dir }
     });
 
     if target.config_path.exists() {
@@ -500,7 +500,7 @@ fn write_opencode_fresh(
         .unwrap_or_default();
     let content = serde_json::to_string_pretty(&serde_json::json!({
         "$schema": "https://opencode.ai/config.json",
-        "mcp": { "nebula-ctx": { "type": "local", "command": [binary], "enabled": true, "environment": { "LEAN_CTX_DATA_DIR": data_dir } } }
+        "mcp": { "nebula-ctx": { "type": "local", "command": [binary], "enabled": true, "environment": { "NEBULA_CTX_DATA_DIR": data_dir } } }
     }))
     .map_err(|e| e.to_string())?;
     crate::config_io::write_atomic_with_backup(path, &content)?;
@@ -526,7 +526,7 @@ fn write_jetbrains_config(
         "name": "nebula-ctx",
         "command": binary,
         "args": [],
-        "env": { "LEAN_CTX_DATA_DIR": data_dir }
+        "env": { "NEBULA_CTX_DATA_DIR": data_dir }
     });
 
     if target.config_path.exists() {
@@ -592,7 +592,7 @@ fn write_amp_config(
         .unwrap_or_default();
     let entry = serde_json::json!({
         "command": binary,
-        "env": { "LEAN_CTX_DATA_DIR": data_dir }
+        "env": { "NEBULA_CTX_DATA_DIR": data_dir }
     });
 
     if target.config_path.exists() {
@@ -796,7 +796,7 @@ fn write_gemini_settings(
         .unwrap_or_default();
     let entry = serde_json::json!({
         "command": binary,
-        "env": { "LEAN_CTX_DATA_DIR": data_dir },
+        "env": { "NEBULA_CTX_DATA_DIR": data_dir },
         "trust": true,
     });
 
@@ -862,7 +862,7 @@ fn write_hermes_yaml(
     let data_dir = default_data_dir()?;
 
     let nebula_ctx_block = format!(
-        "  nebula-ctx:\n    command: \"{binary}\"\n    env:\n      LEAN_CTX_DATA_DIR: \"{data_dir}\""
+        "  nebula-ctx:\n    command: \"{binary}\"\n    env:\n      NEBULA_CTX_DATA_DIR: \"{data_dir}\""
     );
 
     if target.config_path.exists() {
@@ -1098,7 +1098,7 @@ args = ["x"]
     #[test]
     fn hermes_yaml_inserts_into_existing_mcp_servers() {
         let existing = "model: anthropic/claude-sonnet-4\n\nmcp_servers:\n  github:\n    command: \"npx\"\n    args: [\"-y\", \"@modelcontextprotocol/server-github\"]\n\ntool_allowlist:\n  - terminal\n";
-        let block = "  nebula-ctx:\n    command: \"nebula-ctx\"\n    env:\n      LEAN_CTX_DATA_DIR: \"/home/user/.nebula-ctx\"";
+        let block = "  nebula-ctx:\n    command: \"nebula-ctx\"\n    env:\n      NEBULA_CTX_DATA_DIR: \"/home/user/.nebula-ctx\"";
         let result = upsert_hermes_yaml_mcp(existing, block);
         assert!(result.contains("nebula-ctx"));
         assert!(result.contains("model: anthropic/claude-sonnet-4"));

@@ -33,8 +33,8 @@ fn allow_paths_from_env() -> Vec<PathBuf> {
         }
     }
 
-    let v = std::env::var("LCTX_ALLOW_PATH")
-        .or_else(|_| std::env::var("LEAN_CTX_ALLOW_PATH"))
+    let v = std::env::var("NCTX_ALLOW_PATH")
+        .or_else(|_| std::env::var("NEBULA_CTX_ALLOW_PATH"))
         .unwrap_or_default();
     if v.trim().is_empty() {
         return out;

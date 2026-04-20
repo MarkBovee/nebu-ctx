@@ -300,7 +300,7 @@ mod tests {
             .as_nanos();
         let test_data_dir = std::env::temp_dir().join(format!("nebula_ctx_cache_iso_{nanos}"));
         std::fs::create_dir_all(&test_data_dir).unwrap();
-        std::env::set_var("LEAN_CTX_DATA_DIR", &test_data_dir);
+        std::env::set_var("NEBULA_CTX_DATA_DIR", &test_data_dir);
 
         let tmp = test_data_dir.join("test_file.txt");
         std::fs::write(&tmp, "fn main() {}\n").unwrap();
@@ -322,7 +322,7 @@ mod tests {
         let result3 = check_and_read(path_str);
         assert!(matches!(result3, CacheResult::Miss { .. }));
 
-        std::env::remove_var("LEAN_CTX_DATA_DIR");
+        std::env::remove_var("NEBULA_CTX_DATA_DIR");
         let _ = std::fs::remove_dir_all(&test_data_dir);
     }
 }

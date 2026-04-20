@@ -21,7 +21,7 @@ pub fn read_file_lossy(path: &str) -> Result<String, std::io::Error> {
     if let Ok(meta) = std::fs::metadata(path) {
         if meta.len() > cap as u64 {
             return Err(std::io::Error::other(format!(
-                "file too large ({} bytes, cap {} via LCTX_MAX_READ_BYTES)",
+                "file too large ({} bytes, cap {} via NCTX_MAX_READ_BYTES)",
                 meta.len(),
                 cap
             )));

@@ -5,7 +5,7 @@ pub fn execute_command_in(command: &str, cwd: &str) -> (String, i32) {
     let mut cmd = std::process::Command::new(&shell);
     cmd.arg(&flag)
         .arg(&normalized_cmd)
-        .env("LEAN_CTX_ACTIVE", "1");
+        .env("NEBULA_CTX_ACTIVE", "1");
     if dir.is_dir() {
         cmd.current_dir(dir);
     }

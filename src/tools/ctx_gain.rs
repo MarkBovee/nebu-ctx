@@ -8,8 +8,8 @@ pub fn handle(
 ) -> String {
     let engine = GainEngine::load();
     let lim = limit.unwrap_or(10).clamp(1, 50);
-    let env_model = std::env::var("LEAN_CTX_MODEL")
-        .or_else(|_| std::env::var("LCTX_MODEL"))
+    let env_model = std::env::var("NEBULA_CTX_MODEL")
+        .or_else(|_| std::env::var("NCTX_MODEL"))
         .ok();
     let model = model.or(env_model.as_deref());
 

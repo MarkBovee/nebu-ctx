@@ -42,7 +42,7 @@ pub fn handle(
 
 #[cfg(feature = "embeddings")]
 fn embeddings_auto_download_allowed() -> bool {
-    std::env::var("LEAN_CTX_EMBEDDINGS_AUTO_DOWNLOAD")
+    std::env::var("NEBULA_CTX_EMBEDDINGS_AUTO_DOWNLOAD")
         .ok()
         .map(|v| {
             matches!(
@@ -136,7 +136,7 @@ fn handle_embeddings_reindex(project_root: &str) -> String {
         let engine = match embedding_engine() {
             Some(e) => e,
             None => {
-                return "Embeddings model not available. Set LEAN_CTX_EMBEDDINGS_AUTO_DOWNLOAD=1 to allow auto-download, then re-run."
+                return "Embeddings model not available. Set NEBULA_CTX_EMBEDDINGS_AUTO_DOWNLOAD=1 to allow auto-download, then re-run."
                     .to_string()
             }
         };

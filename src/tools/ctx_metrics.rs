@@ -17,8 +17,8 @@ pub fn handle(cache: &SessionCache, tool_calls: &[ToolCallRecord], crp_mode: Crp
     };
 
     let mut out = Vec::new();
-    let env_model = std::env::var("LEAN_CTX_MODEL")
-        .or_else(|_| std::env::var("LCTX_MODEL"))
+    let env_model = std::env::var("NEBULA_CTX_MODEL")
+        .or_else(|_| std::env::var("NCTX_MODEL"))
         .ok();
     let pricing = crate::core::gain::model_pricing::ModelPricing::load();
     let quote = pricing.quote(env_model.as_deref());

@@ -6,7 +6,7 @@ const ALIAS_START: &str = "# >>> nebula-ctx agent aliases >>>";
 const ALIAS_END: &str = "# <<< nebula-ctx agent aliases <<<";
 
 const KNOWN_AGENT_ENV_VARS: &[&str] = &[
-    "LEAN_CTX_AGENT",
+    "NEBULA_CTX_AGENT",
     "CLAUDECODE",
     "CODEX_CLI_SESSION",
     "GEMINI_SESSION",
@@ -74,9 +74,9 @@ fn install_zshenv(home: &std::path::Path, quiet: bool) {
 
     let hook = format!(
         r#"{MARKER_START}
-if [[ -z "$LEAN_CTX_ACTIVE" && -n "$ZSH_EXECUTION_STRING" ]] && command -v nebula-ctx &>/dev/null; then
+if [[ -z "$NEBULA_CTX_ACTIVE" && -n "$ZSH_EXECUTION_STRING" ]] && command -v nebula-ctx &>/dev/null; then
   if {env_check}; then
-    export LEAN_CTX_ACTIVE=1
+    export NEBULA_CTX_ACTIVE=1
     exec nebula-ctx -c "$ZSH_EXECUTION_STRING"
   fi
 fi
@@ -99,9 +99,9 @@ fn install_bashenv(home: &std::path::Path, quiet: bool) {
 
     let hook = format!(
         r#"{MARKER_START}
-if [[ -z "$LEAN_CTX_ACTIVE" && -n "$BASH_EXECUTION_STRING" ]] && command -v nebula-ctx &>/dev/null; then
+if [[ -z "$NEBULA_CTX_ACTIVE" && -n "$BASH_EXECUTION_STRING" ]] && command -v nebula-ctx &>/dev/null; then
   if {env_check}; then
-    export LEAN_CTX_ACTIVE=1
+    export NEBULA_CTX_ACTIVE=1
     exec nebula-ctx -c "$BASH_EXECUTION_STRING"
   fi
 fi
@@ -123,7 +123,7 @@ fn install_aliases(home: &std::path::Path, quiet: bool) {
     lines.push(ALIAS_START.to_string());
     for (alias_name, bin_name) in AGENT_ALIASES {
         lines.push(format!(
-            "alias {alias_name}='LEAN_CTX_AGENT=1 BASH_ENV=\"$HOME/.bashenv\" {bin_name}'"
+            "alias {alias_name}='NEBULA_CTX_AGENT=1 BASH_ENV=\"$HOME/.bashenv\" {bin_name}'"
         ));
     }
     lines.push(ALIAS_END.to_string());
@@ -155,7 +155,7 @@ mod tests {
     #[test]
     fn env_check_format() {
         let check = build_env_check();
-        assert!(check.contains("LEAN_CTX_AGENT"));
+        assert!(check.contains("NEBULA_CTX_AGENT"));
         assert!(check.contains("CLAUDECODE"));
         assert!(check.contains("||"));
     }

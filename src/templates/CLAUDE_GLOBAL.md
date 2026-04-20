@@ -1,6 +1,6 @@
-# lean-ctx — Context Engineering Layer (Global)
+# nebula-ctx — Context Engineering Layer (Global)
 
-You have the lean-ctx MCP server available. You MUST use it for ALL file reads, shell commands, and code searches. Using native tools wastes tokens — lean-ctx compresses everything.
+You have the nebula-ctx MCP server available. You MUST use it for ALL file reads, shell commands, and code searches. Using native tools wastes tokens — nebula-ctx compresses everything.
 
 ## Tool Replacement Rules
 
@@ -22,8 +22,8 @@ ctx_search("pub fn", "src/")         # instead of Grep("pub fn", "src/")
 ctx_tree(".", 2)                     # instead of ListFiles(".")
 ```
 
-Write, Edit, and other mutation tools have no lean-ctx equivalent — use them normally.
+Write, Edit, and other mutation tools have no nebula-ctx equivalent — use them normally.
 
-CRITICAL: Every time you reach for Read, Bash, Grep, or ListFiles — stop and use the lean-ctx MCP equivalent instead. This is not optional.
+CRITICAL: Every time you reach for Read, Bash, Grep, or ListFiles — stop and use the nebula-ctx MCP equivalent instead. This is not optional.
 
 Preferred workflow: use `ctx_workflow` for state + evidence + tool gating.

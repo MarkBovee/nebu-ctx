@@ -178,7 +178,7 @@ pub fn create_example_filter() -> Result<String, String> {
     }
 
     let content = r#"# nebula-ctx custom filter example
-# Place .toml files in $LEAN_CTX_DATA_DIR/filters (default: ~/.nebula-ctx/filters) to define custom compression rules.
+# Place .toml files in $NEBULA_CTX_DATA_DIR/filters (default: ~/.nebula-ctx/filters) to define custom compression rules.
 # User filters are applied BEFORE builtin patterns.
 
 # Rule 1: Replace verbose upload logs with a summary

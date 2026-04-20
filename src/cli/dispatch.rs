@@ -19,15 +19,15 @@ pub fn run() {
                 } else {
                     shell::join_command(cmd_args)
                 };
-                if std::env::var("LEAN_CTX_ACTIVE").is_ok()
-                    || std::env::var("LEAN_CTX_DISABLED").is_ok()
+                if std::env::var("NEBULA_CTX_ACTIVE").is_ok()
+                    || std::env::var("NEBULA_CTX_DISABLED").is_ok()
                 {
                     passthrough(&command);
                 }
                 if raw {
-                    std::env::set_var("LEAN_CTX_RAW", "1");
+                    std::env::set_var("NEBULA_CTX_RAW", "1");
                 } else {
-                    std::env::set_var("LEAN_CTX_COMPRESS", "1");
+                    std::env::set_var("NEBULA_CTX_COMPRESS", "1");
                 }
                 let code = shell::exec(&command);
                 core::stats::flush();
@@ -40,8 +40,8 @@ pub fn run() {
                 } else {
                     shell::join_command(cmd_args)
                 };
-                if std::env::var("LEAN_CTX_ACTIVE").is_ok()
-                    || std::env::var("LEAN_CTX_DISABLED").is_ok()
+                if std::env::var("NEBULA_CTX_ACTIVE").is_ok()
+                    || std::env::var("NEBULA_CTX_DISABLED").is_ok()
                 {
                     passthrough(&command);
                 }
@@ -205,7 +205,7 @@ pub fn run() {
                     .find_map(|p| p.strip_prefix("--project="))
                     .map(String::from);
                 if let Some(ref p) = project {
-                    std::env::set_var("LEAN_CTX_DASHBOARD_PROJECT", p);
+                    std::env::set_var("NEBULA_CTX_DASHBOARD_PROJECT", p);
                 }
                 run_async(dashboard::start(port, host));
                 return;
@@ -365,7 +365,7 @@ pub fn run() {
                     }
 
                     if cfg.auth_token.is_none() {
-                        if let Ok(v) = std::env::var("LEAN_CTX_HTTP_TOKEN") {
+                        if let Ok(v) = std::env::var("NEBULA_CTX_HTTP_TOKEN") {
                             if !v.trim().is_empty() {
                                 cfg.auth_token = Some(v);
                             }
@@ -752,7 +752,7 @@ fn passthrough(command: &str) -> ! {
     let status = std::process::Command::new(&shell)
         .arg(&flag)
         .arg(command)
-        .env("LEAN_CTX_ACTIVE", "1")
+        .env("NEBULA_CTX_ACTIVE", "1")
         .status()
         .map(|s| s.code().unwrap_or(1))
         .unwrap_or(127);
@@ -769,7 +769,7 @@ fn run_mcp_server() -> Result<()> {
     use rmcp::ServiceExt;
     use tracing_subscriber::EnvFilter;
 
-    std::env::set_var("LEAN_CTX_MCP_SERVER", "1");
+    std::env::set_var("NEBULA_CTX_MCP_SERVER", "1");
 
     let rt = tokio::runtime::Runtime::new()?;
     rt.block_on(async {
@@ -885,11 +885,11 @@ READ MODES:
     lines:N-M                      Specific line ranges (e.g. lines:10-50,80)
 
 ENVIRONMENT:
-    LEAN_CTX_DISABLED=1            Bypass ALL compression + prevent shell hook from loading
-    LEAN_CTX_ENABLED=0             Prevent shell hook auto-start (nebula-ctx-on still works)
-    LEAN_CTX_RAW=1                 Same as --raw for current command
-    LEAN_CTX_AUTONOMY=false        Disable autonomous features
-    LEAN_CTX_COMPRESS=1            Force compression (even for excluded commands)
+    NEBULA_CTX_DISABLED=1            Bypass ALL compression + prevent shell hook from loading
+    NEBULA_CTX_ENABLED=0             Prevent shell hook auto-start (nebula-ctx-on still works)
+    NEBULA_CTX_RAW=1                 Same as --raw for current command
+    NEBULA_CTX_AUTONOMY=false        Disable autonomous features
+    NEBULA_CTX_COMPRESS=1            Force compression (even for excluded commands)
 
 OPTIONS:
     --version, -V                  Show version

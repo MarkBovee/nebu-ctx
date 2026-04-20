@@ -32,7 +32,7 @@ pub fn handle(cache: &mut SessionCache, params: EditParams) -> String {
     if let Ok(meta) = std::fs::metadata(file_path) {
         if meta.len() > cap as u64 {
             return format!(
-                "ERROR: file too large ({} bytes, cap {} via LCTX_MAX_READ_BYTES): {file_path}",
+                "ERROR: file too large ({} bytes, cap {} via NCTX_MAX_READ_BYTES): {file_path}",
                 meta.len(),
                 cap
             );
@@ -58,7 +58,7 @@ pub fn handle(cache: &mut SessionCache, params: EditParams) -> String {
     }
     if raw_bytes.len() > cap {
         return format!(
-            "ERROR: file too large (cap {} via LCTX_MAX_READ_BYTES): {file_path}",
+            "ERROR: file too large (cap {} via NCTX_MAX_READ_BYTES): {file_path}",
             cap
         );
     }

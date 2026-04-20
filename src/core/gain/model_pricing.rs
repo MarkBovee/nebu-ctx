@@ -190,8 +190,8 @@ impl ModelPricing {
     }
 
     pub fn quote_from_env_or_agent_type(&self, agent_type: &str) -> ModelQuote {
-        let env_model = std::env::var("LEAN_CTX_MODEL")
-            .or_else(|_| std::env::var("LCTX_MODEL"))
+        let env_model = std::env::var("NEBULA_CTX_MODEL")
+            .or_else(|_| std::env::var("NCTX_MODEL"))
             .ok();
         self.quote(env_model.as_deref().or(Some(agent_type)))
     }
@@ -274,8 +274,8 @@ impl ModelPricing {
     }
 
     fn apply_env_override(&mut self) {
-        let raw = std::env::var("LEAN_CTX_MODEL_PRICING_JSON")
-            .or_else(|_| std::env::var("LCTX_MODEL_PRICING_JSON"))
+        let raw = std::env::var("NEBULA_CTX_MODEL_PRICING_JSON")
+            .or_else(|_| std::env::var("NCTX_MODEL_PRICING_JSON"))
             .ok();
         let Some(raw) = raw else { return };
 

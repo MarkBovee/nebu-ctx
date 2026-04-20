@@ -79,7 +79,7 @@ pub enum CrpMode {
 
 impl CrpMode {
     pub fn from_env() -> Self {
-        match std::env::var("LEAN_CTX_CRP_MODE")
+        match std::env::var("NEBULA_CTX_CRP_MODE")
             .unwrap_or_default()
             .to_lowercase()
             .as_str()
@@ -140,12 +140,12 @@ impl LeanCtxServer {
     pub fn new_with_project_root(project_root: Option<String>) -> Self {
         let config = crate::core::config::Config::load();
 
-        let interval = std::env::var("LEAN_CTX_CHECKPOINT_INTERVAL")
+        let interval = std::env::var("NEBULA_CTX_CHECKPOINT_INTERVAL")
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(config.checkpoint_interval as usize);
 
-        let ttl = std::env::var("LEAN_CTX_CACHE_TTL")
+        let ttl = std::env::var("NEBULA_CTX_CACHE_TTL")
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(DEFAULT_CACHE_TTL_SECS);

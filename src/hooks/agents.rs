@@ -984,7 +984,7 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
     let data_dir = crate::core::data_dir::nebula_ctx_data_dir()
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
-    let desired = serde_json::json!({ "type": "stdio", "command": binary, "args": [], "env": { "LEAN_CTX_DATA_DIR": data_dir } });
+    let desired = serde_json::json!({ "type": "stdio", "command": binary, "args": [], "env": { "NEBULA_CTX_DATA_DIR": data_dir } });
     if mcp_path.exists() {
         let content = std::fs::read_to_string(mcp_path).unwrap_or_default();
         match serde_json::from_str::<serde_json::Value>(&content) {
@@ -1032,7 +1032,7 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
                 "type": "stdio",
                 "command": binary,
                 "args": [],
-                "env": { "LEAN_CTX_DATA_DIR": data_dir }
+                "env": { "NEBULA_CTX_DATA_DIR": data_dir }
             }
         }
     });
@@ -1059,7 +1059,7 @@ pub(super) fn install_amp_hook() {
         .unwrap_or_default();
     let entry = serde_json::json!({
         "command": binary,
-        "env": { "LEAN_CTX_DATA_DIR": data_dir }
+        "env": { "NEBULA_CTX_DATA_DIR": data_dir }
     });
 
     if config_path.exists() {
@@ -1106,7 +1106,7 @@ pub(super) fn install_jetbrains_hook() {
         "command": binary,
         "args": [],
         "env": {
-            "LEAN_CTX_DATA_DIR": crate::core::data_dir::nebula_ctx_data_dir()
+            "NEBULA_CTX_DATA_DIR": crate::core::data_dir::nebula_ctx_data_dir()
                 .map(|d| d.to_string_lossy().to_string())
                 .unwrap_or_default()
         }
@@ -1162,7 +1162,7 @@ pub(super) fn install_opencode_hook() {
         "type": "local",
         "command": [&binary],
         "enabled": true,
-        "environment": { "LEAN_CTX_DATA_DIR": data_dir }
+        "environment": { "NEBULA_CTX_DATA_DIR": data_dir }
     });
 
     if config_path.exists() {

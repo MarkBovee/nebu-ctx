@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 pub fn nebula_ctx_data_dir() -> Result<PathBuf, String> {
-    if let Ok(dir) = std::env::var("LEAN_CTX_DATA_DIR") {
+    if let Ok(dir) = std::env::var("NEBULA_CTX_DATA_DIR") {
         let trimmed = dir.trim();
         if !trimmed.is_empty() {
             return Ok(PathBuf::from(trimmed));

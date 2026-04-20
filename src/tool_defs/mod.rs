@@ -75,5 +75,5 @@ pub fn discover_tools(query: &str) -> String {
 }
 
 pub fn is_lazy_mode() -> bool {
-    std::env::var("LEAN_CTX_LAZY_TOOLS").is_ok()
+    std::env::var("NEBULA_CTX_LAZY_TOOLS").is_ok()
 }
