@@ -8,6 +8,7 @@ use crate::core::session::SessionState;
 
 pub mod autonomy;
 pub mod ctx_agent;
+pub mod ctx_brain;
 pub mod ctx_analyze;
 pub mod ctx_architecture;
 pub mod ctx_benchmark;
