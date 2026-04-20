@@ -22,6 +22,7 @@ pub mod ctx_dedup;
 pub mod ctx_delta;
 pub mod ctx_discover;
 pub mod ctx_edit;
+pub mod ctx_import;
 pub mod ctx_execute;
 pub mod ctx_feedback;
 pub mod ctx_fill;

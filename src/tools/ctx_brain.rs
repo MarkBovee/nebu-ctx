@@ -5,14 +5,10 @@
 use serde_json;
 use crate::core::store::ContextStore;
 
-/// Get the brain store (SQLite). Returns error string if unavailable.
-fn get_store() -> Result<crate::core::store::sqlite::SqliteStore, String> {
-    let data_dir = crate::core::data_dir::nebula_ctx_data_dir().map_err(|e| e)?;
-    let db_path = std::path::Path::new(&data_dir).join("nebula-ctx.db");
-    let store = crate::core::store::sqlite::SqliteStore::open(&db_path)
-        .map_err(|e| format!("{e}"))?;
-    store.initialize().map_err(|e| format!("{e}"))?;
-    Ok(store)
+/// Get the brain store (Sqlite or Postgres based on NEBULA_STORE env).
+/// Returns error string if unavailable.
+fn get_store() -> Result<Box<dyn ContextStore>, String> {
+    crate::core::store::open_store().map_err(|e| format!("{e}"))
 }
 
 pub fn handle(action: &str, args: &serde_json::Value) -> String {

@@ -827,6 +827,32 @@ impl LeanCtxServer {
                 self.record_call("ctx_knowledge", 0, 0, Some(action)).await;
                 result
             }
+            "ctx_import" => {
+                let action = get_str(args, "action")
+                    .ok_or_else(|| ErrorData::invalid_params("action is required", None))?;
+                let data = get_str(args, "data");
+                let dry_run = args
+                    .as_ref()
+                    .and_then(|a| a.get("dryRun"))
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                let project_root = {
+                    let session = self.session.read().await;
+                    session.project_root.clone().unwrap_or_else(|| {
+                        std::env::current_dir()
+                            .map(|p| p.to_string_lossy().to_string())
+                            .unwrap_or_else(|_| "unknown".to_string())
+                    })
+                };
+                let result = crate::tools::ctx_import::handle(
+                    &project_root,
+                    &action,
+                    data.as_deref(),
+                    dry_run,
+                );
+                self.record_call("ctx_import", 0, 0, Some(action)).await;
+                result
+            }
             "ctx_agent" => {
                 let action = get_str(args, "action")
                     .ok_or_else(|| ErrorData::invalid_params("action is required", None))?;

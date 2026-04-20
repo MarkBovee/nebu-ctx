@@ -10,6 +10,7 @@
 | 3: Brain Memory | **Done** | Scoring, activation, consolidation, ctx_brain MCP tool |
 | 4: Deployment | **Done** | Dockerfile, HA addon, server setup docs |
 | 5: Polish | **Pending** | Tests, postgres type fixes, upstream merge strategy |
+| 6: Data Import | **Done** | ctx_import MCP tool — bulk import from nebula-rag/lean-ctx/JSON, dedup, dry-run, 7 tests |
 
 ## Context
 
@@ -162,6 +163,210 @@ Port dot-claw's brain memory to Rust idioms:
 - Extend `ctx_insight` dashboard with brain memory panel
 - **Verify**: Docker build + HA addon install + connect from Claude Code
 
+#### Phase 4a: HA Addon Polish + Dashboard Integration
+
+**Current state**: Basic HA addon exists with 4 config options. Dashboard (`ctx_insight`) is a built-in web UI with compression demos, BM25 index, symbol browser, heatmap, and agents view. Runs as `nebula-ctx dashboard`.
+
+**HA addon config expansion** (`homeassistant/config.yaml`):
+
+```yaml
+options:
+  # Store backend
+  store: "postgres"                          # sqlite or postgres
+  database_url: ""                           # postgres://user:pass@host:5432/db
+  auth_token: ""                             # MCP HTTP auth token
+
+  # Server
+  mcp_port: 8099                             # MCP HTTP endpoint port
+  dashboard_port: 4747                       # Web dashboard port (ctx_insight)
+  dashboard_enabled: true                    # Enable web dashboard
+  log_level: "info"                          # debug|info|warn|error
+
+  # Brain memory
+  brain_auto_consolidate: true               # Auto-consolidate at session end
+  brain_default_layer: "short_term"          # Default memory layer
+  brain_max_memories: 1000                   # Max memories per brain
+
+  # Ingress
+  ingress_enabled: true                      # Enable HA Ingress for dashboard
+  ingress_port: 4747                         # HA Ingress target port
+  ingress_stream: true                       # Stream responses
+  ingress_entry: "index.html"                # Dashboard entry point
+
+schema:
+  store: "list(sqlite|postgres)"
+  database_url: "password?"
+  auth_token: "password?"
+  mcp_port: "int"
+  dashboard_port: "int"
+  dashboard_enabled: "bool"
+  log_level: "list(debug|info|warn|error)"
+  brain_auto_consolidate: "bool"
+  brain_default_layer: "list(short_term|long_term)"
+  brain_max_memories: "int"
+  ingress_enabled: "bool"
+  ingress_port: "int"
+  ingress_stream: "bool"
+  ingress_entry: "str"
+```
+
+**Dashboard integration with HA**:
+
+The existing `ctx_insight` dashboard (single-page web app in `src/dashboard/`) provides:
+- Compression mode comparison (10 modes)
+- BM25 index browser
+- Symbol search (tree-sitter based)
+- File heatmap visualization
+- Multi-agent status view
+- Token savings metrics
+
+New panels to add:
+- **Brain Memory**: list/recall/search memories, show layers, scores, recall counts
+- **Knowledge Browser**: category/key/value grid, timeline view, contradiction alerts
+- **Import Status**: show imported data sources, counts, last import timestamp
+- **Store Backend**: show current store (sqlite/postgres), connection status, table stats
+
+**HA Ingress**: Dashboard served at `{ha_url}/api/hassio_ingress/nebula-ctx/` — requires:
+1. `ingress: true` in config.yaml
+2. Dashboard listens on configured port (default 4747)
+3. `run.sh` starts both MCP server AND dashboard:
+   ```bash
+   nebula-ctx serve &          # MCP HTTP on 8099
+   nebula-ctx dashboard        # Web UI on 4747
+   ```
+4. Both share the same store backend
+
+**`run.sh` updates**:
+- Start MCP server + dashboard concurrently
+- Pass `NEBULA_STORE` env to both processes
+- Health check on both ports
+- Graceful shutdown via trap
+
+**Files to modify**:
+```
+homeassistant/config.yaml           — expanded options + ingress
+homeassistant/run.sh                 — dual-process, HA ingress support
+src/dashboard/mod.rs                 — add brain/knowledge/import API routes
+src/dashboard/dashboard.html         — add brain/knowledge/import panels
+Dockerfile                           — expose both ports (8099 + 4747)
+```
+
+**Verify**: HA addon install → Ingress opens dashboard → Brain memory panel shows data → MCP tools work from Claude Code → Both use same Postgres backend.
+
+### Phase 6: Data Import & Migration
+
+Unified import system to migrate data from nebula-rag (.NET/Postgres) and lean-ctx (local/SQLite) into nebula-ctx cloud (Postgres).
+
+**Import sources:**
+
+| Source | Data | Format |
+|--------|------|--------|
+| nebula-rag memories | Episodic/semantic/procedural memories with tags, project, tier | PostgreSQL → JSON export via MCP `memory list` |
+| nebula-rag RAG chunks | Indexed source documents with embeddings | PostgreSQL → JSON export via MCP `rag_sources list` + `rag_query` |
+| lean-ctx knowledge | Category/key/value facts with confidence | SQLite → JSON export via MCP `ctx_knowledge status` |
+| lean-ctx sessions | Session snapshots, diaries, handoffs | SQLite → JSON export via MCP `ctx_session list` |
+| lean-ctx cache | Cached file reads, search index | SQLite → direct DB copy or rebuild |
+
+**Implementation — CLI subcommand `nebula-ctx import`:**
+
+```
+nebula-ctx import --from <source> --to <target> [options]
+
+Sources:
+  --from nebula-rag     Import from nebula-rag Postgres (via MCP or direct DB)
+  --from lean-ctx       Import from local lean-ctx SQLite
+
+Targets:
+  --to postgres         Write to nebula-ctx Postgres (cloud)
+  --to sqlite           Write to nebula-ctx SQLite (local)
+
+Options:
+  --scope memories      Import memories/knowledge only
+  --scope rag           Import RAG sources/chunks only
+  --scope all           Import everything (default)
+  --project <id>        Filter to specific project
+  --dry-run             Show what would be imported without writing
+  --batch-size <n>      Rows per batch (default: 100)
+```
+
+**Data mapping:**
+
+| nebula-rag field | nebula-ctx field | Transform |
+|------------------|------------------|-----------|
+| memory.type (semantic/episodic/procedural) | knowledge.category | Direct map or tag-based categorization |
+| memory.content | knowledge.value | Direct |
+| memory.tags | knowledge.tags | Direct |
+| memory.projectId | knowledge.key prefix | `{projectId}-{slug}` |
+| memory.tier (short_term/long_term) | knowledge.confidence | short_term=60%, long_term=80% |
+| rag chunk + embedding | search_chunks table | Direct if same pgvector dims, re-embed if not |
+
+| lean-ctx field | nebula-ctx field | Transform |
+|----------------|------------------|-----------|
+| knowledge.category | knowledge.category | Direct |
+| knowledge.key | knowledge.key | Direct |
+| knowledge.value | knowledge.value | Direct |
+| knowledge.confidence | knowledge.confidence | Direct |
+| session data | brain_sessions | Map to brain session format |
+| cache entries | context_cache | Direct key/value copy |
+
+**Import flow:**
+
+1. **Extract**: Read from source (MCP tools or direct DB query)
+2. **Validate**: Check schema compatibility, embedding dimensions, required fields
+3. **Transform**: Map fields, normalize categories, generate keys for entries without them
+4. **Deduplicate**: Check existing entries by key/content hash, skip or merge
+5. **Load**: Batch insert into target store via ContextStore trait methods
+6. **Report**: Print counts (imported/skipped/merged per category)
+
+**MCP tool — `ctx_import`:**
+
+For remote/cloud imports where CLI isn't available:
+
+```json
+{
+  "name": "ctx_import",
+  "description": "Import data from external sources into nebula-ctx",
+  "inputSchema": {
+    "source": { "enum": ["nebula-rag", "lean-ctx-local", "json-file"] },
+    "scope": { "enum": ["memories", "rag", "sessions", "all"] },
+    "projectFilter": { "type": "string" },
+    "data": { "type": "string", "description": "JSON payload (for json-file source)" },
+    "dryRun": { "type": "boolean" }
+  }
+}
+```
+
+**JSON interchange format** (for file-based or MCP-based import):
+
+```json
+{
+  "version": 1,
+  "exportedAt": "2026-04-20T16:00:00Z",
+  "source": "nebula-rag",
+  "memories": [
+    {
+      "key": "arc-runner-dind-setup",
+      "value": "...",
+      "category": "architecture",
+      "tags": ["arc", "dind", "kubernetes"],
+      "project": null,
+      "confidence": 0.8,
+      "createdAt": "2026-04-14T14:23:53Z"
+    }
+  ],
+  "knowledge": [...],
+  "ragSources": [
+    {
+      "path": "accentry-miep/ci-cd-pipeline",
+      "chunks": ["..."],
+      "indexedAt": "2026-04-14T14:25:02Z"
+    }
+  ]
+}
+```
+
+**Verify**: Import test data from nebula-rag (48 memories + 3 RAG sources) → verify recall returns same results from both SQLite and Postgres backends.
+
 ### Phase 5: Polish
 - Integration tests for both store backends
 - Upstream merge strategy documented (rebase from lean-ctx)
@@ -189,6 +394,16 @@ rust/src/tools/brain_status.rs      — MCP tool
 Dockerfile
 homeassistant/config.yaml
 homeassistant/run.sh
+```
+
+### New Files (Phase 6: Import)
+```
+src/tools/ctx_import.rs             — MCP tool for data import
+src/core/import/mod.rs              — Import orchestration module
+src/core/import/nebula_rag.rs       — nebula-rag source adapter
+src/core/import/lean_ctx_local.rs   — lean-ctx SQLite source adapter
+src/core/import/json_file.rs        — JSON file source adapter
+src/core/import/transforms.rs       — Field mapping + dedup logic
 ```
 
 ### Modified Files (from lean-ctx)
@@ -219,4 +434,5 @@ rust/src/lib.rs                       — Register new tools + store init
 2. **Phase 2**: Switch between `--store sqlite` and `--store postgres`; identical results for read/search/cache/knowledge
 3. **Phase 3**: Full brain cycle — store 10 memories → recall top 3 → consolidate session → activate → verify warm-up
 4. **Phase 4**: `docker build` + HA addon install + Claude Code MCP connection
-5. **End-to-end**: Agent session with brain activation, context caching, cross-session memory recall
+5. **Phase 6**: Import nebula-rag 48 memories + 3 RAG sources → verify recall returns same results from Postgres backend
+6. **End-to-end**: Agent session with brain activation, context caching, cross-session memory recall

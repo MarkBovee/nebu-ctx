@@ -434,6 +434,7 @@ impl ServerHandler for LeanCtxServer {
                 | "ctx_dedup"
                 | "ctx_session"
                 | "ctx_knowledge"
+                | "ctx_import"
                 | "ctx_agent"
                 | "ctx_share"
                 | "ctx_wrapped"
