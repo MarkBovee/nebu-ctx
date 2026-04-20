@@ -1,5 +1,3 @@
-use std::io::Write;
-
 pub fn cmd_db(args: &[String]) {
     let action = args.first().map(|s| s.as_str()).unwrap_or("status");
 
@@ -34,7 +32,7 @@ fn cmd_db_status() {
                 println!("  Testing connection...");
                 let rt = tokio::runtime::Runtime::new();
                 match rt {
-                    Ok(mut runtime) => {
+                    Ok(runtime) => {
                         let result = runtime.block_on(async {
                             crate::core::store::postgres::PostgresStore::open(&url).await
                         });
@@ -86,41 +84,52 @@ fn cmd_db_connect() {
     println!("This will help you connect to your PostgreSQL database.");
     println!();
 
-    // Prompt for connection details
-    let host = prompt_input("PostgreSQL host", "localhost").unwrap_or_else(|_| "localhost".to_string());
-    let port = prompt_input("PostgreSQL port", "5432").unwrap_or_else(|_| "5432".to_string());
-    let dbname = prompt_input("Database name", "nebula").unwrap_or_else(|_| "nebula".to_string());
-    let user = prompt_input("Database user", "postgres").unwrap_or_else(|_| "postgres".to_string());
-    let password = rpassword::prompt_password("Database password: ").unwrap_or_default();
-    let use_ssl = prompt_input("Use SSL? (yes/no)", "no").unwrap_or_else(|_| "no".to_string());
-
-    // Build connection URL
-    let ssl_mode = if use_ssl.to_lowercase().starts_with('y') {
-        "require"
-    } else {
-        "disable"
-    };
-
-    let database_url = if password.is_empty() {
-        format!(
-            "postgres://{}@{}:{}/{}?sslmode={}",
-            user, host, port, dbname, ssl_mode
-        )
-    } else {
-        format!(
-            "postgres://{}:{}@{}:{}/{}?sslmode={}",
-            user, password, host, port, dbname, ssl_mode
-        )
-    };
-
-    println!();
-    println!("Testing connection...");
+    #[cfg(not(feature = "cloud-server"))]
+    {
+        eprintln!("Postgres support requires building with --features cloud-server");
+        eprintln!("Run: cargo build --release --features cloud-server");
+        return;
+    }
 
     #[cfg(feature = "cloud-server")]
     {
+        // Prompt for connection details
+        let host = prompt_input("PostgreSQL host", "localhost")
+            .unwrap_or_else(|_| "localhost".to_string());
+        let port = prompt_input("PostgreSQL port", "5432")
+            .unwrap_or_else(|_| "5432".to_string());
+        let dbname = prompt_input("Database name", "nebula")
+            .unwrap_or_else(|_| "nebula".to_string());
+        let user = prompt_input("Database user", "postgres")
+            .unwrap_or_else(|_| "postgres".to_string());
+        let password = rpassword::prompt_password("Database password: ").unwrap_or_default();
+        let use_ssl = prompt_input("Use SSL? (yes/no)", "no")
+            .unwrap_or_else(|_| "no".to_string());
+
+        println!();
+        println!("Testing connection...");
+
+        let ssl_mode = if use_ssl.to_lowercase().starts_with('y') {
+            "require"
+        } else {
+            "disable"
+        };
+
+        let database_url = if password.is_empty() {
+            format!(
+                "postgres://{}@{}:{}/{}?sslmode={}",
+                user, host, port, dbname, ssl_mode
+            )
+        } else {
+            format!(
+                "postgres://{}:{}@{}:{}/{}?sslmode={}",
+                user, password, host, port, dbname, ssl_mode
+            )
+        };
+
         let rt = tokio::runtime::Runtime::new();
         let test_result = match rt {
-            Ok(mut runtime) => runtime.block_on(async {
+            Ok(runtime) => runtime.block_on(async {
                 crate::core::store::postgres::PostgresStore::open(&database_url).await
             }),
             Err(e) => Err(anyhow::anyhow!("Failed to create runtime: {}", e)),
@@ -151,11 +160,6 @@ fn cmd_db_connect() {
             }
         }
     }
-    #[cfg(not(feature = "cloud-server"))]
-    {
-        eprintln!("Postgres support requires building with --features cloud-server");
-        eprintln!("Run: cargo build --release --features cloud-server");
-    }
 }
 
 fn cmd_db_init() {
@@ -176,7 +180,7 @@ fn cmd_db_init() {
 
             let rt = tokio::runtime::Runtime::new();
             match rt {
-                Ok(mut runtime) => {
+                Ok(runtime) => {
                     let result = runtime.block_on(async {
                         crate::core::store::postgres::PostgresStore::open(&url).await
                     });
@@ -235,7 +239,7 @@ fn cmd_db_test() {
 
             let rt = tokio::runtime::Runtime::new();
             match rt {
-                Ok(mut runtime) => {
+                Ok(runtime) => {
                     let result = runtime.block_on(async {
                         crate::core::store::postgres::PostgresStore::open(&url).await
                     });
@@ -271,9 +275,10 @@ fn cmd_db_test() {
     }
 }
 
+#[cfg(feature = "cloud-server")]
 fn prompt_input(prompt: &str, default: &str) -> Result<String, std::io::Error> {
     print!("{} [{}]: ", prompt, default);
-    std::io::stdout().flush()?;
+    std::io::Write::flush(&mut std::io::stdout())?;
 
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
@@ -288,21 +293,22 @@ fn prompt_input(prompt: &str, default: &str) -> Result<String, std::io::Error> {
 
 fn mask_database_url(url: &str) -> String {
     // Mask password in connection URL
-    if let Some(at_pos) = url.find('@') {
-        let prefix = &url[..at_pos];
-        let suffix = &url[at_pos..];
-        // Find if there's a password between : and @
-        if let Some(colon_pos) = prefix.find("://") {
-            let cred_start = prefix[colon_pos + 3..].to_string();
-            if let Some(colon_in_cred) = cred_start.find(':') {
-                let user = &cred_start[..colon_in_cred];
-                return format!("{}://{}:****{}@", &prefix[..colon_pos + 3], user, suffix);
+    if let Some(scheme_pos) = url.find("://") {
+        let scheme = &url[..scheme_pos + 3];
+        let rest = &url[scheme_pos + 3..];
+        if let Some(at_pos) = rest.find('@') {
+            let credentials = &rest[..at_pos];
+            let host_part = &rest[at_pos + 1..];
+            if let Some(colon_pos) = credentials.find(':') {
+                let user = &credentials[..colon_pos];
+                return format!("{}{}:****@{}", scheme, user, host_part);
             }
         }
     }
     url.to_string()
 }
 
+#[cfg(feature = "cloud-server")]
 fn save_db_config(database_url: &str) -> Result<(), std::io::Error> {
     let config_dir = dirs::home_dir()
         .map(|h| h.join(".nebula-ctx"))

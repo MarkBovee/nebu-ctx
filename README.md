@@ -1,160 +1,142 @@
-# Nebula Server
+# nebula-ctx
 
-Context engineering layer for AI agents — forked from [lean-ctx](https://github.com/your-org/lean-ctx) with PostgreSQL persistence, brain memory, and Home Assistant deployment.
+Rust MCP server and CLI for context engineering, brain memory, and PostgreSQL-backed persistence.
 
-## What It Does
+## Status
 
-Nebula Server is an MCP (Model Context Protocol) server that gives AI agents:
+Validated locally on 2026-04-20:
 
-- **Context management** — 42 tools for reading, caching, compressing, and searching code context
-- **Token efficiency** — 10 compression modes, 90+ shell output patterns, adaptive mode selection
-- **Brain memory** — persistent memory with scoring, consolidation, and session activation (ported from dot-claw)
-- **Multi-agent coordination** — agent registry, task orchestration, context handoffs
-- **Dual storage** — SQLite for local dev, PostgreSQL for server/HA deployment
+- `cargo build --release --features cloud-server` passes
+- `nebula-ctx db status`, `db init`, and `db test` pass against the Postgres settings in `.env`
+- `nebula-ctx serve` responds on `/health`, `/v1/tools`, and `/v1/tools/call`
+- `ctx_brain` `status`, `store`, and `recall` work over HTTP with `NEBULA_STORE=postgres`
 
-## Architecture
-
-```
-┌─────────────────────────────────────────┐
-│           MCP Client (Claude Code)      │
-│           or any MCP-compatible agent    │
-└──────────────┬──────────────────────────┘
-               │ JSON-RPC over HTTP/stdio
-┌──────────────▼──────────────────────────┐
-│          Nebula Server (Rust)            │
-│  ┌──────────────────────────────────┐   │
-│  │  42+ MCP Tools                   │   │
-│  │  ctx_read, ctx_search, cache,    │   │
-│  │  knowledge, agents, brain_*      │   │
-│  └──────────────┬───────────────────┘   │
-│  ┌──────────────▼───────────────────┐   │
-│  │  ContextStore Trait              │   │
-│  │  ├─ SqliteStore (local)          │   │
-│  │  └─ PostgresStore (server/HA)    │   │
-│  └──────────────┬───────────────────┘   │
-│  ┌──────────────▼───────────────────┐   │
-│  │  Brain Memory System             │   │
-│  │  scoring → consolidation →       │   │
-│  │  activation → checkpoint         │   │
-│  └──────────────────────────────────┘   │
-└─────────────────────────────────────────┘
-               │
-    ┌──────────▼──────────┐
-    │   SQLite (local)    │
-    │   PostgreSQL (srv)  │
-    └─────────────────────┘
-```
-
-## Features from Parent Projects
-
-### From lean-ctx (foundation)
-- 42 MCP tools for context management
-- FTS5 full-text search with BM25 + hybrid embeddings
-- Token-aware compression (tiktoken)
-- Property graph for dependency analysis
-- Multi-agent coordination (registry, tasks, ledger, diaries)
-- Adaptive compression via Thompson Sampling
-
-### From dot-claw (brain memory — ported)
-- **Scoring**: composite weights (semantic, recency, importance, confidence, open loops)
-- **Consolidation**: LLM-powered extraction of memories from sessions
-- **Activation**: warm-up new sessions with relevant memories + open loops
-- **Tiers**: short-term → long-term auto-promotion after N recalls
-- **Checkpoints**: save/restore session state
+The current production path is: one `nebula-ctx` binary, PostgreSQL selected with `NEBULA_STORE=postgres`, and MCP served from `src/http_server/mod.rs`.
 
 ## Quick Start
 
-### Local (SQLite)
+### Build
 
 ```bash
-cargo build --release
+cargo build --release --features cloud-server
+```
+
+### Load Environment
+
+If your `.env` file came from Windows, source it on Linux with CRLF removed:
+
+```bash
+set -a
+source <(tr -d '\r' < .env)
+set +a
+```
+
+### Verify Postgres
+
+```bash
+./target/release/nebula-ctx db status
+./target/release/nebula-ctx db init
+./target/release/nebula-ctx db test
+```
+
+### Start the HTTP MCP Server
+
+```bash
+./target/release/nebula-ctx serve \
+  --host 127.0.0.1 \
+  --port 8099 \
+  --auth-token local-test-token
+```
+
+### Smoke Test the Server
+
+```bash
+curl -H 'Authorization: Bearer local-test-token' \
+  http://127.0.0.1:8099/health
+
+curl -H 'Authorization: Bearer local-test-token' \
+  http://127.0.0.1:8099/v1/tools
+
+curl -X POST \
+  -H 'Authorization: Bearer local-test-token' \
+  -H 'Content-Type: application/json' \
+  http://127.0.0.1:8099/v1/tools/call \
+  -d '{
+    "name": "ctx_brain",
+    "arguments": {
+      "action": "status",
+      "brain_id": "default"
+    }
+  }'
+```
+
+## Key Commands
+
+```bash
+# Default stdio MCP mode
 ./target/release/nebula-ctx
+
+# Guided client setup
+./target/release/nebula-ctx setup
+
+# Postgres lifecycle
+./target/release/nebula-ctx db connect
+./target/release/nebula-ctx db status
+./target/release/nebula-ctx db init
+./target/release/nebula-ctx db test
+
+# HTTP MCP mode
+./target/release/nebula-ctx serve --host 127.0.0.1 --port 8099 --auth-token local-test-token
+
+# Dashboard
+./target/release/nebula-ctx dashboard --port=4747
 ```
 
-### Server (PostgreSQL)
+## Storage Model
 
-```bash
-export DATABASE_URL="postgres://user:pass@localhost:5432/nebula"
-./target/release/nebula-ctx serve --port 8099
-```
+- `NEBULA_STORE=sqlite` or unset: local SQLite-backed operation
+- `NEBULA_STORE=postgres`: Postgres-backed `ContextStore`
+- `DATABASE_URL`: required when `NEBULA_STORE=postgres`
 
-### Home Assistant Addon
+Current validated Postgres-backed tool path: `ctx_brain`.
 
-Copy `homeassistant/` to your HA addons directory, configure options in addon UI.
-
-### Docker
+## Docker
 
 ```bash
 docker build -t nebula-ctx .
-docker run -d -p 8099:8099 -v nebula-ctx-data:/data nebula-ctx
+
+docker run --rm \
+  -p 8099:8099 \
+  -e NEBULA_STORE=postgres \
+  -e DATABASE_URL='postgres://user:pass@host:5432/nebula' \
+  -e NEBULA_CTX_HTTP_TOKEN='replace-me' \
+  nebula-ctx
 ```
 
-### MCP Client Config
+The container entrypoint binds to `0.0.0.0` automatically when `NEBULA_CTX_HTTP_TOKEN` is set. Without a token it stays on `127.0.0.1` for safety.
 
-```json
-{
-  "mcpServers": {
-    "nebula-ctx": {
-      "url": "http://localhost:8099/v1/tools/call",
-      "transport": "http"
-    }
-  }
-}
-```
+## Home Assistant Addon
 
-## Brain Memory Tools
+The add-on scaffold lives under `homeassistant/`. It now passes the correct store env var and explicit serve port. For remote access, configure `auth_token` so the server can bind beyond loopback safely.
 
-| Tool | Description |
-|------|-------------|
-| `brain_store` | Store a memory with auto-scoring |
-| `brain_recall` | Recall memories with scoring + decay |
-| `brain_consolidate` | Extract memories from session text |
-| `brain_activate` | Warm-up a new session with relevant context |
-| `brain_checkpoint` | Save/restore session state |
-| `brain_status` | Show memory stats, open loops, tiers |
+## Architecture Notes
 
-## Storage Backends
+- `src/main.rs`: CLI entry point, stdio MCP, HTTP serve mode, dashboard, proxy, and utility commands
+- `src/http_server/mod.rs`: MCP HTTP server with `/health`, `/v1/manifest`, `/v1/tools`, and `/v1/tools/call`
+- `src/core/store/`: `ContextStore`, `SqliteStore`, and `PostgresStore`
+- `src/tools/ctx_brain.rs`: brain-memory tool surface used in tonight's HTTP validation
+- `src/cloud_server_main.rs`: separate legacy LeanCTX-style cloud API binary, not the main HTTP MCP server
 
-| Feature | SQLite | PostgreSQL |
-|---------|--------|------------|
-| Cache | FTS5 | pgvector + tsvector |
-| Search | BM25 + hybrid | pgvector + BM25 |
-| Knowledge | Local tables | Persistent |
-| Brain memory | Local | Persistent + sync |
-| Graph | rusqlite | Postgres tables |
-| Best for | Local dev, CLI | Server, HA addon, multi-device |
+## Roadmap And Docs
+
+- Full execution plan: [docs/plans/nebula-server-roadmap.md](docs/plans/nebula-server-roadmap.md)
+- Operator setup: [docs/server-setup.md](docs/server-setup.md)
+- Codebase walkthrough: [docs/technical-architecture.md](docs/technical-architecture.md)
 
 ## Development
 
-Built with Rust. See [docs/plans/nebula-server-roadmap.md](docs/plans/nebula-server-roadmap.md) for the full roadmap.
-
-**Learning Rust?** Read [docs/technical-architecture.md](docs/technical-architecture.md) — explains every module, how MCP tools work end-to-end, the cache/compression engine, shared state patterns, and key Rust concepts with code examples.
-
-**Running as server?** Read [docs/server-setup.md](docs/server-setup.md) — covers local, server (HTTP), Docker, and Home Assistant addon modes with PostgreSQL configuration.
-
 ```bash
-# Build
-cargo build
-
-# Test
 cargo test
-
-# Run with logging
-RUST_LOG=debug cargo run -- --store sqlite
+cargo test --features cloud-server --test brain_memory_tests
+cargo test --features cloud-server --test http_server_streamable
 ```
-
-## Upstream Sync
-
-Nebula Server is forked from lean-ctx. Upstream changes are pulled regularly:
-
-```bash
-git remote add upstream https://github.com/your-org/lean-ctx.git
-git fetch upstream
-git rebase upstream/main
-```
-
-Modifications are kept behind the `ContextStore` trait boundary to minimize merge conflicts.
-
-## License
-
-MIT (matching lean-ctx)

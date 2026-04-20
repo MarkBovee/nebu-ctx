@@ -5,6 +5,34 @@
 use serde_json;
 use crate::core::store::ContextStore;
 
+fn with_store_runtime<T, F>(op: F) -> T
+where
+    T: Send,
+    F: FnOnce() -> T + Send,
+{
+    match tokio::runtime::Handle::try_current() {
+        Ok(handle)
+            if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread =>
+        {
+            tokio::task::block_in_place(op)
+        }
+        Ok(_) => std::thread::scope(|scope| {
+            let join = scope.spawn(|| {
+                tokio::runtime::Runtime::new()
+                    .expect("failed to create ctx_brain runtime")
+                    .block_on(async { tokio::task::block_in_place(op) })
+            });
+            match join.join() {
+                Ok(value) => value,
+                Err(panic) => std::panic::resume_unwind(panic),
+            }
+        }),
+        Err(_) => tokio::runtime::Runtime::new()
+            .expect("failed to create ctx_brain runtime")
+            .block_on(async { tokio::task::block_in_place(op) }),
+    }
+}
+
 /// Get the brain store (Sqlite or Postgres based on NEBULA_STORE env).
 /// Returns error string if unavailable.
 fn get_store() -> Result<Box<dyn ContextStore>, String> {
@@ -12,7 +40,7 @@ fn get_store() -> Result<Box<dyn ContextStore>, String> {
 }
 
 pub fn handle(action: &str, args: &serde_json::Value) -> String {
-    match action {
+    with_store_runtime(|| match action {
         "store" => handle_store(args),
         "recall" => handle_recall(args),
         "consolidate" => handle_consolidate(args),
@@ -20,7 +48,7 @@ pub fn handle(action: &str, args: &serde_json::Value) -> String {
         "checkpoint" => handle_checkpoint(args),
         "status" => handle_status(args),
         _ => format!("Unknown brain action: {action}. Use: store, recall, consolidate, activate, checkpoint, status"),
-    }
+    })
 }
 
 fn handle_store(args: &serde_json::Value) -> String {
@@ -227,4 +255,39 @@ fn handle_status(args: &serde_json::Value) -> String {
         open_loops.len(),
         sessions.map(|s| format!("#{} ({})", s.id.unwrap_or(0), s.status)).unwrap_or("none".to_string()),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Mutex, OnceLock};
+
+    static ENV_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn postgres_errors_are_reported_without_runtime_panic() {
+        let _guard = ENV_MUTEX
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .expect("env mutex poisoned");
+
+        let old_store = std::env::var("NEBULA_STORE").ok();
+        let old_url = std::env::var("DATABASE_URL").ok();
+
+        std::env::set_var("NEBULA_STORE", "postgres");
+        std::env::set_var("DATABASE_URL", "postgres://127.0.0.1:1/nebula");
+
+        let result = handle("status", &serde_json::json!({ "brain_id": "smoke-test" }));
+
+        match old_store {
+            Some(value) => std::env::set_var("NEBULA_STORE", value),
+            None => std::env::remove_var("NEBULA_STORE"),
+        }
+        match old_url {
+            Some(value) => std::env::set_var("DATABASE_URL", value),
+            None => std::env::remove_var("DATABASE_URL"),
+        }
+
+        assert!(result.starts_with("ERROR:"), "unexpected result: {result}");
+    }
 }

@@ -217,13 +217,13 @@ impl ContextStore for PostgresStore {
             let client = self.pool.get().await.map_err(|e| anyhow!("{}", e))?;
             let rows = if layer.is_empty() {
                 client.query(
-                    "SELECT id, brain_id, layer, memory_type, content, embedding, composite_score, recall_count, weights_json, created_at
+                    "SELECT id, brain_id, layer, memory_type, content, embedding, composite_score, recall_count, weights_json, created_at::TEXT
                      FROM brain_memories WHERE brain_id = $1 ORDER BY composite_score DESC LIMIT $2",
                     &[&brain_id, &(limit as i64)],
                 ).await?
             } else {
                 client.query(
-                    "SELECT id, brain_id, layer, memory_type, content, embedding, composite_score, recall_count, weights_json, created_at
+                    "SELECT id, brain_id, layer, memory_type, content, embedding, composite_score, recall_count, weights_json, created_at::TEXT
                      FROM brain_memories WHERE brain_id = $1 AND layer = $2 ORDER BY composite_score DESC LIMIT $3",
                     &[&brain_id, &layer, &(limit as i64)],
                 ).await?
@@ -248,7 +248,7 @@ impl ContextStore for PostgresStore {
         rt.block_on(async {
             let client = self.pool.get().await.map_err(|e| anyhow!("{}", e))?;
             let row = client.query_opt(
-                "SELECT id, brain_id, layer, memory_type, content, embedding, composite_score, recall_count, weights_json, created_at
+                "SELECT id, brain_id, layer, memory_type, content, embedding, composite_score, recall_count, weights_json, created_at::TEXT
                  FROM brain_memories WHERE id = $1", &[&id],
             ).await?;
             Ok(row.map(|r| BrainMemory {
@@ -318,7 +318,7 @@ impl ContextStore for PostgresStore {
         rt.block_on(async {
             let client = self.pool.get().await.map_err(|e| anyhow!("{}", e))?;
             let row = client.query_opt(
-                "SELECT id, brain_id, started_at, status, checkpoint_json FROM brain_sessions WHERE id = $1",
+                "SELECT id, brain_id, started_at::TEXT, status, checkpoint_json FROM brain_sessions WHERE id = $1",
                 &[&id],
             ).await?;
             Ok(row.map(|r| BrainSession {
@@ -351,7 +351,7 @@ impl ContextStore for PostgresStore {
         rt.block_on(async {
             let client = self.pool.get().await.map_err(|e| anyhow!("{}", e))?;
             let row = client.query_opt(
-                "SELECT id, brain_id, started_at, status, checkpoint_json FROM brain_sessions
+                "SELECT id, brain_id, started_at::TEXT, status, checkpoint_json FROM brain_sessions
                  WHERE brain_id = $1 ORDER BY started_at DESC LIMIT 1",
                 &[&brain_id],
             ).await?;
@@ -382,7 +382,7 @@ impl ContextStore for PostgresStore {
         rt.block_on(async {
             let client = self.pool.get().await.map_err(|e| anyhow!("{}", e))?;
             let row = client.query_opt(
-                "SELECT id, session_id, checkpoint_type, content_json, created_at FROM brain_checkpoints
+                "SELECT id, session_id, checkpoint_type, content_json, created_at::TEXT FROM brain_checkpoints
                  WHERE session_id = $1 ORDER BY created_at DESC LIMIT 1",
                 &[&session_id],
             ).await?;
@@ -413,7 +413,7 @@ impl ContextStore for PostgresStore {
         rt.block_on(async {
             let client = self.pool.get().await.map_err(|e| anyhow!("{}", e))?;
             let rows = client.query(
-                "SELECT id, brain_id, description, priority, status, created_at FROM open_loops
+                "SELECT id, brain_id, description, priority, status, created_at::TEXT FROM open_loops
                  WHERE brain_id = $1 AND status = $2 ORDER BY priority DESC",
                 &[&brain_id, &status],
             ).await?;
@@ -459,7 +459,7 @@ impl ContextStore for PostgresStore {
             let client = self.pool.get().await.map_err(|e| anyhow!("{}", e))?;
             let pattern = format!("%{}%", query);
             let rows = client.query(
-                "SELECT id, category, key, value, confidence, expires_at, updated_at FROM knowledge
+                "SELECT id, category, key, value, confidence, expires_at::TEXT, updated_at::TEXT FROM knowledge
                  WHERE value ILIKE $1 OR key ILIKE $1 ORDER BY updated_at DESC LIMIT $2",
                 &[&pattern, &(limit as i64)],
             ).await?;
@@ -475,7 +475,7 @@ impl ContextStore for PostgresStore {
         rt.block_on(async {
             let client = self.pool.get().await.map_err(|e| anyhow!("{}", e))?;
             let row = client.query_opt(
-                "SELECT id, category, key, value, confidence, expires_at, updated_at FROM knowledge
+                "SELECT id, category, key, value, confidence, expires_at::TEXT, updated_at::TEXT FROM knowledge
                  WHERE category = $1 AND key = $2",
                 &[&category, &key],
             ).await?;
