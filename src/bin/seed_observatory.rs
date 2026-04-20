@@ -1,8 +1,8 @@
-use lean_ctx::core::events::{emit, EventKind};
-use lean_ctx::core::gotcha_tracker::{
+use nebula_ctx::core::events::{emit, EventKind};
+use nebula_ctx::core::gotcha_tracker::{
     Gotcha, GotchaCategory, GotchaSeverity, GotchaSource, GotchaStats, GotchaStore,
 };
-use lean_ctx::core::knowledge::ProjectKnowledge;
+use nebula_ctx::core::knowledge::ProjectKnowledge;
 
 fn main() {
     let project_root = std::env::current_dir()
@@ -212,7 +212,7 @@ fn seed_gotchas(project_root: &str) {
         (GotchaCategory::Build, GotchaSeverity::Warning, "warning: unused variable `result`", "Prefix with underscore: `_result` or remove the binding entirely.", 15, 0.75, 12),
         (GotchaCategory::Runtime, GotchaSeverity::Critical, "thread 'main' panicked at 'index out of bounds: the len is 0 but the index is 0'", "Check `.is_empty()` before indexing. Use `.get(0)` for Option-based access.", 3, 0.85, 2),
         (GotchaCategory::Test, GotchaSeverity::Warning, "assertion `left == right` failed: Windows \\r\\n line endings", "Normalize line endings with `.replace('\\r\\n', '\\n')` or use `contains()` instead of exact match.", 6, 0.88, 4),
-        (GotchaCategory::Build, GotchaSeverity::Critical, "error: failed to resolve: use of unresolved module `tui`", "Add `pub mod tui;` to lib.rs and `use lean_ctx::tui;` in main.rs.", 2, 0.95, 1),
+        (GotchaCategory::Build, GotchaSeverity::Critical, "error: failed to resolve: use of unresolved module `tui`", "Add `pub mod tui;` to lib.rs and `use nebula_ctx::tui;` in main.rs.", 2, 0.95, 1),
         (GotchaCategory::Config, GotchaSeverity::Info, "Node.js version mismatch: requires >=22.12.0", "Use nvm to switch: `nvm use 22` or set PATH to correct Node version.", 4, 0.80, 3),
         (GotchaCategory::Runtime, GotchaSeverity::Warning, "E403 Forbidden: npm publish version already exists", "Bump version in package.json before publishing. Use `npm version patch` for auto-increment.", 2, 0.70, 1),
         (GotchaCategory::Build, GotchaSeverity::Warning, "error[E0599]: no method named `is_multiple_of` found", "Use nightly or replace with `count % interval == 0`.", 3, 0.82, 2),
@@ -249,7 +249,7 @@ fn seed_gotchas(project_root: &str) {
 }
 
 fn seed_feedback() {
-    use lean_ctx::core::feedback::{CompressionOutcome, FeedbackStore};
+    use nebula_ctx::core::feedback::{CompressionOutcome, FeedbackStore};
 
     let mut store = FeedbackStore::load();
 

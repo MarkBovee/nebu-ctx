@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 fn config_dir() -> PathBuf {
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-    home.join(".lean-ctx").join("cloud")
+    home.join(".nebula-ctx").join("cloud")
 }
 
 fn credentials_path() -> PathBuf {
@@ -122,7 +122,7 @@ pub fn login(email: &str, password: &str) -> Result<RegisterResult, String> {
 }
 
 pub fn sync_stats(stats: &[serde_json::Value]) -> Result<String, String> {
-    let api_key = load_api_key().ok_or("Not logged in. Run: lean-ctx login")?;
+    let api_key = load_api_key().ok_or("Not logged in. Run: nebula-ctx login")?;
     let url = format!("{}/api/stats", api_url());
 
     let body = serde_json::json!({ "stats": stats });
@@ -169,7 +169,7 @@ pub fn contribute(entries: &[serde_json::Value]) -> Result<String, String> {
 }
 
 pub fn push_knowledge(entries: &[serde_json::Value]) -> Result<String, String> {
-    let api_key = load_api_key().ok_or("Not logged in. Run: lean-ctx login")?;
+    let api_key = load_api_key().ok_or("Not logged in. Run: nebula-ctx login")?;
     let url = format!("{}/api/sync/knowledge", api_url());
 
     let body = serde_json::json!({ "entries": entries });
@@ -195,7 +195,7 @@ pub fn push_knowledge(entries: &[serde_json::Value]) -> Result<String, String> {
 }
 
 pub fn pull_cloud_models() -> Result<serde_json::Value, String> {
-    let api_key = load_api_key().ok_or("Not logged in. Run: lean-ctx login <email>")?;
+    let api_key = load_api_key().ok_or("Not logged in. Run: nebula-ctx login <email>")?;
     let url = format!("{}/api/cloud/models", api_url());
 
     let resp = ureq::get(&url)
@@ -265,7 +265,7 @@ pub fn fetch_plan() -> Result<String, String> {
 }
 
 pub fn push_commands(entries: &[serde_json::Value]) -> Result<String, String> {
-    let api_key = load_api_key().ok_or("Not logged in. Run: lean-ctx login")?;
+    let api_key = load_api_key().ok_or("Not logged in. Run: nebula-ctx login")?;
     let url = format!("{}/api/sync/commands", api_url());
     let body = serde_json::json!({ "commands": entries });
     let resp = ureq::post(&url)
@@ -286,7 +286,7 @@ pub fn push_commands(entries: &[serde_json::Value]) -> Result<String, String> {
 }
 
 pub fn push_cep(entries: &[serde_json::Value]) -> Result<String, String> {
-    let api_key = load_api_key().ok_or("Not logged in. Run: lean-ctx login")?;
+    let api_key = load_api_key().ok_or("Not logged in. Run: nebula-ctx login")?;
     let url = format!("{}/api/sync/cep", api_url());
     let body = serde_json::json!({ "scores": entries });
     let resp = ureq::post(&url)
@@ -307,7 +307,7 @@ pub fn push_cep(entries: &[serde_json::Value]) -> Result<String, String> {
 }
 
 pub fn push_gain(entries: &[serde_json::Value]) -> Result<String, String> {
-    let api_key = load_api_key().ok_or("Not logged in. Run: lean-ctx login")?;
+    let api_key = load_api_key().ok_or("Not logged in. Run: nebula-ctx login")?;
     let url = format!("{}/api/sync/gain", api_url());
     let body = serde_json::json!({ "scores": entries });
     let resp = ureq::post(&url)
@@ -328,7 +328,7 @@ pub fn push_gain(entries: &[serde_json::Value]) -> Result<String, String> {
 }
 
 pub fn push_gotchas(entries: &[serde_json::Value]) -> Result<String, String> {
-    let api_key = load_api_key().ok_or("Not logged in. Run: lean-ctx login")?;
+    let api_key = load_api_key().ok_or("Not logged in. Run: nebula-ctx login")?;
     let url = format!("{}/api/sync/gotchas", api_url());
     let body = serde_json::json!({ "gotchas": entries });
     let resp = ureq::post(&url)
@@ -349,7 +349,7 @@ pub fn push_gotchas(entries: &[serde_json::Value]) -> Result<String, String> {
 }
 
 pub fn push_buddy(data: &serde_json::Value) -> Result<String, String> {
-    let api_key = load_api_key().ok_or("Not logged in. Run: lean-ctx login")?;
+    let api_key = load_api_key().ok_or("Not logged in. Run: nebula-ctx login")?;
     let url = format!("{}/api/sync/buddy", api_url());
     let resp = ureq::post(&url)
         .header("Authorization", &format!("Bearer {api_key}"))
@@ -366,7 +366,7 @@ pub fn push_buddy(data: &serde_json::Value) -> Result<String, String> {
 }
 
 pub fn push_feedback(entries: &[serde_json::Value]) -> Result<String, String> {
-    let api_key = load_api_key().ok_or("Not logged in. Run: lean-ctx login")?;
+    let api_key = load_api_key().ok_or("Not logged in. Run: nebula-ctx login")?;
     let url = format!("{}/api/sync/feedback", api_url());
     let resp = ureq::post(&url)
         .header("Authorization", &format!("Bearer {api_key}"))
@@ -386,7 +386,7 @@ pub fn push_feedback(entries: &[serde_json::Value]) -> Result<String, String> {
 }
 
 pub fn pull_knowledge() -> Result<Vec<serde_json::Value>, String> {
-    let api_key = load_api_key().ok_or("Not logged in. Run: lean-ctx login")?;
+    let api_key = load_api_key().ok_or("Not logged in. Run: nebula-ctx login")?;
     let url = format!("{}/api/sync/knowledge", api_url());
 
     let resp = ureq::get(&url)

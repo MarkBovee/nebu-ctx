@@ -4,7 +4,7 @@ async fn main() {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    if let Err(e) = lean_ctx::cloud_server::run().await {
+    if let Err(e) = nebula_ctx::cloud_server::run().await {
         eprintln!("Cloud server error: {e}");
         std::process::exit(1);
     }

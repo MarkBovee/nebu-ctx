@@ -75,7 +75,7 @@ pub struct Config {
     pub disabled_tools: Vec<String>,
     #[serde(default)]
     pub loop_detection: LoopDetectionConfig,
-    /// Controls where lean-ctx installs agent rule files.
+    /// Controls where nebula-ctx installs agent rule files.
     /// Values: "both" (default), "global" (home-dir only), "project" (repo-local only).
     /// Override via LEAN_CTX_RULES_SCOPE env var.
     #[serde(default)]
@@ -484,13 +484,13 @@ mod loop_detection_config_tests {
 
 impl Config {
     pub fn path() -> Option<PathBuf> {
-        crate::core::data_dir::lean_ctx_data_dir()
+        crate::core::data_dir::nebula_ctx_data_dir()
             .ok()
             .map(|d| d.join("config.toml"))
     }
 
     pub fn local_path(project_root: &str) -> PathBuf {
-        PathBuf::from(project_root).join(".lean-ctx.toml")
+        PathBuf::from(project_root).join(".nebula-ctx.toml")
     }
 
     fn find_project_root() -> Option<String> {
@@ -509,7 +509,7 @@ impl Config {
                 || root_path.join("package.json").exists()
                 || root_path.join("go.mod").exists()
                 || root_path.join("pyproject.toml").exists()
-                || root_path.join(".lean-ctx.toml").exists();
+                || root_path.join(".nebula-ctx.toml").exists();
 
             if cwd_is_under_root || has_marker {
                 return Some(root);
@@ -685,7 +685,7 @@ impl Config {
     pub fn show(&self) -> String {
         let global_path = Self::path()
             .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|| "~/.lean-ctx/config.toml".to_string());
+            .unwrap_or_else(|| "~/.nebula-ctx/config.toml".to_string());
         let content = toml::to_string_pretty(self).unwrap_or_default();
         let mut out = format!("Global config: {global_path}\n\n{content}");
 

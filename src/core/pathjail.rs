@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 const IDE_CONFIG_DIRS: &[&str] = &[
-    ".lean-ctx",
+    ".nebula-ctx",
     ".cursor",
     ".claude",
     ".codex",
@@ -20,7 +20,7 @@ const IDE_CONFIG_DIRS: &[&str] = &[
 fn allow_paths_from_env() -> Vec<PathBuf> {
     let mut out = Vec::new();
 
-    if let Ok(data_dir) = crate::core::data_dir::lean_ctx_data_dir() {
+    if let Ok(data_dir) = crate::core::data_dir::nebula_ctx_data_dir() {
         out.push(canonicalize_or_self(&data_dir));
     }
 

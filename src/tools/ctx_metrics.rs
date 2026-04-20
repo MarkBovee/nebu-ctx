@@ -52,7 +52,7 @@ pub fn handle(cache: &SessionCache, tool_calls: &[ToolCallRecord], crp_mode: Crp
             cost_saved
         ));
     } else {
-        out.push("lean-ctx session metrics".to_string());
+        out.push("nebula-ctx session metrics".to_string());
         out.push("═".repeat(50));
 
         out.push(format!(
@@ -75,7 +75,7 @@ pub fn handle(cache: &SessionCache, tool_calls: &[ToolCallRecord], crp_mode: Crp
         let cost_without = total_original as f64 / 1_000_000.0 * quote.cost.input_per_m;
         let cost_with = total_sent as f64 / 1_000_000.0 * quote.cost.input_per_m;
         out.push(format!(
-            "Cost estimate: ${:.4} without → ${:.4} with lean-ctx | ${:.4} saved",
+            "Cost estimate: ${:.4} without → ${:.4} with nebula-ctx | ${:.4} saved",
             cost_without, cost_with, cost_saved
         ));
     }

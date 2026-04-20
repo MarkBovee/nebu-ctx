@@ -74,7 +74,7 @@ pub fn run_cli(args: &[String]) -> i32 {
     let help = args.iter().any(|a| a == "--help" || a == "-h");
     if help {
         println!("Usage:");
-        println!("  lean-ctx token-report [--json] [--project-root <path>]");
+        println!("  nebula-ctx token-report [--json] [--project-root <path>]");
         return 0;
     }
 
@@ -108,7 +108,7 @@ fn build_report(project_root_override: Option<&str>) -> Result<(TokenReport, Pat
     let generated_at = Utc::now();
     let version = env!("CARGO_PKG_VERSION").to_string();
 
-    let data_dir = crate::core::data_dir::lean_ctx_data_dir()?;
+    let data_dir = crate::core::data_dir::nebula_ctx_data_dir()?;
 
     let cwd = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
@@ -196,7 +196,7 @@ fn build_report(project_root_override: Option<&str>) -> Result<(TokenReport, Pat
 }
 
 fn print_human(report: &TokenReport, path: &Path) {
-    println!("lean-ctx token-report  v{}", report.version);
+    println!("nebula-ctx token-report  v{}", report.version);
     println!("  project: {}", report.project_root);
     println!("  data:    {}", report.data_dir);
 

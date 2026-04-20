@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 fn backup_path_for(path: &Path) -> Option<PathBuf> {
     let filename = path.file_name()?.to_string_lossy();
-    Some(path.with_file_name(format!("{filename}.lean-ctx.bak")))
+    Some(path.with_file_name(format!("{filename}.nebula-ctx.bak")))
 }
 
 pub fn write_atomic_with_backup(path: &Path, content: &str) -> Result<(), String> {
@@ -34,7 +34,7 @@ pub fn write_atomic(path: &Path, content: &str) -> Result<(), String> {
         .map(|d| d.as_nanos())
         .unwrap_or(0);
 
-    let tmp = parent.join(format!(".{filename}.lean-ctx.tmp.{pid}.{nanos}"));
+    let tmp = parent.join(format!(".{filename}.nebula-ctx.tmp.{pid}.{nanos}"));
     std::fs::write(&tmp, content).map_err(|e| e.to_string())?;
 
     #[cfg(windows)]

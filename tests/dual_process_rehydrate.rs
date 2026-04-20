@@ -1,8 +1,8 @@
-use lean_ctx::core::knowledge::ProjectKnowledge;
+use nebula_ctx::core::knowledge::ProjectKnowledge;
 
 #[test]
 fn recall_rehydrates_from_archive_when_active_set_empty() {
-    let _g = lean_ctx::core::data_dir::test_env_lock();
+    let _g = nebula_ctx::core::data_dir::test_env_lock();
     let tmp = tempfile::tempdir().expect("tempdir");
     let data_dir = tmp.path().join("data");
     std::fs::create_dir_all(&data_dir).expect("mkdir");
@@ -19,7 +19,7 @@ fn recall_rehydrates_from_archive_when_active_set_empty() {
     k.save().expect("save");
 
     // Now the active set should be empty (fact archived), so recall should rehydrate it.
-    let out = lean_ctx::tools::ctx_knowledge::handle(
+    let out = nebula_ctx::tools::ctx_knowledge::handle(
         &project_root_str,
         "recall",
         None,

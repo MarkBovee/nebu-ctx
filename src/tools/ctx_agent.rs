@@ -194,7 +194,7 @@ pub fn handle(
                 })
                 .count();
 
-            let shared_dir = crate::core::data_dir::lean_ctx_data_dir()
+            let shared_dir = crate::core::data_dir::nebula_ctx_data_dir()
                 .unwrap_or_default()
                 .join("agents")
                 .join("shared");

@@ -1,4 +1,4 @@
-//! Environment diagnostics for lean-ctx installation and integration.
+//! Environment diagnostics for nebula-ctx installation and integration.
 
 use std::net::TcpListener;
 use std::path::PathBuf;
@@ -30,11 +30,11 @@ fn print_check(outcome: &Outcome) {
 fn path_in_path_env() -> bool {
     if let Ok(path) = std::env::var("PATH") {
         for dir in std::env::split_paths(&path) {
-            if dir.join("lean-ctx").is_file() {
+            if dir.join("nebula-ctx").is_file() {
                 return true;
             }
             if cfg!(windows)
-                && (dir.join("lean-ctx.exe").is_file() || dir.join("lean-ctx.cmd").is_file())
+                && (dir.join("nebula-ctx.exe").is_file() || dir.join("nebula-ctx.cmd").is_file())
             {
                 return true;
             }
@@ -43,20 +43,20 @@ fn path_in_path_env() -> bool {
     false
 }
 
-fn resolve_lean_ctx_binary() -> Option<PathBuf> {
+fn resolve_nebula_ctx_binary() -> Option<PathBuf> {
     if let Ok(path) = std::env::var("PATH") {
         for dir in std::env::split_paths(&path) {
             if cfg!(windows) {
-                let exe = dir.join("lean-ctx.exe");
+                let exe = dir.join("nebula-ctx.exe");
                 if exe.is_file() {
                     return Some(exe);
                 }
-                let cmd = dir.join("lean-ctx.cmd");
+                let cmd = dir.join("nebula-ctx.cmd");
                 if cmd.is_file() {
                     return Some(cmd);
                 }
             } else {
-                let bin = dir.join("lean-ctx");
+                let bin = dir.join("nebula-ctx");
                 if bin.is_file() {
                     return Some(bin);
                 }
@@ -66,11 +66,11 @@ fn resolve_lean_ctx_binary() -> Option<PathBuf> {
     None
 }
 
-fn lean_ctx_version_from_path() -> Outcome {
-    let resolved = resolve_lean_ctx_binary();
+fn nebula_ctx_version_from_path() -> Outcome {
+    let resolved = resolve_nebula_ctx_binary();
     let bin = resolved
         .clone()
-        .unwrap_or_else(|| std::env::current_exe().unwrap_or_else(|_| "lean-ctx".into()));
+        .unwrap_or_else(|| std::env::current_exe().unwrap_or_else(|_| "nebula-ctx".into()));
 
     let v = env!("CARGO_PKG_VERSION");
     let note = match std::env::current_exe() {
@@ -80,13 +80,13 @@ fn lean_ctx_version_from_path() -> Outcome {
     };
     Outcome {
         ok: true,
-        line: format!("{BOLD}lean-ctx version{RST}  {WHITE}lean-ctx {v}{RST}  {note}"),
+        line: format!("{BOLD}nebula-ctx version{RST}  {WHITE}nebula-ctx {v}{RST}  {note}"),
     }
 }
 
-fn rc_contains_lean_ctx(path: &PathBuf) -> bool {
+fn rc_contains_nebula_ctx(path: &PathBuf) -> bool {
     match std::fs::read_to_string(path) {
-        Ok(s) => s.contains("lean-ctx"),
+        Ok(s) => s.contains("nebula-ctx"),
         Err(_) => false,
     }
 }
@@ -127,14 +127,14 @@ fn shell_aliases_outcome() -> Outcome {
     let mut needs_update = Vec::new();
 
     let zsh = home.join(".zshrc");
-    if rc_contains_lean_ctx(&zsh) {
+    if rc_contains_nebula_ctx(&zsh) {
         parts.push(format!("{DIM}~/.zshrc{RST}"));
         if !rc_has_pipe_guard(&zsh) && is_active_shell("~/.zshrc") {
             needs_update.push("~/.zshrc");
         }
     }
     let bash = home.join(".bashrc");
-    if rc_contains_lean_ctx(&bash) {
+    if rc_contains_nebula_ctx(&bash) {
         parts.push(format!("{DIM}~/.bashrc{RST}"));
         if !rc_has_pipe_guard(&bash) && is_active_shell("~/.bashrc") {
             needs_update.push("~/.bashrc");
@@ -142,7 +142,7 @@ fn shell_aliases_outcome() -> Outcome {
     }
 
     let fish = home.join(".config").join("fish").join("config.fish");
-    if rc_contains_lean_ctx(&fish) {
+    if rc_contains_nebula_ctx(&fish) {
         parts.push(format!("{DIM}~/.config/fish/config.fish{RST}"));
         if !rc_has_pipe_guard(&fish) && is_active_shell("~/.config/fish/config.fish") {
             needs_update.push("~/.config/fish/config.fish");
@@ -159,12 +159,12 @@ fn shell_aliases_outcome() -> Outcome {
             .join("Documents")
             .join("WindowsPowerShell")
             .join("Microsoft.PowerShell_profile.ps1");
-        if rc_contains_lean_ctx(&ps_profile) {
+        if rc_contains_nebula_ctx(&ps_profile) {
             parts.push(format!("{DIM}PowerShell profile{RST}"));
             if !rc_has_pipe_guard(&ps_profile) {
                 needs_update.push("PowerShell profile");
             }
-        } else if rc_contains_lean_ctx(&ps_profile_legacy) {
+        } else if rc_contains_nebula_ctx(&ps_profile_legacy) {
             parts.push(format!("{DIM}WindowsPowerShell profile{RST}"));
             if !rc_has_pipe_guard(&ps_profile_legacy) {
                 needs_update.push("WindowsPowerShell profile");
@@ -174,9 +174,9 @@ fn shell_aliases_outcome() -> Outcome {
 
     if parts.is_empty() {
         let hint = if cfg!(windows) {
-            "no \"lean-ctx\" in PowerShell profile, ~/.zshrc or ~/.bashrc"
+            "no \"nebula-ctx\" in PowerShell profile, ~/.zshrc or ~/.bashrc"
         } else {
-            "no \"lean-ctx\" in ~/.zshrc, ~/.bashrc, or ~/.config/fish/config.fish"
+            "no \"nebula-ctx\" in ~/.zshrc, ~/.bashrc, or ~/.config/fish/config.fish"
         };
         Outcome {
             ok: false,
@@ -186,7 +186,7 @@ fn shell_aliases_outcome() -> Outcome {
         Outcome {
             ok: false,
             line: format!(
-                "{BOLD}Shell aliases{RST}  {YELLOW}outdated hook in {} — run {BOLD}lean-ctx init --global{RST}{YELLOW} to fix (pipe guard missing){RST}",
+                "{BOLD}Shell aliases{RST}  {YELLOW}outdated hook in {} — run {BOLD}nebula-ctx init --global{RST}{YELLOW} to fix (pipe guard missing){RST}",
                 needs_update.join(", ")
             ),
         }
@@ -194,7 +194,7 @@ fn shell_aliases_outcome() -> Outcome {
         Outcome {
             ok: true,
             line: format!(
-                "{BOLD}Shell aliases{RST}  {GREEN}lean-ctx referenced in {}{RST}",
+                "{BOLD}Shell aliases{RST}  {GREEN}nebula-ctx referenced in {}{RST}",
                 parts.join(", ")
             ),
         }
@@ -412,7 +412,7 @@ fn mcp_config_outcome() -> Outcome {
 
     for loc in &locations {
         if let Ok(content) = std::fs::read_to_string(&loc.path) {
-            if has_lean_ctx_mcp_entry(&content) {
+            if has_nebula_ctx_mcp_entry(&content) {
                 found.push(format!("{} {DIM}({}){RST}", loc.name, loc.display));
             } else {
                 exists_no_ref.push(loc.name.to_string());
@@ -429,26 +429,26 @@ fn mcp_config_outcome() -> Outcome {
         Outcome {
             ok: true,
             line: format!(
-                "{BOLD}MCP config{RST}  {GREEN}lean-ctx found in: {}{RST}",
+                "{BOLD}MCP config{RST}  {GREEN}nebula-ctx found in: {}{RST}",
                 found.join(", ")
             ),
         }
     } else if !exists_no_ref.is_empty() {
         let has_claude = exists_no_ref.iter().any(|n| n.starts_with("Claude Code"));
         let cause = if has_claude {
-            format!("{DIM}(Claude Code may overwrite ~/.claude.json on startup — lean-ctx entry missing from mcpServers){RST}")
+            format!("{DIM}(Claude Code may overwrite ~/.claude.json on startup — nebula-ctx entry missing from mcpServers){RST}")
         } else {
             String::new()
         };
         let hint = if has_claude {
-            format!("{DIM}(run: lean-ctx doctor --fix OR lean-ctx init --agent claude){RST}")
+            format!("{DIM}(run: nebula-ctx doctor --fix OR nebula-ctx init --agent claude){RST}")
         } else {
-            format!("{DIM}(run: lean-ctx doctor --fix OR lean-ctx setup){RST}")
+            format!("{DIM}(run: nebula-ctx doctor --fix OR nebula-ctx setup){RST}")
         };
         Outcome {
             ok: false,
             line: format!(
-                "{BOLD}MCP config{RST}  {YELLOW}config exists for {} but mcpServers does not contain lean-ctx{RST}  {cause} {hint}",
+                "{BOLD}MCP config{RST}  {YELLOW}config exists for {} but mcpServers does not contain nebula-ctx{RST}  {cause} {hint}",
                 exists_no_ref.join(", "),
             ),
         }
@@ -456,26 +456,26 @@ fn mcp_config_outcome() -> Outcome {
         Outcome {
             ok: false,
             line: format!(
-                "{BOLD}MCP config{RST}  {YELLOW}no MCP config found{RST}  {DIM}(run: lean-ctx setup){RST}"
+                "{BOLD}MCP config{RST}  {YELLOW}no MCP config found{RST}  {DIM}(run: nebula-ctx setup){RST}"
             ),
         }
     }
 }
 
-fn has_lean_ctx_mcp_entry(content: &str) -> bool {
+fn has_nebula_ctx_mcp_entry(content: &str) -> bool {
     if let Ok(json) = serde_json::from_str::<serde_json::Value>(content) {
         if let Some(servers) = json.get("mcpServers").and_then(|v| v.as_object()) {
-            return servers.contains_key("lean-ctx");
+            return servers.contains_key("nebula-ctx");
         }
         if let Some(servers) = json
             .get("mcp")
             .and_then(|v| v.get("servers"))
             .and_then(|v| v.as_object())
         {
-            return servers.contains_key("lean-ctx");
+            return servers.contains_key("nebula-ctx");
         }
     }
-    content.contains("lean-ctx")
+    content.contains("nebula-ctx")
 }
 
 fn port_3333_outcome() -> Outcome {
@@ -500,34 +500,34 @@ fn pi_outcome() -> Option<Outcome> {
             let has_plugin = std::process::Command::new("pi")
                 .args(["list"])
                 .output()
-                .map(|o| String::from_utf8_lossy(&o.stdout).contains("pi-lean-ctx"))
+                .map(|o| String::from_utf8_lossy(&o.stdout).contains("pi-nebula-ctx"))
                 .unwrap_or(false);
 
             let has_mcp = dirs::home_dir()
                 .map(|h| h.join(".pi/agent/mcp.json"))
                 .and_then(|p| std::fs::read_to_string(p).ok())
-                .map(|c| c.contains("lean-ctx"))
+                .map(|c| c.contains("nebula-ctx"))
                 .unwrap_or(false);
 
             if has_plugin && has_mcp {
                 Some(Outcome {
                     ok: true,
                     line: format!(
-                        "{BOLD}Pi Coding Agent{RST}  {GREEN}{version}, pi-lean-ctx + MCP configured{RST}"
+                        "{BOLD}Pi Coding Agent{RST}  {GREEN}{version}, pi-nebula-ctx + MCP configured{RST}"
                     ),
                 })
             } else if has_plugin {
                 Some(Outcome {
                     ok: true,
                     line: format!(
-                        "{BOLD}Pi Coding Agent{RST}  {GREEN}{version}, pi-lean-ctx installed{RST}  {DIM}(MCP not configured — embedded bridge active){RST}"
+                        "{BOLD}Pi Coding Agent{RST}  {GREEN}{version}, pi-nebula-ctx installed{RST}  {DIM}(MCP not configured — embedded bridge active){RST}"
                     ),
                 })
             } else {
                 Some(Outcome {
                     ok: false,
                     line: format!(
-                        "{BOLD}Pi Coding Agent{RST}  {YELLOW}{version}, but pi-lean-ctx not installed{RST}  {DIM}(run: pi install npm:pi-lean-ctx){RST}"
+                        "{BOLD}Pi Coding Agent{RST}  {YELLOW}{version}, but pi-nebula-ctx not installed{RST}  {DIM}(run: pi install npm:pi-nebula-ctx){RST}"
                     ),
                 })
             }
@@ -572,12 +572,12 @@ fn docker_env_outcomes() -> Vec<Outcome> {
     }
     let env_sh = dirs::home_dir()
         .map(|h| {
-            h.join(".lean-ctx")
+            h.join(".nebula-ctx")
                 .join("env.sh")
                 .to_string_lossy()
                 .to_string()
         })
-        .unwrap_or_else(|| "/root/.lean-ctx/env.sh".to_string());
+        .unwrap_or_else(|| "/root/.nebula-ctx/env.sh".to_string());
 
     let mut outcomes = vec![];
 
@@ -630,23 +630,23 @@ pub fn run() {
     let mut passed = 0u32;
     let total = 8u32;
 
-    println!("{BOLD}{WHITE}lean-ctx doctor{RST}  {DIM}diagnostics{RST}\n");
+    println!("{BOLD}{WHITE}nebula-ctx doctor{RST}  {DIM}diagnostics{RST}\n");
 
     // 1) Binary on PATH
-    let path_bin = resolve_lean_ctx_binary();
+    let path_bin = resolve_nebula_ctx_binary();
     let also_in_path_dirs = path_in_path_env();
     let bin_ok = path_bin.is_some() || also_in_path_dirs;
     if bin_ok {
         passed += 1;
     }
     let bin_line = if let Some(p) = path_bin {
-        format!("{BOLD}lean-ctx in PATH{RST}  {WHITE}{}{RST}", p.display())
+        format!("{BOLD}nebula-ctx in PATH{RST}  {WHITE}{}{RST}", p.display())
     } else if also_in_path_dirs {
         format!(
-            "{BOLD}lean-ctx in PATH{RST}  {YELLOW}found via PATH walk (not resolved by `command -v`){RST}"
+            "{BOLD}nebula-ctx in PATH{RST}  {YELLOW}found via PATH walk (not resolved by `command -v`){RST}"
         )
     } else {
-        format!("{BOLD}lean-ctx in PATH{RST}  {RED}not found{RST}")
+        format!("{BOLD}nebula-ctx in PATH{RST}  {RED}not found{RST}")
     };
     print_check(&Outcome {
         ok: bin_ok,
@@ -655,11 +655,11 @@ pub fn run() {
 
     // 2) Version from PATH binary
     let ver = if bin_ok {
-        lean_ctx_version_from_path()
+        nebula_ctx_version_from_path()
     } else {
         Outcome {
             ok: false,
-            line: format!("{BOLD}lean-ctx version{RST}  {RED}skipped (binary not in PATH){RST}"),
+            line: format!("{BOLD}nebula-ctx version{RST}  {RED}skipped (binary not in PATH){RST}"),
         }
     };
     if ver.ok {
@@ -667,15 +667,15 @@ pub fn run() {
     }
     print_check(&ver);
 
-    // 3) ~/.lean-ctx directory
-    let lean_dir = dirs::home_dir().map(|h| h.join(".lean-ctx"));
+    // 3) ~/.nebula-ctx directory
+    let lean_dir = dirs::home_dir().map(|h| h.join(".nebula-ctx"));
     let dir_outcome = match &lean_dir {
         Some(p) if p.is_dir() => {
             passed += 1;
             Outcome {
                 ok: true,
                 line: format!(
-                    "{BOLD}~/.lean-ctx/{RST}  {GREEN}exists{RST}  {DIM}{}{RST}",
+                    "{BOLD}~/.nebula-ctx/{RST}  {GREEN}exists{RST}  {DIM}{}{RST}",
                     p.display()
                 ),
             }
@@ -683,13 +683,13 @@ pub fn run() {
         Some(p) => Outcome {
             ok: false,
             line: format!(
-                "{BOLD}~/.lean-ctx/{RST}  {RED}missing or not a directory{RST}  {DIM}{}{RST}",
+                "{BOLD}~/.nebula-ctx/{RST}  {RED}missing or not a directory{RST}  {DIM}{}{RST}",
                 p.display()
             ),
         },
         None => Outcome {
             ok: false,
-            line: format!("{BOLD}~/.lean-ctx/{RST}  {RED}could not resolve home directory{RST}"),
+            line: format!("{BOLD}~/.nebula-ctx/{RST}  {RED}could not resolve home directory{RST}"),
         },
     };
     print_check(&dir_outcome);
@@ -889,8 +889,8 @@ fn claude_truncation_outcome() -> Option<Outcome> {
         return None;
     }
 
-    let rules_path = crate::core::editor_registry::claude_rules_dir(&home).join("lean-ctx.md");
-    let skill_path = home.join(".claude/skills/lean-ctx/SKILL.md");
+    let rules_path = crate::core::editor_registry::claude_rules_dir(&home).join("nebula-ctx.md");
+    let skill_path = home.join(".claude/skills/nebula-ctx/SKILL.md");
 
     let has_rules = rules_path.exists();
     let has_skill = skill_path.exists();
@@ -913,7 +913,7 @@ fn claude_truncation_outcome() -> Option<Outcome> {
         Some(Outcome {
             ok: false,
             line: format!(
-                "{BOLD}Claude Code instructions{RST}  {YELLOW}MCP instructions truncated at 2048 chars, no rules file found{RST}  {DIM}(run: lean-ctx init --agent claude){RST}"
+                "{BOLD}Claude Code instructions{RST}  {YELLOW}MCP instructions truncated at 2048 chars, no rules file found{RST}  {DIM}(run: nebula-ctx init --agent claude){RST}"
             ),
         })
     }
@@ -931,8 +931,8 @@ pub fn run_cli(args: &[String]) -> i32 {
 
     if help {
         println!("Usage:");
-        println!("  lean-ctx doctor");
-        println!("  lean-ctx doctor --fix [--json]");
+        println!("  nebula-ctx doctor");
+        println!("  nebula-ctx doctor --fix [--json]");
         return 0;
     }
 
@@ -1162,10 +1162,10 @@ pub fn compact_score() -> (u32, u32) {
     let mut passed = 0u32;
     let total = 5u32;
 
-    if resolve_lean_ctx_binary().is_some() || path_in_path_env() {
+    if resolve_nebula_ctx_binary().is_some() || path_in_path_env() {
         passed += 1;
     }
-    let lean_dir = dirs::home_dir().map(|h| h.join(".lean-ctx"));
+    let lean_dir = dirs::home_dir().map(|h| h.join(".nebula-ctx"));
     if lean_dir.as_ref().is_some_and(|p| p.is_dir()) {
         passed += 1;
     }
@@ -1191,7 +1191,7 @@ fn print_compact_status(passed: u32, total: u32) {
     let status = if passed == total {
         format!("{GREEN}✓ All {total} checks passed{RST}")
     } else {
-        format!("{YELLOW}{passed}/{total} passed{RST} — run {BOLD}lean-ctx doctor{RST} for details")
+        format!("{YELLOW}{passed}/{total} passed{RST} — run {BOLD}nebula-ctx doctor{RST} for details")
     };
     println!("  {status}");
 }

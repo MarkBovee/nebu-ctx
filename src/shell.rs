@@ -77,7 +77,7 @@ fn exec_inherit(command: &str, shell: &str, shell_flag: &str) -> i32 {
     match status {
         Ok(s) => s.code().unwrap_or(1),
         Err(e) => {
-            eprintln!("lean-ctx: failed to execute: {e}");
+            eprintln!("nebula-ctx: failed to execute: {e}");
             127
         }
     }
@@ -116,7 +116,7 @@ fn exec_buffered(command: &str, shell: &str, shell_flag: &str, cfg: &config::Con
     let child = match child {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("lean-ctx: failed to execute: {e}");
+            eprintln!("nebula-ctx: failed to execute: {e}");
             return 127;
         }
     };
@@ -124,7 +124,7 @@ fn exec_buffered(command: &str, shell: &str, shell_flag: &str, cfg: &config::Con
     let output = match child.wait_with_output() {
         Ok(o) => o,
         Err(e) => {
-            eprintln!("lean-ctx: failed to wait: {e}");
+            eprintln!("nebula-ctx: failed to wait: {e}");
             return 127;
         }
     };
@@ -154,7 +154,7 @@ fn exec_buffered(command: &str, shell: &str, shell_flag: &str, cfg: &config::Con
     };
     if should_tee {
         if let Some(path) = save_tee(command, &full_output) {
-            eprintln!("[lean-ctx: full output -> {path} (redacted, 24h TTL)]");
+            eprintln!("[nebula-ctx: full output -> {path} (redacted, 24h TTL)]");
         }
     }
 
@@ -328,7 +328,7 @@ pub fn interactive() {
     let real_shell = detect_shell();
 
     eprintln!(
-        "lean-ctx shell v{} (wrapping {real_shell})",
+        "nebula-ctx shell v{} (wrapping {real_shell})",
         env!("CARGO_PKG_VERSION")
     );
     eprintln!("All command output is automatically compressed.");
@@ -338,7 +338,7 @@ pub fn interactive() {
     let mut stdout = io::stdout();
 
     loop {
-        let _ = write!(stdout, "lean-ctx> ");
+        let _ = write!(stdout, "nebula-ctx> ");
         let _ = stdout.flush();
 
         let mut line = String::new();
@@ -383,9 +383,9 @@ fn compress_and_measure(command: &str, stdout: &str, stderr: &str) -> (String, u
         result.push_str(&compressed_stderr);
     }
 
-    // Count tokens on content BEFORE the [lean-ctx: ...] footer to avoid
+    // Count tokens on content BEFORE the [nebula-ctx: ...] footer to avoid
     // counting the annotation overhead against savings.
-    let content_for_counting = if let Some(pos) = result.rfind("\n[lean-ctx: ") {
+    let content_for_counting = if let Some(pos) = result.rfind("\n[nebula-ctx: ") {
         &result[..pos]
     } else {
         &result
@@ -419,7 +419,7 @@ fn compress_if_beneficial(command: &str, output: &str) -> String {
                 let pct = (saved as f64 / original_tokens as f64 * 100.0).round() as usize;
                 if pct >= 5 {
                     return format!(
-                        "{compressed}\n[lean-ctx: {original_tokens}→{compressed_tokens} tok, -{pct}%]"
+                        "{compressed}\n[nebula-ctx: {original_tokens}→{compressed_tokens} tok, -{pct}%]"
                     );
                 }
                 return compressed;
@@ -451,7 +451,7 @@ fn compress_if_beneficial(command: &str, output: &str) -> String {
                 let pct = (saved as f64 / original_tokens as f64 * 100.0).round() as usize;
                 if pct >= 5 {
                     return format!(
-                        "{compressed}\n[lean-ctx: {original_tokens}→{ct} tok, -{pct}%]"
+                        "{compressed}\n[nebula-ctx: {original_tokens}→{ct} tok, -{pct}%]"
                     );
                 }
                 return compressed;
@@ -462,7 +462,7 @@ fn compress_if_beneficial(command: &str, output: &str) -> String {
             let pct = (saved as f64 / original_tokens as f64 * 100.0).round() as usize;
             if pct >= 5 {
                 return format!(
-                    "{cleaned}\n[lean-ctx: {original_tokens}→{cleaned_tokens} tok, -{pct}%]"
+                    "{cleaned}\n[nebula-ctx: {original_tokens}→{cleaned_tokens} tok, -{pct}%]"
                 );
             }
             return cleaned;
@@ -485,7 +485,7 @@ fn compress_if_beneficial(command: &str, output: &str) -> String {
             let pct = (saved as f64 / original_tokens as f64 * 100.0).round() as usize;
             if pct >= 5 {
                 return format!(
-                    "{compressed}\n[lean-ctx: {original_tokens}→{compressed_tokens} tok, -{pct}%]"
+                    "{compressed}\n[nebula-ctx: {original_tokens}→{compressed_tokens} tok, -{pct}%]"
                 );
             }
             return compressed;
@@ -505,7 +505,7 @@ fn windows_shell_flag_for_exe_basename(exe_basename: &str) -> &'static str {
     } else {
         // POSIX-style shells: Git Bash / MSYS (`bash`, `sh`, `zsh`, `fish`, …).
         // `/C` is only valid for `cmd.exe`; using it with bash produced
-        // `/C: Is a directory` and exit 126 (see github.com/yvgude/lean-ctx/issues/7).
+        // `/C: Is a directory` and exit 126 (see github.com/yvgude/nebula-ctx/issues/7).
         "-c"
     }
 }
@@ -536,7 +536,7 @@ fn detect_shell() -> String {
             .and_then(|n| n.to_str())
             .unwrap_or("sh");
 
-        if bin == "lean-ctx" {
+        if bin == "nebula-ctx" {
             return find_real_shell();
         }
         return shell;
@@ -593,7 +593,7 @@ fn which_powershell() -> Result<String, ()> {
 }
 
 pub fn save_tee(command: &str, output: &str) -> Option<String> {
-    let tee_dir = dirs::home_dir()?.join(".lean-ctx").join("tee");
+    let tee_dir = dirs::home_dir()?.join(".nebula-ctx").join("tee");
     std::fs::create_dir_all(&tee_dir).ok()?;
 
     cleanup_old_tee_logs(&tee_dir);

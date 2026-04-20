@@ -3,13 +3,13 @@ use serde_json::json;
 #[tokio::test]
 #[allow(clippy::await_holding_lock)]
 async fn ctx_feedback_record_report_reset() {
-    let _g = lean_ctx::core::data_dir::test_env_lock();
+    let _g = nebula_ctx::core::data_dir::test_env_lock();
     let dir = tempfile::tempdir().expect("tempdir");
     let data_dir = dir.path().join("data");
     std::fs::create_dir_all(&data_dir).expect("create data dir");
 
     std::env::set_var("LEAN_CTX_DATA_DIR", &data_dir);
-    let engine = lean_ctx::engine::ContextEngine::with_project_root(dir.path());
+    let engine = nebula_ctx::engine::ContextEngine::with_project_root(dir.path());
 
     let _ = engine
         .call_tool_text("ctx_feedback", Some(json!({"action":"reset"})))

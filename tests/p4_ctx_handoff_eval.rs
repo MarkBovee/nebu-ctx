@@ -12,7 +12,7 @@ fn extract_path(s: &str) -> String {
 #[tokio::test]
 #[allow(clippy::await_holding_lock)]
 async fn ctx_handoff_create_show_list_pull_clear() {
-    let _g = lean_ctx::core::data_dir::test_env_lock();
+    let _g = nebula_ctx::core::data_dir::test_env_lock();
     let dir = tempfile::tempdir().expect("tempdir");
     let data_dir = dir.path().join("data");
     std::fs::create_dir_all(&data_dir).expect("create data dir");
@@ -22,7 +22,7 @@ async fn ctx_handoff_create_show_list_pull_clear() {
     let file = project.path().join("a.rs");
     std::fs::write(&file, "pub fn a() {}\n").expect("write file");
 
-    let engine = lean_ctx::engine::ContextEngine::with_project_root(project.path());
+    let engine = nebula_ctx::engine::ContextEngine::with_project_root(project.path());
 
     // Establish project_root in session + create some context.
     let _ = engine
@@ -74,7 +74,7 @@ async fn ctx_handoff_create_show_list_pull_clear() {
     assert!(shown.contains("\"manifest_md5\""), "show: {shown}");
 
     // Pull into a new engine instance (fresh in-memory state).
-    let engine2 = lean_ctx::engine::ContextEngine::with_project_root(project.path());
+    let engine2 = nebula_ctx::engine::ContextEngine::with_project_root(project.path());
     let pulled = engine2
         .call_tool_text(
             "ctx_handoff",

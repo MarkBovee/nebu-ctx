@@ -676,7 +676,7 @@ impl SessionState {
             fn has_marker(dir: &std::path::Path) -> bool {
                 const MARKERS: &[&str] = &[
                     ".git",
-                    ".lean-ctx.toml",
+                    ".nebula-ctx.toml",
                     "Cargo.toml",
                     "package.json",
                     "go.mod",
@@ -794,7 +794,7 @@ pub struct SessionSummary {
 }
 
 fn sessions_dir() -> Option<PathBuf> {
-    crate::core::data_dir::lean_ctx_data_dir()
+    crate::core::data_dir::nebula_ctx_data_dir()
         .ok()
         .map(|d| d.join("sessions"))
 }

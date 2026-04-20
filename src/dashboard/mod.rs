@@ -28,7 +28,7 @@ pub async fn start(port: Option<u16>, host: Option<String>) {
     // Avoid accidental multiple dashboard instances (common source of "it hangs").
     // Only safe to auto-detect for local dashboards without auth.
     if is_local && dashboard_responding(&host, port) {
-        println!("\n  lean-ctx dashboard already running → http://{host}:{port}");
+        println!("\n  nebula-ctx dashboard already running → http://{host}:{port}");
         println!("  Tip: use Ctrl+C in the existing terminal to stop it.\n");
         open_browser(&format!("http://localhost:{port}"));
         return;
@@ -59,15 +59,15 @@ pub async fn start(port: Option<u16>, host: Option<String>) {
         }
     };
 
-    let stats_path = crate::core::data_dir::lean_ctx_data_dir()
+    let stats_path = crate::core::data_dir::nebula_ctx_data_dir()
         .map(|d| d.join("stats.json").display().to_string())
-        .unwrap_or_else(|_| "~/.lean-ctx/stats.json".to_string());
+        .unwrap_or_else(|_| "~/.nebula-ctx/stats.json".to_string());
 
     if host == "0.0.0.0" {
-        println!("\n  lean-ctx dashboard → http://0.0.0.0:{port} (all interfaces)");
+        println!("\n  nebula-ctx dashboard → http://0.0.0.0:{port} (all interfaces)");
         println!("  Local access:  http://localhost:{port}");
     } else {
-        println!("\n  lean-ctx dashboard → http://{host}:{port}");
+        println!("\n  nebula-ctx dashboard → http://{host}:{port}");
     }
     println!("  Stats file: {stats_path}");
     println!("  Press Ctrl+C to stop\n");
@@ -77,7 +77,7 @@ pub async fn start(port: Option<u16>, host: Option<String>) {
     }
     if crate::shell::is_container() && is_local {
         println!("  Tip (Docker): bind 0.0.0.0 + publish port:");
-        println!("    lean-ctx dashboard --host=0.0.0.0 --port={port}");
+        println!("    nebula-ctx dashboard --host=0.0.0.0 --port={port}");
         println!("    docker run ... -p {port}:{port} ...");
         println!();
     }
@@ -100,7 +100,7 @@ fn generate_token() -> String {
 }
 
 fn save_token(token: &str) {
-    if let Ok(dir) = crate::core::data_dir::lean_ctx_data_dir() {
+    if let Ok(dir) = crate::core::data_dir::nebula_ctx_data_dir() {
         let _ = std::fs::create_dir_all(&dir);
         let _ = std::fs::write(dir.join("dashboard.token"), token);
     }
@@ -272,7 +272,7 @@ fn route_response(
             ("200 OK", "application/json", json)
         }
         "/api/mcp" => {
-            let mcp_path = crate::core::data_dir::lean_ctx_data_dir()
+            let mcp_path = crate::core::data_dir::nebula_ctx_data_dir()
                 .map(|d| d.join("mcp-live.json"))
                 .unwrap_or_default();
             let json = std::fs::read_to_string(&mcp_path).unwrap_or_else(|_| "{}".to_string());
@@ -306,7 +306,7 @@ fn route_response(
             ("200 OK", "application/json", json)
         }
         "/api/pulse" => {
-            let stats_path = crate::core::data_dir::lean_ctx_data_dir()
+            let stats_path = crate::core::data_dir::nebula_ctx_data_dir()
                 .map(|d| d.join("stats.json"))
                 .unwrap_or_default();
             let meta = std::fs::metadata(&stats_path).ok();
@@ -549,7 +549,7 @@ fn route_response(
             ("200 OK", "application/json", json)
         }
         "/api/intent" => {
-            let session_path = crate::core::data_dir::lean_ctx_data_dir()
+            let session_path = crate::core::data_dir::nebula_ctx_data_dir()
                 .ok()
                 .map(|d| d.join("sessions"));
             let mut intent_data = serde_json::json!({"active": false});
@@ -894,8 +894,8 @@ fn build_agents_json() -> String {
 
     let pending_msgs = registry.scratchpad.len();
 
-    let shared_dir = crate::core::data_dir::lean_ctx_data_dir()
-        .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default().join(".lean-ctx"))
+    let shared_dir = crate::core::data_dir::nebula_ctx_data_dir()
+        .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default().join(".nebula-ctx"))
         .join("agents")
         .join("shared");
     let shared_count = if shared_dir.exists() {
@@ -974,7 +974,7 @@ fn is_real_project(path: &str) -> bool {
         "pom.xml",
         "build.gradle",
         "CMakeLists.txt",
-        ".lean-ctx.toml",
+        ".nebula-ctx.toml",
     ];
     MARKERS.iter().any(|m| p.join(m).exists())
 }

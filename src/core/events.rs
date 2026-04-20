@@ -109,7 +109,7 @@ fn bus() -> &'static EventBus {
 }
 
 fn jsonl_path() -> Option<std::path::PathBuf> {
-    crate::core::data_dir::lean_ctx_data_dir()
+    crate::core::data_dir::nebula_ctx_data_dir()
         .ok()
         .map(|d| d.join("events.jsonl"))
 }

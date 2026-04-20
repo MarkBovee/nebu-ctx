@@ -3,13 +3,13 @@ use serde_json::json;
 #[tokio::test]
 #[allow(clippy::await_holding_lock)]
 async fn ctx_feedback_updates_adaptive_mode_policy() {
-    let _g = lean_ctx::core::data_dir::test_env_lock();
+    let _g = nebula_ctx::core::data_dir::test_env_lock();
     let dir = tempfile::tempdir().expect("tempdir");
     let data_dir = dir.path().join("data");
     std::fs::create_dir_all(&data_dir).expect("create data dir");
     std::env::set_var("LEAN_CTX_DATA_DIR", &data_dir);
     assert_eq!(
-        lean_ctx::core::data_dir::lean_ctx_data_dir().expect("data dir"),
+        nebula_ctx::core::data_dir::nebula_ctx_data_dir().expect("data dir"),
         data_dir
     );
 
@@ -18,7 +18,7 @@ async fn ctx_feedback_updates_adaptive_mode_policy() {
     let payload = "{\"k\":\"v\"}\n".repeat(5000);
     std::fs::write(&file, payload).expect("write json");
 
-    let engine = lean_ctx::engine::ContextEngine::with_project_root(project.path());
+    let engine = nebula_ctx::engine::ContextEngine::with_project_root(project.path());
 
     let _ = engine
         .call_tool_text("ctx_feedback", Some(json!({"action":"reset"})))
@@ -63,7 +63,7 @@ async fn ctx_feedback_updates_adaptive_mode_policy() {
         "status: {status}"
     );
 
-    let policy_path = lean_ctx::core::data_dir::lean_ctx_data_dir()
+    let policy_path = nebula_ctx::core::data_dir::nebula_ctx_data_dir()
         .expect("data dir2")
         .join("adaptive_mode_policy.json");
     let raw = std::fs::read_to_string(&policy_path).expect("policy exists");

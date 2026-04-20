@@ -18,7 +18,7 @@ pub fn run_setup() {
 
     if crate::shell::is_non_interactive() {
         eprintln!("Non-interactive terminal detected (no TTY on stdin).");
-        eprintln!("Running in non-interactive mode (equivalent to: lean-ctx setup --non-interactive --yes)");
+        eprintln!("Running in non-interactive mode (equivalent to: nebula-ctx setup --non-interactive --yes)");
         eprintln!();
         let opts = SetupOptions {
             non_interactive: true,
@@ -106,7 +106,7 @@ pub fn run_setup() {
     let total_ok = newly_configured.len() + already_configured.len();
     if total_ok == 0 && errors.is_empty() {
         terminal_ui::print_status_warn(
-            "No AI tools detected. Install one and re-run: lean-ctx setup",
+            "No AI tools detected. Install one and re-run: nebula-ctx setup",
         );
     }
 
@@ -154,24 +154,24 @@ pub fn run_setup() {
     crate::proxy_setup::install_proxy_env(&home, crate::proxy_setup::default_port(), false);
     println!();
     println!("  \x1b[2mStart proxy for maximum token savings:\x1b[0m");
-    println!("    \x1b[1mlean-ctx proxy start\x1b[0m");
+    println!("    \x1b[1mnebula-ctx proxy start\x1b[0m");
     println!("  \x1b[2mEnable autostart:\x1b[0m");
-    println!("    \x1b[1mlean-ctx proxy start --autostart\x1b[0m");
+    println!("    \x1b[1mnebula-ctx proxy start --autostart\x1b[0m");
 
     // Step 5: Data directory + diagnostics
     terminal_ui::print_step_header(5, 6, "Environment Check");
-    let lean_dir = home.join(".lean-ctx");
+    let lean_dir = home.join(".nebula-ctx");
     if !lean_dir.exists() {
         let _ = std::fs::create_dir_all(&lean_dir);
-        terminal_ui::print_status_new("Created ~/.lean-ctx/");
+        terminal_ui::print_status_new("Created ~/.nebula-ctx/");
     } else {
-        terminal_ui::print_status_ok("~/.lean-ctx/ ready");
+        terminal_ui::print_status_ok("~/.nebula-ctx/ ready");
     }
     crate::doctor::run_compact();
 
     // Step 6: Data sharing
-    terminal_ui::print_step_header(6, 6, "Help Improve lean-ctx");
-    println!("  Share anonymous compression stats to make lean-ctx better.");
+    terminal_ui::print_step_header(6, 6, "Help Improve nebula-ctx");
+    println!("  Share anonymous compression stats to make nebula-ctx better.");
     println!("  \x1b[1mNo code, no file names, no personal data — ever.\x1b[0m");
     println!();
     print!("  Enable anonymous data sharing? \x1b[1m[Y/n]\x1b[0m ");
@@ -187,7 +187,7 @@ pub fn run_setup() {
     };
 
     if contribute {
-        let config_dir = home.join(".lean-ctx");
+        let config_dir = home.join(".nebula-ctx");
         let _ = std::fs::create_dir_all(&config_dir);
         let config_path = config_dir.join("config.toml");
         let mut config_content = std::fs::read_to_string(&config_path).unwrap_or_default();
@@ -200,7 +200,7 @@ pub fn run_setup() {
         }
         terminal_ui::print_status_ok("Enabled — thank you!");
     } else {
-        terminal_ui::print_status_skip("Skipped — enable later with: lean-ctx config");
+        terminal_ui::print_status_skip("Skipped — enable later with: nebula-ctx config");
     }
 
     // Summary
@@ -273,9 +273,9 @@ pub fn run_setup() {
 
     println!();
     println!(
-        "  {dim}After restart, lean-ctx will automatically optimize every AI interaction.{rst}"
+        "  {dim}After restart, nebula-ctx will automatically optimize every AI interaction.{rst}"
     );
-    println!("  {dim}Verify with:{rst} {bold}lean-ctx gain{rst}");
+    println!("  {dim}Verify with:{rst} {bold}nebula-ctx gain{rst}");
 
     // Logo + commands
     println!();
@@ -724,20 +724,20 @@ pub fn configure_agent_mcp(agent: &str) -> Result<(), String> {
 fn install_kiro_steering(home: &std::path::Path) {
     let cwd = std::env::current_dir().unwrap_or_else(|_| home.to_path_buf());
     let steering_dir = cwd.join(".kiro").join("steering");
-    let steering_file = steering_dir.join("lean-ctx.md");
+    let steering_file = steering_dir.join("nebula-ctx.md");
 
     if steering_file.exists()
         && std::fs::read_to_string(&steering_file)
             .unwrap_or_default()
-            .contains("lean-ctx")
+            .contains("nebula-ctx")
     {
-        println!("  Kiro steering file already exists at .kiro/steering/lean-ctx.md");
+        println!("  Kiro steering file already exists at .kiro/steering/nebula-ctx.md");
         return;
     }
 
     let _ = std::fs::create_dir_all(&steering_dir);
     let _ = std::fs::write(&steering_file, crate::hooks::KIRO_STEERING_TEMPLATE);
-    println!("  \x1b[32m✓\x1b[0m Created .kiro/steering/lean-ctx.md (Kiro will now prefer lean-ctx tools)");
+    println!("  \x1b[32m✓\x1b[0m Created .kiro/steering/nebula-ctx.md (Kiro will now prefer nebula-ctx tools)");
 }
 
 fn shorten_path(path: &str, home: &str) -> String {

@@ -3,7 +3,7 @@ use serde_json::json;
 #[tokio::test]
 #[allow(clippy::await_holding_lock)]
 async fn ctx_prefetch_warms_cache_for_full_read() {
-    let _g = lean_ctx::core::data_dir::test_env_lock();
+    let _g = nebula_ctx::core::data_dir::test_env_lock();
     let dir = tempfile::tempdir().expect("tempdir");
     let data_dir = dir.path().join("data");
     std::fs::create_dir_all(&data_dir).expect("create data dir");
@@ -15,7 +15,7 @@ async fn ctx_prefetch_warms_cache_for_full_read() {
     std::fs::write(&file_a, "mod b;\npub fn a() { b::b(); }\n").expect("write a");
     std::fs::write(&file_b, "pub fn b() {}\n").expect("write b");
 
-    let engine = lean_ctx::engine::ContextEngine::with_project_root(project.path());
+    let engine = nebula_ctx::engine::ContextEngine::with_project_root(project.path());
 
     let out = engine
         .call_tool_text(

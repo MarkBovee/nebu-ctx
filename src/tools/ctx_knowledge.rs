@@ -81,7 +81,7 @@ fn handle_embeddings_status(project_root: &str) -> String {
         .map(|i| i.entries.len())
         .unwrap_or(0);
 
-        let path = crate::core::data_dir::lean_ctx_data_dir()
+        let path = crate::core::data_dir::nebula_ctx_data_dir()
             .ok()
             .map(|d| {
                 d.join("knowledge")
@@ -572,7 +572,7 @@ fn handle_export(project_root: &str) -> String {
         Some(k) => k,
         None => return "No knowledge to export.".to_string(),
     };
-    let data_dir = match crate::core::data_dir::lean_ctx_data_dir() {
+    let data_dir = match crate::core::data_dir::nebula_ctx_data_dir() {
         Ok(d) => d,
         Err(e) => return format!("Export failed: {e}"),
     };
@@ -767,7 +767,7 @@ fn handle_search(query: Option<&str>) -> String {
         None => return "Error: query is required for search".to_string(),
     };
 
-    let data_dir = match crate::core::data_dir::lean_ctx_data_dir() {
+    let data_dir = match crate::core::data_dir::nebula_ctx_data_dir() {
         Ok(d) => d,
         Err(_) => return "Cannot determine data directory.".to_string(),
     };

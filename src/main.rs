@@ -1,14 +1,14 @@
 use anyhow::Result;
-use lean_ctx::{
+use nebula_ctx::{
     cli, cloud_client, core, dashboard, doctor, heatmap, hook_handlers, mcp_stdio, report, setup,
     shell, status, tools, tui, uninstall,
 };
 
 fn main() {
     std::panic::set_hook(Box::new(|info| {
-        eprintln!("lean-ctx: unexpected error (your command was not affected)");
-        eprintln!("  Disable temporarily: lean-ctx-off");
-        eprintln!("  Full uninstall:      lean-ctx uninstall");
+        eprintln!("nebula-ctx: unexpected error (your command was not affected)");
+        eprintln!("  Disable temporarily: nebula-ctx-off");
+        eprintln!("  Full uninstall:      nebula-ctx uninstall");
         if let Some(msg) = info.payload().downcast_ref::<&str>() {
             eprintln!("  Details: {msg}");
         } else if let Some(msg) = info.payload().downcast_ref::<String>() {
@@ -41,7 +41,7 @@ fn main() {
                 if raw {
                     std::env::set_var("LEAN_CTX_RAW", "1");
                 } else {
-                    // `lean-ctx -c` is explicitly documented as "Execute with compressed output".
+                    // `nebula-ctx -c` is explicitly documented as "Execute with compressed output".
                     // Force buffered compression even when stdout is a TTY (fixes #100).
                     std::env::set_var("LEAN_CTX_COMPRESS", "1");
                 }
@@ -179,7 +179,7 @@ fn main() {
                 return;
             }
             "token-report" | "report-tokens" => {
-                let code = lean_ctx::token_report::run_cli(&rest);
+                let code = nebula_ctx::token_report::run_cli(&rest);
                 if code != 0 {
                     std::process::exit(code);
                 }
@@ -211,7 +211,7 @@ fn main() {
             "serve" => {
                 #[cfg(feature = "http-server")]
                 {
-                    let mut cfg = lean_ctx::http_server::HttpServerConfig::default();
+                    let mut cfg = nebula_ctx::http_server::HttpServerConfig::default();
                     let mut i = 0;
                     while i < rest.len() {
                         match rest[i].as_str() {
@@ -338,7 +338,7 @@ fn main() {
                             }
                             "--help" | "-h" => {
                                 eprintln!(
-                                    "Usage: lean-ctx serve [--host H] [--port N] [--project-root DIR]\\n\\
+                                    "Usage: nebula-ctx serve [--host H] [--port N] [--project-root DIR]\\n\\
                                      \\n\\
                                      Options:\\n\\
                                        --host, -H            Bind host (default: 127.0.0.1)\\n\\
@@ -370,7 +370,7 @@ fn main() {
                         }
                     }
 
-                    if let Err(e) = run_async(lean_ctx::http_server::serve(cfg)) {
+                    if let Err(e) = run_async(nebula_ctx::http_server::serve(cfg)) {
                         eprintln!("HTTP server error: {e}");
                         std::process::exit(1);
                     }
@@ -378,7 +378,7 @@ fn main() {
                 }
                 #[cfg(not(feature = "http-server"))]
                 {
-                    eprintln!("lean-ctx serve is not available in this build");
+                    eprintln!("nebula-ctx serve is not available in this build");
                     std::process::exit(1);
                 }
             }
@@ -404,10 +404,10 @@ fn main() {
                                 .unwrap_or(4444);
                             let autostart = rest.iter().any(|a| a == "--autostart");
                             if autostart {
-                                lean_ctx::proxy_autostart::install(port, false);
+                                nebula_ctx::proxy_autostart::install(port, false);
                                 return;
                             }
-                            if let Err(e) = run_async(lean_ctx::proxy::start_proxy(port)) {
+                            if let Err(e) = run_async(nebula_ctx::proxy::start_proxy(port)) {
                                 eprintln!("Proxy error: {e}");
                                 std::process::exit(1);
                             }
@@ -442,7 +442,7 @@ fn main() {
                                         resp.into_body().read_to_string().unwrap_or_default();
                                     if let Ok(v) = serde_json::from_str::<serde_json::Value>(&body)
                                     {
-                                        println!("lean-ctx proxy status:");
+                                        println!("nebula-ctx proxy status:");
                                         println!("  Requests:    {}", v["requests_total"]);
                                         println!("  Compressed:  {}", v["requests_compressed"]);
                                         println!("  Tokens saved: {}", v["tokens_saved"]);
@@ -456,19 +456,19 @@ fn main() {
                                 }
                                 Err(_) => {
                                     println!("No proxy running on port {port}.");
-                                    println!("Start with: lean-ctx proxy start");
+                                    println!("Start with: nebula-ctx proxy start");
                                 }
                             }
                         }
                         _ => {
-                            println!("Usage: lean-ctx proxy <start|stop|status> [--port=4444]");
+                            println!("Usage: nebula-ctx proxy <start|stop|status> [--port=4444]");
                         }
                     }
                     return;
                 }
                 #[cfg(not(feature = "http-server"))]
                 {
-                    eprintln!("lean-ctx proxy is not available in this build");
+                    eprintln!("nebula-ctx proxy is not available in this build");
                     std::process::exit(1);
                 }
             }
@@ -611,7 +611,7 @@ fn main() {
                         );
                     }
                     _ => {
-                        eprintln!("Usage: lean-ctx graph [build] [path]");
+                        eprintln!("Usage: nebula-ctx graph [build] [path]");
                     }
                 }
                 return;
@@ -683,7 +683,7 @@ fn main() {
                     "copilot" => hook_handlers::handle_copilot(),
                     "rewrite-inline" => hook_handlers::handle_rewrite_inline(),
                     _ => {
-                        eprintln!("Usage: lean-ctx hook <rewrite|redirect|copilot|rewrite-inline>");
+                        eprintln!("Usage: nebula-ctx hook <rewrite|redirect|copilot|rewrite-inline>");
                         eprintln!("  Internal commands used by agent hooks (Claude, Cursor, Copilot, etc.)");
                         std::process::exit(1);
                     }
@@ -734,7 +734,7 @@ fn main() {
                 // fall through to MCP server startup below
             }
             _ => {
-                eprintln!("lean-ctx: unknown command '{}'\n", args[1]);
+                eprintln!("nebula-ctx: unknown command '{}'\n", args[1]);
                 print_help();
                 std::process::exit(1);
             }
@@ -742,7 +742,7 @@ fn main() {
     }
 
     if let Err(e) = run_mcp_server() {
-        eprintln!("lean-ctx: {e}");
+        eprintln!("nebula-ctx: {e}");
         std::process::exit(1);
     }
 }
@@ -779,7 +779,7 @@ fn run_mcp_server() -> Result<()> {
             .init();
 
         tracing::info!(
-            "lean-ctx v{} MCP server starting",
+            "nebula-ctx v{} MCP server starting",
             env!("CARGO_PKG_VERSION")
         );
 
@@ -799,18 +799,18 @@ fn run_mcp_server() -> Result<()> {
 
 fn print_help() {
     println!(
-        "lean-ctx {version} — Context Runtime for AI Agents
+        "nebula-ctx {version} — Context Runtime for AI Agents
 
 90+ compression patterns | 46 MCP tools | Context Continuity Protocol
 
 USAGE:
-    lean-ctx                       Start MCP server (stdio)
-    lean-ctx serve                 Start MCP server (Streamable HTTP)
-    lean-ctx -t \"command\"          Track command (full output + stats, no compression)
-    lean-ctx -c \"command\"          Execute with compressed output (used by AI hooks)
-    lean-ctx -c --raw \"command\"    Execute without compression (full output)
-    lean-ctx exec \"command\"        Same as -c
-    lean-ctx shell                 Interactive shell with compression
+    nebula-ctx                       Start MCP server (stdio)
+    nebula-ctx serve                 Start MCP server (Streamable HTTP)
+    nebula-ctx -t \"command\"          Track command (full output + stats, no compression)
+    nebula-ctx -c \"command\"          Execute with compressed output (used by AI hooks)
+    nebula-ctx -c --raw \"command\"    Execute without compression (full output)
+    nebula-ctx exec \"command\"        Same as -c
+    nebula-ctx shell                 Interactive shell with compression
 
 COMMANDS:
     gain                           Visual dashboard (colors, bars, sparklines, USD)
@@ -827,7 +827,7 @@ COMMANDS:
     proxy status                   Show proxy statistics
     cache [list|clear|stats]       Show/manage file read cache
     wrapped [--week|--month|--all] Savings report card (shareable)
-    sessions [list|show|cleanup]   Manage CCP sessions (~/.lean-ctx/sessions/)
+    sessions [list|show|cleanup]   Manage CCP sessions (~/.nebula-ctx/sessions/)
     benchmark run [path] [--json]  Run real benchmark on project files
     benchmark report [path]        Generate shareable Markdown report
     cheatsheet                     Command cheat sheet & workflow quick reference
@@ -843,13 +843,13 @@ COMMANDS:
     ls [path]                      Directory listing with compression
     deps [path]                    Show project dependencies
     discover                       Find uncompressed commands in shell history
-    filter [list|validate|init]    Manage custom compression filters (~/.lean-ctx/filters/)
+    filter [list|validate|init]    Manage custom compression filters (~/.nebula-ctx/filters/)
     session                        Show adoption statistics
-    config                         Show/edit configuration (~/.lean-ctx/config.toml)
+    config                         Show/edit configuration (~/.nebula-ctx/config.toml)
     theme [list|set|export|import] Customize terminal colors and themes
-    tee [list|clear|show <file>|last] Manage output tee files (~/.lean-ctx/tee/)
-    slow-log [list|clear]          Show/clear slow command log (~/.lean-ctx/slow-commands.log)
-    update [--check]               Self-update lean-ctx binary from GitHub Releases
+    tee [list|clear|show <file>|last] Manage output tee files (~/.nebula-ctx/tee/)
+    slow-log [list|clear]          Show/clear slow command log (~/.nebula-ctx/slow-commands.log)
+    update [--check]               Self-update nebula-ctx binary from GitHub Releases
     gotchas [list|clear|export|stats] Bug Memory: view/manage auto-detected error patterns
     buddy [show|stats|ascii|json]  Token Guardian: your data-driven coding companion
     doctor [--fix] [--json]        Run diagnostics (and optionally repair)
@@ -886,7 +886,7 @@ READ MODES:
 
 ENVIRONMENT:
     LEAN_CTX_DISABLED=1            Bypass ALL compression + prevent shell hook from loading
-    LEAN_CTX_ENABLED=0             Prevent shell hook auto-start (lean-ctx-on still works)
+    LEAN_CTX_ENABLED=0             Prevent shell hook auto-start (nebula-ctx-on still works)
     LEAN_CTX_RAW=1                 Same as --raw for current command
     LEAN_CTX_AUTONOMY=false        Disable autonomous features
     LEAN_CTX_COMPRESS=1            Force compression (even for excluded commands)
@@ -896,38 +896,38 @@ OPTIONS:
     --help, -h                     Show this help
 
 EXAMPLES:
-    lean-ctx -c \"git status\"       Compressed git output
-    lean-ctx -c \"kubectl get pods\" Compressed k8s output
-    lean-ctx -c \"gh pr list\"       Compressed GitHub CLI output
-    lean-ctx gain                  Visual terminal dashboard
-    lean-ctx gain --live           Live auto-updating terminal dashboard
-    lean-ctx gain --graph          30-day savings chart
-    lean-ctx gain --daily          Day-by-day breakdown with USD
-         lean-ctx token-report --json   Machine-readable token + memory report
-    lean-ctx dashboard             Open web dashboard at localhost:3333
-    lean-ctx dashboard --host=0.0.0.0  Bind to all interfaces (remote access)
-    lean-ctx wrapped               Weekly savings report card
-    lean-ctx wrapped --month       Monthly savings report card
-    lean-ctx sessions list         List all CCP sessions
-    lean-ctx sessions show         Show latest session state
-    lean-ctx discover              Find missed savings in shell history
-    lean-ctx setup                 One-command setup (shell + editors + verify)
-    lean-ctx bootstrap             Non-interactive setup + fix (zero-config)
-    lean-ctx bootstrap --json      Machine-readable bootstrap report
-    lean-ctx init --global         Install shell aliases (includes lean-ctx-on/off/mode/status)
-    lean-ctx-on                    Enable shell aliases in track mode (full output + stats)
-    lean-ctx-off                   Disable all shell aliases
-    lean-ctx-mode track            Track mode: full output, stats recorded (default)
-    lean-ctx-mode compress         Compress mode: all output compressed (power users)
-    lean-ctx-mode off              Same as lean-ctx-off
-    lean-ctx-status                Show whether compression is active
-    lean-ctx init --agent pi       Install Pi Coding Agent extension
-    lean-ctx doctor                Check PATH, config, MCP, and dashboard port
-    lean-ctx doctor --fix --json   Repair + machine-readable report
-    lean-ctx status --json         Machine-readable current status
-    lean-ctx read src/main.rs -m map
-    lean-ctx grep \"pub fn\" src/
-    lean-ctx deps .
+    nebula-ctx -c \"git status\"       Compressed git output
+    nebula-ctx -c \"kubectl get pods\" Compressed k8s output
+    nebula-ctx -c \"gh pr list\"       Compressed GitHub CLI output
+    nebula-ctx gain                  Visual terminal dashboard
+    nebula-ctx gain --live           Live auto-updating terminal dashboard
+    nebula-ctx gain --graph          30-day savings chart
+    nebula-ctx gain --daily          Day-by-day breakdown with USD
+         nebula-ctx token-report --json   Machine-readable token + memory report
+    nebula-ctx dashboard             Open web dashboard at localhost:3333
+    nebula-ctx dashboard --host=0.0.0.0  Bind to all interfaces (remote access)
+    nebula-ctx wrapped               Weekly savings report card
+    nebula-ctx wrapped --month       Monthly savings report card
+    nebula-ctx sessions list         List all CCP sessions
+    nebula-ctx sessions show         Show latest session state
+    nebula-ctx discover              Find missed savings in shell history
+    nebula-ctx setup                 One-command setup (shell + editors + verify)
+    nebula-ctx bootstrap             Non-interactive setup + fix (zero-config)
+    nebula-ctx bootstrap --json      Machine-readable bootstrap report
+    nebula-ctx init --global         Install shell aliases (includes nebula-ctx-on/off/mode/status)
+    nebula-ctx-on                    Enable shell aliases in track mode (full output + stats)
+    nebula-ctx-off                   Disable all shell aliases
+    nebula-ctx-mode track            Track mode: full output, stats recorded (default)
+    nebula-ctx-mode compress         Compress mode: all output compressed (power users)
+    nebula-ctx-mode off              Same as nebula-ctx-off
+    nebula-ctx-status                Show whether compression is active
+    nebula-ctx init --agent pi       Install Pi Coding Agent extension
+    nebula-ctx doctor                Check PATH, config, MCP, and dashboard port
+    nebula-ctx doctor --fix --json   Repair + machine-readable report
+    nebula-ctx status --json         Machine-readable current status
+    nebula-ctx read src/main.rs -m map
+    nebula-ctx grep \"pub fn\" src/
+    nebula-ctx deps .
 
 CLOUD:
     cloud status                   Show cloud connection status
@@ -936,14 +936,14 @@ CLOUD:
     contribute                     Share anonymized compression data
 
 TROUBLESHOOTING:
-    Commands broken?     lean-ctx-off             (fixes current session)
-    Permanent fix?       lean-ctx uninstall       (removes all hooks)
-    Manual fix?          Edit ~/.zshrc, remove the \"lean-ctx shell hook\" block
+    Commands broken?     nebula-ctx-off             (fixes current session)
+    Permanent fix?       nebula-ctx uninstall       (removes all hooks)
+    Manual fix?          Edit ~/.zshrc, remove the \"nebula-ctx shell hook\" block
     Binary missing?      Aliases auto-fallback to original commands (safe)
-    Preview init?        lean-ctx init --global --dry-run
+    Preview init?        nebula-ctx init --global --dry-run
 
 WEBSITE: https://leanctx.com
-GITHUB:  https://github.com/yvgude/lean-ctx
+GITHUB:  https://github.com/yvgude/nebula-ctx
 ",
         version = env!("CARGO_PKG_VERSION"),
     );
@@ -971,7 +971,7 @@ fn cmd_login(args: &[String]) {
     }
 
     if email.is_empty() {
-        eprintln!("Usage: lean-ctx login <email> [--password <password>]");
+        eprintln!("Usage: nebula-ctx login <email> [--password <password>]");
         std::process::exit(1);
     }
 
@@ -1022,7 +1022,7 @@ fn cmd_login(args: &[String]) {
                 let _ = cloud_client::save_plan(&plan);
             }
             println!("Logged in as {email}");
-            println!("API key saved to ~/.lean-ctx/cloud/credentials.json");
+            println!("API key saved to ~/.nebula-ctx/cloud/credentials.json");
             if r.verification_sent {
                 println!("Verification email sent — please check your inbox.");
             }
@@ -1039,7 +1039,7 @@ fn cmd_login(args: &[String]) {
 
 fn cmd_sync() {
     if !cloud_client::is_logged_in() {
-        eprintln!("Not logged in. Run: lean-ctx login <email>");
+        eprintln!("Not logged in. Run: nebula-ctx login <email>");
         std::process::exit(1);
     }
 
@@ -1126,7 +1126,7 @@ fn cmd_sync() {
 }
 
 fn build_sync_entries(store: &core::stats::StatsStore) -> Vec<serde_json::Value> {
-    lean_ctx::cloud_sync::build_sync_entries(store)
+    nebula_ctx::cloud_sync::build_sync_entries(store)
 }
 
 fn collect_knowledge_entries() -> Vec<serde_json::Value> {
@@ -1134,7 +1134,7 @@ fn collect_knowledge_entries() -> Vec<serde_json::Value> {
         Some(h) => h,
         None => return Vec::new(),
     };
-    let knowledge_dir = home.join(".lean-ctx").join("knowledge");
+    let knowledge_dir = home.join(".nebula-ctx").join("knowledge");
     if !knowledge_dir.is_dir() {
         return Vec::new();
     }
@@ -1259,7 +1259,7 @@ fn collect_gotcha_entries() -> Vec<serde_json::Value> {
     let mut all_gotchas = core::gotcha_tracker::load_universal_gotchas();
 
     if let Some(home) = dirs::home_dir() {
-        let knowledge_dir = home.join(".lean-ctx").join("knowledge");
+        let knowledge_dir = home.join(".nebula-ctx").join("knowledge");
         if let Ok(entries) = std::fs::read_dir(&knowledge_dir) {
             for entry in entries.flatten() {
                 let gotcha_path = entry.path().join("gotchas.json");
@@ -1321,7 +1321,7 @@ fn cmd_contribute() {
 
     // Try mode_stats.json first (per-extension, per-size-bucket data from ModePredictor)
     if let Some(home) = dirs::home_dir() {
-        let mode_stats_path = home.join(".lean-ctx").join("mode_stats.json");
+        let mode_stats_path = home.join(".nebula-ctx").join("mode_stats.json");
         if let Ok(data) = std::fs::read_to_string(&mode_stats_path) {
             if let Ok(predictor) = serde_json::from_str::<serde_json::Value>(&data) {
                 if let Some(history) = predictor["history"].as_object() {
@@ -1395,7 +1395,7 @@ fn cmd_contribute() {
     }
 
     if entries.is_empty() {
-        println!("No compression data to contribute yet. Use lean-ctx for a while first.");
+        println!("No compression data to contribute yet. Use nebula-ctx for a while first.");
         return;
     }
 
@@ -1443,11 +1443,11 @@ fn cmd_cloud(args: &[String]) {
                 println!("Connected to LeanCTX Cloud.");
             } else {
                 println!("Not connected to LeanCTX Cloud.");
-                println!("Get started: lean-ctx login <email>");
+                println!("Get started: nebula-ctx login <email>");
             }
         }
         _ => {
-            println!("Usage: lean-ctx cloud <command>");
+            println!("Usage: nebula-ctx cloud <command>");
             println!("  pull-models — Update adaptive compression models");
             println!("  status      — Show cloud connection status");
         }
@@ -1497,7 +1497,7 @@ fn cmd_gotchas(args: &[String]) {
             println!("  Session logs:        {}", store.error_log.len());
         }
         _ => {
-            println!("Usage: lean-ctx gotchas [list|clear|export|stats]");
+            println!("Usage: nebula-ctx gotchas [list|clear|export|stats]");
         }
     }
 }
@@ -1505,7 +1505,7 @@ fn cmd_gotchas(args: &[String]) {
 fn cmd_buddy(args: &[String]) {
     let cfg = core::config::Config::load();
     if !cfg.buddy_enabled {
-        println!("Buddy is disabled. Enable with: lean-ctx config buddy_enabled true");
+        println!("Buddy is disabled. Enable with: nebula-ctx config buddy_enabled true");
         return;
     }
 
@@ -1530,12 +1530,12 @@ fn cmd_buddy(args: &[String]) {
             Err(e) => eprintln!("JSON error: {e}"),
         },
         _ => {
-            println!("Usage: lean-ctx buddy [show|stats|ascii|json]");
+            println!("Usage: nebula-ctx buddy [show|stats|ascii|json]");
         }
     }
 }
 
 fn cmd_upgrade() {
-    println!("'upgrade' has been renamed to 'update'. Running 'lean-ctx update' instead.\n");
+    println!("'upgrade' has been renamed to 'update'. Running 'nebula-ctx update' instead.\n");
     core::updater::run(&[]);
 }

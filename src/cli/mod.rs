@@ -22,7 +22,7 @@ use crate::hooks::to_bash_compatible_path;
 pub fn cmd_read(args: &[String]) {
     if args.is_empty() {
         eprintln!(
-            "Usage: lean-ctx read <file> [--mode full|map|signatures|aggressive|entropy] [--fresh]"
+            "Usage: nebula-ctx read <file> [--mode full|map|signatures|aggressive|entropy] [--fresh]"
         );
         std::process::exit(1);
     }
@@ -148,7 +148,7 @@ pub fn cmd_read(args: &[String]) {
 
 pub fn cmd_diff(args: &[String]) {
     if args.len() < 2 {
-        eprintln!("Usage: lean-ctx diff <file1> <file2>");
+        eprintln!("Usage: nebula-ctx diff <file1> <file2>");
         std::process::exit(1);
     }
 
@@ -183,7 +183,7 @@ pub fn cmd_diff(args: &[String]) {
 
 pub fn cmd_grep(args: &[String]) {
     if args.is_empty() {
-        eprintln!("Usage: lean-ctx grep <pattern> [path]");
+        eprintln!("Usage: nebula-ctx grep <pattern> [path]");
         std::process::exit(1);
     }
 
@@ -229,7 +229,7 @@ pub fn cmd_grep(args: &[String]) {
 
 pub fn cmd_find(args: &[String]) {
     if args.is_empty() {
-        eprintln!("Usage: lean-ctx find <pattern> [path]");
+        eprintln!("Usage: nebula-ctx find <pattern> [path]");
         std::process::exit(1);
     }
 
@@ -338,7 +338,7 @@ pub fn cmd_session() {
 
     for line in &history {
         let cmd = line.trim().to_lowercase();
-        if cmd.starts_with("lean-ctx") {
+        if cmd.starts_with("nebula-ctx") {
             via_hook += 1;
             total += 1;
         } else {
@@ -357,7 +357,7 @@ pub fn cmd_session() {
         0
     };
 
-    println!("lean-ctx session statistics\n");
+    println!("nebula-ctx session statistics\n");
     println!(
         "Adoption:    {}% ({}/{} compressible commands)",
         pct, via_hook, total
@@ -374,7 +374,7 @@ pub fn cmd_session() {
         );
     }
 
-    println!("\nRun 'lean-ctx discover' for details on missed commands.");
+    println!("\nRun 'nebula-ctx discover' for details on missed commands.");
 }
 
 pub fn cmd_wrapped(args: &[String]) {
@@ -439,7 +439,7 @@ pub fn cmd_sessions(args: &[String]) {
             println!("Cleaned up {removed} session(s) older than {days} days.");
         }
         _ => {
-            eprintln!("Usage: lean-ctx sessions [list|show [id]|cleanup [days]]");
+            eprintln!("Usage: nebula-ctx sessions [list|show [id]|cleanup [days]]");
             std::process::exit(1);
         }
     }
@@ -472,8 +472,8 @@ pub fn cmd_benchmark(args: &[String]) {
                 let result = benchmark::run_project_benchmark(action);
                 println!("{}", benchmark::format_terminal(&result));
             } else {
-                eprintln!("Usage: lean-ctx benchmark run [path] [--json]");
-                eprintln!("       lean-ctx benchmark report [path]");
+                eprintln!("Usage: nebula-ctx benchmark run [path] [--json]");
+                eprintln!("       nebula-ctx benchmark report [path]");
                 std::process::exit(1);
             }
         }
@@ -571,7 +571,7 @@ pub fn cmd_cache(args: &[String]) {
         }
         Some("invalidate") => {
             if args.len() < 2 {
-                eprintln!("Usage: lean-ctx cache invalidate <path>");
+                eprintln!("Usage: nebula-ctx cache invalidate <path>");
                 std::process::exit(1);
             }
             cli_cache::invalidate(&args[1]);
@@ -610,7 +610,7 @@ pub fn cmd_config(args: &[String]) {
                 Ok(()) => {
                     let path = config::Config::path()
                         .map(|p| p.to_string_lossy().to_string())
-                        .unwrap_or_else(|| "~/.lean-ctx/config.toml".to_string());
+                        .unwrap_or_else(|| "~/.nebula-ctx/config.toml".to_string());
                     println!("Created default config at {path}");
                 }
                 Err(e) => eprintln!("Error: {e}"),
@@ -618,7 +618,7 @@ pub fn cmd_config(args: &[String]) {
         }
         "set" => {
             if args.len() < 3 {
-                eprintln!("Usage: lean-ctx config set <key> <value>");
+                eprintln!("Usage: nebula-ctx config set <key> <value>");
                 std::process::exit(1);
             }
             let mut cfg = cfg;
@@ -677,7 +677,7 @@ pub fn cmd_config(args: &[String]) {
             }
         }
         _ => {
-            eprintln!("Usage: lean-ctx config [init|set <key> <value>]");
+            eprintln!("Usage: nebula-ctx config [init|set <key> <value>]");
             std::process::exit(1);
         }
     }
@@ -688,7 +688,7 @@ pub fn cmd_cheatsheet() {
     let ver_pad = format!("v{ver}");
     let header = format!(
         "\x1b[1;36m╔══════════════════════════════════════════════════════════════╗\x1b[0m
-\x1b[1;36m║\x1b[0m  \x1b[1;37mlean-ctx Workflow Cheat Sheet\x1b[0m                     \x1b[2m{ver_pad:>6}\x1b[0m  \x1b[1;36m║\x1b[0m
+\x1b[1;36m║\x1b[0m  \x1b[1;37mnebula-ctx Workflow Cheat Sheet\x1b[0m                     \x1b[2m{ver_pad:>6}\x1b[0m  \x1b[1;36m║\x1b[0m
 \x1b[1;36m╚══════════════════════════════════════════════════════════════╝\x1b[0m");
     println!(
         "{header}
@@ -729,13 +729,13 @@ pub fn cmd_cheatsheet() {
   Browsing?   → \x1b[1maggressive\x1b[0m (syntax stripped)
 
 \x1b[1;36m━━━ MONITORING ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m
-  lean-ctx gain          \x1b[2m# visual savings dashboard\x1b[0m
-  lean-ctx gain --live   \x1b[2m# live auto-updating (Ctrl+C)\x1b[0m
-  lean-ctx dashboard     \x1b[2m# web dashboard with charts\x1b[0m
-  lean-ctx wrapped       \x1b[2m# weekly savings report\x1b[0m
-  lean-ctx discover      \x1b[2m# find uncompressed commands\x1b[0m
-  lean-ctx doctor        \x1b[2m# diagnose installation\x1b[0m
-  lean-ctx update        \x1b[2m# self-update to latest\x1b[0m
+  nebula-ctx gain          \x1b[2m# visual savings dashboard\x1b[0m
+  nebula-ctx gain --live   \x1b[2m# live auto-updating (Ctrl+C)\x1b[0m
+  nebula-ctx dashboard     \x1b[2m# web dashboard with charts\x1b[0m
+  nebula-ctx wrapped       \x1b[2m# weekly savings report\x1b[0m
+  nebula-ctx discover      \x1b[2m# find uncompressed commands\x1b[0m
+  nebula-ctx doctor        \x1b[2m# diagnose installation\x1b[0m
+  nebula-ctx update        \x1b[2m# self-update to latest\x1b[0m
 
 \x1b[2m  Full guide: https://leanctx.com/docs/workflow\x1b[0m"
     );
@@ -749,7 +749,7 @@ pub fn cmd_slow_log(args: &[String]) {
         "list" | "ls" | "" => println!("{}", slow_log::list()),
         "clear" | "purge" => println!("{}", slow_log::clear()),
         _ => {
-            eprintln!("Usage: lean-ctx slow-log [list|clear]");
+            eprintln!("Usage: nebula-ctx slow-log [list|clear]");
             std::process::exit(1);
         }
     }
@@ -757,7 +757,7 @@ pub fn cmd_slow_log(args: &[String]) {
 
 pub fn cmd_tee(args: &[String]) {
     let tee_dir = match dirs::home_dir() {
-        Some(h) => h.join(".lean-ctx").join("tee"),
+        Some(h) => h.join(".nebula-ctx").join("tee"),
         None => {
             eprintln!("Cannot determine home directory");
             std::process::exit(1);
@@ -768,7 +768,7 @@ pub fn cmd_tee(args: &[String]) {
     match action {
         "list" | "ls" => {
             if !tee_dir.exists() {
-                println!("No tee logs found (~/.lean-ctx/tee/ does not exist)");
+                println!("No tee logs found (~/.nebula-ctx/tee/ does not exist)");
                 return;
             }
             let mut entries: Vec<_> = std::fs::read_dir(&tee_dir)
@@ -797,7 +797,7 @@ pub fn cmd_tee(args: &[String]) {
                 };
                 println!("  {:<60} {}", name.to_string_lossy(), size_str);
             }
-            println!("\nUse 'lean-ctx tee clear' to delete all logs.");
+            println!("\nUse 'nebula-ctx tee clear' to delete all logs.");
         }
         "clear" | "purge" => {
             if !tee_dir.exists() {
@@ -819,7 +819,7 @@ pub fn cmd_tee(args: &[String]) {
         "show" => {
             let filename = args.get(1);
             if filename.is_none() {
-                eprintln!("Usage: lean-ctx tee show <filename>");
+                eprintln!("Usage: nebula-ctx tee show <filename>");
                 std::process::exit(1);
             }
             let path = tee_dir.join(filename.unwrap());
@@ -863,7 +863,7 @@ pub fn cmd_tee(args: &[String]) {
             }
         }
         _ => {
-            eprintln!("Usage: lean-ctx tee [list|clear|show <file>|last]");
+            eprintln!("Usage: nebula-ctx tee [list|clear|show <file>|last]");
             std::process::exit(1);
         }
     }
@@ -882,13 +882,13 @@ pub fn cmd_filter(args: &[String]) {
             }
             None => {
                 println!("No custom filters found.");
-                println!("Create one: lean-ctx filter init");
+                println!("Create one: nebula-ctx filter init");
             }
         },
         "validate" => {
             let path = args.get(1);
             if path.is_none() {
-                eprintln!("Usage: lean-ctx filter validate <file.toml>");
+                eprintln!("Usage: nebula-ctx filter validate <file.toml>");
                 std::process::exit(1);
             }
             match crate::core::filters::validate_filter_file(path.unwrap()) {
@@ -910,7 +910,7 @@ pub fn cmd_filter(args: &[String]) {
             }
         },
         _ => {
-            eprintln!("Usage: lean-ctx filter [list|validate <file>|init]");
+            eprintln!("Usage: nebula-ctx filter [list|validate <file>|init]");
             std::process::exit(1);
         }
     }
@@ -948,7 +948,7 @@ pub fn cmd_init(args: &[String]) {
         if !global {
             crate::hooks::install_project_rules();
         }
-        qprintln!("\nRun 'lean-ctx gain' after using some commands to see your savings.");
+        qprintln!("\nRun 'nebula-ctx gain' after using some commands to see your savings.");
         return;
     }
 
@@ -959,7 +959,7 @@ pub fn cmd_init(args: &[String]) {
 
     let binary = std::env::current_exe()
         .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|_| "lean-ctx".to_string());
+        .unwrap_or_else(|_| "nebula-ctx".to_string());
 
     if dry_run {
         let rc = if is_powershell {
@@ -971,15 +971,15 @@ pub fn cmd_init(args: &[String]) {
         } else {
             "~/.bashrc".to_string()
         };
-        qprintln!("\nlean-ctx init --dry-run\n");
+        qprintln!("\nnebula-ctx init --dry-run\n");
         qprintln!("  Would modify:  {rc}");
-        qprintln!("  Would backup:  {rc}.lean-ctx.bak");
+        qprintln!("  Would backup:  {rc}.nebula-ctx.bak");
         qprintln!("  Would alias:   git npm pnpm yarn cargo docker docker-compose kubectl");
         qprintln!("                 gh pip pip3 ruff go golangci-lint eslint prettier tsc");
         qprintln!("                 curl wget php composer (24 commands + k)");
-        qprintln!("  Would create:  ~/.lean-ctx/");
+        qprintln!("  Would create:  ~/.nebula-ctx/");
         qprintln!("  Binary:        {binary}");
-        qprintln!("\n  Safety: aliases auto-fallback to original command if lean-ctx is removed.");
+        qprintln!("\n  Safety: aliases auto-fallback to original command if nebula-ctx is removed.");
         qprintln!("\n  Run without --dry-run to apply.");
         return;
     }
@@ -995,7 +995,7 @@ pub fn cmd_init(args: &[String]) {
         }
     }
 
-    let lean_dir = dirs::home_dir().map(|h| h.join(".lean-ctx"));
+    let lean_dir = dirs::home_dir().map(|h| h.join(".nebula-ctx"));
     if let Some(dir) = lean_dir {
         if !dir.exists() {
             let _ = std::fs::create_dir_all(&dir);
@@ -1013,14 +1013,14 @@ pub fn cmd_init(args: &[String]) {
         ".bashrc"
     };
 
-    qprintln!("\nlean-ctx init complete (24 aliases installed)");
+    qprintln!("\nnebula-ctx init complete (24 aliases installed)");
     qprintln!();
-    qprintln!("  Disable temporarily:  lean-ctx-off");
-    qprintln!("  Re-enable:            lean-ctx-on");
-    qprintln!("  Check status:         lean-ctx-status");
-    qprintln!("  Full uninstall:       lean-ctx uninstall");
-    qprintln!("  Diagnose issues:      lean-ctx doctor");
-    qprintln!("  Preview changes:      lean-ctx init --global --dry-run");
+    qprintln!("  Disable temporarily:  nebula-ctx-off");
+    qprintln!("  Re-enable:            nebula-ctx-on");
+    qprintln!("  Check status:         nebula-ctx-status");
+    qprintln!("  Full uninstall:       nebula-ctx uninstall");
+    qprintln!("  Diagnose issues:      nebula-ctx doctor");
+    qprintln!("  Preview changes:      nebula-ctx init --global --dry-run");
     qprintln!();
     if is_powershell {
         qprintln!("  Restart PowerShell or run: . {rc}");
@@ -1028,7 +1028,7 @@ pub fn cmd_init(args: &[String]) {
         qprintln!("  Restart your shell or run: source ~/{rc}");
     }
     qprintln!();
-    qprintln!("For AI tool integration: lean-ctx init --agent <tool>");
+    qprintln!("For AI tool integration: nebula-ctx init --agent <tool>");
     qprintln!("  Supported: aider, amazonq, amp, antigravity, claude, cline, codex, copilot,");
     qprintln!("    crush, cursor, emacs, gemini, hermes, jetbrains, kiro, neovim, opencode,");
     qprintln!("    pi, qwen, roo, sublime, trae, verdent, windsurf");
@@ -1138,12 +1138,12 @@ pub fn cmd_theme(args: &[String]) {
                 }
             }
             println!();
-            println!("  {d}Set theme: lean-ctx theme set <name>{r}");
+            println!("  {d}Set theme: nebula-ctx theme set <name>{r}");
             println!();
         }
         "set" => {
             if args.len() < 2 {
-                eprintln!("Usage: lean-ctx theme set <name>");
+                eprintln!("Usage: nebula-ctx theme set <name>");
                 std::process::exit(1);
             }
             let name = &args[1];
@@ -1173,7 +1173,7 @@ pub fn cmd_theme(args: &[String]) {
         }
         "import" => {
             if args.len() < 2 {
-                eprintln!("Usage: lean-ctx theme import <path>");
+                eprintln!("Usage: nebula-ctx theme import <path>");
                 std::process::exit(1);
             }
             let path = std::path::Path::new(&args[1]);
@@ -1189,7 +1189,7 @@ pub fn cmd_theme(args: &[String]) {
                             cfg.theme = "custom".to_string();
                             let _ = cfg.save();
                             println!(
-                                "  {sc}✓{r} Imported theme '{name}' → ~/.lean-ctx/theme.toml",
+                                "  {sc}✓{r} Imported theme '{name}' → ~/.nebula-ctx/theme.toml",
                                 sc = imported.success.fg(),
                                 name = imported.name,
                             );
@@ -1250,7 +1250,7 @@ pub fn cmd_theme(args: &[String]) {
             println!();
         }
         _ => {
-            eprintln!("Usage: lean-ctx theme [list|set|export|import|preview]");
+            eprintln!("Usage: nebula-ctx theme [list|set|export|import|preview]");
             std::process::exit(1);
         }
     }
@@ -1262,21 +1262,21 @@ mod tests {
     use tempfile;
 
     #[test]
-    fn test_remove_lean_ctx_block_posix() {
+    fn test_remove_nebula_ctx_block_posix() {
         let input = r#"# existing config
 export PATH="$HOME/bin:$PATH"
 
-# lean-ctx shell hook — transparent CLI compression (90+ patterns)
+# nebula-ctx shell hook — transparent CLI compression (90+ patterns)
 if [ -z "$LEAN_CTX_ACTIVE" ]; then
-alias git='lean-ctx -c git'
-alias npm='lean-ctx -c npm'
+alias git='nebula-ctx -c git'
+alias npm='nebula-ctx -c npm'
 fi
 
 # other stuff
 export EDITOR=vim
 "#;
-        let result = remove_lean_ctx_block(input);
-        assert!(!result.contains("lean-ctx"), "block should be removed");
+        let result = remove_nebula_ctx_block(input);
+        assert!(!result.contains("nebula-ctx"), "block should be removed");
         assert!(result.contains("export PATH"), "other content preserved");
         assert!(
             result.contains("export EDITOR"),
@@ -1285,20 +1285,20 @@ export EDITOR=vim
     }
 
     #[test]
-    fn test_remove_lean_ctx_block_fish() {
-        let input = "# other fish config\nset -x FOO bar\n\n# lean-ctx shell hook — transparent CLI compression (90+ patterns)\nif not set -q LEAN_CTX_ACTIVE\n\talias git 'lean-ctx -c git'\n\talias npm 'lean-ctx -c npm'\nend\n\n# more config\nset -x BAZ qux\n";
-        let result = remove_lean_ctx_block(input);
-        assert!(!result.contains("lean-ctx"), "block should be removed");
+    fn test_remove_nebula_ctx_block_fish() {
+        let input = "# other fish config\nset -x FOO bar\n\n# nebula-ctx shell hook — transparent CLI compression (90+ patterns)\nif not set -q LEAN_CTX_ACTIVE\n\talias git 'nebula-ctx -c git'\n\talias npm 'nebula-ctx -c npm'\nend\n\n# more config\nset -x BAZ qux\n";
+        let result = remove_nebula_ctx_block(input);
+        assert!(!result.contains("nebula-ctx"), "block should be removed");
         assert!(result.contains("set -x FOO"), "other content preserved");
         assert!(result.contains("set -x BAZ"), "trailing content preserved");
     }
 
     #[test]
-    fn test_remove_lean_ctx_block_ps() {
-        let input = "# PowerShell profile\n$env:FOO = 'bar'\n\n# lean-ctx shell hook — transparent CLI compression (90+ patterns)\nif (-not $env:LEAN_CTX_ACTIVE) {\n  $LeanCtxBin = \"C:\\\\bin\\\\lean-ctx.exe\"\n  function git { & $LeanCtxBin -c \"git $($args -join ' ')\" }\n}\n\n# other stuff\n$env:EDITOR = 'vim'\n";
-        let result = remove_lean_ctx_block_ps(input);
+    fn test_remove_nebula_ctx_block_ps() {
+        let input = "# PowerShell profile\n$env:FOO = 'bar'\n\n# nebula-ctx shell hook — transparent CLI compression (90+ patterns)\nif (-not $env:LEAN_CTX_ACTIVE) {\n  $LeanCtxBin = \"C:\\\\bin\\\\nebula-ctx.exe\"\n  function git { & $LeanCtxBin -c \"git $($args -join ' ')\" }\n}\n\n# other stuff\n$env:EDITOR = 'vim'\n";
+        let result = remove_nebula_ctx_block_ps(input);
         assert!(
-            !result.contains("lean-ctx shell hook"),
+            !result.contains("nebula-ctx shell hook"),
             "block should be removed"
         );
         assert!(result.contains("$env:FOO"), "other content preserved");
@@ -1306,11 +1306,11 @@ export EDITOR=vim
     }
 
     #[test]
-    fn test_remove_lean_ctx_block_ps_nested() {
-        let input = "# PowerShell profile\n$env:FOO = 'bar'\n\n# lean-ctx shell hook — transparent CLI compression (90+ patterns)\nif (-not $env:LEAN_CTX_ACTIVE) {\n  $LeanCtxBin = \"lean-ctx\"\n  function _lc {\n    & $LeanCtxBin -c \"$($args -join ' ')\"\n  }\n  if (Get-Command lean-ctx -ErrorAction SilentlyContinue) {\n    function git { _lc git @args }\n    foreach ($c in @('npm','pnpm')) {\n      if ($a) {\n        Set-Variable -Name \"_lc_$c\" -Value $a.Source -Scope Script\n      }\n    }\n  }\n}\n\n# other stuff\n$env:EDITOR = 'vim'\n";
-        let result = remove_lean_ctx_block_ps(input);
+    fn test_remove_nebula_ctx_block_ps_nested() {
+        let input = "# PowerShell profile\n$env:FOO = 'bar'\n\n# nebula-ctx shell hook — transparent CLI compression (90+ patterns)\nif (-not $env:LEAN_CTX_ACTIVE) {\n  $LeanCtxBin = \"nebula-ctx\"\n  function _lc {\n    & $LeanCtxBin -c \"$($args -join ' ')\"\n  }\n  if (Get-Command nebula-ctx -ErrorAction SilentlyContinue) {\n    function git { _lc git @args }\n    foreach ($c in @('npm','pnpm')) {\n      if ($a) {\n        Set-Variable -Name \"_lc_$c\" -Value $a.Source -Scope Script\n      }\n    }\n  }\n}\n\n# other stuff\n$env:EDITOR = 'vim'\n";
+        let result = remove_nebula_ctx_block_ps(input);
         assert!(
-            !result.contains("lean-ctx shell hook"),
+            !result.contains("nebula-ctx shell hook"),
             "block should be removed"
         );
         assert!(!result.contains("_lc"), "function should be removed");
@@ -1319,15 +1319,15 @@ export EDITOR=vim
     }
 
     #[test]
-    fn test_remove_block_no_lean_ctx() {
+    fn test_remove_block_no_nebula_ctx() {
         let input = "# normal bashrc\nexport PATH=\"$HOME/bin:$PATH\"\n";
-        let result = remove_lean_ctx_block(input);
+        let result = remove_nebula_ctx_block(input);
         assert!(result.contains("export PATH"), "content unchanged");
     }
 
     #[test]
     fn test_bash_hook_contains_pipe_guard() {
-        let binary = "/usr/local/bin/lean-ctx";
+        let binary = "/usr/local/bin/nebula-ctx";
         let hook = format!(
             r#"_lc() {{
     if [ -n "${{LEAN_CTX_DISABLED:-}}" ] || [ ! -t 1 ]; then
@@ -1349,7 +1349,7 @@ export EDITOR=vim
 
     #[test]
     fn test_lc_uses_track_mode_by_default() {
-        let binary = "/usr/local/bin/lean-ctx";
+        let binary = "/usr/local/bin/nebula-ctx";
         let alias_list = crate::rewrite_registry::shell_alias_list();
         let aliases = format!(
             r#"_lc() {{
@@ -1371,10 +1371,10 @@ _lc_compress() {{
     }
 
     #[test]
-    fn test_posix_shell_has_lean_ctx_mode() {
+    fn test_posix_shell_has_nebula_ctx_mode() {
         let alias_list = crate::rewrite_registry::shell_alias_list();
         let aliases = r#"
-lean-ctx-mode() {{
+nebula-ctx-mode() {{
     case "${{1:-}}" in
         compress) echo compress ;;
         track) echo track ;;
@@ -1384,8 +1384,8 @@ lean-ctx-mode() {{
 "#
         .to_string();
         assert!(
-            aliases.contains("lean-ctx-mode()"),
-            "lean-ctx-mode function must exist"
+            aliases.contains("nebula-ctx-mode()"),
+            "nebula-ctx-mode function must exist"
         );
         assert!(
             aliases.contains("compress"),
@@ -1414,37 +1414,37 @@ lean-ctx-mode() {{
     }
 
     #[test]
-    fn test_remove_lean_ctx_block_new_format_with_end_marker() {
+    fn test_remove_nebula_ctx_block_new_format_with_end_marker() {
         let input = r#"# existing config
 export PATH="$HOME/bin:$PATH"
 
-# lean-ctx shell hook — transparent CLI compression (90+ patterns)
-_lean_ctx_cmds=(git npm pnpm)
+# nebula-ctx shell hook — transparent CLI compression (90+ patterns)
+_nebula_ctx_cmds=(git npm pnpm)
 
-lean-ctx-on() {
-    for _lc_cmd in "${_lean_ctx_cmds[@]}"; do
-        alias "$_lc_cmd"='lean-ctx -c '"$_lc_cmd"
+nebula-ctx-on() {
+    for _lc_cmd in "${_nebula_ctx_cmds[@]}"; do
+        alias "$_lc_cmd"='nebula-ctx -c '"$_lc_cmd"
     done
     export LEAN_CTX_ENABLED=1
-    [ -t 1 ] && echo "lean-ctx: ON"
+    [ -t 1 ] && echo "nebula-ctx: ON"
 }
 
-lean-ctx-off() {
+nebula-ctx-off() {
     unset LEAN_CTX_ENABLED
-    [ -t 1 ] && echo "lean-ctx: OFF"
+    [ -t 1 ] && echo "nebula-ctx: OFF"
 }
 
 if [ -z "${LEAN_CTX_ACTIVE:-}" ] && [ "${LEAN_CTX_ENABLED:-1}" != "0" ]; then
-    lean-ctx-on
+    nebula-ctx-on
 fi
-# lean-ctx shell hook — end
+# nebula-ctx shell hook — end
 
 # other stuff
 export EDITOR=vim
 "#;
-        let result = remove_lean_ctx_block(input);
-        assert!(!result.contains("lean-ctx-on"), "block should be removed");
-        assert!(!result.contains("lean-ctx shell hook"), "marker removed");
+        let result = remove_nebula_ctx_block(input);
+        assert!(!result.contains("nebula-ctx-on"), "block should be removed");
+        assert!(!result.contains("nebula-ctx shell hook"), "marker removed");
         assert!(result.contains("export PATH"), "other content preserved");
         assert!(
             result.contains("export EDITOR"),
@@ -1460,12 +1460,12 @@ export EDITOR=vim
         std::fs::create_dir_all(&data_dir).expect("mkdir data");
         std::env::set_var("LEAN_CTX_DATA_DIR", &data_dir);
 
-        write_env_sh_for_containers("alias git='lean-ctx -c git'\n");
+        write_env_sh_for_containers("alias git='nebula-ctx -c git'\n");
         let env_sh = data_dir.join("env.sh");
         let content = std::fs::read_to_string(&env_sh).expect("env.sh exists");
-        assert!(content.contains("lean-ctx docker self-heal"));
+        assert!(content.contains("nebula-ctx docker self-heal"));
         assert!(content.contains("claude mcp list"));
-        assert!(content.contains("lean-ctx init --agent claude"));
+        assert!(content.contains("nebula-ctx init --agent claude"));
 
         std::env::remove_var("LEAN_CTX_DATA_DIR");
     }

@@ -1,13 +1,13 @@
 //! Automatic model download from HuggingFace Hub.
 //!
 //! Downloads the all-MiniLM-L6-v2 ONNX model and vocabulary on first use.
-//! Files are cached in `~/.lean-ctx/models/` and only downloaded once.
+//! Files are cached in `~/.nebula-ctx/models/` and only downloaded once.
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
 const HF_BASE: &str = "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main";
-const USER_AGENT: &str = concat!("lean-ctx/", env!("CARGO_PKG_VERSION"));
+const USER_AGENT: &str = concat!("nebula-ctx/", env!("CARGO_PKG_VERSION"));
 
 struct ModelFile {
     relative_url: &'static str,
@@ -218,7 +218,7 @@ mod tests {
 
     #[test]
     fn verify_fails_on_empty_dir() {
-        let dir = std::env::temp_dir().join("lean_ctx_test_verify_empty");
+        let dir = std::env::temp_dir().join("nebula_ctx_test_verify_empty");
         let _ = std::fs::create_dir_all(&dir);
         assert!(verify_model_files(&dir).is_err());
         let _ = std::fs::remove_dir_all(&dir);

@@ -73,8 +73,8 @@ mod tests {
     #[test]
     fn strip_str_regular() {
         assert_eq!(
-            strip_verbatim_str(r"\\?\E:\code\lean-ctx"),
-            Some("E:/code/lean-ctx".to_string())
+            strip_verbatim_str(r"\\?\E:\code\nebula-ctx"),
+            Some("E:/code/nebula-ctx".to_string())
         );
     }
 

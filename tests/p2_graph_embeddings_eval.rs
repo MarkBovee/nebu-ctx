@@ -1,11 +1,11 @@
-use lean_ctx::core::graph_context::{build_graph_context, GraphContextOptions};
+use nebula_ctx::core::graph_context::{build_graph_context, GraphContextOptions};
 
 #[test]
 fn graph_context_must_include_direct_and_transitive_deps() {
     if cfg!(windows) {
         return;
     }
-    let _lock = lean_ctx::core::data_dir::test_env_lock();
+    let _lock = nebula_ctx::core::data_dir::test_env_lock();
     let tmp = tempfile::tempdir().expect("tempdir");
 
     let data_dir = tmp.path().join("data");
@@ -63,7 +63,7 @@ export const b = c + 1;
 #[cfg(feature = "embeddings")]
 #[test]
 fn knowledge_embeddings_semantic_search_must_include_expected() {
-    use lean_ctx::core::knowledge_embedding::KnowledgeEmbeddingIndex;
+    use nebula_ctx::core::knowledge_embedding::KnowledgeEmbeddingIndex;
 
     let idx = {
         let mut idx = KnowledgeEmbeddingIndex::new("projhash");

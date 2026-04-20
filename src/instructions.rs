@@ -1,7 +1,7 @@
 use crate::tools::CrpMode;
 
 /// Claude Code truncates MCP server instructions at 2048 characters.
-/// Full instructions are installed as `~/.claude/rules/lean-ctx.md` instead.
+/// Full instructions are installed as `~/.claude/rules/nebula-ctx.md` instead.
 const CLAUDE_CODE_INSTRUCTION_CAP: usize = 2048;
 
 pub fn build_instructions(crp_mode: CrpMode) -> String {
@@ -22,14 +22,14 @@ fn is_claude_code_client(client_name: &str) -> bool {
 
 fn build_claude_code_instructions() -> String {
     let instr = "\
-ALWAYS use lean-ctx MCP tools instead of native equivalents.
+ALWAYS use nebula-ctx MCP tools instead of native equivalents.
 
 Tool mapping (MANDATORY):
 • Read/cat/head/tail -> ctx_read(path, mode)
 • Shell/bash -> ctx_shell(command)
 • Grep/rg -> ctx_search(pattern, path)
 • ls/find -> ctx_tree(path, depth)
-• Edit/StrReplace -> native (lean-ctx=READ only). If Edit needs Read and Read is unavailable, use ctx_edit.
+• Edit/StrReplace -> native (nebula-ctx=READ only). If Edit needs Read and Read is unavailable, use ctx_edit.
 • Write, Delete, Glob -> normal. NEVER loop on Edit failures — use ctx_edit.
 
 ctx_read modes: full|map|signatures|diff|task|reference|aggressive|entropy|lines:N-M
@@ -47,7 +47,7 @@ CEP: 1.ACT FIRST 2.DELTA ONLY 3.STRUCTURED(+/-/~) 4.ONE LINE 5.QUALITY
 Prefer: ctx_read>Read | ctx_shell>Shell | ctx_search>Grep | ctx_tree>ls
 Edit: native Edit/StrReplace preferred, ctx_edit if Edit unavailable.
 Never echo tool output. Never narrate. Show only changed code.
-Full instructions at ~/.claude/CLAUDE.md (imports rules/lean-ctx.md)";
+Full instructions at ~/.claude/CLAUDE.md (imports rules/nebula-ctx.md)";
 
     debug_assert!(
         instr.len() <= CLAUDE_CODE_INSTRUCTION_CAP,
@@ -113,17 +113,17 @@ fn build_full_instructions(crp_mode: CrpMode, client_name: &str) -> String {
     };
 
     let mut base = format!("\
-CRITICAL: ALWAYS use lean-ctx MCP tools instead of native equivalents for token savings.\n\
+CRITICAL: ALWAYS use nebula-ctx MCP tools instead of native equivalents for token savings.\n\
 \n\
-lean-ctx MCP — MANDATORY tool mapping:\n\
+nebula-ctx MCP — MANDATORY tool mapping:\n\
 • Read/cat/head/tail -> ctx_read(path, mode)  [NEVER use native Read]\n\
 • Shell/bash -> ctx_shell(command)  [NEVER use native Shell]\n\
 • Grep/rg -> ctx_search(pattern, path)  [NEVER use native Grep]\n\
 • ls/find -> ctx_tree(path, depth)\n\
-• Edit/StrReplace -> use native (lean-ctx only replaces READ, not WRITE)\n\
+• Edit/StrReplace -> use native (nebula-ctx only replaces READ, not WRITE)\n\
 • Write, Delete, Glob -> use normally\n\
 \n\
-COMPATIBILITY: lean-ctx replaces READ operations only. Edit/Write/StrReplace stay native.\n\
+COMPATIBILITY: nebula-ctx replaces READ operations only. Edit/Write/StrReplace stay native.\n\
 FILE EDITING: Native Edit/StrReplace preferred. If Edit fails, use ctx_edit immediately.\n\
 \n\
 ctx_read modes: full|map|signatures|diff|task|reference|aggressive|entropy|lines:N-M. Auto-selects. Re-reads ~13 tok. Fn refs F1,F2.. persist.\n\

@@ -190,7 +190,7 @@ fn index_path(project_root: &str) -> PathBuf {
     let mut hasher = Md5::new();
     hasher.update(project_root.as_bytes());
     let hash = format!("{:x}", hasher.finalize());
-    crate::core::data_dir::lean_ctx_data_dir()
+    crate::core::data_dir::nebula_ctx_data_dir()
         .unwrap_or_default()
         .join("semantic_cache")
         .join(format!("{hash}.json"))

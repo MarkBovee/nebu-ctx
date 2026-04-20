@@ -1832,7 +1832,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "nebula-server"
+name = "nebula-ctx"
 version = "0.1.0"
 dependencies = [
  "anyhow",

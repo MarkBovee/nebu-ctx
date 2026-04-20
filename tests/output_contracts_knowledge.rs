@@ -1,10 +1,10 @@
 use std::path::Path;
 
-use lean_ctx::core::knowledge::ProjectKnowledge;
+use nebula_ctx::core::knowledge::ProjectKnowledge;
 
 #[test]
 fn ctx_knowledge_recall_is_budgeted_and_deterministic() {
-    let _g = lean_ctx::core::data_dir::test_env_lock();
+    let _g = nebula_ctx::core::data_dir::test_env_lock();
     let tmp = tempfile::tempdir().expect("tempdir");
     let data_dir = tmp.path().join("data");
     std::fs::create_dir_all(&data_dir).expect("create data dir");
@@ -27,7 +27,7 @@ fn ctx_knowledge_recall_is_budgeted_and_deterministic() {
     }
     knowledge.save().expect("save knowledge");
 
-    let out1 = lean_ctx::tools::ctx_knowledge::handle(
+    let out1 = nebula_ctx::tools::ctx_knowledge::handle(
         &project_root_str,
         "recall",
         Some("architecture"),
@@ -39,7 +39,7 @@ fn ctx_knowledge_recall_is_budgeted_and_deterministic() {
         None,
         None,
     );
-    let out2 = lean_ctx::tools::ctx_knowledge::handle(
+    let out2 = nebula_ctx::tools::ctx_knowledge::handle(
         &project_root_str,
         "recall",
         Some("architecture"),
@@ -69,7 +69,7 @@ fn ctx_knowledge_recall_is_budgeted_and_deterministic() {
 
 #[test]
 fn ctx_knowledge_export_is_file_backed_not_json_stdout() {
-    let _g = lean_ctx::core::data_dir::test_env_lock();
+    let _g = nebula_ctx::core::data_dir::test_env_lock();
     let tmp = tempfile::tempdir().expect("tempdir");
     let data_dir = tmp.path().join("data");
     std::fs::create_dir_all(&data_dir).expect("create data dir");
@@ -84,7 +84,7 @@ fn ctx_knowledge_export_is_file_backed_not_json_stdout() {
     knowledge.remember("arch", "db", "MySQL", "s1", 0.8);
     knowledge.save().expect("save knowledge");
 
-    let out = lean_ctx::tools::ctx_knowledge::handle(
+    let out = nebula_ctx::tools::ctx_knowledge::handle(
         &project_root_str,
         "export",
         None,

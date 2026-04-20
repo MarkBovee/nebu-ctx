@@ -4,13 +4,13 @@ use std::path::PathBuf;
 #[cfg(target_os = "macos")]
 const PLIST_LABEL: &str = "com.leanctx.proxy";
 #[cfg(target_os = "linux")]
-const SYSTEMD_SERVICE: &str = "lean-ctx-proxy";
+const SYSTEMD_SERVICE: &str = "nebula-ctx-proxy";
 
 pub fn install(port: u16, quiet: bool) {
     let binary = find_binary();
     if binary.is_empty() {
         if !quiet {
-            eprintln!("  Cannot find lean-ctx binary for autostart");
+            eprintln!("  Cannot find nebula-ctx binary for autostart");
         }
         return;
     }
@@ -25,7 +25,7 @@ pub fn install(port: u16, quiet: bool) {
     {
         let _ = (&binary, quiet);
         println!("  Autostart not supported on this platform");
-        println!("  Run manually: lean-ctx proxy start --port={port}");
+        println!("  Run manually: nebula-ctx proxy start --port={port}");
     }
 }
 
@@ -102,7 +102,7 @@ fn install_launchagent(binary: &str, port: u16, quiet: bool) {
     let plist_path = plist_dir.join(format!("{PLIST_LABEL}.plist"));
     let log_dir = dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("/tmp"))
-        .join(".lean-ctx/logs");
+        .join(".nebula-ctx/logs");
     let _ = std::fs::create_dir_all(&log_dir);
 
     let plist = format!(
@@ -201,7 +201,7 @@ fn install_systemd(binary: &str, port: u16, quiet: bool) {
 
     let unit = format!(
         r#"[Unit]
-Description=lean-ctx API Proxy
+Description=nebula-ctx API Proxy
 After=network.target
 
 [Service]
@@ -273,12 +273,12 @@ fn uninstall_systemd(quiet: bool) {
 fn find_binary() -> String {
     std::env::current_exe()
         .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|_| which_lean_ctx().unwrap_or_default())
+        .unwrap_or_else(|_| which_nebula_ctx().unwrap_or_default())
 }
 
-fn which_lean_ctx() -> Option<String> {
+fn which_nebula_ctx() -> Option<String> {
     std::process::Command::new("which")
-        .arg("lean-ctx")
+        .arg("nebula-ctx")
         .output()
         .ok()
         .filter(|o| o.status.success())

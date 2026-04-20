@@ -242,7 +242,7 @@ impl PipelineStats {
     }
 
     pub fn save(&self) {
-        if let Ok(dir) = crate::core::data_dir::lean_ctx_data_dir() {
+        if let Ok(dir) = crate::core::data_dir::nebula_ctx_data_dir() {
             let path = dir.join("pipeline_stats.json");
             if let Ok(json) = serde_json::to_string(self) {
                 let _ = std::fs::write(path, json);
@@ -251,7 +251,7 @@ impl PipelineStats {
     }
 
     pub fn load() -> Self {
-        crate::core::data_dir::lean_ctx_data_dir()
+        crate::core::data_dir::nebula_ctx_data_dir()
             .ok()
             .map(|d| d.join("pipeline_stats.json"))
             .and_then(|p| std::fs::read_to_string(p).ok())

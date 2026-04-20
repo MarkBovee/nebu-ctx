@@ -10,7 +10,7 @@ pub fn default_tdd_schema_path() -> PathBuf {
 pub fn tdd_schema_value() -> Value {
     json!({
         "schema_version": 1,
-        "format": "lean-ctx-tdd",
+        "format": "nebula-ctx-tdd",
         "crp": {
             "modes": [
                 {

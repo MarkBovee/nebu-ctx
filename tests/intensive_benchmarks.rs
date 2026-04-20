@@ -1,10 +1,10 @@
-use lean_ctx::core::compressor::{aggressive_compress, lightweight_cleanup, safeguard_ratio};
-use lean_ctx::core::entropy::entropy_compress;
-use lean_ctx::core::protocol::instruction_decoder_block;
-use lean_ctx::core::signatures::extract_signatures;
-use lean_ctx::core::tokens::count_tokens;
-use lean_ctx::tools::ctx_response;
-use lean_ctx::tools::CrpMode;
+use nebula_ctx::core::compressor::{aggressive_compress, lightweight_cleanup, safeguard_ratio};
+use nebula_ctx::core::entropy::entropy_compress;
+use nebula_ctx::core::protocol::instruction_decoder_block;
+use nebula_ctx::core::signatures::extract_signatures;
+use nebula_ctx::core::tokens::count_tokens;
+use nebula_ctx::tools::ctx_response;
+use nebula_ctx::tools::CrpMode;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -19,7 +19,7 @@ fn compression_ratio(original: usize, compressed: usize) -> f64 {
 
 fn measure_pattern(command: &str, output: &str) -> (usize, usize, f64) {
     let original = count_tokens(output);
-    let compressed = lean_ctx::core::patterns::compress_output(command, output)
+    let compressed = nebula_ctx::core::patterns::compress_output(command, output)
         .unwrap_or_else(|| output.to_string());
     let comp_tokens = count_tokens(&compressed);
     (
@@ -41,9 +41,9 @@ fn measure_text(original: &str, compressed: &str) -> (usize, usize, f64) {
 
 #[test]
 fn bench_system_instructions_token_count() {
-    let instructions_off = lean_ctx::server::build_instructions_for_test(CrpMode::Off);
-    let instructions_compact = lean_ctx::server::build_instructions_for_test(CrpMode::Compact);
-    let instructions_tdd = lean_ctx::server::build_instructions_for_test(CrpMode::Tdd);
+    let instructions_off = nebula_ctx::server::build_instructions_for_test(CrpMode::Off);
+    let instructions_compact = nebula_ctx::server::build_instructions_for_test(CrpMode::Compact);
+    let instructions_tdd = nebula_ctx::server::build_instructions_for_test(CrpMode::Tdd);
 
     let tok_off = count_tokens(&instructions_off);
     let tok_compact = count_tokens(&instructions_compact);
@@ -87,7 +87,7 @@ fn bench_system_instructions_token_count() {
         "TDD instructions should be <2550 tokens, got {tok_tdd}"
     );
 
-    let claude_code_instr = lean_ctx::server::build_claude_code_instructions_for_test();
+    let claude_code_instr = nebula_ctx::server::build_claude_code_instructions_for_test();
     let claude_chars = claude_code_instr.len();
     let claude_tokens = count_tokens(&claude_code_instr);
     eprintln!(
@@ -110,7 +110,7 @@ fn bench_system_instructions_token_count() {
 
 #[test]
 fn bench_tool_descriptions_token_count() {
-    let descriptions = lean_ctx::server::tool_descriptions_for_test();
+    let descriptions = nebula_ctx::server::tool_descriptions_for_test();
 
     let mut total = 0usize;
     eprintln!("\n{}", "=".repeat(70));
@@ -145,9 +145,9 @@ fn bench_tool_descriptions_token_count() {
 
 #[test]
 fn bench_total_input_overhead() {
-    let instructions = lean_ctx::server::build_instructions_for_test(CrpMode::Off);
-    let descs = lean_ctx::server::tool_descriptions_for_test();
-    let schemas = lean_ctx::server::tool_schemas_json_for_test();
+    let instructions = nebula_ctx::server::build_instructions_for_test(CrpMode::Off);
+    let descs = nebula_ctx::server::tool_descriptions_for_test();
+    let schemas = nebula_ctx::server::tool_schemas_json_for_test();
 
     let instr_tokens = count_tokens(&instructions);
     let desc_tokens: usize = descs.iter().map(|(_, d)| count_tokens(d)).sum();
@@ -504,8 +504,8 @@ fn bench_rrf_eviction_vs_legacy() {
 
     let now = Instant::now();
     let keys: Vec<String> = (0..10).map(|i| format!("file_{i}.rs")).collect();
-    let entries: Vec<lean_ctx::core::cache::CacheEntry> = (0..10)
-        .map(|i| lean_ctx::core::cache::CacheEntry {
+    let entries: Vec<nebula_ctx::core::cache::CacheEntry> = (0..10)
+        .map(|i| nebula_ctx::core::cache::CacheEntry {
             content: format!("content_{i}"),
             hash: format!("hash_{i}"),
             line_count: i + 1,
@@ -516,10 +516,10 @@ fn bench_rrf_eviction_vs_legacy() {
         })
         .collect();
 
-    let entry_refs: Vec<(&String, &lean_ctx::core::cache::CacheEntry)> =
+    let entry_refs: Vec<(&String, &nebula_ctx::core::cache::CacheEntry)> =
         keys.iter().zip(entries.iter()).collect();
 
-    let rrf_scores = lean_ctx::core::cache::eviction_scores_rrf(&entry_refs, now);
+    let rrf_scores = nebula_ctx::core::cache::eviction_scores_rrf(&entry_refs, now);
     assert_eq!(rrf_scores.len(), 10);
 
     let mut legacy_scores: Vec<(String, f64)> = entries
@@ -564,7 +564,7 @@ fn bench_rrf_eviction_handles_single_entry() {
 
     let now = Instant::now();
     let key = "solo.rs".to_string();
-    let entry = lean_ctx::core::cache::CacheEntry {
+    let entry = nebula_ctx::core::cache::CacheEntry {
         content: "single".to_string(),
         hash: "h".to_string(),
         line_count: 1,
@@ -574,8 +574,8 @@ fn bench_rrf_eviction_handles_single_entry() {
         last_access: now,
     };
 
-    let refs: Vec<(&String, &lean_ctx::core::cache::CacheEntry)> = vec![(&key, &entry)];
-    let scores = lean_ctx::core::cache::eviction_scores_rrf(&refs, now);
+    let refs: Vec<(&String, &nebula_ctx::core::cache::CacheEntry)> = vec![(&key, &entry)];
+    let scores = nebula_ctx::core::cache::eviction_scores_rrf(&refs, now);
     assert_eq!(scores.len(), 1);
     assert!(
         scores[0].1 > 0.0,
@@ -587,7 +587,7 @@ fn bench_rrf_eviction_handles_single_entry() {
 fn bench_rrf_eviction_empty() {
     use std::time::Instant;
     let now = Instant::now();
-    let scores = lean_ctx::core::cache::eviction_scores_rrf(&[], now);
+    let scores = nebula_ctx::core::cache::eviction_scores_rrf(&[], now);
     assert!(scores.is_empty());
 }
 
@@ -685,8 +685,8 @@ Don't hesitate to reach out if you need further assistance with this or any othe
 
 #[test]
 fn bench_thinking_reduction_cues_present() {
-    let compact = lean_ctx::server::build_instructions_for_test(CrpMode::Compact);
-    let tdd = lean_ctx::server::build_instructions_for_test(CrpMode::Tdd);
+    let compact = nebula_ctx::server::build_instructions_for_test(CrpMode::Compact);
+    let tdd = nebula_ctx::server::build_instructions_for_test(CrpMode::Tdd);
 
     assert!(
         compact.contains("OUTPUT EFFICIENCY") || compact.contains("Trust them directly"),
@@ -716,8 +716,8 @@ fn bench_thinking_reduction_cues_present() {
 
 #[test]
 fn bench_crp_mode_token_budgets() {
-    let compact = lean_ctx::server::build_instructions_for_test(CrpMode::Compact);
-    let tdd = lean_ctx::server::build_instructions_for_test(CrpMode::Tdd);
+    let compact = nebula_ctx::server::build_instructions_for_test(CrpMode::Compact);
+    let tdd = nebula_ctx::server::build_instructions_for_test(CrpMode::Tdd);
 
     let compact_budget_present = compact.contains("<=200 tok")
         || compact.contains("TARGET: <=200 tokens")
@@ -777,7 +777,7 @@ fn bench_tdd_symbols_token_efficiency() {
 }
 
 // SECTION 6: PERFORMANCE BENCHMARKS removed — machine-dependent timing
-// thresholds are unsuitable for OSS CI. Use `lean-ctx benchmark` CLI instead.
+// thresholds are unsuitable for OSS CI. Use `nebula-ctx benchmark` CLI instead.
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SECTION 7: REGRESSION GUARDS — Ensure no performance degradation
@@ -824,7 +824,7 @@ fn guard_pattern_never_inflates() {
     ];
 
     for (cmd, output) in &commands {
-        if let Some(compressed) = lean_ctx::core::patterns::compress_output(cmd, output) {
+        if let Some(compressed) = nebula_ctx::core::patterns::compress_output(cmd, output) {
             let orig = count_tokens(output);
             let comp = count_tokens(&compressed);
             assert!(
@@ -838,7 +838,7 @@ fn guard_pattern_never_inflates() {
 
 #[test]
 fn guard_tool_descriptions_not_empty() {
-    let descs = lean_ctx::server::tool_descriptions_for_test();
+    let descs = nebula_ctx::server::tool_descriptions_for_test();
     for (name, desc) in &descs {
         assert!(
             !desc.is_empty(),
@@ -858,10 +858,10 @@ fn guard_tool_descriptions_not_empty() {
 
 #[test]
 fn guard_essential_instructions_present() {
-    let instr = lean_ctx::server::build_instructions_for_test(CrpMode::Off);
+    let instr = nebula_ctx::server::build_instructions_for_test(CrpMode::Off);
 
     let required = vec![
-        "ALWAYS use lean-ctx MCP tools",
+        "ALWAYS use nebula-ctx MCP tools",
         "ctx_read",
         "ctx_shell",
         "ctx_search",
@@ -886,7 +886,7 @@ fn guard_essential_instructions_present() {
     );
 }
 
-// AUTONOMY TOKEN IMPACT removed — writes to ~/.lean-ctx/ (not hermetic for CI)
+// AUTONOMY TOKEN IMPACT removed — writes to ~/.nebula-ctx/ (not hermetic for CI)
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DATA GENERATORS

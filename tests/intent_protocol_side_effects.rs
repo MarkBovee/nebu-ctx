@@ -1,4 +1,4 @@
-use lean_ctx::core::intent_protocol;
+use nebula_ctx::core::intent_protocol;
 
 #[test]
 fn ctx_intent_knowledge_fact_routes_to_project_knowledge() {
@@ -16,7 +16,7 @@ fn ctx_intent_knowledge_fact_routes_to_project_knowledge() {
     let intent = intent_protocol::intent_from_query(query, Some(&project_root_str));
     intent_protocol::apply_side_effects(&intent, Some(&project_root_str), "s1");
 
-    let knowledge = lean_ctx::core::knowledge::ProjectKnowledge::load(&project_root_str)
+    let knowledge = nebula_ctx::core::knowledge::ProjectKnowledge::load(&project_root_str)
         .expect("knowledge should exist");
     assert!(knowledge
         .facts

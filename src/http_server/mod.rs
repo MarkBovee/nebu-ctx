@@ -349,7 +349,7 @@ pub async fn serve(cfg: HttpServerConfig) -> Result<()> {
         .with_context(|| format!("bind {addr}"))?;
 
     tracing::info!(
-        "lean-ctx Streamable HTTP server listening on http://{addr} (project_root={})",
+        "nebula-ctx Streamable HTTP server listening on http://{addr} (project_root={})",
         cfg.project_root.display()
     );
 

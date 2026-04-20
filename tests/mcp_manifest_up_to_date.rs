@@ -21,7 +21,7 @@ fn mcp_manifest_is_up_to_date() {
     let on_disk: Value = serde_json::from_str(&content)
         .unwrap_or_else(|e| panic!("invalid JSON at {}: {e}", path.display()));
 
-    let expected = lean_ctx::core::mcp_manifest::manifest_value();
+    let expected = nebula_ctx::core::mcp_manifest::manifest_value();
     assert_eq!(
         on_disk,
         expected,

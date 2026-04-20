@@ -16,53 +16,53 @@ pub fn refresh_installed_hooks() {
     };
 
     let claude_dir = crate::setup::claude_config_dir(&home);
-    let claude_hooks = claude_dir.join("hooks/lean-ctx-rewrite.sh").exists()
+    let claude_hooks = claude_dir.join("hooks/nebula-ctx-rewrite.sh").exists()
         || claude_dir.join("settings.json").exists()
             && std::fs::read_to_string(claude_dir.join("settings.json"))
                 .unwrap_or_default()
-                .contains("lean-ctx");
+                .contains("nebula-ctx");
 
     if claude_hooks {
         install_claude_hook_scripts(&home);
         install_claude_hook_config(&home);
     }
 
-    let cursor_hooks = home.join(".cursor/hooks/lean-ctx-rewrite.sh").exists()
+    let cursor_hooks = home.join(".cursor/hooks/nebula-ctx-rewrite.sh").exists()
         || home.join(".cursor/hooks.json").exists()
             && std::fs::read_to_string(home.join(".cursor/hooks.json"))
                 .unwrap_or_default()
-                .contains("lean-ctx");
+                .contains("nebula-ctx");
 
     if cursor_hooks {
         install_cursor_hook_scripts(&home);
         install_cursor_hook_config(&home);
     }
 
-    let gemini_rewrite = home.join(".gemini/hooks/lean-ctx-rewrite-gemini.sh");
-    let gemini_legacy = home.join(".gemini/hooks/lean-ctx-hook-gemini.sh");
+    let gemini_rewrite = home.join(".gemini/hooks/nebula-ctx-rewrite-gemini.sh");
+    let gemini_legacy = home.join(".gemini/hooks/nebula-ctx-hook-gemini.sh");
     if gemini_rewrite.exists() || gemini_legacy.exists() {
         install_gemini_hook_scripts(&home);
         install_gemini_hook_config(&home);
     }
 
-    if home.join(".codex/hooks/lean-ctx-rewrite-codex.sh").exists() {
+    if home.join(".codex/hooks/nebula-ctx-rewrite-codex.sh").exists() {
         install_codex_hook_scripts(&home);
     }
 }
 
 fn resolve_binary_path() -> String {
-    if is_lean_ctx_in_path() {
-        return "lean-ctx".to_string();
+    if is_nebula_ctx_in_path() {
+        return "nebula-ctx".to_string();
     }
     std::env::current_exe()
         .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|_| "lean-ctx".to_string())
+        .unwrap_or_else(|_| "nebula-ctx".to_string())
 }
 
-fn is_lean_ctx_in_path() -> bool {
+fn is_nebula_ctx_in_path() -> bool {
     let which_cmd = if cfg!(windows) { "where" } else { "which" };
     std::process::Command::new(which_cmd)
-        .arg("lean-ctx")
+        .arg("nebula-ctx")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .status()
@@ -126,7 +126,7 @@ pub fn generate_rewrite_script(binary: &str) -> String {
     let case_pattern = crate::rewrite_registry::bash_case_pattern();
     format!(
         r#"#!/usr/bin/env bash
-# lean-ctx PreToolUse hook — rewrites bash commands to lean-ctx equivalents
+# nebula-ctx PreToolUse hook — rewrites bash commands to nebula-ctx equivalents
 set -euo pipefail
 
 LEAN_CTX_BIN="{binary}"
@@ -140,7 +140,7 @@ fi
 
 CMD=$(echo "$INPUT" | grep -oE '"command":"([^"\\]|\\.)*"' | head -1 | sed 's/^"command":"//;s/"$//' | sed 's/\\"/"/g;s/\\\\/\\/g')
 
-if [ -z "$CMD" ] || echo "$CMD" | grep -qE "^(lean-ctx |$LEAN_CTX_BIN )"; then
+if [ -z "$CMD" ] || echo "$CMD" | grep -qE "^(nebula-ctx |$LEAN_CTX_BIN )"; then
   exit 0
 fi
 
@@ -162,12 +162,12 @@ pub fn generate_compact_rewrite_script(binary: &str) -> String {
     let case_pattern = crate::rewrite_registry::bash_case_pattern();
     format!(
         r#"#!/usr/bin/env bash
-# lean-ctx hook — rewrites shell commands
+# nebula-ctx hook — rewrites shell commands
 set -euo pipefail
 LEAN_CTX_BIN="{binary}"
 INPUT=$(cat)
 CMD=$(echo "$INPUT" | grep -oE '"command":"([^"\\]|\\.)*"' | head -1 | sed 's/^"command":"//;s/"$//' | sed 's/\\"/"/g;s/\\\\/\\/g' 2>/dev/null || echo "")
-if [ -z "$CMD" ] || echo "$CMD" | grep -qE "^(lean-ctx |$LEAN_CTX_BIN )"; then exit 0; fi
+if [ -z "$CMD" ] || echo "$CMD" | grep -qE "^(nebula-ctx |$LEAN_CTX_BIN )"; then exit 0; fi
 case "$CMD" in
   {case_pattern})
     SHELL_ESC=$(printf '%s' "$CMD" | sed 's/\\/\\\\/g;s/"/\\"/g')
@@ -181,14 +181,14 @@ esac
 }
 
 const REDIRECT_SCRIPT_CLAUDE: &str = r#"#!/usr/bin/env bash
-# lean-ctx PreToolUse hook — all native tools pass through
+# nebula-ctx PreToolUse hook — all native tools pass through
 # Read/Grep/ListFiles are allowed so Edit (which requires native Read) works.
 # The MCP instructions guide the AI to prefer ctx_read/ctx_search/ctx_tree.
 exit 0
 "#;
 
 const REDIRECT_SCRIPT_GENERIC: &str = r#"#!/usr/bin/env bash
-# lean-ctx hook — all native tools pass through
+# nebula-ctx hook — all native tools pass through
 exit 0
 "#;
 
@@ -224,7 +224,7 @@ pub fn install_project_rules() {
     if !cursorrules.exists()
         || !std::fs::read_to_string(&cursorrules)
             .unwrap_or_default()
-            .contains("lean-ctx")
+            .contains("nebula-ctx")
     {
         let content = CURSORRULES_TEMPLATE;
         if cursorrules.exists() {
@@ -242,7 +242,7 @@ pub fn install_project_rules() {
     }
 
     let claude_rules_dir = cwd.join(".claude").join("rules");
-    let claude_rules_file = claude_rules_dir.join("lean-ctx.md");
+    let claude_rules_file = claude_rules_dir.join("nebula-ctx.md");
     if !claude_rules_file.exists()
         || !std::fs::read_to_string(&claude_rules_file)
             .unwrap_or_default()
@@ -253,7 +253,7 @@ pub fn install_project_rules() {
             &claude_rules_file,
             crate::rules_inject::rules_dedicated_markdown(),
         );
-        println!("Created .claude/rules/lean-ctx.md (Claude Code project rules).");
+        println!("Created .claude/rules/nebula-ctx.md (Claude Code project rules).");
     }
 
     install_claude_project_hooks(&cwd);
@@ -261,48 +261,48 @@ pub fn install_project_rules() {
     let kiro_dir = cwd.join(".kiro");
     if kiro_dir.exists() {
         let steering_dir = kiro_dir.join("steering");
-        let steering_file = steering_dir.join("lean-ctx.md");
+        let steering_file = steering_dir.join("nebula-ctx.md");
         if !steering_file.exists()
             || !std::fs::read_to_string(&steering_file)
                 .unwrap_or_default()
-                .contains("lean-ctx")
+                .contains("nebula-ctx")
         {
             let _ = std::fs::create_dir_all(&steering_dir);
             write_file(&steering_file, KIRO_STEERING_TEMPLATE);
-            println!("Created .kiro/steering/lean-ctx.md (Kiro steering).");
+            println!("Created .kiro/steering/nebula-ctx.md (Kiro steering).");
         }
     }
 }
 
-const PROJECT_LEAN_CTX_MD_MARKER: &str = "<!-- lean-ctx-owned: PROJECT-LEAN-CTX.md v1 -->";
+const PROJECT_LEAN_CTX_MD_MARKER: &str = "<!-- nebula-ctx-owned: PROJECT-LEAN-CTX.md v1 -->";
 const PROJECT_LEAN_CTX_MD: &str = "LEAN-CTX.md";
 const PROJECT_AGENTS_MD: &str = "AGENTS.md";
-const AGENTS_BLOCK_START: &str = "<!-- lean-ctx -->";
-const AGENTS_BLOCK_END: &str = "<!-- /lean-ctx -->";
+const AGENTS_BLOCK_START: &str = "<!-- nebula-ctx -->";
+const AGENTS_BLOCK_END: &str = "<!-- /nebula-ctx -->";
 
 fn ensure_project_agents_integration(cwd: &std::path::Path) {
-    let lean_ctx_md = cwd.join(PROJECT_LEAN_CTX_MD);
+    let nebula_ctx_md = cwd.join(PROJECT_LEAN_CTX_MD);
     let desired = format!(
         "{PROJECT_LEAN_CTX_MD_MARKER}\n{}\n",
         crate::rules_inject::rules_dedicated_markdown()
     );
 
-    if !lean_ctx_md.exists() {
-        write_file(&lean_ctx_md, &desired);
-    } else if std::fs::read_to_string(&lean_ctx_md)
+    if !nebula_ctx_md.exists() {
+        write_file(&nebula_ctx_md, &desired);
+    } else if std::fs::read_to_string(&nebula_ctx_md)
         .unwrap_or_default()
         .contains(PROJECT_LEAN_CTX_MD_MARKER)
     {
-        let current = std::fs::read_to_string(&lean_ctx_md).unwrap_or_default();
+        let current = std::fs::read_to_string(&nebula_ctx_md).unwrap_or_default();
         if !current.contains(crate::rules_inject::RULES_VERSION_STR) {
-            write_file(&lean_ctx_md, &desired);
+            write_file(&nebula_ctx_md, &desired);
         }
     }
 
     let block = format!(
         "{AGENTS_BLOCK_START}\n\
-## lean-ctx\n\n\
-Prefer lean-ctx MCP tools over native equivalents for token savings.\n\
+## nebula-ctx\n\n\
+Prefer nebula-ctx MCP tools over native equivalents for token savings.\n\
 Full rules: @{PROJECT_LEAN_CTX_MD}\n\
 {AGENTS_BLOCK_END}\n"
     );
@@ -311,7 +311,7 @@ Full rules: @{PROJECT_LEAN_CTX_MD}\n\
     if !agents_md.exists() {
         let content = format!("# Agent Instructions\n\n{block}");
         write_file(&agents_md, &content);
-        println!("Created AGENTS.md in project root (lean-ctx reference only).");
+        println!("Created AGENTS.md in project root (nebula-ctx reference only).");
         return;
     }
 
@@ -324,7 +324,7 @@ Full rules: @{PROJECT_LEAN_CTX_MD}\n\
         return;
     }
 
-    if existing.contains("lean-ctx") && existing.contains(PROJECT_LEAN_CTX_MD) {
+    if existing.contains("nebula-ctx") && existing.contains(PROJECT_LEAN_CTX_MD) {
         return;
     }
 
@@ -335,7 +335,7 @@ Full rules: @{PROJECT_LEAN_CTX_MD}\n\
     out.push('\n');
     out.push_str(&block);
     write_file(&agents_md, &out);
-    println!("Updated AGENTS.md (added lean-ctx reference block).");
+    println!("Updated AGENTS.md (added nebula-ctx reference block).");
 }
 
 fn replace_marked_block(content: &str, start: &str, end: &str, replacement: &str) -> String {
@@ -360,9 +360,9 @@ fn replace_marked_block(content: &str, start: &str, end: &str, replacement: &str
 }
 
 const CURSORRULES_TEMPLATE: &str = "\
-# lean-ctx — Context Engineering Layer
+# nebula-ctx — Context Engineering Layer
 
-PREFER lean-ctx MCP tools over native equivalents for token savings:
+PREFER nebula-ctx MCP tools over native equivalents for token savings:
 
 | PREFER | OVER | Why |
 |--------|------|-----|
@@ -381,23 +381,23 @@ pub const KIRO_STEERING_TEMPLATE: &str = "\
 inclusion: always
 ---
 
-# lean-ctx — Context Engineering Layer
+# nebula-ctx — Context Engineering Layer
 
-The workspace has the `lean-ctx` MCP server installed. You MUST prefer lean-ctx tools over native equivalents for token efficiency and caching.
+The workspace has the `nebula-ctx` MCP server installed. You MUST prefer nebula-ctx tools over native equivalents for token efficiency and caching.
 
 ## Mandatory Tool Preferences
 
 | Use this | Instead of | Why |
 |----------|-----------|-----|
-| `mcp_lean_ctx_ctx_read` | `readFile`, `readCode` | Cached reads, 10 compression modes, re-reads cost ~13 tokens |
-| `mcp_lean_ctx_ctx_multi_read` | `readMultipleFiles` | Batch cached reads in one call |
-| `mcp_lean_ctx_ctx_shell` | `executeBash` | Pattern compression for git/npm/test output |
-| `mcp_lean_ctx_ctx_search` | `grepSearch` | Compact, .gitignore-aware results |
-| `mcp_lean_ctx_ctx_tree` | `listDirectory` | Compact directory maps with file counts |
+| `mcp_nebula_ctx_ctx_read` | `readFile`, `readCode` | Cached reads, 10 compression modes, re-reads cost ~13 tokens |
+| `mcp_nebula_ctx_ctx_multi_read` | `readMultipleFiles` | Batch cached reads in one call |
+| `mcp_nebula_ctx_ctx_shell` | `executeBash` | Pattern compression for git/npm/test output |
+| `mcp_nebula_ctx_ctx_search` | `grepSearch` | Compact, .gitignore-aware results |
+| `mcp_nebula_ctx_ctx_tree` | `listDirectory` | Compact directory maps with file counts |
 
 ## When to use native Kiro tools instead
 
-- `fsWrite` / `fsAppend` — always use native (lean-ctx doesn't write files)
+- `fsWrite` / `fsAppend` — always use native (nebula-ctx doesn't write files)
 - `strReplace` — always use native (precise string replacement)
 - `semanticRename` / `smartRelocate` — always use native (IDE integration)
 - `getDiagnostics` — always use native (language server diagnostics)
@@ -405,16 +405,16 @@ The workspace has the `lean-ctx` MCP server installed. You MUST prefer lean-ctx 
 
 ## Session management
 
-- At the start of a long task, call `mcp_lean_ctx_ctx_preload` with a task description to warm the cache
-- Use `mcp_lean_ctx_ctx_compress` periodically in long conversations to checkpoint context
-- Use `mcp_lean_ctx_ctx_knowledge` to persist important discoveries across sessions
+- At the start of a long task, call `mcp_nebula_ctx_ctx_preload` with a task description to warm the cache
+- Use `mcp_nebula_ctx_ctx_compress` periodically in long conversations to checkpoint context
+- Use `mcp_nebula_ctx_ctx_knowledge` to persist important discoveries across sessions
 
 ## Rules
 
-- NEVER loop on edit failures — switch to `mcp_lean_ctx_ctx_edit` immediately
-- For large files, use `mcp_lean_ctx_ctx_read` with `mode: \"signatures\"` or `mode: \"map\"` first
-- For re-reading a file you already read, just call `mcp_lean_ctx_ctx_read` again (cache hit = ~13 tokens)
-- When running tests or build commands, use `mcp_lean_ctx_ctx_shell` for compressed output
+- NEVER loop on edit failures — switch to `mcp_nebula_ctx_ctx_edit` immediately
+- For large files, use `mcp_nebula_ctx_ctx_read` with `mode: \"signatures\"` or `mode: \"map\"` first
+- For re-reading a file you already read, just call `mcp_nebula_ctx_ctx_read` again (cache hit = ~13 tokens)
+- When running tests or build commands, use `mcp_nebula_ctx_ctx_shell` for compressed output
 ";
 
 pub fn install_agent_hook(agent: &str, global: bool) {
@@ -499,7 +499,7 @@ fn make_executable(path: &PathBuf) {
 fn make_executable(_path: &PathBuf) {}
 
 fn full_server_entry(binary: &str) -> serde_json::Value {
-    let data_dir = crate::core::data_dir::lean_ctx_data_dir()
+    let data_dir = crate::core::data_dir::nebula_ctx_data_dir()
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let auto_approve = crate::core::editor_registry::auto_approve_tools();
@@ -520,7 +520,7 @@ fn install_mcp_json_agent(name: &str, display_path: &str, config_path: &std::pat
 
     if config_path.exists() {
         let content = std::fs::read_to_string(config_path).unwrap_or_default();
-        if content.contains("lean-ctx") {
+        if content.contains("nebula-ctx") {
             println!("{name} MCP already configured at {display_path}");
             return;
         }
@@ -531,7 +531,7 @@ fn install_mcp_json_agent(name: &str, display_path: &str, config_path: &std::pat
                     .entry("mcpServers")
                     .or_insert_with(|| serde_json::json!({}));
                 if let Some(servers_obj) = servers.as_object_mut() {
-                    servers_obj.insert("lean-ctx".to_string(), entry.clone());
+                    servers_obj.insert("nebula-ctx".to_string(), entry.clone());
                 }
                 if let Ok(formatted) = serde_json::to_string_pretty(&json) {
                     let _ = std::fs::write(config_path, formatted);
@@ -544,7 +544,7 @@ fn install_mcp_json_agent(name: &str, display_path: &str, config_path: &std::pat
 
     let content = serde_json::to_string_pretty(&serde_json::json!({
         "mcpServers": {
-            "lean-ctx": entry
+            "nebula-ctx": entry
         }
     }));
 
@@ -563,46 +563,46 @@ mod tests {
     #[test]
     fn bash_path_unix_unchanged() {
         assert_eq!(
-            to_bash_compatible_path("/usr/local/bin/lean-ctx"),
-            "/usr/local/bin/lean-ctx"
+            to_bash_compatible_path("/usr/local/bin/nebula-ctx"),
+            "/usr/local/bin/nebula-ctx"
         );
     }
 
     #[test]
     fn bash_path_home_unchanged() {
         assert_eq!(
-            to_bash_compatible_path("/home/user/.cargo/bin/lean-ctx"),
-            "/home/user/.cargo/bin/lean-ctx"
+            to_bash_compatible_path("/home/user/.cargo/bin/nebula-ctx"),
+            "/home/user/.cargo/bin/nebula-ctx"
         );
     }
 
     #[test]
     fn bash_path_windows_drive_converted() {
         assert_eq!(
-            to_bash_compatible_path("C:\\Users\\Fraser\\bin\\lean-ctx.exe"),
-            "/c/Users/Fraser/bin/lean-ctx.exe"
+            to_bash_compatible_path("C:\\Users\\Fraser\\bin\\nebula-ctx.exe"),
+            "/c/Users/Fraser/bin/nebula-ctx.exe"
         );
     }
 
     #[test]
     fn bash_path_windows_lowercase_drive() {
         assert_eq!(
-            to_bash_compatible_path("D:\\tools\\lean-ctx.exe"),
-            "/d/tools/lean-ctx.exe"
+            to_bash_compatible_path("D:\\tools\\nebula-ctx.exe"),
+            "/d/tools/nebula-ctx.exe"
         );
     }
 
     #[test]
     fn bash_path_windows_forward_slashes() {
         assert_eq!(
-            to_bash_compatible_path("C:/Users/Fraser/bin/lean-ctx.exe"),
-            "/c/Users/Fraser/bin/lean-ctx.exe"
+            to_bash_compatible_path("C:/Users/Fraser/bin/nebula-ctx.exe"),
+            "/c/Users/Fraser/bin/nebula-ctx.exe"
         );
     }
 
     #[test]
     fn bash_path_bare_name_unchanged() {
-        assert_eq!(to_bash_compatible_path("lean-ctx"), "lean-ctx");
+        assert_eq!(to_bash_compatible_path("nebula-ctx"), "nebula-ctx");
     }
 
     #[test]
@@ -697,11 +697,11 @@ mod tests {
                 "preToolUse": [
                     {
                         "matcher": "terminal_command",
-                        "command": "lean-ctx hook rewrite"
+                        "command": "nebula-ctx hook rewrite"
                     },
                     {
                         "matcher": "read_file|grep|search|list_files|list_directory",
-                        "command": "lean-ctx hook redirect"
+                        "command": "nebula-ctx hook redirect"
                     }
                 ]
             }
@@ -722,7 +722,7 @@ mod tests {
 
     #[test]
     fn cursor_hook_detects_old_format_needs_migration() {
-        let old_format = r#"{"hooks":[{"event":"preToolUse","command":"lean-ctx hook rewrite"}]}"#;
+        let old_format = r#"{"hooks":[{"event":"preToolUse","command":"nebula-ctx hook rewrite"}]}"#;
         let has_correct =
             old_format.contains("\"version\"") && old_format.contains("\"preToolUse\"");
         assert!(
@@ -733,7 +733,7 @@ mod tests {
 
     #[test]
     fn gemini_hook_config_has_type_command() {
-        let binary = "lean-ctx";
+        let binary = "nebula-ctx";
         let rewrite_cmd = format!("{binary} hook rewrite");
         let redirect_cmd = format!("{binary} hook redirect");
 
@@ -762,16 +762,16 @@ mod tests {
 
         let first_hook = &before_tool[0]["hooks"][0];
         assert_eq!(first_hook["type"], "command");
-        assert_eq!(first_hook["command"], "lean-ctx hook rewrite");
+        assert_eq!(first_hook["command"], "nebula-ctx hook rewrite");
 
         let second_hook = &before_tool[1]["hooks"][0];
         assert_eq!(second_hook["type"], "command");
-        assert_eq!(second_hook["command"], "lean-ctx hook redirect");
+        assert_eq!(second_hook["command"], "nebula-ctx hook redirect");
     }
 
     #[test]
     fn gemini_hook_old_format_detected() {
-        let old_format = r#"{"hooks":{"BeforeTool":[{"command":"lean-ctx hook rewrite"}]}}"#;
+        let old_format = r#"{"hooks":{"BeforeTool":[{"command":"nebula-ctx hook rewrite"}]}}"#;
         let has_new = old_format.contains("hook rewrite")
             && old_format.contains("hook redirect")
             && old_format.contains("\"type\"");
@@ -780,7 +780,7 @@ mod tests {
 
     #[test]
     fn rewrite_script_uses_registry_pattern() {
-        let script = generate_rewrite_script("/usr/bin/lean-ctx");
+        let script = generate_rewrite_script("/usr/bin/nebula-ctx");
         assert!(script.contains(r"git\ *"), "script missing git pattern");
         assert!(script.contains(r"cargo\ *"), "script missing cargo pattern");
         assert!(script.contains(r"npm\ *"), "script missing npm pattern");
@@ -789,14 +789,14 @@ mod tests {
             "script should not contain rg pattern"
         );
         assert!(
-            script.contains("LEAN_CTX_BIN=\"/usr/bin/lean-ctx\""),
+            script.contains("LEAN_CTX_BIN=\"/usr/bin/nebula-ctx\""),
             "script missing binary path"
         );
     }
 
     #[test]
     fn compact_rewrite_script_uses_registry_pattern() {
-        let script = generate_compact_rewrite_script("/usr/bin/lean-ctx");
+        let script = generate_compact_rewrite_script("/usr/bin/nebula-ctx");
         assert!(script.contains(r"git\ *"), "compact script missing git");
         assert!(script.contains(r"cargo\ *"), "compact script missing cargo");
         assert!(
@@ -807,8 +807,8 @@ mod tests {
 
     #[test]
     fn rewrite_scripts_contain_all_registry_commands() {
-        let script = generate_rewrite_script("lean-ctx");
-        let compact = generate_compact_rewrite_script("lean-ctx");
+        let script = generate_rewrite_script("nebula-ctx");
+        let compact = generate_compact_rewrite_script("nebula-ctx");
         for entry in crate::rewrite_registry::REWRITE_COMMANDS {
             if entry.category == crate::rewrite_registry::Category::Search {
                 continue;

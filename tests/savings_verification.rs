@@ -1,5 +1,5 @@
-use lean_ctx::core::patterns::git;
-use lean_ctx::core::tokens::count_tokens;
+use nebula_ctx::core::patterns::git;
+use nebula_ctx::core::tokens::count_tokens;
 
 fn measure_compression(command: &str, output: &str) -> (usize, usize, f64) {
     let original = count_tokens(output);
@@ -195,31 +195,31 @@ fn verify_overall_savings_estimation() {
 fn verify_cep_delta_tracking_prevents_overcounting() {
     use std::collections::HashMap;
 
-    let test_dir = std::env::temp_dir().join(format!("lean-ctx-cep-test-{}", std::process::id()));
-    let lean_ctx_dir = test_dir.join(".lean-ctx");
-    let _ = std::fs::create_dir_all(&lean_ctx_dir);
-    let stats_path = lean_ctx_dir.join("stats.json");
+    let test_dir = std::env::temp_dir().join(format!("nebula-ctx-cep-test-{}", std::process::id()));
+    let nebula_ctx_dir = test_dir.join(".nebula-ctx");
+    let _ = std::fs::create_dir_all(&nebula_ctx_dir);
+    let stats_path = nebula_ctx_dir.join("stats.json");
     let _ = std::fs::remove_file(&stats_path);
 
     std::env::set_var(
         "LEAN_CTX_DATA_DIR",
-        lean_ctx_dir.to_string_lossy().to_string(),
+        nebula_ctx_dir.to_string_lossy().to_string(),
     );
 
     let mut modes = HashMap::new();
     modes.insert("full".to_string(), 5u64);
 
-    lean_ctx::core::stats::record_cep_session(70, 5, 10, 1000, 600, &modes, 10, "Standard");
+    nebula_ctx::core::stats::record_cep_session(70, 5, 10, 1000, 600, &modes, 10, "Standard");
 
-    let store1 = lean_ctx::core::stats::load();
+    let store1 = nebula_ctx::core::stats::load();
     let orig1 = store1.cep.total_tokens_original;
     let comp1 = store1.cep.total_tokens_compressed;
     let sessions1 = store1.cep.sessions;
     eprintln!("After call 1: orig={orig1}, comp={comp1}, sessions={sessions1}");
 
-    lean_ctx::core::stats::record_cep_session(75, 8, 15, 2000, 1200, &modes, 20, "Standard");
+    nebula_ctx::core::stats::record_cep_session(75, 8, 15, 2000, 1200, &modes, 20, "Standard");
 
-    let store2 = lean_ctx::core::stats::load();
+    let store2 = nebula_ctx::core::stats::load();
     let orig2 = store2.cep.total_tokens_original;
     let comp2 = store2.cep.total_tokens_compressed;
     let sessions2 = store2.cep.sessions;
@@ -401,9 +401,9 @@ fn generate_git_log_stat(n: usize) -> String {
 /// and verify that "original" and "saved" are fair comparisons.
 #[test]
 fn audit_full_savings_pipeline() {
-    use lean_ctx::core::cache::SessionCache;
-    use lean_ctx::core::tokens::count_tokens;
-    use lean_ctx::tools::CrpMode;
+    use nebula_ctx::core::cache::SessionCache;
+    use nebula_ctx::core::tokens::count_tokens;
+    use nebula_ctx::tools::CrpMode;
 
     eprintln!("\n{}", "=".repeat(70));
     eprintln!("  FULL SAVINGS PIPELINE AUDIT");
@@ -416,7 +416,7 @@ fn audit_full_savings_pipeline() {
         let tmp = std::env::temp_dir().join("audit_test_file.rs");
         std::fs::write(&tmp, content).unwrap();
 
-        let output = lean_ctx::tools::ctx_read::handle(
+        let output = nebula_ctx::tools::ctx_read::handle(
             &mut cache,
             tmp.to_str().unwrap(),
             "full",
@@ -441,7 +441,7 @@ fn audit_full_savings_pipeline() {
         );
 
         // 2. ctx_read — second read (cache hit): massive savings
-        let output2 = lean_ctx::tools::ctx_read::handle(
+        let output2 = nebula_ctx::tools::ctx_read::handle(
             &mut cache,
             tmp.to_str().unwrap(),
             "full",
@@ -489,7 +489,7 @@ fn audit_full_savings_pipeline() {
         let tmp = std::env::temp_dir().join("audit_test_sigs.rs");
         std::fs::write(&tmp, &content).unwrap();
 
-        let output = lean_ctx::tools::ctx_read::handle(
+        let output = nebula_ctx::tools::ctx_read::handle(
             &mut cache,
             tmp.to_str().unwrap(),
             "signatures",
@@ -524,7 +524,7 @@ fn audit_full_savings_pipeline() {
     // 4. ctx_tree — fair comparison (same depth)
     {
         let dir = env!("CARGO_MANIFEST_DIR");
-        let (output, raw_tokens) = lean_ctx::tools::ctx_tree::handle(dir, 2, false);
+        let (output, raw_tokens) = nebula_ctx::tools::ctx_tree::handle(dir, 2, false);
         let compact_tokens = count_tokens(&output);
         let savings = raw_tokens.saturating_sub(compact_tokens);
         let ratio = if raw_tokens > 0 {
@@ -552,7 +552,7 @@ fn audit_full_savings_pipeline() {
     {
         let raw_output = generate_git_log_patch(10);
         let original = count_tokens(&raw_output);
-        let compressed = lean_ctx::core::patterns::git::compress("git log -p", &raw_output)
+        let compressed = nebula_ctx::core::patterns::git::compress("git log -p", &raw_output)
             .unwrap_or_else(|| raw_output.clone());
         let compressed_tokens = count_tokens(&compressed);
         let saved = original.saturating_sub(compressed_tokens);

@@ -150,33 +150,33 @@ pub fn print_command_box() {
 
     println!("  {d}┌─────────────────────────────────────────────────────────┐{r}");
     println!(
-        "  {d}│{r}  {cmd}{b}lean-ctx gain{r}        {m}Token savings dashboard{r}         {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebula-ctx gain{r}        {m}Token savings dashboard{r}         {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}lean-ctx dashboard{r}   {m}Web analytics (browser){r}        {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebula-ctx dashboard{r}   {m}Web analytics (browser){r}        {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}lean-ctx heatmap{r}     {m}Project context heat map{r}        {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebula-ctx heatmap{r}     {m}Project context heat map{r}        {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}lean-ctx benchmark{r}   {m}Test compression quality{r}        {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebula-ctx benchmark{r}   {m}Test compression quality{r}        {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}lean-ctx config{r}      {m}Edit settings{r}                   {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebula-ctx config{r}      {m}Edit settings{r}                   {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}lean-ctx doctor{r}      {m}Verify installation{r}             {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebula-ctx doctor{r}      {m}Verify installation{r}             {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}lean-ctx update{r}      {m}Self-update to latest{r}           {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebula-ctx update{r}      {m}Self-update to latest{r}           {d}│{r}"
     );
-    println!("  {d}│{r}  {cmd}{b}lean-ctx off{r} / {cmd}{b}on{r}    {m}Toggle compression{r}              {d}│{r}");
+    println!("  {d}│{r}  {cmd}{b}nebula-ctx off{r} / {cmd}{b}on{r}    {m}Toggle compression{r}              {d}│{r}");
     println!(
-        "  {d}│{r}  {cmd}{b}lean-ctx report-issue{r} {m}Report a bug (auto-diagnostics){r} {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebula-ctx report-issue{r} {m}Report a bug (auto-diagnostics){r} {d}│{r}"
     );
-    println!("  {d}│{r}  {cmd}{b}lean-ctx contribute{r}  {m}Share anonymized compression stats{r}{d}│{r}");
+    println!("  {d}│{r}  {cmd}{b}nebula-ctx contribute{r}  {m}Share anonymized compression stats{r}{d}│{r}");
     println!(
-        "  {d}│{r}  {cmd}{b}lean-ctx uninstall{r}   {m}Clean removal{r}                   {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebula-ctx uninstall{r}   {m}Clean removal{r}                   {d}│{r}"
     );
     println!("  {d}└─────────────────────────────────────────────────────────┘{r}");
     println!("  {ok}Ready!{r} Your next AI command will be automatically optimized.");
@@ -230,7 +230,7 @@ pub fn print_setup_header() {
     println!();
     println!("  {dim}╭──────────────────────────────────────────╮{rst}");
     println!(
-        "  {dim}│{rst}  {green}{bold}◆ lean-ctx setup{rst}                         {dim}│{rst}"
+        "  {dim}│{rst}  {green}{bold}◆ nebula-ctx setup{rst}                         {dim}│{rst}"
     );
     println!("  {dim}│{rst}  {dim}Configuring your development environment{rst} {dim}│{rst}");
     println!("  {dim}╰──────────────────────────────────────────╯{rst}");

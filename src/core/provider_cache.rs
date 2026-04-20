@@ -2,7 +2,7 @@
 //!
 //! Many LLM providers (Anthropic, OpenAI, Google) implement prefix caching:
 //! if the beginning of a prompt matches a previous request, the provider
-//! can skip re-processing those tokens. This module helps lean-ctx structure
+//! can skip re-processing those tokens. This module helps nebula-ctx structure
 //! output to maximize prefix cache hits.
 //!
 //! Strategies:

@@ -403,13 +403,13 @@ mod tests {
     #[test]
     fn test_edge_matches_file_crate_prefix() {
         let prefixes = vec![
-            "lean_ctx::core::cache".to_string(),
+            "nebula_ctx::core::cache".to_string(),
             "crate::core::cache".to_string(),
             "super::core::cache".to_string(),
             "core::cache".to_string(),
         ];
         assert!(edge_matches_file(
-            "lean_ctx::core::cache::SessionCache",
+            "nebula_ctx::core::cache::SessionCache",
             &prefixes
         ));
         assert!(edge_matches_file(
@@ -418,7 +418,7 @@ mod tests {
         ));
         assert!(edge_matches_file("crate::core::cache", &prefixes));
         assert!(!edge_matches_file(
-            "lean_ctx::core::config::Config",
+            "nebula_ctx::core::config::Config",
             &prefixes
         ));
         assert!(!edge_matches_file("crate::core::cached_reader", &prefixes));

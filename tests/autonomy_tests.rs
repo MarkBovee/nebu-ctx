@@ -1,10 +1,10 @@
-use lean_ctx::core::cache::SessionCache;
-use lean_ctx::core::config::AutonomyConfig;
-use lean_ctx::tools::autonomy::{
+use nebula_ctx::core::cache::SessionCache;
+use nebula_ctx::core::config::AutonomyConfig;
+use nebula_ctx::tools::autonomy::{
     enrich_after_read, maybe_auto_dedup, session_lifecycle_pre_hook, shell_efficiency_hint,
     AutonomyState,
 };
-use lean_ctx::tools::CrpMode;
+use nebula_ctx::tools::CrpMode;
 use std::sync::atomic::Ordering;
 
 fn make_state() -> AutonomyState {

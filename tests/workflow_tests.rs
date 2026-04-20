@@ -1,4 +1,4 @@
-use lean_ctx::core::workflow::*;
+use nebula_ctx::core::workflow::*;
 
 fn minimal_spec() -> WorkflowSpec {
     WorkflowSpec {

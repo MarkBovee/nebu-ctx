@@ -4,7 +4,7 @@
 //! On re-index, only files whose hash has changed get re-embedded,
 //! avoiding expensive model inference for unchanged code.
 //!
-//! Storage format: `~/.lean-ctx/vectors/<project_hash>/embeddings.json`
+//! Storage format: `~/.nebula-ctx/vectors/<project_hash>/embeddings.json`
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -154,7 +154,7 @@ fn index_dir(root: &Path) -> PathBuf {
     let mut hasher = Md5::new();
     hasher.update(root.to_string_lossy().as_bytes());
     let hash = format!("{:x}", hasher.finalize());
-    crate::core::data_dir::lean_ctx_data_dir()
+    crate::core::data_dir::nebula_ctx_data_dir()
         .unwrap_or_else(|_| PathBuf::from("."))
         .join("vectors")
         .join(hash)
@@ -390,7 +390,7 @@ mod tests {
 
     #[test]
     fn save_and_load_roundtrip() {
-        let dir = std::env::temp_dir().join("lean_ctx_embed_idx_test");
+        let dir = std::env::temp_dir().join("nebula_ctx_embed_idx_test");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
 

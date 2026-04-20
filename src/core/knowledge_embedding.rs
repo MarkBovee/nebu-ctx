@@ -86,7 +86,7 @@ impl KnowledgeEmbeddingIndex {
     }
 
     fn index_path(project_hash: &str) -> Option<PathBuf> {
-        let dir = crate::core::data_dir::lean_ctx_data_dir()
+        let dir = crate::core::data_dir::nebula_ctx_data_dir()
             .ok()?
             .join("knowledge")
             .join(project_hash);

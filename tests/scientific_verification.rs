@@ -1,11 +1,11 @@
-use lean_ctx::core::attention_model::{
+use nebula_ctx::core::attention_model::{
     attention_efficiency, combined_attention, positional_attention, structural_importance,
 };
-use lean_ctx::core::entropy::{
+use nebula_ctx::core::entropy::{
     jaccard_similarity, kolmogorov_proxy, ngram_jaccard, normalized_token_entropy, shannon_entropy,
     token_entropy,
 };
-use lean_ctx::core::tokens::count_tokens;
+use nebula_ctx::core::tokens::count_tokens;
 
 // ═══════════════════════════════════════════════════════════════════
 // 1. SHANNON ENTROPY — mathematical invariants
@@ -350,7 +350,7 @@ fn attention_efficiency_optimal_is_high() {
 
 #[test]
 fn symbol_map_roi_positive_for_frequent_long_idents() {
-    use lean_ctx::core::symbol_map::should_register;
+    use nebula_ctx::core::symbol_map::should_register;
     assert!(
         should_register("authenticate_user_credentials_handler", 10, 1),
         "very long ident (36 chars) with 10 occurrences should have positive ROI"
@@ -359,7 +359,7 @@ fn symbol_map_roi_positive_for_frequent_long_idents() {
 
 #[test]
 fn symbol_map_roi_negative_for_single_use() {
-    use lean_ctx::core::symbol_map::should_register;
+    use nebula_ctx::core::symbol_map::should_register;
     assert!(
         !should_register("authenticate_user_credentials_handler", 1, 1),
         "single-use ident should have negative ROI"
@@ -368,7 +368,7 @@ fn symbol_map_roi_negative_for_single_use() {
 
 #[test]
 fn symbol_map_net_savings_correct() {
-    use lean_ctx::core::symbol_map::SymbolMap;
+    use nebula_ctx::core::symbol_map::SymbolMap;
 
     let ident = "authenticate_user_credentials_handler";
     let occurrences = 15;
@@ -400,7 +400,7 @@ fn symbol_map_net_savings_correct() {
 
 #[test]
 fn ib_filter_preserves_task_relevant_lines() {
-    use lean_ctx::core::task_relevance::information_bottleneck_filter;
+    use nebula_ctx::core::task_relevance::information_bottleneck_filter;
 
     let mut lines = Vec::new();
     for i in 0..100 {
@@ -428,7 +428,7 @@ fn ib_filter_preserves_task_relevant_lines() {
 
 #[test]
 fn ib_filter_reduces_more_for_repetitive_content() {
-    use lean_ctx::core::task_relevance::{adaptive_ib_budget, information_bottleneck_filter};
+    use nebula_ctx::core::task_relevance::{adaptive_ib_budget, information_bottleneck_filter};
 
     let repetitive = "let x = compute(a);\n".repeat(100);
     let diverse: String = (0..100)
@@ -462,7 +462,7 @@ fn ib_filter_reduces_more_for_repetitive_content() {
 
 #[test]
 fn safeguard_prevents_over_compression() {
-    use lean_ctx::core::compressor::safeguard_ratio;
+    use nebula_ctx::core::compressor::safeguard_ratio;
     let original = "fn main() {\n".repeat(50);
     let over_compressed = "x";
     let result = safeguard_ratio(&original, over_compressed);
@@ -474,7 +474,7 @@ fn safeguard_prevents_over_compression() {
 
 #[test]
 fn safeguard_allows_good_compression() {
-    use lean_ctx::core::compressor::safeguard_ratio;
+    use nebula_ctx::core::compressor::safeguard_ratio;
     let original = "fn main() {\n    let x = compute();\n    println!(x);\n}\n".repeat(10);
     let compressed = "fn main() { let x = compute(); println!(x); }\n".repeat(10);
     let result = safeguard_ratio(&original, &compressed);
@@ -490,7 +490,7 @@ fn safeguard_allows_good_compression() {
 
 #[test]
 fn cost_model_token_savings_exclude_output_bonus() {
-    let summary = lean_ctx::core::stats::load_stats();
+    let summary = nebula_ctx::core::stats::load_stats();
     let _ = summary.total_saved;
     let _ = summary.total_calls;
 }
@@ -598,7 +598,7 @@ fn full_scientific_audit() {
     });
 
     check!("Safeguard ratio ∈ {original, compressed}", {
-        use lean_ctx::core::compressor::safeguard_ratio;
+        use nebula_ctx::core::compressor::safeguard_ratio;
         let o = "test ".repeat(50);
         let c = "t ".repeat(50);
         let r = safeguard_ratio(&o, &c);

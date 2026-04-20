@@ -301,7 +301,7 @@ mod tests {
 
     #[test]
     fn cargo_build_success() {
-        let output = "   Compiling lean-ctx v2.1.1\n    Finished release profile [optimized] target(s) in 30.5s";
+        let output = "   Compiling nebula-ctx v2.1.1\n    Finished release profile [optimized] target(s) in 30.5s";
         let result = compress("cargo build", output).unwrap();
         assert!(result.contains("compiled"), "should mention compilation");
         assert!(result.contains("30.5s"), "should include build time");
@@ -309,7 +309,7 @@ mod tests {
 
     #[test]
     fn cargo_build_with_errors() {
-        let output = "   Compiling lean-ctx v2.1.1\nerror[E0308]: mismatched types\n --> src/main.rs:10:5\n  |\n10|     1 + \"hello\"\n  |         ^^^^^^^ expected integer, found &str";
+        let output = "   Compiling nebula-ctx v2.1.1\nerror[E0308]: mismatched types\n --> src/main.rs:10:5\n  |\n10|     1 + \"hello\"\n  |         ^^^^^^^ expected integer, found &str";
         let result = compress("cargo build", output).unwrap();
         assert!(result.contains("E0308"), "should contain error code");
     }
@@ -330,14 +330,14 @@ mod tests {
 
     #[test]
     fn cargo_clippy_clean() {
-        let output = "    Checking lean-ctx v2.1.1\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.2s";
+        let output = "    Checking nebula-ctx v2.1.1\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.2s";
         let result = compress("cargo clippy", output).unwrap();
         assert!(result.contains("clean"), "clean clippy should say clean");
     }
 
     #[test]
     fn cargo_check_routes_to_build() {
-        let output = "    Checking lean-ctx v2.1.1\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.1s";
+        let output = "    Checking nebula-ctx v2.1.1\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.1s";
         let result = compress("cargo check", output);
         assert!(
             result.is_some(),

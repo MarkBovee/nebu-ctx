@@ -19,7 +19,7 @@ pub fn handle_rewrite() {
         None => return,
     };
 
-    if cmd.starts_with("lean-ctx ") || cmd.starts_with(&format!("{binary} ")) {
+    if cmd.starts_with("nebula-ctx ") || cmd.starts_with(&format!("{binary} ")) {
         return;
     }
 
@@ -45,7 +45,7 @@ fn wrap_single_command(cmd: &str, binary: &str) -> String {
 
 fn build_rewrite_compound(cmd: &str, binary: &str) -> Option<String> {
     compound_lexer::rewrite_compound(cmd, |segment| {
-        if segment.starts_with("lean-ctx ") || segment.starts_with(&format!("{binary} ")) {
+        if segment.starts_with("nebula-ctx ") || segment.starts_with(&format!("{binary} ")) {
             return None;
         }
         if is_rewritable(segment) {
@@ -99,7 +99,7 @@ pub fn handle_copilot() {
         None => return,
     };
 
-    if cmd.starts_with("lean-ctx ") || cmd.starts_with(&format!("{binary} ")) {
+    if cmd.starts_with("nebula-ctx ") || cmd.starts_with(&format!("{binary} ")) {
         return;
     }
 
@@ -126,7 +126,7 @@ pub fn handle_rewrite_inline() {
     }
     let cmd = args[3..].join(" ");
 
-    if cmd.starts_with("lean-ctx ") || cmd.starts_with(&format!("{binary} ")) {
+    if cmd.starts_with("nebula-ctx ") || cmd.starts_with(&format!("{binary} ")) {
         print!("{cmd}");
         return;
     }
@@ -148,7 +148,7 @@ pub fn handle_rewrite_inline() {
 fn resolve_binary() -> String {
     let path = std::env::current_exe()
         .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|_| "lean-ctx".to_string());
+        .unwrap_or_else(|_| "nebula-ctx".to_string());
     crate::hooks::to_bash_compatible_path(&path)
 }
 
@@ -190,47 +190,47 @@ mod tests {
 
     #[test]
     fn wrap_single() {
-        let r = wrap_single_command("git status", "lean-ctx");
-        assert_eq!(r, r#"lean-ctx -c "git status""#);
+        let r = wrap_single_command("git status", "nebula-ctx");
+        assert_eq!(r, r#"nebula-ctx -c "git status""#);
     }
 
     #[test]
     fn wrap_with_quotes() {
-        let r = wrap_single_command(r#"curl -H "Auth" https://api.com"#, "lean-ctx");
-        assert_eq!(r, r#"lean-ctx -c "curl -H \"Auth\" https://api.com""#);
+        let r = wrap_single_command(r#"curl -H "Auth" https://api.com"#, "nebula-ctx");
+        assert_eq!(r, r#"nebula-ctx -c "curl -H \"Auth\" https://api.com""#);
     }
 
     #[test]
     fn compound_rewrite_and_chain() {
-        let result = build_rewrite_compound("cd src && git status && echo done", "lean-ctx");
+        let result = build_rewrite_compound("cd src && git status && echo done", "nebula-ctx");
         assert_eq!(
             result,
-            Some(r#"cd src && lean-ctx -c "git status" && echo done"#.into())
+            Some(r#"cd src && nebula-ctx -c "git status" && echo done"#.into())
         );
     }
 
     #[test]
     fn compound_rewrite_pipe() {
-        let result = build_rewrite_compound("git log --oneline | head -5", "lean-ctx");
+        let result = build_rewrite_compound("git log --oneline | head -5", "nebula-ctx");
         assert_eq!(
             result,
-            Some(r#"lean-ctx -c "git log --oneline" | head -5"#.into())
+            Some(r#"nebula-ctx -c "git log --oneline" | head -5"#.into())
         );
     }
 
     #[test]
     fn compound_rewrite_no_match() {
-        let result = build_rewrite_compound("cd src && echo done", "lean-ctx");
+        let result = build_rewrite_compound("cd src && echo done", "nebula-ctx");
         assert_eq!(result, None);
     }
 
     #[test]
     fn compound_rewrite_multiple_rewritable() {
-        let result = build_rewrite_compound("git add . && cargo test && npm run lint", "lean-ctx");
+        let result = build_rewrite_compound("git add . && cargo test && npm run lint", "nebula-ctx");
         assert_eq!(
             result,
             Some(
-                r#"lean-ctx -c "git add ." && lean-ctx -c "cargo test" && lean-ctx -c "npm run lint""#
+                r#"nebula-ctx -c "git add ." && nebula-ctx -c "cargo test" && nebula-ctx -c "npm run lint""#
                     .into()
             )
         );
@@ -238,34 +238,34 @@ mod tests {
 
     #[test]
     fn compound_rewrite_semicolons() {
-        let result = build_rewrite_compound("git add .; git commit -m 'fix'", "lean-ctx");
+        let result = build_rewrite_compound("git add .; git commit -m 'fix'", "nebula-ctx");
         assert_eq!(
             result,
-            Some(r#"lean-ctx -c "git add ." ; lean-ctx -c "git commit -m 'fix'""#.into())
+            Some(r#"nebula-ctx -c "git add ." ; nebula-ctx -c "git commit -m 'fix'""#.into())
         );
     }
 
     #[test]
     fn compound_rewrite_or_chain() {
-        let result = build_rewrite_compound("git pull || echo failed", "lean-ctx");
+        let result = build_rewrite_compound("git pull || echo failed", "nebula-ctx");
         assert_eq!(
             result,
-            Some(r#"lean-ctx -c "git pull" || echo failed"#.into())
+            Some(r#"nebula-ctx -c "git pull" || echo failed"#.into())
         );
     }
 
     #[test]
     fn compound_skips_already_rewritten() {
-        let result = build_rewrite_compound("lean-ctx -c git status && git diff", "lean-ctx");
+        let result = build_rewrite_compound("nebula-ctx -c git status && git diff", "nebula-ctx");
         assert_eq!(
             result,
-            Some(r#"lean-ctx -c git status && lean-ctx -c "git diff""#.into())
+            Some(r#"nebula-ctx -c git status && nebula-ctx -c "git diff""#.into())
         );
     }
 
     #[test]
     fn single_command_not_compound() {
-        let result = build_rewrite_compound("git status", "lean-ctx");
+        let result = build_rewrite_compound("git status", "nebula-ctx");
         assert_eq!(result, None);
     }
 
@@ -311,38 +311,38 @@ mod tests {
 
     #[test]
     fn to_bash_compatible_path_windows_drive() {
-        let p = crate::hooks::to_bash_compatible_path(r"E:\packages\lean-ctx.exe");
-        assert_eq!(p, "/e/packages/lean-ctx.exe");
+        let p = crate::hooks::to_bash_compatible_path(r"E:\packages\nebula-ctx.exe");
+        assert_eq!(p, "/e/packages/nebula-ctx.exe");
     }
 
     #[test]
     fn to_bash_compatible_path_backslashes() {
-        let p = crate::hooks::to_bash_compatible_path(r"C:\Users\test\bin\lean-ctx.exe");
-        assert_eq!(p, "/c/Users/test/bin/lean-ctx.exe");
+        let p = crate::hooks::to_bash_compatible_path(r"C:\Users\test\bin\nebula-ctx.exe");
+        assert_eq!(p, "/c/Users/test/bin/nebula-ctx.exe");
     }
 
     #[test]
     fn to_bash_compatible_path_unix_unchanged() {
-        let p = crate::hooks::to_bash_compatible_path("/usr/local/bin/lean-ctx");
-        assert_eq!(p, "/usr/local/bin/lean-ctx");
+        let p = crate::hooks::to_bash_compatible_path("/usr/local/bin/nebula-ctx");
+        assert_eq!(p, "/usr/local/bin/nebula-ctx");
     }
 
     #[test]
     fn to_bash_compatible_path_msys2_unchanged() {
-        let p = crate::hooks::to_bash_compatible_path("/e/packages/lean-ctx.exe");
-        assert_eq!(p, "/e/packages/lean-ctx.exe");
+        let p = crate::hooks::to_bash_compatible_path("/e/packages/nebula-ctx.exe");
+        assert_eq!(p, "/e/packages/nebula-ctx.exe");
     }
 
     #[test]
     fn wrap_command_with_bash_path() {
-        let binary = crate::hooks::to_bash_compatible_path(r"E:\packages\lean-ctx.exe");
+        let binary = crate::hooks::to_bash_compatible_path(r"E:\packages\nebula-ctx.exe");
         let result = wrap_single_command("git status", &binary);
         assert!(
             !result.contains('\\'),
             "wrapped command must not contain backslashes, got: {result}"
         );
         assert!(
-            result.starts_with("/e/packages/lean-ctx.exe"),
+            result.starts_with("/e/packages/nebula-ctx.exe"),
             "must use bash-compatible path, got: {result}"
         );
     }

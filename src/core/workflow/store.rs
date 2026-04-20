@@ -2,7 +2,7 @@ use crate::core::workflow::types::WorkflowRun;
 use std::path::PathBuf;
 
 fn active_workflow_path() -> Option<PathBuf> {
-    crate::core::data_dir::lean_ctx_data_dir()
+    crate::core::data_dir::nebula_ctx_data_dir()
         .ok()
         .map(|d| d.join("workflows").join("active.json"))
 }

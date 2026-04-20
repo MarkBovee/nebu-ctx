@@ -1,9 +1,9 @@
-//! `lean-ctx report-issue` — collects diagnostics and creates a GitHub issue.
+//! `nebula-ctx report-issue` — collects diagnostics and creates a GitHub issue.
 
 use std::path::PathBuf;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const REPO: &str = "yvgude/lean-ctx";
+const REPO: &str = "yvgude/nebula-ctx";
 const BOLD: &str = "\x1b[1m";
 const RST: &str = "\x1b[0m";
 const DIM: &str = "\x1b[2m";
@@ -16,7 +16,7 @@ pub fn run(args: &[String]) {
     let dry_run = args.iter().any(|a| a == "--dry-run");
     let include_tee = args.iter().any(|a| a == "--include-tee");
 
-    println!("{BOLD}lean-ctx report-issue{RST}\n");
+    println!("{BOLD}nebula-ctx report-issue{RST}\n");
 
     let title = title.unwrap_or_else(|| prompt_input("Issue title"));
     if title.trim().is_empty() {
@@ -37,7 +37,7 @@ pub fn run(args: &[String]) {
 
     if dry_run {
         println!("\n{YELLOW}--dry-run: not submitting.{RST}");
-        if let Some(dir) = lean_ctx_dir() {
+        if let Some(dir) = nebula_ctx_dir() {
             let path = dir.join("last-report.md");
             let _ = std::fs::write(&path, &body);
             println!("Report saved to {}", path.display());
@@ -50,7 +50,7 @@ pub fn run(args: &[String]) {
     let _ = std::io::stdin().read_line(&mut answer);
     if !answer.trim().eq_ignore_ascii_case("y") {
         println!("Aborted.");
-        if let Some(dir) = lean_ctx_dir() {
+        if let Some(dir) = nebula_ctx_dir() {
             let path = dir.join("last-report.md");
             let _ = std::fs::write(&path, &body);
             println!("Report saved to {}", path.display());
@@ -93,7 +93,7 @@ fn section_environment() -> String {
     format!(
         "## Environment\n\n\
          | Field | Value |\n|---|---|\n\
-         | lean-ctx | {VERSION} |\n\
+         | nebula-ctx | {VERSION} |\n\
          | OS | {os} {arch} |\n\
          | Shell | {shell} |\n\
          | IDE | {ide} |"
@@ -102,7 +102,7 @@ fn section_environment() -> String {
 
 fn section_configuration() -> String {
     let mut out = String::from("## Configuration\n\n```toml\n");
-    if let Some(dir) = lean_ctx_dir() {
+    if let Some(dir) = nebula_ctx_dir() {
         let config_path = dir.join("config.toml");
         if let Ok(content) = std::fs::read_to_string(&config_path) {
             let clean = mask_secrets(&content);
@@ -118,7 +118,7 @@ fn section_configuration() -> String {
 fn section_mcp_status() -> String {
     let mut lines = vec!["## MCP Integration Status\n".to_string()];
 
-    let binary_ok = which_lean_ctx().is_some();
+    let binary_ok = which_nebula_ctx().is_some();
     lines.push(format!(
         "- Binary on PATH: {}",
         if binary_ok { "yes" } else { "no" }
@@ -135,7 +135,7 @@ fn section_mcp_status() -> String {
 
 fn section_tool_calls() -> String {
     let mut out = String::from("## Recent Tool Calls\n\n```\n");
-    if let Some(dir) = lean_ctx_dir() {
+    if let Some(dir) = nebula_ctx_dir() {
         let log_path = dir.join("tool-calls.log");
         if let Ok(content) = std::fs::read_to_string(&log_path) {
             let lines: Vec<&str> = content.lines().collect();
@@ -154,7 +154,7 @@ fn section_tool_calls() -> String {
 
 fn section_session() -> String {
     let mut out = String::from("## Session State\n\n");
-    if let Some(dir) = lean_ctx_dir() {
+    if let Some(dir) = nebula_ctx_dir() {
         let latest = dir.join("sessions").join("latest.json");
         if let Ok(content) = std::fs::read_to_string(&latest) {
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
@@ -182,7 +182,7 @@ fn section_session() -> String {
 
 fn section_performance() -> String {
     let mut out = String::from("## Performance Metrics\n\n");
-    if let Some(dir) = lean_ctx_dir() {
+    if let Some(dir) = nebula_ctx_dir() {
         let mcp_live = dir.join("mcp-live.json");
         if let Ok(content) = std::fs::read_to_string(&mcp_live) {
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
@@ -228,7 +228,7 @@ fn section_performance() -> String {
 
 fn section_slow_commands() -> String {
     let mut out = String::from("## Slow Commands\n\n```\n");
-    if let Some(dir) = lean_ctx_dir() {
+    if let Some(dir) = nebula_ctx_dir() {
         let log_path = dir.join("slow-commands.log");
         if let Ok(content) = std::fs::read_to_string(&log_path) {
             let lines: Vec<&str> = content.lines().collect();
@@ -247,7 +247,7 @@ fn section_slow_commands() -> String {
 
 fn section_tee_logs(include_content: bool) -> String {
     let mut out = String::from("## Tee Logs (last 24h)\n\n");
-    if let Some(dir) = lean_ctx_dir() {
+    if let Some(dir) = nebula_ctx_dir() {
         let tee_dir = dir.join("tee");
         if tee_dir.is_dir() {
             let cutoff = std::time::SystemTime::now() - std::time::Duration::from_secs(24 * 3600);
@@ -389,7 +389,7 @@ fn try_gh_cli(title: &str, body: &str) -> bool {
         None => return false,
     };
 
-    let tmp = std::env::temp_dir().join("lean-ctx-report.md");
+    let tmp = std::env::temp_dir().join("nebula-ctx-report.md");
     if std::fs::write(&tmp, body).is_err() {
         return false;
     }
@@ -490,7 +490,7 @@ fn try_ureq_api(title: &str, body: &str) {
         .header("Authorization", &format!("Bearer {token}"))
         .header("Accept", "application/vnd.github.v3+json")
         .header("Content-Type", "application/json")
-        .header("User-Agent", &format!("lean-ctx/{VERSION}"))
+        .header("User-Agent", &format!("nebula-ctx/{VERSION}"))
         .send(payload_bytes.as_slice())
     {
         Ok(resp) => {
@@ -511,7 +511,7 @@ fn try_ureq_api(title: &str, body: &str) {
 }
 
 fn save_report_locally(body: &str) {
-    if let Some(dir) = lean_ctx_dir() {
+    if let Some(dir) = nebula_ctx_dir() {
         let path = dir.join("last-report.md");
         let _ = std::fs::write(&path, body);
         println!("Report saved to {}", path.display());
@@ -520,14 +520,14 @@ fn save_report_locally(body: &str) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
-fn lean_ctx_dir() -> Option<PathBuf> {
-    dirs::home_dir().map(|h| h.join(".lean-ctx"))
+fn nebula_ctx_dir() -> Option<PathBuf> {
+    dirs::home_dir().map(|h| h.join(".nebula-ctx"))
 }
 
-fn which_lean_ctx() -> Option<PathBuf> {
+fn which_nebula_ctx() -> Option<PathBuf> {
     let cmd = if cfg!(windows) { "where" } else { "which" };
     std::process::Command::new(cmd)
-        .arg("lean-ctx")
+        .arg("nebula-ctx")
         .output()
         .ok()
         .filter(|o| o.status.success())
@@ -549,7 +549,7 @@ fn check_shell_hooks() -> String {
     for (file, name) in shells {
         let path = home.join(file);
         if let Ok(content) = std::fs::read_to_string(&path) {
-            if content.contains("lean-ctx") {
+            if content.contains("nebula-ctx") {
                 found.push(name);
             }
         }
@@ -578,7 +578,7 @@ fn check_mcp_configs() -> String {
 
     for (full, name) in &configs {
         if let Ok(content) = std::fs::read_to_string(full) {
-            if content.contains("lean-ctx") {
+            if content.contains("nebula-ctx") {
                 found.push(*name);
             }
         }

@@ -86,7 +86,7 @@ impl NeuralEngine {
         }
 
         if let Some(data_dir) = dirs::data_dir() {
-            return data_dir.join("lean-ctx").join("models");
+            return data_dir.join("nebula-ctx").join("models");
         }
 
         PathBuf::from("models")

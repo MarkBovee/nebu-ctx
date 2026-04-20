@@ -89,7 +89,7 @@ pub async fn start_proxy(port: u16) -> anyhow::Result<()> {
         .with_state(state);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
-    println!("lean-ctx proxy listening on http://{addr}");
+    println!("nebula-ctx proxy listening on http://{addr}");
     println!("  Anthropic: POST /v1/messages");
     println!("  OpenAI:    POST /v1/chat/completions");
     println!("  Gemini:    POST /v1beta/models/...");
@@ -133,11 +133,11 @@ async fn fallback_router(State(state): State<ProxyState>, req: Request<Body>) ->
         }
     } else {
         let method = req.method().to_string();
-        eprintln!("lean-ctx proxy: unmatched {method} {path}");
+        eprintln!("nebula-ctx proxy: unmatched {method} {path}");
         Response::builder()
             .status(StatusCode::NOT_FOUND)
             .body(Body::from(format!(
-                "lean-ctx proxy: no handler for {method} {path}"
+                "nebula-ctx proxy: no handler for {method} {path}"
             )))
             .unwrap()
     }

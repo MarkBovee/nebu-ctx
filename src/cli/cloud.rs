@@ -22,7 +22,7 @@ pub fn cmd_login(args: &[String]) {
     }
 
     if email.is_empty() {
-        eprintln!("Usage: lean-ctx login <email> [--password <password>]");
+        eprintln!("Usage: nebula-ctx login <email> [--password <password>]");
         std::process::exit(1);
     }
 
@@ -73,7 +73,7 @@ pub fn cmd_login(args: &[String]) {
                 let _ = cloud_client::save_plan(&plan);
             }
             println!("Logged in as {email}");
-            println!("API key saved to ~/.lean-ctx/cloud/credentials.json");
+            println!("API key saved to ~/.nebula-ctx/cloud/credentials.json");
             if r.verification_sent {
                 println!("Verification email sent — please check your inbox.");
             }
@@ -90,7 +90,7 @@ pub fn cmd_login(args: &[String]) {
 
 pub fn cmd_sync() {
     if !cloud_client::is_logged_in() {
-        eprintln!("Not logged in. Run: lean-ctx login <email>");
+        eprintln!("Not logged in. Run: nebula-ctx login <email>");
         std::process::exit(1);
     }
 
@@ -185,7 +185,7 @@ fn collect_knowledge_entries() -> Vec<serde_json::Value> {
         Some(h) => h,
         None => return Vec::new(),
     };
-    let knowledge_dir = home.join(".lean-ctx").join("knowledge");
+    let knowledge_dir = home.join(".nebula-ctx").join("knowledge");
     if !knowledge_dir.is_dir() {
         return Vec::new();
     }
@@ -310,7 +310,7 @@ fn collect_gotcha_entries() -> Vec<serde_json::Value> {
     let mut all_gotchas = core::gotcha_tracker::load_universal_gotchas();
 
     if let Some(home) = dirs::home_dir() {
-        let knowledge_dir = home.join(".lean-ctx").join("knowledge");
+        let knowledge_dir = home.join(".nebula-ctx").join("knowledge");
         if let Ok(entries) = std::fs::read_dir(&knowledge_dir) {
             for entry in entries.flatten() {
                 let gotcha_path = entry.path().join("gotchas.json");
@@ -371,7 +371,7 @@ pub fn cmd_contribute() {
     let mut entries = Vec::new();
 
     if let Some(home) = dirs::home_dir() {
-        let mode_stats_path = home.join(".lean-ctx").join("mode_stats.json");
+        let mode_stats_path = home.join(".nebula-ctx").join("mode_stats.json");
         if let Ok(data) = std::fs::read_to_string(&mode_stats_path) {
             if let Ok(predictor) = serde_json::from_str::<serde_json::Value>(&data) {
                 if let Some(history) = predictor["history"].as_object() {
@@ -444,7 +444,7 @@ pub fn cmd_contribute() {
     }
 
     if entries.is_empty() {
-        println!("No compression data to contribute yet. Use lean-ctx for a while first.");
+        println!("No compression data to contribute yet. Use nebula-ctx for a while first.");
         return;
     }
 
@@ -492,11 +492,11 @@ pub fn cmd_cloud(args: &[String]) {
                 println!("Connected to LeanCTX Cloud.");
             } else {
                 println!("Not connected to LeanCTX Cloud.");
-                println!("Get started: lean-ctx login <email>");
+                println!("Get started: nebula-ctx login <email>");
             }
         }
         _ => {
-            println!("Usage: lean-ctx cloud <command>");
+            println!("Usage: nebula-ctx cloud <command>");
             println!("  pull-models — Update adaptive compression models");
             println!("  status      — Show cloud connection status");
         }
@@ -546,7 +546,7 @@ pub fn cmd_gotchas(args: &[String]) {
             println!("  Session logs:        {}", store.error_log.len());
         }
         _ => {
-            println!("Usage: lean-ctx gotchas [list|clear|export|stats]");
+            println!("Usage: nebula-ctx gotchas [list|clear|export|stats]");
         }
     }
 }
@@ -554,7 +554,7 @@ pub fn cmd_gotchas(args: &[String]) {
 pub fn cmd_buddy(args: &[String]) {
     let cfg = core::config::Config::load();
     if !cfg.buddy_enabled {
-        println!("Buddy is disabled. Enable with: lean-ctx config buddy_enabled true");
+        println!("Buddy is disabled. Enable with: nebula-ctx config buddy_enabled true");
         return;
     }
 
@@ -579,12 +579,12 @@ pub fn cmd_buddy(args: &[String]) {
             Err(e) => eprintln!("JSON error: {e}"),
         },
         _ => {
-            println!("Usage: lean-ctx buddy [show|stats|ascii|json]");
+            println!("Usage: nebula-ctx buddy [show|stats|ascii|json]");
         }
     }
 }
 
 pub fn cmd_upgrade() {
-    println!("'upgrade' has been renamed to 'update'. Running 'lean-ctx update' instead.\n");
+    println!("'upgrade' has been renamed to 'update'. Running 'nebula-ctx update' instead.\n");
     core::updater::run(&[]);
 }

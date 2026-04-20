@@ -34,7 +34,7 @@ pub fn lazy_tool_defs() -> Vec<Tool> {
 
     core.push(tool_def(
         "ctx_discover_tools",
-        "Search available lean-ctx tools by keyword. Returns matching tool names + descriptions for on-demand loading.",
+        "Search available nebula-ctx tools by keyword. Returns matching tool names + descriptions for on-demand loading.",
         json!({
             "type": "object",
             "properties": {

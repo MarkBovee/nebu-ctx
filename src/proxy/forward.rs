@@ -77,7 +77,7 @@ async fn send_upstream(
     }
 
     req.body(body).send().await.map_err(|e| {
-        eprintln!("lean-ctx proxy: {provider_label} upstream error: {e}");
+        eprintln!("nebula-ctx proxy: {provider_label} upstream error: {e}");
         StatusCode::BAD_GATEWAY
     })
 }

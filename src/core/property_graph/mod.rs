@@ -24,7 +24,7 @@ pub struct CodeGraph {
 
 impl CodeGraph {
     pub fn open(project_root: &Path) -> anyhow::Result<Self> {
-        let db_dir = project_root.join(".lean-ctx");
+        let db_dir = project_root.join(".nebula-ctx");
         std::fs::create_dir_all(&db_dir)?;
         let db_path = db_dir.join("graph.db");
         let conn = Connection::open(&db_path)?;

@@ -215,7 +215,7 @@ struct ArchivedFacts {
 }
 
 fn archive_facts(facts: &[KnowledgeFact]) -> Result<(), String> {
-    let dir = crate::core::data_dir::lean_ctx_data_dir()?
+    let dir = crate::core::data_dir::nebula_ctx_data_dir()?
         .join("memory")
         .join("archive");
     std::fs::create_dir_all(&dir).map_err(|e| format!("{e}"))?;
@@ -236,7 +236,7 @@ pub fn restore_archive(archive_path: &str) -> Result<Vec<KnowledgeFact>, String>
 }
 
 pub fn list_archives() -> Vec<PathBuf> {
-    let dir = match crate::core::data_dir::lean_ctx_data_dir() {
+    let dir = match crate::core::data_dir::nebula_ctx_data_dir() {
         Ok(d) => d.join("memory").join("archive"),
         Err(_) => return Vec::new(),
     };

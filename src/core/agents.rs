@@ -415,7 +415,7 @@ impl std::fmt::Display for DiaryEntryType {
 }
 
 fn diary_dir() -> Result<PathBuf, String> {
-    let dir = crate::core::data_dir::lean_ctx_data_dir()?;
+    let dir = crate::core::data_dir::nebula_ctx_data_dir()?;
     Ok(dir.join("agents").join("diaries"))
 }
 
@@ -440,7 +440,7 @@ fn truncate(s: &str, max: usize) -> String {
 }
 
 fn agents_dir() -> Result<PathBuf, String> {
-    let dir = crate::core::data_dir::lean_ctx_data_dir()?;
+    let dir = crate::core::data_dir::nebula_ctx_data_dir()?;
     Ok(dir.join("agents"))
 }
 
@@ -586,7 +586,7 @@ impl AgentRegistry {
     fn shared_knowledge_path() -> PathBuf {
         dirs::home_dir()
             .unwrap_or_else(|| PathBuf::from("."))
-            .join(".lean-ctx")
+            .join(".nebula-ctx")
             .join("shared_knowledge.json")
     }
 }

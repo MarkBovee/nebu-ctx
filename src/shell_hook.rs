@@ -1,9 +1,9 @@
 use crate::marked_block;
 
-const MARKER_START: &str = "# >>> lean-ctx shell hook >>>";
-const MARKER_END: &str = "# <<< lean-ctx shell hook <<<";
-const ALIAS_START: &str = "# >>> lean-ctx agent aliases >>>";
-const ALIAS_END: &str = "# <<< lean-ctx agent aliases <<<";
+const MARKER_START: &str = "# >>> nebula-ctx shell hook >>>";
+const MARKER_END: &str = "# <<< nebula-ctx shell hook <<<";
+const ALIAS_START: &str = "# >>> nebula-ctx agent aliases >>>";
+const ALIAS_END: &str = "# <<< nebula-ctx agent aliases <<<";
 
 const KNOWN_AGENT_ENV_VARS: &[&str] = &[
     "LEAN_CTX_AGENT",
@@ -74,10 +74,10 @@ fn install_zshenv(home: &std::path::Path, quiet: bool) {
 
     let hook = format!(
         r#"{MARKER_START}
-if [[ -z "$LEAN_CTX_ACTIVE" && -n "$ZSH_EXECUTION_STRING" ]] && command -v lean-ctx &>/dev/null; then
+if [[ -z "$LEAN_CTX_ACTIVE" && -n "$ZSH_EXECUTION_STRING" ]] && command -v nebula-ctx &>/dev/null; then
   if {env_check}; then
     export LEAN_CTX_ACTIVE=1
-    exec lean-ctx -c "$ZSH_EXECUTION_STRING"
+    exec nebula-ctx -c "$ZSH_EXECUTION_STRING"
   fi
 fi
 {MARKER_END}"#
@@ -99,10 +99,10 @@ fn install_bashenv(home: &std::path::Path, quiet: bool) {
 
     let hook = format!(
         r#"{MARKER_START}
-if [[ -z "$LEAN_CTX_ACTIVE" && -n "$BASH_EXECUTION_STRING" ]] && command -v lean-ctx &>/dev/null; then
+if [[ -z "$LEAN_CTX_ACTIVE" && -n "$BASH_EXECUTION_STRING" ]] && command -v nebula-ctx &>/dev/null; then
   if {env_check}; then
     export LEAN_CTX_ACTIVE=1
-    exec lean-ctx -c "$BASH_EXECUTION_STRING"
+    exec nebula-ctx -c "$BASH_EXECUTION_STRING"
   fi
 fi
 {MARKER_END}"#

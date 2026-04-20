@@ -13,7 +13,7 @@ struct VersionCache {
 }
 
 fn cache_path() -> Option<PathBuf> {
-    dirs::home_dir().map(|h| h.join(".lean-ctx/latest-version.json"))
+    dirs::home_dir().map(|h| h.join(".nebula-ctx/latest-version.json"))
 }
 
 fn now_secs() -> u64 {
@@ -55,7 +55,7 @@ fn fetch_latest_version() -> Result<String, String> {
 
     let body = agent
         .get(VERSION_URL)
-        .header("User-Agent", &format!("lean-ctx/{CURRENT_VERSION}"))
+        .header("User-Agent", &format!("nebula-ctx/{CURRENT_VERSION}"))
         .call()
         .map_err(|e| e.to_string())?
         .into_body()
@@ -76,7 +76,7 @@ fn is_newer(latest: &str, current: &str) -> bool {
 }
 
 /// Spawn a background thread to fetch latest version from leanctx.com/version.txt
-/// and write the result to ~/.lean-ctx/latest-version.json.
+/// and write the result to ~/.nebula-ctx/latest-version.json.
 /// Non-blocking, fire-and-forget. Skips if cache is fresh (<24h).
 pub fn check_background() {
     let cache = read_cache();
@@ -99,7 +99,7 @@ pub fn get_update_banner() -> Option<String> {
     let cache = read_cache()?;
     if is_newer(&cache.latest, CURRENT_VERSION) {
         Some(format!(
-            "  \x1b[33m\x1b[1m\u{27F3} Update available: v{CURRENT_VERSION} \u{2192} v{}\x1b[0m  \x1b[2m\u{2014} run:\x1b[0m \x1b[1mlean-ctx update\x1b[0m",
+            "  \x1b[33m\x1b[1m\u{27F3} Update available: v{CURRENT_VERSION} \u{2192} v{}\x1b[0m  \x1b[2m\u{2014} run:\x1b[0m \x1b[1mnebula-ctx update\x1b[0m",
             cache.latest
         ))
     } else {

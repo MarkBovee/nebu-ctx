@@ -105,7 +105,7 @@ impl EmbeddingEngine {
         anyhow::bail!("Embeddings feature not enabled. Compile with --features embeddings")
     }
 
-    /// Load from default model directory (~/.lean-ctx/models/).
+    /// Load from default model directory (~/.nebula-ctx/models/).
     pub fn load_default() -> anyhow::Result<Self> {
         Self::load(&Self::model_directory())
     }
@@ -130,7 +130,7 @@ impl EmbeddingEngine {
         if let Ok(dir) = std::env::var("LEAN_CTX_MODELS_DIR") {
             return PathBuf::from(dir);
         }
-        if let Ok(d) = crate::core::data_dir::lean_ctx_data_dir() {
+        if let Ok(d) = crate::core::data_dir::nebula_ctx_data_dir() {
             return d.join("models");
         }
         PathBuf::from("models")
@@ -272,7 +272,7 @@ mod tests {
 
     #[test]
     fn model_directory_env_override_and_availability() {
-        let unique = "/tmp/lean_ctx_test_embed_42xyz";
+        let unique = "/tmp/nebula_ctx_test_embed_42xyz";
         std::env::set_var("LEAN_CTX_MODELS_DIR", unique);
         let dir = EmbeddingEngine::model_directory();
         assert_eq!(dir.to_string_lossy(), unique);

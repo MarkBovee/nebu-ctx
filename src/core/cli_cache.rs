@@ -35,7 +35,7 @@ pub enum CacheResult {
 }
 
 fn cache_dir() -> Option<PathBuf> {
-    crate::core::data_dir::lean_ctx_data_dir()
+    crate::core::data_dir::nebula_ctx_data_dir()
         .ok()
         .map(|d| d.join("cli-cache"))
 }
@@ -298,7 +298,7 @@ mod tests {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let test_data_dir = std::env::temp_dir().join(format!("lean_ctx_cache_iso_{nanos}"));
+        let test_data_dir = std::env::temp_dir().join(format!("nebula_ctx_cache_iso_{nanos}"));
         std::fs::create_dir_all(&test_data_dir).unwrap();
         std::env::set_var("LEAN_CTX_DATA_DIR", &test_data_dir);
 

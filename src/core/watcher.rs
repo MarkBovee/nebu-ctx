@@ -223,7 +223,7 @@ mod tests {
 
     #[test]
     fn tracker_detects_new_files() {
-        let dir = std::env::temp_dir().join("lean_ctx_watcher_test_new");
+        let dir = std::env::temp_dir().join("nebula_ctx_watcher_test_new");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         fs::write(dir.join("test.rs"), "fn main() {}").unwrap();
@@ -240,7 +240,7 @@ mod tests {
 
     #[test]
     fn tracker_detects_no_changes_on_rescan() {
-        let dir = std::env::temp_dir().join("lean_ctx_watcher_test_stable");
+        let dir = std::env::temp_dir().join("nebula_ctx_watcher_test_stable");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         fs::write(dir.join("stable.rs"), "fn main() {}").unwrap();
@@ -259,7 +259,7 @@ mod tests {
 
     #[test]
     fn tracker_detects_removed_files() {
-        let dir = std::env::temp_dir().join("lean_ctx_watcher_test_rm");
+        let dir = std::env::temp_dir().join("nebula_ctx_watcher_test_rm");
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         let file = dir.join("temp.rs");

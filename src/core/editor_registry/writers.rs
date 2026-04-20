@@ -93,7 +93,7 @@ pub fn auto_approve_tools() -> Vec<&'static str> {
     ]
 }
 
-fn lean_ctx_server_entry(binary: &str, data_dir: &str, include_auto_approve: bool) -> Value {
+fn nebula_ctx_server_entry(binary: &str, data_dir: &str, include_auto_approve: bool) -> Value {
     let mut entry = serde_json::json!({
         "command": binary,
         "env": {
@@ -109,7 +109,7 @@ fn lean_ctx_server_entry(binary: &str, data_dir: &str, include_auto_approve: boo
 const NO_AUTO_APPROVE_EDITORS: &[&str] = &["Antigravity"];
 
 fn default_data_dir() -> Result<String, String> {
-    Ok(crate::core::data_dir::lean_ctx_data_dir()?
+    Ok(crate::core::data_dir::nebula_ctx_data_dir()?
         .to_string_lossy()
         .to_string())
 }
@@ -121,7 +121,7 @@ fn write_mcp_json(
 ) -> Result<WriteResult, String> {
     let data_dir = default_data_dir()?;
     let include_aa = !NO_AUTO_APPROVE_EDITORS.contains(&target.name);
-    let desired = lean_ctx_server_entry(binary, &data_dir, include_aa);
+    let desired = nebula_ctx_server_entry(binary, &data_dir, include_aa);
 
     // Claude Code manages ~/.claude.json and may overwrite it on first start.
     // Prefer the official CLI integration when available.
@@ -158,14 +158,14 @@ fn write_mcp_json(
             .as_object_mut()
             .ok_or_else(|| "\"mcpServers\" must be an object".to_string())?;
 
-        let existing = servers_obj.get("lean-ctx").cloned();
+        let existing = servers_obj.get("nebula-ctx").cloned();
         if existing.as_ref() == Some(&desired) {
             return Ok(WriteResult {
                 action: WriteAction::Already,
                 note: None,
             });
         }
-        servers_obj.insert("lean-ctx".to_string(), desired);
+        servers_obj.insert("nebula-ctx".to_string(), desired);
 
         let formatted = serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?;
         crate::config_io::write_atomic_with_backup(&target.config_path, &formatted)?;
@@ -186,7 +186,7 @@ fn try_claude_mcp_add(desired: &Value) -> Result<WriteResult, String> {
     let server_json = serde_json::to_string(desired).map_err(|e| e.to_string())?;
 
     let mut child = Command::new("claude")
-        .args(["mcp", "add-json", "--scope", "user", "lean-ctx"])
+        .args(["mcp", "add-json", "--scope", "user", "nebula-ctx"])
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -230,7 +230,7 @@ fn write_mcp_json_fresh(
     note: Option<String>,
 ) -> Result<WriteResult, String> {
     let content = serde_json::to_string_pretty(&serde_json::json!({
-        "mcpServers": { "lean-ctx": desired }
+        "mcpServers": { "nebula-ctx": desired }
     }))
     .map_err(|e| e.to_string())?;
     crate::config_io::write_atomic_with_backup(path, &content)?;
@@ -283,14 +283,14 @@ fn write_zed_config(
             .as_object_mut()
             .ok_or_else(|| "\"context_servers\" must be an object".to_string())?;
 
-        let existing = servers_obj.get("lean-ctx").cloned();
+        let existing = servers_obj.get("nebula-ctx").cloned();
         if existing.as_ref() == Some(&desired) {
             return Ok(WriteResult {
                 action: WriteAction::Already,
                 note: None,
             });
         }
-        servers_obj.insert("lean-ctx".to_string(), desired);
+        servers_obj.insert("nebula-ctx".to_string(), desired);
 
         let formatted = serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?;
         crate::config_io::write_atomic_with_backup(&target.config_path, &formatted)?;
@@ -321,7 +321,7 @@ fn write_codex_config(target: &EditorTarget, binary: &str) -> Result<WriteResult
     }
 
     let content = format!(
-        "[mcp_servers.lean-ctx]\ncommand = \"{}\"\nargs = []\n",
+        "[mcp_servers.nebula-ctx]\ncommand = \"{}\"\nargs = []\n",
         binary
     );
     crate::config_io::write_atomic_with_backup(&target.config_path, &content)?;
@@ -337,7 +337,7 @@ fn write_zed_config_fresh(
     note: Option<String>,
 ) -> Result<WriteResult, String> {
     let content = serde_json::to_string_pretty(&serde_json::json!({
-        "context_servers": { "lean-ctx": desired }
+        "context_servers": { "nebula-ctx": desired }
     }))
     .map_err(|e| e.to_string())?;
     crate::config_io::write_atomic_with_backup(path, &content)?;
@@ -356,7 +356,7 @@ fn write_vscode_mcp(
     binary: &str,
     opts: WriteOptions,
 ) -> Result<WriteResult, String> {
-    let data_dir = crate::core::data_dir::lean_ctx_data_dir()
+    let data_dir = crate::core::data_dir::nebula_ctx_data_dir()
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let desired = serde_json::json!({ "type": "stdio", "command": binary, "args": [], "env": { "LEAN_CTX_DATA_DIR": data_dir } });
@@ -388,14 +388,14 @@ fn write_vscode_mcp(
             .as_object_mut()
             .ok_or_else(|| "\"servers\" must be an object".to_string())?;
 
-        let existing = servers_obj.get("lean-ctx").cloned();
+        let existing = servers_obj.get("nebula-ctx").cloned();
         if existing.as_ref() == Some(&desired) {
             return Ok(WriteResult {
                 action: WriteAction::Already,
                 note: None,
             });
         }
-        servers_obj.insert("lean-ctx".to_string(), desired);
+        servers_obj.insert("nebula-ctx".to_string(), desired);
 
         let formatted = serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?;
         crate::config_io::write_atomic_with_backup(&target.config_path, &formatted)?;
@@ -413,11 +413,11 @@ fn write_vscode_mcp_fresh(
     binary: &str,
     note: Option<String>,
 ) -> Result<WriteResult, String> {
-    let data_dir = crate::core::data_dir::lean_ctx_data_dir()
+    let data_dir = crate::core::data_dir::nebula_ctx_data_dir()
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let content = serde_json::to_string_pretty(&serde_json::json!({
-        "servers": { "lean-ctx": { "type": "stdio", "command": binary, "args": [], "env": { "LEAN_CTX_DATA_DIR": data_dir } } }
+        "servers": { "nebula-ctx": { "type": "stdio", "command": binary, "args": [], "env": { "LEAN_CTX_DATA_DIR": data_dir } } }
     }))
     .map_err(|e| e.to_string())?;
     crate::config_io::write_atomic_with_backup(path, &content)?;
@@ -436,7 +436,7 @@ fn write_opencode_config(
     binary: &str,
     opts: WriteOptions,
 ) -> Result<WriteResult, String> {
-    let data_dir = crate::core::data_dir::lean_ctx_data_dir()
+    let data_dir = crate::core::data_dir::nebula_ctx_data_dir()
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let desired = serde_json::json!({
@@ -470,14 +470,14 @@ fn write_opencode_config(
             .as_object_mut()
             .ok_or_else(|| "\"mcp\" must be an object".to_string())?;
 
-        let existing = mcp_obj.get("lean-ctx").cloned();
+        let existing = mcp_obj.get("nebula-ctx").cloned();
         if existing.as_ref() == Some(&desired) {
             return Ok(WriteResult {
                 action: WriteAction::Already,
                 note: None,
             });
         }
-        mcp_obj.insert("lean-ctx".to_string(), desired);
+        mcp_obj.insert("nebula-ctx".to_string(), desired);
 
         let formatted = serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?;
         crate::config_io::write_atomic_with_backup(&target.config_path, &formatted)?;
@@ -495,12 +495,12 @@ fn write_opencode_fresh(
     binary: &str,
     note: Option<String>,
 ) -> Result<WriteResult, String> {
-    let data_dir = crate::core::data_dir::lean_ctx_data_dir()
+    let data_dir = crate::core::data_dir::nebula_ctx_data_dir()
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let content = serde_json::to_string_pretty(&serde_json::json!({
         "$schema": "https://opencode.ai/config.json",
-        "mcp": { "lean-ctx": { "type": "local", "command": [binary], "enabled": true, "environment": { "LEAN_CTX_DATA_DIR": data_dir } } }
+        "mcp": { "nebula-ctx": { "type": "local", "command": [binary], "enabled": true, "environment": { "LEAN_CTX_DATA_DIR": data_dir } } }
     }))
     .map_err(|e| e.to_string())?;
     crate::config_io::write_atomic_with_backup(path, &content)?;
@@ -519,11 +519,11 @@ fn write_jetbrains_config(
     binary: &str,
     opts: WriteOptions,
 ) -> Result<WriteResult, String> {
-    let data_dir = crate::core::data_dir::lean_ctx_data_dir()
+    let data_dir = crate::core::data_dir::nebula_ctx_data_dir()
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let entry = serde_json::json!({
-        "name": "lean-ctx",
+        "name": "nebula-ctx",
         "command": binary,
         "args": [],
         "env": { "LEAN_CTX_DATA_DIR": data_dir }
@@ -556,7 +556,7 @@ fn write_jetbrains_config(
         if let Some(arr) = servers.as_array_mut() {
             let already = arr
                 .iter()
-                .any(|s| s.get("name").and_then(|n| n.as_str()) == Some("lean-ctx"));
+                .any(|s| s.get("name").and_then(|n| n.as_str()) == Some("nebula-ctx"));
             if already {
                 return Ok(WriteResult {
                     action: WriteAction::Already,
@@ -587,7 +587,7 @@ fn write_amp_config(
     binary: &str,
     opts: WriteOptions,
 ) -> Result<WriteResult, String> {
-    let data_dir = crate::core::data_dir::lean_ctx_data_dir()
+    let data_dir = crate::core::data_dir::nebula_ctx_data_dir()
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let entry = serde_json::json!({
@@ -604,7 +604,7 @@ fn write_amp_config(
                     return Err(e.to_string());
                 }
                 backup_invalid_file(&target.config_path)?;
-                let fresh = serde_json::json!({ "amp.mcpServers": { "lean-ctx": entry } });
+                let fresh = serde_json::json!({ "amp.mcpServers": { "nebula-ctx": entry } });
                 let formatted = serde_json::to_string_pretty(&fresh).map_err(|e| e.to_string())?;
                 crate::config_io::write_atomic_with_backup(&target.config_path, &formatted)?;
                 return Ok(WriteResult {
@@ -623,14 +623,14 @@ fn write_amp_config(
             .as_object_mut()
             .ok_or_else(|| "\"amp.mcpServers\" must be an object".to_string())?;
 
-        let existing = servers_obj.get("lean-ctx").cloned();
+        let existing = servers_obj.get("nebula-ctx").cloned();
         if existing.as_ref() == Some(&entry) {
             return Ok(WriteResult {
                 action: WriteAction::Already,
                 note: None,
             });
         }
-        servers_obj.insert("lean-ctx".to_string(), entry);
+        servers_obj.insert("nebula-ctx".to_string(), entry);
 
         let formatted = serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?;
         crate::config_io::write_atomic_with_backup(&target.config_path, &formatted)?;
@@ -640,7 +640,7 @@ fn write_amp_config(
         });
     }
 
-    let config = serde_json::json!({ "amp.mcpServers": { "lean-ctx": entry } });
+    let config = serde_json::json!({ "amp.mcpServers": { "nebula-ctx": entry } });
     let formatted = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
     crate::config_io::write_atomic_with_backup(&target.config_path, &formatted)?;
     Ok(WriteResult {
@@ -680,14 +680,14 @@ fn write_crush_config(
             .as_object_mut()
             .ok_or_else(|| "\"mcp\" must be an object".to_string())?;
 
-        let existing = mcp_obj.get("lean-ctx").cloned();
+        let existing = mcp_obj.get("nebula-ctx").cloned();
         if existing.as_ref() == Some(&desired) {
             return Ok(WriteResult {
                 action: WriteAction::Already,
                 note: None,
             });
         }
-        mcp_obj.insert("lean-ctx".to_string(), desired);
+        mcp_obj.insert("nebula-ctx".to_string(), desired);
 
         let formatted = serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?;
         crate::config_io::write_atomic_with_backup(&target.config_path, &formatted)?;
@@ -706,7 +706,7 @@ fn write_crush_fresh(
     note: Option<String>,
 ) -> Result<WriteResult, String> {
     let content = serde_json::to_string_pretty(&serde_json::json!({
-        "mcp": { "lean-ctx": desired }
+        "mcp": { "nebula-ctx": desired }
     }))
     .map_err(|e| e.to_string())?;
     crate::config_io::write_atomic_with_backup(path, &content)?;
@@ -741,7 +741,7 @@ fn upsert_codex_toml(existing: &str, binary: &str) -> String {
                 out.push_str("args = []\n");
                 wrote_args = true;
             }
-            in_section = trimmed == "[mcp_servers.lean-ctx]";
+            in_section = trimmed == "[mcp_servers.nebula-ctx]";
             if in_section {
                 saw_section = true;
             }
@@ -780,7 +780,7 @@ fn upsert_codex_toml(existing: &str, binary: &str) -> String {
     if !out.ends_with('\n') {
         out.push('\n');
     }
-    out.push_str("\n[mcp_servers.lean-ctx]\n");
+    out.push_str("\n[mcp_servers.nebula-ctx]\n");
     out.push_str(&format!("command = \"{}\"\n", binary));
     out.push_str("args = []\n");
     out
@@ -791,7 +791,7 @@ fn write_gemini_settings(
     binary: &str,
     opts: WriteOptions,
 ) -> Result<WriteResult, String> {
-    let data_dir = crate::core::data_dir::lean_ctx_data_dir()
+    let data_dir = crate::core::data_dir::nebula_ctx_data_dir()
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let entry = serde_json::json!({
@@ -809,7 +809,7 @@ fn write_gemini_settings(
                     return Err(e.to_string());
                 }
                 backup_invalid_file(&target.config_path)?;
-                let fresh = serde_json::json!({ "mcpServers": { "lean-ctx": entry } });
+                let fresh = serde_json::json!({ "mcpServers": { "nebula-ctx": entry } });
                 let formatted = serde_json::to_string_pretty(&fresh).map_err(|e| e.to_string())?;
                 crate::config_io::write_atomic_with_backup(&target.config_path, &formatted)?;
                 return Ok(WriteResult {
@@ -828,14 +828,14 @@ fn write_gemini_settings(
             .as_object_mut()
             .ok_or_else(|| "\"mcpServers\" must be an object".to_string())?;
 
-        let existing = servers_obj.get("lean-ctx").cloned();
+        let existing = servers_obj.get("nebula-ctx").cloned();
         if existing.as_ref() == Some(&entry) {
             return Ok(WriteResult {
                 action: WriteAction::Already,
                 note: None,
             });
         }
-        servers_obj.insert("lean-ctx".to_string(), entry);
+        servers_obj.insert("nebula-ctx".to_string(), entry);
 
         let formatted = serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?;
         crate::config_io::write_atomic_with_backup(&target.config_path, &formatted)?;
@@ -845,7 +845,7 @@ fn write_gemini_settings(
         });
     }
 
-    let config = serde_json::json!({ "mcpServers": { "lean-ctx": entry } });
+    let config = serde_json::json!({ "mcpServers": { "nebula-ctx": entry } });
     let formatted = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
     crate::config_io::write_atomic_with_backup(&target.config_path, &formatted)?;
     Ok(WriteResult {
@@ -861,21 +861,21 @@ fn write_hermes_yaml(
 ) -> Result<WriteResult, String> {
     let data_dir = default_data_dir()?;
 
-    let lean_ctx_block = format!(
-        "  lean-ctx:\n    command: \"{binary}\"\n    env:\n      LEAN_CTX_DATA_DIR: \"{data_dir}\""
+    let nebula_ctx_block = format!(
+        "  nebula-ctx:\n    command: \"{binary}\"\n    env:\n      LEAN_CTX_DATA_DIR: \"{data_dir}\""
     );
 
     if target.config_path.exists() {
         let content = std::fs::read_to_string(&target.config_path).map_err(|e| e.to_string())?;
 
-        if content.contains("lean-ctx") {
+        if content.contains("nebula-ctx") {
             return Ok(WriteResult {
                 action: WriteAction::Already,
                 note: None,
             });
         }
 
-        let updated = upsert_hermes_yaml_mcp(&content, &lean_ctx_block);
+        let updated = upsert_hermes_yaml_mcp(&content, &nebula_ctx_block);
         crate::config_io::write_atomic_with_backup(&target.config_path, &updated)?;
         return Ok(WriteResult {
             action: WriteAction::Updated,
@@ -883,7 +883,7 @@ fn write_hermes_yaml(
         });
     }
 
-    let content = format!("mcp_servers:\n{lean_ctx_block}\n");
+    let content = format!("mcp_servers:\n{nebula_ctx_block}\n");
     crate::config_io::write_atomic_with_backup(&target.config_path, &content)?;
     Ok(WriteResult {
         action: WriteAction::Created,
@@ -891,8 +891,8 @@ fn write_hermes_yaml(
     })
 }
 
-fn upsert_hermes_yaml_mcp(existing: &str, lean_ctx_block: &str) -> String {
-    let mut out = String::with_capacity(existing.len() + lean_ctx_block.len() + 32);
+fn upsert_hermes_yaml_mcp(existing: &str, nebula_ctx_block: &str) -> String {
+    let mut out = String::with_capacity(existing.len() + nebula_ctx_block.len() + 32);
     let mut in_mcp_section = false;
     let mut saw_mcp_child = false;
     let mut inserted = false;
@@ -918,7 +918,7 @@ fn upsert_hermes_yaml_mcp(existing: &str, lean_ctx_block: &str) -> String {
             }
 
             if saw_mcp_child && (line.trim().is_empty() || is_toplevel) {
-                out.push_str(lean_ctx_block);
+                out.push_str(nebula_ctx_block);
                 out.push('\n');
                 inserted = true;
                 in_mcp_section = false;
@@ -930,7 +930,7 @@ fn upsert_hermes_yaml_mcp(existing: &str, lean_ctx_block: &str) -> String {
     }
 
     if in_mcp_section && !inserted {
-        out.push_str(lean_ctx_block);
+        out.push_str(nebula_ctx_block);
         out.push('\n');
         inserted = true;
     }
@@ -940,7 +940,7 @@ fn upsert_hermes_yaml_mcp(existing: &str, lean_ctx_block: &str) -> String {
             out.push('\n');
         }
         out.push_str("\nmcp_servers:\n");
-        out.push_str(lean_ctx_block);
+        out.push_str(nebula_ctx_block);
         out.push('\n');
     }
 
@@ -963,7 +963,7 @@ fn backup_invalid_file(path: &std::path::Path) -> Result<(), String> {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
-    let bak = parent.join(format!("{filename}.lean-ctx.invalid.{pid}.{nanos}.bak"));
+    let bak = parent.join(format!("{filename}.nebula-ctx.invalid.{pid}.{nanos}.bak"));
     std::fs::rename(path, bak).map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -989,23 +989,23 @@ mod tests {
         let path = dir.path().join("mcp.json");
         std::fs::write(
             &path,
-            r#"{ "mcpServers": { "other": { "command": "other-bin" }, "lean-ctx": { "command": "/old/path/lean-ctx", "autoApprove": [] } } }"#,
+            r#"{ "mcpServers": { "other": { "command": "other-bin" }, "nebula-ctx": { "command": "/old/path/nebula-ctx", "autoApprove": [] } } }"#,
         )
         .unwrap();
 
         let t = target(path.clone(), ConfigType::McpJson);
-        let res = write_mcp_json(&t, "/new/path/lean-ctx", WriteOptions::default()).unwrap();
+        let res = write_mcp_json(&t, "/new/path/nebula-ctx", WriteOptions::default()).unwrap();
         assert_eq!(res.action, WriteAction::Updated);
 
         let json: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(json["mcpServers"]["other"]["command"], "other-bin");
         assert_eq!(
-            json["mcpServers"]["lean-ctx"]["command"],
-            "/new/path/lean-ctx"
+            json["mcpServers"]["nebula-ctx"]["command"],
+            "/new/path/nebula-ctx"
         );
-        assert!(json["mcpServers"]["lean-ctx"]["autoApprove"].is_array());
+        assert!(json["mcpServers"]["nebula-ctx"]["autoApprove"].is_array());
         assert!(
-            json["mcpServers"]["lean-ctx"]["autoApprove"]
+            json["mcpServers"]["nebula-ctx"]["autoApprove"]
                 .as_array()
                 .unwrap()
                 .len()
@@ -1019,7 +1019,7 @@ mod tests {
         let path = dir.path().join("crush.json");
         std::fs::write(
             &path,
-            r#"{ "mcp": { "lean-ctx": { "type": "stdio", "command": "old" } } }"#,
+            r#"{ "mcp": { "nebula-ctx": { "type": "stdio", "command": "old" } } }"#,
         )
         .unwrap();
 
@@ -1028,8 +1028,8 @@ mod tests {
         assert_eq!(res.action, WriteAction::Updated);
 
         let json: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(json["mcp"]["lean-ctx"]["type"], "stdio");
-        assert_eq!(json["mcp"]["lean-ctx"]["command"], "new");
+        assert_eq!(json["mcp"]["nebula-ctx"]["type"], "stdio");
+        assert_eq!(json["mcp"]["nebula-ctx"]["command"], "new");
     }
 
     #[test]
@@ -1038,7 +1038,7 @@ mod tests {
         let path = dir.path().join("config.toml");
         std::fs::write(
             &path,
-            r#"[mcp_servers.lean-ctx]
+            r#"[mcp_servers.nebula-ctx]
 command = "old"
 args = ["x"]
 "#,
@@ -1056,9 +1056,9 @@ args = ["x"]
 
     #[test]
     fn upsert_codex_toml_inserts_new_section_when_missing() {
-        let updated = upsert_codex_toml("[other]\nx=1\n", "lean-ctx");
-        assert!(updated.contains("[mcp_servers.lean-ctx]"));
-        assert!(updated.contains("command = \"lean-ctx\""));
+        let updated = upsert_codex_toml("[other]\nx=1\n", "nebula-ctx");
+        assert!(updated.contains("[mcp_servers.nebula-ctx]"));
+        assert!(updated.contains("command = \"nebula-ctx\""));
         assert!(updated.contains("args = []"));
     }
 
@@ -1084,23 +1084,23 @@ args = ["x"]
             detect_path: PathBuf::from("/nonexistent"),
             config_type: ConfigType::McpJson,
         };
-        let res = write_mcp_json(&t, "/usr/local/bin/lean-ctx", WriteOptions::default()).unwrap();
+        let res = write_mcp_json(&t, "/usr/local/bin/nebula-ctx", WriteOptions::default()).unwrap();
         assert_eq!(res.action, WriteAction::Created);
 
         let json: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert!(json["mcpServers"]["lean-ctx"]["autoApprove"].is_null());
+        assert!(json["mcpServers"]["nebula-ctx"]["autoApprove"].is_null());
         assert_eq!(
-            json["mcpServers"]["lean-ctx"]["command"],
-            "/usr/local/bin/lean-ctx"
+            json["mcpServers"]["nebula-ctx"]["command"],
+            "/usr/local/bin/nebula-ctx"
         );
     }
 
     #[test]
     fn hermes_yaml_inserts_into_existing_mcp_servers() {
         let existing = "model: anthropic/claude-sonnet-4\n\nmcp_servers:\n  github:\n    command: \"npx\"\n    args: [\"-y\", \"@modelcontextprotocol/server-github\"]\n\ntool_allowlist:\n  - terminal\n";
-        let block = "  lean-ctx:\n    command: \"lean-ctx\"\n    env:\n      LEAN_CTX_DATA_DIR: \"/home/user/.lean-ctx\"";
+        let block = "  nebula-ctx:\n    command: \"nebula-ctx\"\n    env:\n      LEAN_CTX_DATA_DIR: \"/home/user/.nebula-ctx\"";
         let result = upsert_hermes_yaml_mcp(existing, block);
-        assert!(result.contains("lean-ctx"));
+        assert!(result.contains("nebula-ctx"));
         assert!(result.contains("model: anthropic/claude-sonnet-4"));
         assert!(result.contains("tool_allowlist:"));
         assert!(result.contains("github:"));
@@ -1109,10 +1109,10 @@ args = ["x"]
     #[test]
     fn hermes_yaml_creates_mcp_servers_section() {
         let existing = "model: openai/gpt-4o\n";
-        let block = "  lean-ctx:\n    command: \"lean-ctx\"";
+        let block = "  nebula-ctx:\n    command: \"nebula-ctx\"";
         let result = upsert_hermes_yaml_mcp(existing, block);
         assert!(result.contains("mcp_servers:"));
-        assert!(result.contains("lean-ctx"));
+        assert!(result.contains("nebula-ctx"));
         assert!(result.contains("model: openai/gpt-4o"));
     }
 
@@ -1122,11 +1122,11 @@ args = ["x"]
         let path = dir.path().join("config.yaml");
         std::fs::write(
             &path,
-            "mcp_servers:\n  lean-ctx:\n    command: \"lean-ctx\"\n",
+            "mcp_servers:\n  nebula-ctx:\n    command: \"nebula-ctx\"\n",
         )
         .unwrap();
         let t = target(path.clone(), ConfigType::HermesYaml);
-        let res = write_hermes_yaml(&t, "lean-ctx", WriteOptions::default()).unwrap();
+        let res = write_hermes_yaml(&t, "nebula-ctx", WriteOptions::default()).unwrap();
         assert_eq!(res.action, WriteAction::Already);
     }
 }

@@ -31,7 +31,7 @@ pub struct FilterEngine {
 
 impl FilterEngine {
     pub fn load() -> Option<Self> {
-        let dir = crate::core::data_dir::lean_ctx_data_dir()
+        let dir = crate::core::data_dir::nebula_ctx_data_dir()
             .ok()?
             .join("filters");
         if !dir.exists() {
@@ -55,7 +55,7 @@ impl FilterEngine {
                         }
                     }
                     Err(e) => {
-                        eprintln!("lean-ctx: filter parse error in {}: {e}", path.display());
+                        eprintln!("nebula-ctx: filter parse error in {}: {e}", path.display());
                     }
                 }
             }
@@ -129,7 +129,7 @@ fn compile_rule(raw: RawFilterRule, path: &Path) -> Option<CompiledRule> {
     let command_re = raw.command.as_ref().and_then(|s| {
         Regex::new(s)
             .map_err(|e| {
-                eprintln!("lean-ctx: invalid command regex in {}: {e}", path.display());
+                eprintln!("nebula-ctx: invalid command regex in {}: {e}", path.display());
             })
             .ok()
     });
@@ -137,7 +137,7 @@ fn compile_rule(raw: RawFilterRule, path: &Path) -> Option<CompiledRule> {
     let pattern_re = raw.pattern.as_ref().and_then(|s| {
         Regex::new(s)
             .map_err(|e| {
-                eprintln!("lean-ctx: invalid pattern regex in {}: {e}", path.display());
+                eprintln!("nebula-ctx: invalid pattern regex in {}: {e}", path.display());
             })
             .ok()
     });
@@ -169,7 +169,7 @@ pub fn validate_filter_file(path: &str) -> Result<usize, String> {
 }
 
 pub fn create_example_filter() -> Result<String, String> {
-    let dir = crate::core::data_dir::lean_ctx_data_dir()?.join("filters");
+    let dir = crate::core::data_dir::nebula_ctx_data_dir()?.join("filters");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
 
     let path = dir.join("example.toml");
@@ -177,8 +177,8 @@ pub fn create_example_filter() -> Result<String, String> {
         return Err(format!("{} already exists", path.display()));
     }
 
-    let content = r#"# lean-ctx custom filter example
-# Place .toml files in $LEAN_CTX_DATA_DIR/filters (default: ~/.lean-ctx/filters) to define custom compression rules.
+    let content = r#"# nebula-ctx custom filter example
+# Place .toml files in $LEAN_CTX_DATA_DIR/filters (default: ~/.nebula-ctx/filters) to define custom compression rules.
 # User filters are applied BEFORE builtin patterns.
 
 # Rule 1: Replace verbose upload logs with a summary

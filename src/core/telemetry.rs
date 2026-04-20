@@ -184,45 +184,45 @@ impl Metrics {
         vec![
             ("gen_ai.usage.input_tokens", snap.tokens_input.to_string()),
             ("gen_ai.usage.output_tokens", snap.tokens_output.to_string()),
-            ("lean_ctx.tokens.saved", snap.tokens_saved.to_string()),
+            ("nebula_ctx.tokens.saved", snap.tokens_saved.to_string()),
             (
-                "lean_ctx.tool.calls.total",
+                "nebula_ctx.tool.calls.total",
                 snap.tool_calls_total.to_string(),
             ),
             (
-                "lean_ctx.tool.calls.error",
+                "nebula_ctx.tool.calls.error",
                 snap.tool_calls_error.to_string(),
             ),
             (
-                "lean_ctx.tool.latency_avg_ms",
+                "nebula_ctx.tool.latency_avg_ms",
                 format!("{:.2}", snap.tool_call_avg_latency_ms),
             ),
             (
-                "lean_ctx.search.queries",
+                "nebula_ctx.search.queries",
                 snap.search_queries_total.to_string(),
             ),
             (
-                "lean_ctx.search.latency_avg_ms",
+                "nebula_ctx.search.latency_avg_ms",
                 format!("{:.2}", snap.search_avg_latency_ms),
             ),
             (
-                "lean_ctx.embedding.inferences",
+                "nebula_ctx.embedding.inferences",
                 snap.embedding_inferences.to_string(),
             ),
             (
-                "lean_ctx.embedding.latency_avg_ms",
+                "nebula_ctx.embedding.latency_avg_ms",
                 format!("{:.2}", snap.embedding_avg_latency_ms),
             ),
             (
-                "lean_ctx.cache.hit_rate",
+                "nebula_ctx.cache.hit_rate",
                 format!("{:.4}", snap.cache_hit_rate),
             ),
             (
-                "lean_ctx.compression.ratio",
+                "nebula_ctx.compression.ratio",
                 format!("{:.4}", snap.compression_ratio),
             ),
             (
-                "lean_ctx.session.uptime_secs",
+                "nebula_ctx.session.uptime_secs",
                 snap.session_uptime_secs.to_string(),
             ),
         ]
@@ -272,7 +272,7 @@ impl MetricsSnapshot {
                     "output_tokens": self.tokens_output,
                 }
             },
-            "lean_ctx": {
+            "nebula_ctx": {
                 "tokens": { "saved": self.tokens_saved },
                 "tool": {
                     "calls_total": self.tool_calls_total,
@@ -399,7 +399,7 @@ mod tests {
         let json = m.snapshot().to_json();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed["gen_ai"]["usage"]["input_tokens"], 100);
-        assert_eq!(parsed["lean_ctx"]["tokens"]["saved"], 200);
+        assert_eq!(parsed["nebula_ctx"]["tokens"]["saved"], 200);
     }
 
     #[test]

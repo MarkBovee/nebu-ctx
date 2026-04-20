@@ -252,7 +252,7 @@ fn ledger_path(created_at: &str, md5: &str) -> Result<PathBuf, String> {
 }
 
 fn handoffs_dir() -> Result<PathBuf, String> {
-    let dir = crate::core::data_dir::lean_ctx_data_dir()
+    let dir = crate::core::data_dir::nebula_ctx_data_dir()
         .map_err(|e| e.to_string())?
         .join("handoffs");
     Ok(dir)
