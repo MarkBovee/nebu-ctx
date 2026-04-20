@@ -58,24 +58,39 @@ Returns an iterator of command-line arguments. `args[0]` is the program name, `a
 `lib.rs` exports the library. Each `pub mod` is a separate file or directory:
 
 ```
-rust/src/
+src/
 ├── main.rs              # Binary entry point
-├── lib.rs               # Library exports (37+ modules)
-├── tools/               # 42 MCP tool implementations
+├── lib.rs               # Library exports
+├── tools/               # MCP tool implementations
 │   ├── ctx_read.rs      # File reading with compression
 │   ├── ctx_search.rs    # Full-text search
 │   ├── ctx_shell.rs     # Shell output compression
 │   ├── ctx_knowledge.rs # Persistent knowledge store
 │   ├── ctx_session.rs   # Cross-session state
 │   ├── ctx_agent.rs     # Multi-agent coordination
-│   └── ...              # 36 more tools
-├── core/                # Business logic (60+ modules)
+│   ├── ctx_brain.rs     # Brain memory tool (store/recall/consolidate/activate)
+│   └── ...              # More tools
+├── core/                # Business logic
 │   ├── cache.rs         # LRU cache with RRF eviction
 │   ├── session.rs       # Session state management
 │   ├── compressor.rs    # 10 compression modes
 │   ├── knowledge.rs     # Knowledge base (SQLite FTS5)
 │   ├── property_graph/  # Code dependency graph
+│   ├── store/           # Storage abstraction layer
+│   │   ├── mod.rs       # ContextStore trait + data models
+│   │   ├── sqlite.rs    # SQLite implementation (local dev default)
+│   │   └── postgres.rs  # PostgreSQL implementation (server/HA default)
+│   ├── brain/           # Brain memory system
+│   │   ├── mod.rs       # Module exports + data models
+│   │   ├── scoring.rs   # Recency decay + composite scoring
+│   │   ├── activation.rs # Session warm-up service
+│   │   └── consolidation.rs # Memory extraction + promotion
 │   └── ...
+├── server/              # MCP server dispatch
+│   ├── dispatch.rs      # Tool routing (match on tool name)
+│   └── ...
+├── tool_defs/           # Tool definitions (JSON schema)
+│   └── granular.rs      # All tool definitions + descriptions
 ├── http_server/         # Axum HTTP server (optional feature)
 ├── cloud_server/        # PostgreSQL cloud sync (optional feature)
 └── mcp_stdio/           # Stdio MCP transport
@@ -347,60 +362,133 @@ CREATE VIRTUAL TABLE knowledge USING fts5(
 
 ## Storage Layer
 
-Currently, lean-ctx uses two storage backends for different purposes:
+Nebula Server uses a trait-based storage abstraction so tools don't know (or care) whether data lives in SQLite or Postgres.
 
-### SQLite (local context data)
-- Property graph: nodes and edges for code dependency analysis
-- FTS5 search index: full-text search over indexed content
-- Knowledge entries: persistent facts
-- Session state: cross-session persistence
-
-### PostgreSQL (cloud sync data)
-The `cloud_server` already has a Postgres integration using `deadpool-postgres`:
+### ContextStore Trait (`core/store/mod.rs`)
 
 ```rust
-use deadpool_postgres::{Pool, Runtime};
+pub trait ContextStore: Send + Sync {
+    // Lifecycle
+    fn initialize(&self) -> Result<()>;
 
-pub struct Db {
+    // Brain memory
+    fn brain_store(&self, memory: &BrainMemory) -> Result<i64>;
+    fn brain_recall(&self, brain_id: &str, query: &str, layer: &str, limit: usize) -> Result<Vec<BrainMemory>>;
+    fn brain_update_score(&self, id: i64, score: f64) -> Result<()>;
+    fn brain_increment_recall(&self, id: i64) -> Result<()>;
+
+    // Sessions
+    fn brain_session_create(&self, brain_id: &str) -> Result<i64>;
+    fn brain_session_get(&self, id: i64) -> Result<Option<BrainSession>>;
+    fn brain_session_update_status(&self, id: i64, status: &str) -> Result<()>;
+    fn brain_session_update_checkpoint(&self, id: i64, checkpoint_json: &str) -> Result<()>;
+    fn brain_session_latest(&self, brain_id: &str) -> Result<Option<BrainSession>>;
+
+    // Checkpoints
+    fn brain_checkpoint_store(&self, checkpoint: &BrainCheckpoint) -> Result<i64>;
+    fn brain_checkpoint_latest(&self, session_id: i64) -> Result<Option<BrainCheckpoint>>;
+
+    // Open loops
+    fn open_loop_store(&self, item: &OpenLoop) -> Result<i64>;
+    fn open_loop_list(&self, brain_id: &str, status: &str) -> Result<Vec<OpenLoop>>;
+    fn open_loop_close(&self, id: i64) -> Result<()>;
+
+    // Knowledge
+    fn knowledge_remember(&self, entry: &KnowledgeEntry) -> Result<()>;
+    fn knowledge_recall(&self, query: &str, limit: usize) -> Result<Vec<KnowledgeEntry>>;
+    // ... more
+}
+```
+
+### SqliteStore (`core/store/sqlite.rs`)
+
+Default for local development. Wraps `rusqlite` behind a `Mutex<Connection>`:
+
+```rust
+pub struct SqliteStore {
+    conn: Mutex<Connection>,
+}
+
+impl SqliteStore {
+    pub fn open(path: &Path) -> Result<Self> {
+        let conn = Connection::open(path)?;
+        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
+        Ok(Self { conn: Mutex::new(conn) })
+    }
+}
+```
+
+Schema tables: `brain_memories`, `brain_sessions`, `brain_checkpoints`, `open_loops`, `knowledge_entries`.
+
+### PostgresStore (`core/store/postgres.rs`)
+
+Default for server/HA deployment. Uses `deadpool-postgres`:
+
+```rust
+pub struct PostgresStore {
     pool: Pool,
 }
 
-impl Db {
-    pub async fn new(database_url: &str) -> Result<Self> {
-        let cfg = database_url.parse::<tokio_postgres::Config>()?;
-        let pool = cfg.create_pool(Some(Runtime::Tokio1), NoTls)?;
+impl PostgresStore {
+    pub async fn open(database_url: &str) -> Result<Self> {
+        let pg_config = database_url.parse::<tokio_postgres::Config>()?;
+        let mgr = Manager::new(pg_config, NoTls);
+        let pool = Pool::builder(mgr).max_size(16).build()?;
         Ok(Self { pool })
     }
-
-    pub async fn get_user(&self, id: i64) -> Result<User> {
-        let client = self.pool.get().await?;
-        let row = client.query_one(
-            "SELECT * FROM users WHERE id = $1",
-            &[&id],
-        ).await?;
-        Ok(User::from_row(&row))
-    }
 }
 ```
 
-### What Nebula Server Adds
+Note: PostgresStore methods use `async` internally (pool.get().await) but the trait is sync — each call spawns a blocking task via `tokio::task::block_in_place`.
 
-A trait to abstract both backends:
+### Data Models
 
 ```rust
-#[async_trait]
-pub trait ContextStore: Send + Sync {
-    async fn cache_get(&self, key: &str) -> Result<Option<String>>;
-    async fn cache_set(&self, key: &str, value: &str) -> Result<()>;
-    async fn search(&self, query: &str, limit: usize) -> Result<Vec<SearchResult>>;
-    // ... more methods for graph, knowledge, sessions, brain memory
+// A single memory in the brain system
+pub struct BrainMemory {
+    pub id: Option<i64>,
+    pub brain_id: String,         // Scope: "project-x", "user-mark"
+    pub layer: String,            // "short_term" | "long_term"
+    pub memory_type: String,      // "episodic" | "semantic" | "procedural"
+    pub content: String,
+    pub embedding: Option<Vec<f32>>,
+    pub composite_score: f64,     // Weighted score for ranking
+    pub recall_count: i32,
+    pub weights_json: Option<String>,
+    pub created_at: Option<String>,
+}
+
+// A brain session (starts when agent connects, ends on disconnect)
+pub struct BrainSession {
+    pub id: Option<i64>,
+    pub brain_id: String,
+    pub started_at: Option<String>,
+    pub status: String,           // "active" | "ended"
+    pub checkpoint_json: Option<String>,
+}
+
+// A saved checkpoint within a session
+pub struct BrainCheckpoint {
+    pub id: Option<i64>,
+    pub session_id: i64,
+    pub checkpoint_type: String,  // "manual" | "auto"
+    pub content_json: String,
+    pub created_at: Option<String>,
+}
+
+// An unresolved task or question
+pub struct OpenLoop {
+    pub id: Option<i64>,
+    pub brain_id: String,
+    pub description: String,
+    pub priority: f64,
+    pub status: String,           // "open" | "closed"
+    pub created_at: Option<String>,
 }
 ```
 
-This lets tools use storage without knowing whether it's SQLite or Postgres underneath.
-
 ### Rust concept: Traits
-Traits are like interfaces in C#/Java. `trait ContextStore` defines what methods a type must implement. Any type that implements `ContextStore` can be used wherever a store is needed. Combined with `async_trait`, async methods work in traits too.
+Traits are like interfaces in C#/Java. `trait ContextStore` defines what methods a type must implement. Any type that implements `ContextStore` can be used wherever a store is needed. Both `SqliteStore` and `PostgresStore` implement the same trait, so tool code doesn't change when switching backends.
 
 ---
 
@@ -508,20 +596,20 @@ Claude Code                     Nebula Server
     │                                │
 ```
 
-### Brain memory flow (new in Nebula Server)
+### Brain memory flow
 
 ```
 Session Start:
-    brain_activate(project="my-app")
+    ctx_brain(action="activate", brain_id="my-app")
         │
-        ├── Recall top-N memories by composite score
-        │   score = semantic*w1 + recency*w2 + importance*w3 + ...
+        ├── store.brain_recall(brain_id, "", "short_term", N)
+        ├── store.brain_recall(brain_id, "", "long_term", N)
+        ├── Score each memory: composite_score*0.6 + recency*0.4
         │   recency = exp(-0.231 * days) for short-term
         │   recency = exp(-0.0077 * days) for long-term
-        │
-        ├── Recall open loops (unresolved tasks/questions)
-        │
-        └── Load latest checkpoint
+        ├── store.brain_increment_recall(id) for each activated memory
+        ├── store.open_loop_list(brain_id, "open")
+        └── store.brain_session_latest(brain_id)
             │
             ▼
     Return ActivationPacket {
@@ -531,20 +619,26 @@ Session Start:
     }
 
 During Session:
-    brain_store(content="Redis connection uses port 6380 with TLS",
-                type=Semantic, layer=ShortTerm)
+    ctx_brain(action="store", content="Redis uses port 6380",
+              memory_type="semantic", layer="short_term")
         │
-        ├── Generate embedding (hash-based or pgvector)
-        ├── Calculate initial score
-        └── Persist to brain_memories table
+        └── store.brain_store(&BrainMemory { content, layer, type, ... })
+
+    ctx_brain(action="recall", query="redis port")
+        │
+        └── store.brain_recall(brain_id, query, "", limit)
 
 Session End:
-    brain_consolidate(session_context="...")
+    ctx_brain(action="consolidate", session_text="...")
         │
-        ├── LLM extracts memories + open loops from session
-        ├── Check for duplicates (semantic similarity)
-        ├── Store new memories
-        └── Auto-promote: if recall_count >= threshold → promote to LongTerm
+        ├── Parse session text for extractable memories
+        ├── store.brain_recall() to check for duplicates
+        ├── store.brain_store() for new memories
+        └── Auto-promote: if recall_count >= threshold → promote to long_term
+
+    ctx_brain(action="checkpoint", checkpoint_type="manual")
+        │
+        └── store.brain_checkpoint_store(&BrainCheckpoint { ... })
 ```
 
 ---
