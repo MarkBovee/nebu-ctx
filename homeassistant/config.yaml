@@ -1,0 +1,29 @@
+name: "Nebula Ctx"
+description: "Context engineering layer for AI agents — MCP server with brain memory and PostgreSQL persistence"
+version: "0.1.0"
+slug: "nebula-ctx"
+url: "https://github.com/MarkBovee/nebula-ctx"
+arch:
+  - amd64
+  - aarch64
+startup: "application"
+boot: "auto"
+map:
+  - config:rw
+ports:
+  8099/tcp: 8099
+ports_description:
+  8099/tcp: "MCP HTTP server endpoint"
+options:
+  store: "sqlite"
+  database_url: ""
+  auth_token: ""
+  log_level: "info"
+schema:
+  store: "list(sqlite|postgres)"
+  database_url: "password?"
+  auth_token: "password?"
+  log_level: "list(debug|info|warn|error)"
+environment:
+  NEBULA_CTX_DATA_DIR: "/data"
+  NEBULA_CTX_HTTP_PORT: "8099"

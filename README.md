@@ -68,27 +68,34 @@ Nebula Server is an MCP (Model Context Protocol) server that gives AI agents:
 
 ```bash
 cargo build --release
-./target/release/nebula-server --store sqlite
+./target/release/nebula-ctx
 ```
 
 ### Server (PostgreSQL)
 
 ```bash
 export DATABASE_URL="postgres://user:pass@localhost:5432/nebula"
-./target/release/nebula-server --store postgres --port 8099
+./target/release/nebula-ctx serve --port 8099
 ```
 
 ### Home Assistant Addon
 
-Copy `homeassistant/` to your HA addons directory, configure Postgres URL in addon options.
+Copy `homeassistant/` to your HA addons directory, configure options in addon UI.
+
+### Docker
+
+```bash
+docker build -t nebula-ctx .
+docker run -d -p 8099:8099 -v nebula-ctx-data:/data nebula-ctx
+```
 
 ### MCP Client Config
 
 ```json
 {
   "mcpServers": {
-    "nebula": {
-      "url": "http://localhost:8099/v1/tools",
+    "nebula-ctx": {
+      "url": "http://localhost:8099/v1/tools/call",
       "transport": "http"
     }
   }
@@ -122,6 +129,8 @@ Copy `homeassistant/` to your HA addons directory, configure Postgres URL in add
 Built with Rust. See [docs/plans/nebula-server-roadmap.md](docs/plans/nebula-server-roadmap.md) for the full roadmap.
 
 **Learning Rust?** Read [docs/technical-architecture.md](docs/technical-architecture.md) — explains every module, how MCP tools work end-to-end, the cache/compression engine, shared state patterns, and key Rust concepts with code examples.
+
+**Running as server?** Read [docs/server-setup.md](docs/server-setup.md) — covers local, server (HTTP), Docker, and Home Assistant addon modes with PostgreSQL configuration.
 
 ```bash
 # Build
