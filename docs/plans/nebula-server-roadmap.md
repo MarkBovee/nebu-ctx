@@ -1,4 +1,15 @@
-# Nebula Server — lean-ctx Fork with Brain Memory + Postgres
+# Nebula Ctx — lean-ctx Fork with Brain Memory + Postgres
+
+## Status: Phases 0-4 Complete
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| 0: Project Init | **Done** | GitHub repo, README, docs, roadmap |
+| 1: Fork lean-ctx | **Done** | Source copied, renamed to nebula-ctx, Rust 1.95, build passes |
+| 2: Storage Abstraction | **Done** | ContextStore trait, SqliteStore, PostgresStore (cloud-server feature) |
+| 3: Brain Memory | **Done** | Scoring, activation, consolidation, ctx_brain MCP tool |
+| 4: Deployment | **Done** | Dockerfile, HA addon, server setup docs |
+| 5: Polish | **Pending** | Tests, postgres type fixes, upstream merge strategy |
 
 ## Context
 
