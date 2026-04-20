@@ -4,8 +4,8 @@
 /// Persists all data across restarts.
 
 use anyhow::{anyhow, Result};
-use deadpool_postgres::{Config, Pool, Runtime};
-use tokio_postgres::NoTls;
+use deadpool_postgres::{Manager, Pool};
+use tokio_postgres::{Config as PgConfig, NoTls};
 
 use super::*;
 
@@ -15,11 +15,12 @@ pub struct PostgresStore {
 
 impl PostgresStore {
     pub async fn open(database_url: &str) -> Result<Self> {
-        let mut cfg = database_url.parse::<Config>()?;
-        cfg.manager = Some(deadpool_postgres::ManagerConfig {
-            recycling_method: deadpool_postgres::RecyclingMethod::Fast,
-        });
-        let pool = cfg.create_pool(Some(Runtime::Tokio1), NoTls)
+        let pg_config = database_url.parse::<PgConfig>()
+            .map_err(|e| anyhow!("Invalid DATABASE_URL: {}", e))?;
+        let mgr = Manager::new(pg_config, NoTls);
+        let pool = Pool::builder(mgr)
+            .max_size(16)
+            .build()
             .map_err(|e| anyhow!("Failed to create Postgres pool: {}", e))?;
 
         // Verify connection
