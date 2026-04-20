@@ -1,0 +1,137 @@
+[package]
+name = "nebula-server"
+version = "0.1.0"
+edition = "2021"
+description = "Context engineering layer for AI agents — forked from lean-ctx with PostgreSQL persistence, brain memory, and Home Assistant deployment."
+license = "Apache-2.0"
+repository = "https://github.com/MarkBovee/nebula-server"
+readme = "README.md"
+keywords = ["mcp", "llm", "tokens", "compression", "ai"]
+categories = ["command-line-utilities", "development-tools"]
+exclude = ["examples/", "tests/"]
+
+[lib]
+name = "nebula_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "lean-ctx"
+path = "src/main.rs"
+
+[[bin]]
+name = "lean-ctx-cloud-api"
+path = "src/cloud_server_main.rs"
+required-features = ["cloud-server"]
+
+[features]
+default = ["tree-sitter", "embeddings", "http-server"]
+neural = ["dep:rten", "dep:rten-tensor"]
+embeddings = ["dep:rten", "dep:rten-tensor"]
+http-server = ["dep:axum", "dep:tower-http", "dep:reqwest"]
+cloud-server = [
+  "http-server",
+  "dep:deadpool-postgres",
+  "dep:tokio-postgres",
+  "dep:lettre",
+  "dep:jsonwebtoken",
+  "dep:uuid",
+  "dep:hex",
+  "dep:sha2",
+  "dep:rand",
+]
+tree-sitter = [
+  "dep:tree-sitter",
+  "dep:tree-sitter-rust",
+  "dep:tree-sitter-typescript",
+  "dep:tree-sitter-javascript",
+  "dep:tree-sitter-python",
+  "dep:tree-sitter-go",
+  "dep:tree-sitter-java",
+  "dep:tree-sitter-c",
+  "dep:tree-sitter-cpp",
+  "dep:tree-sitter-ruby",
+  "dep:tree-sitter-c-sharp",
+  "dep:tree-sitter-kotlin-ng",
+  "dep:tree-sitter-swift",
+  "dep:tree-sitter-php",
+  "dep:tree-sitter-bash",
+  "dep:tree-sitter-dart",
+  "dep:tree-sitter-scala",
+  "dep:tree-sitter-elixir",
+  "dep:tree-sitter-zig",
+]
+
+[dependencies]
+rmcp = { version = "1", features = ["server", "transport-io", "transport-streamable-http-server"] }
+tiktoken-rs = "0.6"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "io-std", "io-util", "net", "sync", "time", "signal"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+md-5 = "0.10"
+anyhow = "1"
+regex = "1"
+walkdir = "2"
+ignore = "0.4"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+thiserror = "2"
+futures = "0.3"
+tokio-util = { version = "0.7", features = ["codec"] }
+dirs = "5"
+chrono = { version = "0.4", features = ["serde"] }
+toml = "0.8"
+similar = "2"
+flate2 = "1"
+rusqlite = { version = "0.39.0", features = ["bundled"] }
+tree-sitter = { version = "0.26", optional = true }
+tree-sitter-rust = { version = "0.24", optional = true }
+tree-sitter-typescript = { version = "0.23", optional = true }
+tree-sitter-javascript = { version = "0.25", optional = true }
+tree-sitter-python = { version = "0.25", optional = true }
+tree-sitter-go = { version = "0.25", optional = true }
+tree-sitter-java = { version = "0.23", optional = true }
+tree-sitter-c = { version = "0.24", optional = true }
+tree-sitter-cpp = { version = "0.23", optional = true }
+tree-sitter-ruby = { version = "0.23", optional = true }
+tree-sitter-c-sharp = { version = "0.23", optional = true }
+# tree-sitter-kotlin (fwcd) caps tree-sitter at <0.23; kotlin-ng matches tree-sitter 0.26.
+tree-sitter-kotlin-ng = { version = "1.1", optional = true }
+tree-sitter-swift = { version = "0.7", optional = true }
+tree-sitter-php = { version = "0.24", optional = true }
+ureq = "3.3.0"
+tar = "0.4.45"
+zip = "8.4.0"
+tree-sitter-bash = { version = "0.25", optional = true }
+tree-sitter-scala = { version = "0.25", optional = true }
+tree-sitter-elixir = { version = "0.3", optional = true }
+tree-sitter-zig = { version = "1.1", optional = true }
+tree-sitter-dart = { version = "0.1", optional = true }
+rten = { version = "0.24", optional = true }
+rten-tensor = { version = "0.24", optional = true }
+axum = { version = "0.8", optional = true }
+tower-http = { version = "0.6", features = ["cors", "auth"], optional = true }
+deadpool-postgres = { version = "0.14", optional = true }
+tokio-postgres = { version = "0.7", features = ["with-chrono-0_4", "with-uuid-1"], optional = true }
+lettre = { version = "0.11", default-features = false, features = ["tokio1-rustls-tls", "smtp-transport", "builder"], optional = true }
+jsonwebtoken = { version = "10.3", optional = true }
+uuid = { version = "1", features = ["v4", "serde"], optional = true }
+hex = { version = "0.4", optional = true }
+sha2 = { version = "0.10", optional = true }
+rand = { version = "0.9.3", optional = true }
+glob = "0.3.3"
+ratatui = "0.30"
+crossterm = "0.28"
+rpassword = "7.4.0"
+getrandom = "0.3"
+reqwest = { version = "0.13.2", default-features = false, features = ["rustls", "stream", "json"], optional = true }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[dev-dependencies]
+tempfile = "3.27.0"
+tower = "0.5"
