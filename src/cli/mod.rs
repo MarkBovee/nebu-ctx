@@ -1,4 +1,5 @@
 pub mod cloud;
+pub mod db;
 pub mod dispatch;
 mod shell_init;
 

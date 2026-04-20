@@ -720,6 +720,10 @@ pub fn run() {
                 super::cloud::cmd_cloud(&rest);
                 return;
             }
+            "db" => {
+                super::db::cmd_db(&rest);
+                return;
+            }
             "upgrade" => {
                 super::cloud::cmd_upgrade();
                 return;

@@ -718,6 +718,10 @@ fn main() {
                 cmd_cloud(&rest);
                 return;
             }
+            "db" => {
+                cli::db::cmd_db(&rest);
+                return;
+            }
             "upgrade" => {
                 cmd_upgrade();
                 return;
