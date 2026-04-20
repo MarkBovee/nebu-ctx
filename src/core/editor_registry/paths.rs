@@ -94,10 +94,10 @@ pub fn claude_mcp_json_path(home: &Path) -> PathBuf {
     if let Ok(dir) = std::env::var("CLAUDE_CONFIG_DIR") {
         let dir = dir.trim();
         if !dir.is_empty() {
-            return PathBuf::from(dir).join(".claude.json");
+            return PathBuf::from(dir).join("settings.json");
         }
     }
-    home.join(".claude.json")
+    home.join(".claude/settings.json")
 }
 
 pub fn claude_state_dir(home: &Path) -> PathBuf {
