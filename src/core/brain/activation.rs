@@ -3,7 +3,7 @@
 /// On session start, recalls top-N memories by composite score,
 /// loads open loops, and loads the latest checkpoint.
 
-use crate::core::store::{ContextStore, BrainMemory, OpenLoop};
+use crate::core::store::{ContextStore, BrainMemory};
 use super::{ActivationPacket, ActivatedMemory, BrainScoringWeights, MemoryLayer};
 use super::scoring::recency_decay;
 
@@ -11,7 +11,7 @@ use super::scoring::recency_decay;
 pub fn activate(
     store: &dyn ContextStore,
     brain_id: &str,
-    weights: &BrainScoringWeights,
+    _weights: &BrainScoringWeights,
     max_memories: usize,
 ) -> anyhow::Result<ActivationPacket> {
     // Recall top memories

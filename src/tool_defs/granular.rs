@@ -691,6 +691,31 @@ pull (receive files shared by other agents), list (show all shared contexts), cl
             }),
         ),
         tool_def(
+            "ctx_brain",
+            "Brain memory system for persistent AI memory. Actions: store|recall|consolidate|activate|checkpoint|status.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["store", "recall", "consolidate", "activate", "checkpoint", "status"],
+                        "description": "Brain operation to perform"
+                    },
+                    "brain_id": { "type": "string", "description": "Brain identifier (default: default)" },
+                    "content": { "type": "string", "description": "Memory content (for store/checkpoint)" },
+                    "layer": { "type": "string", "enum": ["short_term", "long_term"], "description": "Memory layer" },
+                    "memory_type": { "type": "string", "enum": ["episodic", "semantic", "procedural"], "description": "Memory type" },
+                    "importance": { "type": "number", "description": "Importance score 0-1 (default: 0.5)" },
+                    "query": { "type": "string", "description": "Search query for recall" },
+                    "limit": { "type": "integer", "description": "Max results for recall (default: 10)" },
+                    "max_memories": { "type": "integer", "description": "Max memories for activate (default: 10)" },
+                    "session_text": { "type": "string", "description": "Session text for consolidation" },
+                    "checkpoint_type": { "type": "string", "description": "Checkpoint type (default: manual)" }
+                },
+                "required": ["action"]
+            }),
+        ),
+        tool_def(
             "ctx_semantic_search",
             "Semantic code search (BM25 + optional embeddings/hybrid). action=reindex to rebuild.",
             json!({
@@ -1010,6 +1035,7 @@ pull (receive shared files), list (show all shared contexts), clear (remove your
         ("ctx_impact", "Graph-based impact analysis. Actions: analyze|chain|build|status.", json!({"type": "object", "properties": {"action": {"type": "string"}, "path": {"type": "string"}, "root": {"type": "string"}, "depth": {"type": "integer"}}})),
         ("ctx_architecture", "Graph-based architecture analysis. Actions: overview|clusters|layers|cycles|entrypoints|module.", json!({"type": "object", "properties": {"action": {"type": "string"}, "path": {"type": "string"}, "root": {"type": "string"}}})),
         ("ctx_workflow", "Workflow rails (state machine + evidence). Actions: start|status|transition|complete|evidence_add|evidence_list|stop.", json!({"type": "object", "properties": {"action": {"type": "string"}, "name": {"type": "string"}, "spec": {"type": "string"}, "to": {"type": "string"}, "key": {"type": "string"}, "value": {"type": "string"}}})),
+        ("ctx_brain", "Brain memory system for persistent AI memory. Actions: store|recall|consolidate|activate|checkpoint|status.", json!({"type": "object", "properties": {"action": {"type": "string", "enum": ["store", "recall", "consolidate", "activate", "checkpoint", "status"]}, "brain_id": {"type": "string", "description": "Brain identifier (default: default)"}, "content": {"type": "string", "description": "Memory content (for store/checkpoint)"}, "layer": {"type": "string", "enum": ["short_term", "long_term"]}, "memory_type": {"type": "string", "enum": ["episodic", "semantic", "procedural"]}, "importance": {"type": "number", "description": "Importance score 0-1 (default: 0.5)"}, "query": {"type": "string", "description": "Search query for recall"}, "limit": {"type": "integer", "description": "Max results for recall (default: 10)"}, "max_memories": {"type": "integer", "description": "Max memories for activate (default: 10)"}, "session_text": {"type": "string", "description": "Session text for consolidation"}, "checkpoint_type": {"type": "string", "description": "Checkpoint type (default: manual)"}}, "required": ["action"]})),
         ("ctx_semantic_search", "Semantic code search (BM25 + optional embeddings/hybrid). action=reindex to rebuild.", json!({"type": "object", "properties": {"query": {"type": "string"}, "path": {"type": "string"}, "top_k": {"type": "integer"}, "action": {"type": "string"}, "mode": {"type": "string", "enum": ["bm25","dense","hybrid"]}, "languages": {"type": "array", "items": {"type": "string"}}, "path_glob": {"type": "string"}}, "required": ["query"]})),
         ("ctx_execute", "Run code in sandbox (11 languages). Only stdout enters context. Languages: javascript, typescript, python, shell, ruby, go, rust, php, perl, r, elixir. Actions: batch (multiple scripts), file (process file in sandbox).", json!({"type": "object", "properties": {"language": {"type": "string"}, "code": {"type": "string"}, "intent": {"type": "string"}, "timeout": {"type": "integer"}, "action": {"type": "string"}, "items": {"type": "string"}, "path": {"type": "string"}}, "required": ["language", "code"]})),
         ("ctx_symbol", "Read a specific symbol (function, struct, class) by name. Returns only the symbol code block instead of the entire file. 90-97% fewer tokens than full file read.", json!({"type": "object", "properties": {"name": {"type": "string"}, "file": {"type": "string"}, "kind": {"type": "string"}}, "required": ["name"]})),

@@ -1644,6 +1644,17 @@ impl LeanCtxServer {
                 self.record_call("ctx_workflow", 0, 0, Some(action)).await;
                 result
             }
+            "ctx_brain" => {
+                let action = get_str(args, "action")
+                    .ok_or_else(|| ErrorData::invalid_params("action is required", None))?;
+                let args_value = args
+                    .as_ref()
+                    .map(|m| serde_json::Value::Object(m.clone()))
+                    .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+                let result = crate::tools::ctx_brain::handle(&action, &args_value);
+                self.record_call("ctx_brain", 0, 0, Some(action)).await;
+                result
+            }
             _ => {
                 return Err(ErrorData::invalid_params(
                     format!("Unknown tool: {name}"),
