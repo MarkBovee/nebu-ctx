@@ -1017,7 +1017,7 @@ restore (rebuild state from snapshot after context compaction).", json!({"type":
         ("ctx_knowledge", "Persistent project knowledge with temporal facts + contradiction detection. Actions: remember (auto-tracks validity + detects contradictions), recall, pattern, consolidate, \
 gotcha (record a bug to never repeat — trigger+resolution), timeline (fact version history), rooms (list knowledge categories), \
 search (cross-session/cross-project), wakeup (compact AAAK briefing), status, remove, export, embeddings_status|embeddings_reset|embeddings_reindex.", json!({"type": "object", "properties": {"action": {"type": "string"}, "category": {"type": "string"}, "key": {"type": "string"}, "value": {"type": "string"}, "query": {"type": "string"}, "trigger": {"type": "string"}, "resolution": {"type": "string"}, "severity": {"type": "string"}}, "required": ["action"]})),
-        ("ctx_import", "Import data from external sources (nebula-rag, lean-ctx, JSON). \
+        ("ctx_import", "Import data from external sources (nebula-rag, nebu-ctx, JSON). \
 Actions: import (bulk insert memories/knowledge), validate (check payload without writing), \
 status (show imported memory stats). Accepts JSON payload with memories array. \
 Deduplicates by key — skips existing entries.", json!({"type": "object", "properties": {"action": {"type": "string", "enum": ["import", "validate", "status"], "description": "Import operation"}, "data": {"type": "string", "description": "JSON payload: {version, source, memories: [{key, value, category, tags, project, confidence, memory_type}]}"}, "dryRun": {"type": "boolean", "description": "Preview without writing (import action only)"}}, "required": ["action"]})),

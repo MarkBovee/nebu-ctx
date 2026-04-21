@@ -41,7 +41,7 @@ pub fn cmd_heatmap(args: &[String]) {
 
     if entries.is_empty() {
         eprintln!("No files found in project graph.");
-        eprintln!("  Run: nebula-ctx setup  (to build the project graph)");
+        eprintln!("  Run: nebu-ctx setup  (to build the project graph)");
         return;
     }
 

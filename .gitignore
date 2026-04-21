@@ -28,3 +28,15 @@ build/
 
 # Logs
 *.log
+
+# Temp and local test artifacts
+/tmp/
+/.tmp/
+/test-results/
+/.pytest_cache/
+/.coverage
+/.coverage.*
+/htmlcov/
+/coverage/
+*.tmp
+*.temp

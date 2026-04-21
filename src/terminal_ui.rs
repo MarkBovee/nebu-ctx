@@ -165,7 +165,7 @@ pub fn print_command_box() {
         "  {d}│{r}  {cmd}{b}nebula-ctx config{r}      {m}Edit settings{r}                   {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}nebula-ctx doctor{r}      {m}Verify installation{r}             {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx doctor{r}        {m}Verify installation{r}             {d}│{r}"
     );
     println!(
         "  {d}│{r}  {cmd}{b}nebula-ctx update{r}      {m}Self-update to latest{r}           {d}│{r}"
@@ -176,11 +176,11 @@ pub fn print_command_box() {
     );
     println!("  {d}│{r}  {cmd}{b}nebula-ctx contribute{r}  {m}Share anonymized compression stats{r}{d}│{r}");
     println!(
-        "  {d}│{r}  {cmd}{b}nebula-ctx uninstall{r}   {m}Clean removal{r}                   {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx uninstall{r}     {m}Clean removal{r}                   {d}│{r}"
     );
     println!("  {d}└─────────────────────────────────────────────────────────┘{r}");
     println!("  {ok}Ready!{r} Your next AI command will be automatically optimized.");
-    println!("  {d}Docs: https://leanctx.com/docs{r}");
+    println!("  {d}Docs: https://github.com/MarkBovee/nebu-ctx/tree/main/docs{r}");
     println!();
 }
 

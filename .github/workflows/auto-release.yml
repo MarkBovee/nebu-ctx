@@ -19,6 +19,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Verify version sync
+        run: |
+          CARGO_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          ADDON_VERSION=$(grep '^version:' homeassistant/config.yaml | head -1 | sed 's/version: *"\(.*\)"/\1/')
+          if [ "$CARGO_VERSION" != "$ADDON_VERSION" ]; then
+            echo "Cargo.toml version ($CARGO_VERSION) does not match homeassistant/config.yaml ($ADDON_VERSION)" >&2
+            exit 1
+          fi
+
       - name: Extract version from config
         id: version
         run: |
@@ -47,13 +56,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           KEEP=3
-          RELEASES=$(gh release list --repo MarkBovee/nebula-ctx --limit 50 --json tagName,isDraft,isPrerelease -q '.[] | select(.isDraft == false and .isPrerelease == false) | .tagName' 2>/dev/null || true)
+          RELEASES=$(gh release list --repo MarkBovee/nebu-ctx --limit 50 --json tagName,isDraft,isPrerelease -q '.[] | select(.isDraft == false and .isPrerelease == false) | .tagName' 2>/dev/null || true)
           COUNT=0
           while IFS= read -r tag; do
             COUNT=$((COUNT + 1))
             if [ "$COUNT" -gt "$KEEP" ]; then
               echo "Deleting old release: $tag"
-              gh release delete "$tag" --repo MarkBovee/nebula-ctx --yes || true
+              gh release delete "$tag" --repo MarkBovee/nebu-ctx --yes || true
               git push origin ":refs/tags/$tag" 2>/dev/null || true
             fi
           done <<< "$RELEASES"

@@ -1,14 +1,14 @@
-# nebula-ctx
+# nebu-ctx
 
 Rust MCP server and CLI for context engineering, token-efficient file and shell access, brain memory, PostgreSQL-backed persistence, and deployable HTTP runtimes.
 
-> `nebula-ctx` is a fork of [lean-ctx](https://github.com/yvgude/lean-ctx). It keeps the lean-ctx context-engineering core and combines it with selected pieces from earlier Nebula projects, especially PostgreSQL persistence, brain-memory workflows, remote HTTP serving, and Home Assistant deployment.
+> `nebu-ctx` is the current product name for this context-engineering MCP server and dashboard stack. It builds on the earlier upstream context-engineering core and adds PostgreSQL persistence, brain-memory workflows, remote HTTP serving, and Home Assistant deployment.
 
 [Upstream: lean-ctx](https://github.com/yvgude/lean-ctx) | [Server setup](docs/server-setup.md) | [Technical architecture](docs/technical-architecture.md) | [Home Assistant add-on](homeassistant/README.md) | [Roadmap](docs/plans/nebula-server-roadmap.md)
 
-## Why nebula-ctx
+## Why nebu-ctx
 
-`lean-ctx` is a strong local-first context engine for AI coding tools. `nebula-ctx` keeps that base, but pushes it toward persistent and deployable workflows.
+`nebu-ctx` targets the same context-engineering problem space, but with a more persistent and deployable operating model.
 
 - single Rust binary for stdio MCP, HTTP MCP, dashboard, setup, reporting, and operator commands
 - 52 granular MCP tools in the current tool surface
@@ -21,9 +21,9 @@ Rust MCP server and CLI for context engineering, token-efficient file and shell 
 
 ## What this fork adds
 
-This repository is not just `lean-ctx` renamed.
+This repository is not just a cosmetic rename.
 
-It combines the original lean-ctx context-reduction model with earlier Nebula work around:
+It combines the original context-reduction model with earlier Nebula work around:
 
 - PostgreSQL-backed persistence
 - brain-memory flows and checkpointing
@@ -31,7 +31,7 @@ It combines the original lean-ctx context-reduction model with earlier Nebula wo
 - Docker packaging and operator workflows
 - Home Assistant add-on support
 
-If you want the original upstream project, use [lean-ctx](https://github.com/yvgude/lean-ctx). If you want the same general context-engineering direction with persistent memory and deployable server surfaces, this fork is the purpose of `nebula-ctx`.
+If you want the current deployable stack with persistent memory and Home Assistant packaging, this repository is `nebu-ctx`.
 
 ## Installation
 
@@ -42,12 +42,12 @@ There are four supported installation paths today.
 Use this when you want the local CLI and the HTTP MCP server directly on your machine.
 
 ```bash
-git clone https://github.com/MarkBovee/nebula-ctx.git
-cd nebula-ctx
+git clone https://github.com/MarkBovee/nebu-ctx.git
+cd nebu-ctx
 cargo build --release --features cloud-server
 ```
 
-The compiled binary will be available at `./target/release/nebula-ctx`.
+The compiled binary will be available at `./target/release/nebu-ctx`.
 
 ### Install as a Cargo binary
 
@@ -56,13 +56,13 @@ Use this if you want the binary installed into Cargo's bin directory.
 From a local clone:
 
 ```bash
-cargo install --path . --bin nebula-ctx --features cloud-server
+cargo install --path . --bin nebu-ctx --features cloud-server
 ```
 
 Directly from GitHub:
 
 ```bash
-cargo install --git https://github.com/MarkBovee/nebula-ctx --bin nebula-ctx --features cloud-server
+cargo install --git https://github.com/MarkBovee/nebu-ctx --bin nebu-ctx --features cloud-server
 ```
 
 ### Install with Docker
@@ -70,22 +70,22 @@ cargo install --git https://github.com/MarkBovee/nebula-ctx --bin nebula-ctx --f
 Use this when you want a containerized HTTP MCP server.
 
 ```bash
-docker build -t nebula-ctx .
+docker build -t nebu-ctx .
 
 docker run --rm \
   -p 4242:4242 \
   -e NEBULA_STORE=postgres \
   -e DATABASE_URL='postgres://user:pass@host:5432/nebula' \
   -e NEBULA_CTX_HTTP_TOKEN='replace-me' \
-  nebula-ctx
+  nebu-ctx
 ```
 
 ### Install as a Home Assistant add-on
 
 Use this when you want Home Assistant ingress for the dashboard plus an optional HTTP MCP endpoint.
 
-1. Add `https://github.com/MarkBovee/nebula-ctx` to Home Assistant as a custom add-on repository.
-2. Install the `nebula-ctx` add-on.
+1. Add `https://github.com/MarkBovee/nebu-ctx` to Home Assistant as a custom add-on repository.
+2. Install the `nebu-ctx` add-on.
 3. Configure the add-on options in Home Assistant.
 4. Use `Open Web UI` for the dashboard.
 5. Expose `4242/tcp` only if you want external MCP HTTP access.
@@ -111,15 +111,15 @@ set +a
 ### 3. Verify the database path
 
 ```bash
-./target/release/nebula-ctx db status
-./target/release/nebula-ctx db init
-./target/release/nebula-ctx db test
+./target/release/nebu-ctx db status
+./target/release/nebu-ctx db init
+./target/release/nebu-ctx db test
 ```
 
 ### 4. Start the HTTP MCP server
 
 ```bash
-./target/release/nebula-ctx serve \
+./target/release/nebu-ctx serve \
   --host 127.0.0.1 \
   --port 4242 \
   --auth-token local-test-token
@@ -150,7 +150,7 @@ curl -X POST \
 ### 6. Start the dashboard
 
 ```bash
-./target/release/nebula-ctx dashboard
+./target/release/nebu-ctx dashboard
 ```
 
 By default the dashboard serves on `http://127.0.0.1:3333`.
@@ -159,22 +159,22 @@ By default the dashboard serves on `http://127.0.0.1:3333`.
 
 ```bash
 # Default stdio MCP mode
-./target/release/nebula-ctx
+./target/release/nebu-ctx
 
 # Guided client setup
-./target/release/nebula-ctx setup
+./target/release/nebu-ctx setup
 
 # Postgres lifecycle
-./target/release/nebula-ctx db connect
-./target/release/nebula-ctx db status
-./target/release/nebula-ctx db init
-./target/release/nebula-ctx db test
+./target/release/nebu-ctx db connect
+./target/release/nebu-ctx db status
+./target/release/nebu-ctx db init
+./target/release/nebu-ctx db test
 
 # HTTP MCP mode
-./target/release/nebula-ctx serve --host 127.0.0.1 --port 4242 --auth-token local-test-token
+./target/release/nebu-ctx serve --host 127.0.0.1 --port 4242 --auth-token local-test-token
 
 # Dashboard
-./target/release/nebula-ctx dashboard
+./target/release/nebu-ctx dashboard
 ```
 
 ## Feature overview
@@ -192,12 +192,12 @@ By default the dashboard serves on `http://127.0.0.1:3333`.
 
 | Surface | Command or location | Purpose |
 |---------|---------------------|---------|
-| Local CLI | `nebula-ctx` | stdio MCP for editor and agent integration |
-| HTTP MCP server | `nebula-ctx serve --port 4242` | remote MCP access and long-running service mode |
-| Dashboard | `nebula-ctx dashboard` | local dashboard on port `3333` by default |
+| Local CLI | `nebu-ctx` | stdio MCP for editor and agent integration |
+| HTTP MCP server | `nebu-ctx serve --port 4242` | remote MCP access and long-running service mode |
+| Dashboard | `nebu-ctx dashboard` | local dashboard on port `3333` by default |
 | Docker | `Dockerfile` and `docker-entrypoint.sh` | containerized HTTP deployment |
 | Home Assistant add-on | `homeassistant/` | ingress dashboard plus optional `4242/tcp` MCP exposure |
-| Legacy cloud API | `nebula-ctx-cloud-api` | separate legacy surface, not the main MCP HTTP server |
+| Legacy cloud API | `nebu-ctx-cloud-api` | separate legacy surface, not the main MCP HTTP server |
 
 ## Storage and memory model
 
@@ -230,7 +230,7 @@ See [homeassistant/README.md](homeassistant/README.md) for the settings review a
 
 ## Upstream and lineage
 
-`nebula-ctx` started from [lean-ctx](https://github.com/yvgude/lean-ctx), and that upstream project is the source of the context-engineering core that this repository builds on.
+`nebu-ctx` started from an earlier upstream context-engineering core, and that lineage still shows up in some internal type names and compatibility env vars.
 
 This fork then layers in selected pieces from earlier Nebula work, especially:
 
@@ -246,11 +246,11 @@ The result is a fork with a different operating model: less purely local-first, 
 Validated locally on `2026-04-20`:
 
 - `cargo build --release --features cloud-server` passes
-- `nebula-ctx db status`, `db init`, and `db test` pass against the Postgres settings in `.env`
-- `nebula-ctx serve` responds on `/health`, `/v1/tools`, and `/v1/tools/call`
+- `nebu-ctx db status`, `db init`, and `db test` pass against the Postgres settings in `.env`
+- `nebu-ctx serve` responds on `/health`, `/v1/tools`, and `/v1/tools/call`
 - `ctx_brain` `status`, `store`, and `recall` work over HTTP with `NEBULA_STORE=postgres`
 
-The current production path is: one `nebula-ctx` binary, PostgreSQL selected with `NEBULA_STORE=postgres`, and MCP served from `src/http_server/mod.rs`.
+The current production path is: one `nebu-ctx` binary, PostgreSQL selected with `NEBULA_STORE=postgres`, and MCP served from `src/http_server/mod.rs`.
 
 ## Documentation
 
@@ -277,4 +277,4 @@ cargo build --release --features cloud-server
 
 Apache 2.0. See [LICENSE](LICENSE).
 
-Upstream attribution matters here: this project is derived from [lean-ctx](https://github.com/yvgude/lean-ctx), then extended with earlier Nebula work into the current `nebula-ctx` fork.
+The codebase still contains internal compatibility names from earlier iterations, but the current product surface is `nebu-ctx`.

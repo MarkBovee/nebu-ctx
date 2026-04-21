@@ -6,9 +6,9 @@ use nebula_ctx::{
 
 fn main() {
     std::panic::set_hook(Box::new(|info| {
-        eprintln!("nebula-ctx: unexpected error (your command was not affected)");
-        eprintln!("  Disable temporarily: nebula-ctx-off");
-        eprintln!("  Full uninstall:      nebula-ctx uninstall");
+        eprintln!("nebu-ctx: unexpected error (your command was not affected)");
+        eprintln!("  Disable temporarily: nebu-ctx-off");
+        eprintln!("  Full uninstall:      nebu-ctx uninstall");
         if let Some(msg) = info.payload().downcast_ref::<&str>() {
             eprintln!("  Details: {msg}");
         } else if let Some(msg) = info.payload().downcast_ref::<String>() {
@@ -927,8 +927,8 @@ EXAMPLES:
     nebula-ctx-mode off              Same as nebula-ctx-off
     nebula-ctx-status                Show whether compression is active
     nebula-ctx init --agent pi       Install Pi Coding Agent extension
-    nebula-ctx doctor                Check PATH, config, MCP, and dashboard port
-    nebula-ctx doctor --fix --json   Repair + machine-readable report
+    nebu-ctx doctor                  Check PATH, config, MCP, and dashboard port
+    nebu-ctx doctor --fix --json     Repair + machine-readable report
     nebula-ctx status --json         Machine-readable current status
     nebula-ctx read src/main.rs -m map
     nebula-ctx grep \"pub fn\" src/
@@ -942,7 +942,7 @@ SERVER / NETWORK:
 
 TROUBLESHOOTING:
     Commands broken?     nebula-ctx-off             (fixes current session)
-    Permanent fix?       nebula-ctx uninstall       (removes all hooks)
+    Permanent fix?       nebu-ctx uninstall         (removes all hooks)
     Manual fix?          Edit ~/.zshrc, remove the \"nebula-ctx shell hook\" block
     Binary missing?      Aliases auto-fallback to original commands (safe)
     Preview init?        nebula-ctx init --global --dry-run
@@ -976,7 +976,7 @@ fn cmd_login(args: &[String]) {
     }
 
     if email.is_empty() {
-        eprintln!("Usage: nebula-ctx login <email> [--password <password>]");
+        eprintln!("Usage: nebu-ctx login <email> [--password <password>]");
         std::process::exit(1);
     }
 
@@ -1001,7 +1001,7 @@ fn cmd_login(args: &[String]) {
         std::process::exit(1);
     }
 
-    println!("Connecting to LeanCTX Cloud...");
+    println!("Connecting to nebu-ctx Cloud...");
 
     let result = {
         let login_result = cloud_client::login(&email, &pw);
@@ -1044,7 +1044,7 @@ fn cmd_login(args: &[String]) {
 
 fn cmd_sync() {
     if !cloud_client::is_logged_in() {
-        eprintln!("Not logged in. Run: nebula-ctx login <email>");
+        eprintln!("Not logged in. Run: nebu-ctx login <email>");
         std::process::exit(1);
     }
 

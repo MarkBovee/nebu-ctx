@@ -1832,8 +1832,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "nebula-ctx"
-version = "0.2.4"
+name = "nebu-ctx"
+version = "0.2.5"
 dependencies = [
  "anyhow",
  "axum",

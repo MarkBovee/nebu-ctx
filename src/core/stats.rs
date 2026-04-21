@@ -928,10 +928,10 @@ pub fn format_cep_report() -> String {
                     .to_string(),
             );
             o.push(format!(
-                "     Run {sec}nebula-ctx init{r} to update rules, then restart your AI session."
+                "     Run {sec}nebu-ctx init{r} to update rules, then restart your AI session."
             ));
             o.push(format!(
-                "     Run {sec}nebula-ctx doctor{r} for detailed adoption diagnostics."
+                "     Run {sec}nebu-ctx doctor{r} for detailed adoption diagnostics."
             ));
         } else {
             o.push(format!(

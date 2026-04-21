@@ -2,7 +2,7 @@
 set -eu
 
 if [ "$#" -gt 0 ]; then
-    exec nebula-ctx "$@"
+    exec nebu-ctx "$@"
 fi
 
 host="${NEBULA_CTX_HTTP_HOST:-}"
@@ -17,7 +17,7 @@ if [ -z "$host" ]; then
     fi
 fi
 
-set -- nebula-ctx serve --host "$host" --port "$port"
+set -- nebu-ctx serve --host "$host" --port "$port"
 
 if [ -n "$token" ]; then
     set -- "$@" --auth-token "$token"

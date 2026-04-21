@@ -5,7 +5,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends jq ca-certificates curl libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY target/release/nebula-ctx /usr/local/bin/nebula-ctx
+COPY target/release/nebu-ctx /usr/local/bin/nebu-ctx
 COPY homeassistant/run.sh /run.sh
 
 RUN sed -i 's/\r$//' /run.sh \

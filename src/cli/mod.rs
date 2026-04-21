@@ -730,13 +730,13 @@ pub fn cmd_cheatsheet() {
   Browsing?   → \x1b[1maggressive\x1b[0m (syntax stripped)
 
 \x1b[1;36m━━━ MONITORING ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m
-  nebula-ctx gain          \x1b[2m# visual savings dashboard\x1b[0m
-  nebula-ctx gain --live   \x1b[2m# live auto-updating (Ctrl+C)\x1b[0m
-  nebula-ctx dashboard     \x1b[2m# web dashboard with charts\x1b[0m
-  nebula-ctx wrapped       \x1b[2m# weekly savings report\x1b[0m
-  nebula-ctx discover      \x1b[2m# find uncompressed commands\x1b[0m
-  nebula-ctx doctor        \x1b[2m# diagnose installation\x1b[0m
-  nebula-ctx update        \x1b[2m# self-update to latest\x1b[0m
+    nebu-ctx gain            \x1b[2m# visual savings dashboard\x1b[0m
+    nebu-ctx gain --live     \x1b[2m# live auto-updating (Ctrl+C)\x1b[0m
+    nebu-ctx dashboard       \x1b[2m# web dashboard with charts\x1b[0m
+    nebu-ctx wrapped         \x1b[2m# weekly savings report\x1b[0m
+    nebu-ctx discover        \x1b[2m# find uncompressed commands\x1b[0m
+    nebu-ctx doctor          \x1b[2m# diagnose installation\x1b[0m
+    nebu-ctx update          \x1b[2m# self-update to latest\x1b[0m
 
 \x1b[2m  Full guide: https://leanctx.com/docs/workflow\x1b[0m"
     );
@@ -750,7 +750,7 @@ pub fn cmd_slow_log(args: &[String]) {
         "list" | "ls" | "" => println!("{}", slow_log::list()),
         "clear" | "purge" => println!("{}", slow_log::clear()),
         _ => {
-            eprintln!("Usage: nebula-ctx slow-log [list|clear]");
+            eprintln!("Usage: nebu-ctx slow-log [list|clear]");
             std::process::exit(1);
         }
     }
@@ -798,7 +798,7 @@ pub fn cmd_tee(args: &[String]) {
                 };
                 println!("  {:<60} {}", name.to_string_lossy(), size_str);
             }
-            println!("\nUse 'nebula-ctx tee clear' to delete all logs.");
+            println!("\nUse 'nebu-ctx tee clear' to delete all logs.");
         }
         "clear" | "purge" => {
             if !tee_dir.exists() {
@@ -820,7 +820,7 @@ pub fn cmd_tee(args: &[String]) {
         "show" => {
             let filename = args.get(1);
             if filename.is_none() {
-                eprintln!("Usage: nebula-ctx tee show <filename>");
+                eprintln!("Usage: nebu-ctx tee show <filename>");
                 std::process::exit(1);
             }
             let path = tee_dir.join(filename.unwrap());
@@ -864,7 +864,7 @@ pub fn cmd_tee(args: &[String]) {
             }
         }
         _ => {
-            eprintln!("Usage: nebula-ctx tee [list|clear|show <file>|last]");
+            eprintln!("Usage: nebu-ctx tee [list|clear|show <file>|last]");
             std::process::exit(1);
         }
     }
@@ -883,13 +883,13 @@ pub fn cmd_filter(args: &[String]) {
             }
             None => {
                 println!("No custom filters found.");
-                println!("Create one: nebula-ctx filter init");
+                println!("Create one: nebu-ctx filter init");
             }
         },
         "validate" => {
             let path = args.get(1);
             if path.is_none() {
-                eprintln!("Usage: nebula-ctx filter validate <file.toml>");
+                eprintln!("Usage: nebu-ctx filter validate <file.toml>");
                 std::process::exit(1);
             }
             match crate::core::filters::validate_filter_file(path.unwrap()) {
@@ -949,7 +949,7 @@ pub fn cmd_init(args: &[String]) {
         if !global {
             crate::hooks::install_project_rules();
         }
-        qprintln!("\nRun 'nebula-ctx gain' after using some commands to see your savings.");
+        qprintln!("\nRun 'nebu-ctx gain' after using some commands to see your savings.");
         return;
     }
 
@@ -960,7 +960,7 @@ pub fn cmd_init(args: &[String]) {
 
     let binary = std::env::current_exe()
         .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|_| "nebula-ctx".to_string());
+        .unwrap_or_else(|_| "nebu-ctx".to_string());
 
     if dry_run {
         let rc = if is_powershell {
@@ -972,7 +972,7 @@ pub fn cmd_init(args: &[String]) {
         } else {
             "~/.bashrc".to_string()
         };
-        qprintln!("\nnebula-ctx init --dry-run\n");
+        qprintln!("\nnebu-ctx init --dry-run\n");
         qprintln!("  Would modify:  {rc}");
         qprintln!("  Would backup:  {rc}.nebula-ctx.bak");
         qprintln!("  Would alias:   git npm pnpm yarn cargo docker docker-compose kubectl");
@@ -980,7 +980,7 @@ pub fn cmd_init(args: &[String]) {
         qprintln!("                 curl wget php composer (24 commands + k)");
         qprintln!("  Would create:  ~/.nebula-ctx/");
         qprintln!("  Binary:        {binary}");
-        qprintln!("\n  Safety: aliases auto-fallback to original command if nebula-ctx is removed.");
+        qprintln!("\n  Safety: aliases auto-fallback to original command if nebu-ctx is removed.");
         qprintln!("\n  Run without --dry-run to apply.");
         return;
     }
@@ -1014,14 +1014,14 @@ pub fn cmd_init(args: &[String]) {
         ".bashrc"
     };
 
-    qprintln!("\nnebula-ctx init complete (24 aliases installed)");
+    qprintln!("\nnebu-ctx init complete (24 aliases installed)");
     qprintln!();
     qprintln!("  Disable temporarily:  nebula-ctx-off");
     qprintln!("  Re-enable:            nebula-ctx-on");
     qprintln!("  Check status:         nebula-ctx-status");
-    qprintln!("  Full uninstall:       nebula-ctx uninstall");
-    qprintln!("  Diagnose issues:      nebula-ctx doctor");
-    qprintln!("  Preview changes:      nebula-ctx init --global --dry-run");
+    qprintln!("  Full uninstall:       nebu-ctx uninstall");
+    qprintln!("  Diagnose issues:      nebu-ctx doctor");
+    qprintln!("  Preview changes:      nebu-ctx init --global --dry-run");
     qprintln!();
     if is_powershell {
         qprintln!("  Restart PowerShell or run: . {rc}");
@@ -1029,7 +1029,7 @@ pub fn cmd_init(args: &[String]) {
         qprintln!("  Restart your shell or run: source ~/{rc}");
     }
     qprintln!();
-    qprintln!("For AI tool integration: nebula-ctx init --agent <tool>");
+    qprintln!("For AI tool integration: nebu-ctx init --agent <tool>");
     qprintln!("  Supported: aider, amazonq, amp, antigravity, claude, cline, codex, copilot,");
     qprintln!("    crush, cursor, emacs, gemini, hermes, jetbrains, kiro, neovim, opencode,");
     qprintln!("    pi, qwen, roo, sublime, trae, verdent, windsurf");

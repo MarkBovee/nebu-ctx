@@ -8,14 +8,10 @@ on:
       version:
         description: "Version tag (e.g. v0.1.2)"
         required: true
-  workflow_run:
-    workflows: ["Auto Release"]
-    types: [completed]
-    branches: [main]
 
 env:
   CARGO_BUILD_JOBS: 2
-  BINARY_NAME: nebula-ctx
+  BINARY_NAME: nebu-ctx
 
 jobs:
   build:
@@ -51,17 +47,17 @@ jobs:
 
       - name: Build (native in Bookworm)
         if: matrix.container != ''
-        run: cargo build --release --features cloud-server -p nebula-ctx
+        run: cargo build --release --features cloud-server --bin nebu-ctx
 
       - name: Build (cross for arm64)
         if: matrix.container == ''
-        run: cross build --release --features cloud-server -p nebula-ctx --target ${{ matrix.target }}
+        run: cross build --release --features cloud-server --bin nebu-ctx --target ${{ matrix.target }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: nebula-ctx-${{ matrix.arch }}
-          path: ${{ matrix.container != '' && 'target/release/nebula-ctx' || format('target/{0}/release/nebula-ctx', matrix.target) }}
+          name: nebu-ctx-${{ matrix.arch }}
+          path: ${{ matrix.container != '' && 'target/release/nebu-ctx' || format('target/{0}/release/nebu-ctx', matrix.target) }}
 
   release:
     needs: build
@@ -74,14 +70,15 @@ jobs:
       - name: Determine version
         id: version
         run: |
+          TAG="${{ github.ref_name }}"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
-            VERSION=$(grep '^version:' homeassistant/config.yaml | head -1 | sed 's/version: *"\(.*\)"/\1/')
-            echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            TAG="${{ inputs.version }}"
           fi
+          case "$TAG" in
+            v*) ;;
+            *) TAG="v$TAG" ;;
+          esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -90,20 +87,20 @@ jobs:
 
       - name: Rename binaries with arch suffix
         run: |
-          mv artifacts/nebula-ctx-amd64/nebula-ctx artifacts/nebula-ctx-amd64/nebula-ctx-amd64
-          mv artifacts/nebula-ctx-arm64/nebula-ctx artifacts/nebula-ctx-arm64/nebula-ctx-arm64
+          mv artifacts/nebu-ctx-amd64/nebu-ctx artifacts/nebu-ctx-amd64/nebu-ctx-amd64
+          mv artifacts/nebu-ctx-arm64/nebu-ctx artifacts/nebu-ctx-arm64/nebu-ctx-arm64
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           files: |
-            artifacts/nebula-ctx-amd64/nebula-ctx-amd64
-            artifacts/nebula-ctx-arm64/nebula-ctx-arm64
+            artifacts/nebu-ctx-amd64/nebu-ctx-amd64
+            artifacts/nebu-ctx-arm64/nebu-ctx-arm64
           body: |
-            Pre-built binaries for nebula-ctx ${{ steps.version.outputs.tag }}
+            Pre-built binaries for nebu-ctx ${{ steps.version.outputs.tag }}
 
             | Arch | Binary |
             |------|--------|
-            | amd64 | `nebula-ctx-amd64` |
-            | arm64 | `nebula-ctx-arm64` |
+            | amd64 | `nebu-ctx-amd64` |
+            | arm64 | `nebu-ctx-arm64` |

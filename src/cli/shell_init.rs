@@ -77,7 +77,7 @@ if (-not $env:NEBULA_CTX_ACTIVE -and -not $env:NEBULA_CTX_DISABLED) {{
             let cleaned = remove_nebula_ctx_block_ps(&existing);
             match std::fs::write(&profile_path, format!("{cleaned}{functions}")) {
                 Ok(()) => {
-                    qprintln!("Updated nebula-ctx functions in {}", profile_path.display());
+                    qprintln!("Updated nebu-ctx functions in {}", profile_path.display());
                     qprintln!("  Binary: {binary}");
                     return;
                 }
@@ -97,7 +97,7 @@ if (-not $env:NEBULA_CTX_ACTIVE -and -not $env:NEBULA_CTX_DISABLED) {{
         Ok(mut f) => {
             use std::io::Write;
             let _ = f.write_all(functions.as_bytes());
-            qprintln!("Added nebula-ctx functions to {}", profile_path.display());
+            qprintln!("Added nebu-ctx functions to {}", profile_path.display());
             qprintln!("  Binary: {binary}");
         }
         Err(e) => eprintln!("Error writing {}: {e}", profile_path.display()),
@@ -239,7 +239,7 @@ pub fn init_fish(binary: &str) {
             let cleaned = remove_nebula_ctx_block(&existing);
             match std::fs::write(&config, format!("{cleaned}{aliases}")) {
                 Ok(()) => {
-                    qprintln!("Updated nebula-ctx aliases in {}", config.display());
+                    qprintln!("Updated nebu-ctx aliases in {}", config.display());
                     qprintln!("  Binary: {binary}");
                     return;
                 }
@@ -259,7 +259,7 @@ pub fn init_fish(binary: &str) {
         Ok(mut f) => {
             use std::io::Write;
             let _ = f.write_all(aliases.as_bytes());
-            qprintln!("Added nebula-ctx aliases to {}", config.display());
+            qprintln!("Added nebu-ctx aliases to {}", config.display());
             qprintln!("  Binary: {binary}");
         }
         Err(e) => eprintln!("Error writing {}: {e}", config.display()),
@@ -384,7 +384,7 @@ fi
             let cleaned = remove_nebula_ctx_block(&existing);
             match std::fs::write(&rc_file, format!("{cleaned}{aliases}")) {
                 Ok(()) => {
-                    qprintln!("Updated nebula-ctx aliases in {}", rc_file.display());
+                    qprintln!("Updated nebu-ctx aliases in {}", rc_file.display());
                     qprintln!("  Binary: {binary}");
                     return;
                 }
@@ -404,7 +404,7 @@ fi
         Ok(mut f) => {
             use std::io::Write;
             let _ = f.write_all(aliases.as_bytes());
-            qprintln!("Added nebula-ctx aliases to {}", rc_file.display());
+            qprintln!("Added nebu-ctx aliases to {}", rc_file.display());
             qprintln!("  Binary: {binary}");
         }
         Err(e) => eprintln!("Error writing {}: {e}", rc_file.display()),

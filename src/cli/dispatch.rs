@@ -927,8 +927,8 @@ EXAMPLES:
     nebula-ctx-mode off              Same as nebula-ctx-off
     nebula-ctx-status                Show whether compression is active
     nebula-ctx init --agent pi       Install Pi Coding Agent extension
-    nebula-ctx doctor                Check PATH, config, MCP, and dashboard port
-    nebula-ctx doctor --fix --json   Repair + machine-readable report
+    nebu-ctx doctor                  Check PATH, config, MCP, and dashboard port
+    nebu-ctx doctor --fix --json     Repair + machine-readable report
     nebula-ctx status --json         Machine-readable current status
     nebula-ctx read src/main.rs -m map
     nebula-ctx grep \"pub fn\" src/
@@ -942,7 +942,7 @@ SERVER / NETWORK:
 
 TROUBLESHOOTING:
     Commands broken?     nebula-ctx-off             (fixes current session)
-    Permanent fix?       nebula-ctx uninstall       (removes all hooks)
+    Permanent fix?       nebu-ctx uninstall         (removes all hooks)
     Manual fix?          Edit ~/.zshrc, remove the \"nebula-ctx shell hook\" block
     Binary missing?      Aliases auto-fallback to original commands (safe)
     Preview init?        nebula-ctx init --global --dry-run

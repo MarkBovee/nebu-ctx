@@ -1,8 +1,8 @@
-# Home Assistant Add-on: nebula-ctx
+# Home Assistant Add-on: nebu-ctx
 
-This add-on packages `nebula-ctx` for Home Assistant.
+This add-on packages `nebu-ctx` for Home Assistant.
 
-`nebula-ctx` is a fork of [lean-ctx](https://github.com/yvgude/lean-ctx). It keeps the upstream context-engineering core and combines it with earlier Nebula work around PostgreSQL persistence, brain memory, deployable HTTP serving, and Home Assistant packaging.
+This add-on packages the current `nebu-ctx` MCP server, dashboard, and persistence wrappers for Home Assistant.
 
 ## What the add-on provides
 
@@ -15,8 +15,8 @@ This add-on packages `nebula-ctx` for Home Assistant.
 
 ## Install in Home Assistant
 
-1. Add `https://github.com/MarkBovee/nebula-ctx` as a custom add-on repository in Home Assistant.
-2. Install the `nebula-ctx` add-on.
+1. Add `https://github.com/MarkBovee/nebu-ctx` as a custom add-on repository in Home Assistant.
+2. Install the `nebu-ctx` add-on.
 3. Configure the add-on options.
 4. Start the add-on.
 5. Use `Open Web UI` to open the dashboard through ingress.
@@ -26,7 +26,7 @@ This add-on packages `nebula-ctx` for Home Assistant.
 The add-on starts two services inside the same container:
 
 - dashboard service on `0.0.0.0:3333` for Home Assistant ingress
-- MCP HTTP service on `127.0.0.1:4242` by default, or `0.0.0.0:4242` when `auth_token` is set
+- MCP HTTP service on `0.0.0.0:4242` with a persisted bearer token
 
 That split is intentional:
 
@@ -38,8 +38,8 @@ That split is intentional:
 | Option | Purpose | Notes |
 |--------|---------|-------|
 | `store` | Selects the persistence backend | `sqlite` or `postgres` |
-| `database_url` | PostgreSQL connection string | required only when `store=postgres` |
-| `auth_token` | Bearer token for external MCP access | without it, MCP stays on loopback inside the container |
+| `database_url` | PostgreSQL connection string | optional override when `store=postgres` |
+| `auth_token` | Bearer token for MCP access | leave empty to auto-generate and persist one in `/data/auth_token` |
 | `log_level` | Sets `RUST_LOG` | typical values: `debug`, `info`, `warn`, `error` |
 | `project_root` | Default path root for MCP and dashboard actions | recommended: `/share` or `/config` |
 
@@ -59,7 +59,7 @@ The MCP HTTP endpoint is separate from the dashboard.
 
 To use it from external clients:
 
-1. Set `auth_token` in the add-on options.
+1. Set `auth_token` in the add-on options, or copy the generated token from the startup log or `/data/auth_token`.
 2. Expose `4242/tcp` in the Home Assistant network settings.
 3. Connect to the Home Assistant host on port `4242` with `Authorization: Bearer <token>`.
 
@@ -78,17 +78,19 @@ If you want to validate the add-on container yourself outside Home Assistant, us
 This build uses your current checkout and is the recommended packaging pre-check:
 
 ```bash
-podman build -t nebula-ctx-addon-local -f homeassistant/Dockerfile.local .
+podman build -t nebu-ctx-addon-local -f homeassistant/Dockerfile.dev .
 ```
 
 This is the build path used by `tests/pre_release_check.sh`.
+
+For a full local smoke test, run `tests/local-addon-test.sh`. It builds the local binary, starts the add-on in SQLite mode, reads the generated token from `/data/auth_token`, and verifies both the dashboard and the MCP HTTP endpoint.
 
 ### Published add-on Dockerfile build
 
 The shipped add-on Dockerfile can also be built directly:
 
 ```bash
-podman build -t nebula-ctx-addon -f homeassistant/Dockerfile homeassistant
+podman build -t nebu-ctx-addon -f homeassistant/Dockerfile homeassistant
 ```
 
 That build uses the repository URL and ref from `homeassistant/build.yaml`, so it validates the published add-on packaging path rather than your local Rust source tree.

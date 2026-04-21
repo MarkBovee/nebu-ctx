@@ -1,6 +1,6 @@
 # Server Setup Guide
 
-`nebula-ctx` currently supports three operator modes:
+`nebu-ctx` currently supports three operator modes:
 
 | Mode | Transport | Primary use |
 |------|-----------|-------------|
@@ -44,15 +44,15 @@ set +a
 Then verify the database path:
 
 ```bash
-./target/release/nebula-ctx db status
-./target/release/nebula-ctx db init
-./target/release/nebula-ctx db test
+./target/release/nebu-ctx db status
+./target/release/nebu-ctx db init
+./target/release/nebu-ctx db test
 ```
 
 ## Start the HTTP MCP Server
 
 ```bash
-./target/release/nebula-ctx serve \
+./target/release/nebu-ctx serve \
   --host 127.0.0.1 \
   --port 4242 \
   --auth-token my-secret-token
@@ -89,7 +89,7 @@ The `/v1/tools/call` payload must include `name` and `arguments`.
 ```json
 {
   "mcpServers": {
-    "nebula-ctx": {
+    "nebu-ctx": {
       "type": "http",
       "url": "http://your-server:4242/v1/tools/call",
       "headers": {
@@ -105,7 +105,7 @@ The `/v1/tools/call` payload must include `name` and `arguments`.
 Build:
 
 ```bash
-docker build -t nebula-ctx .
+docker build -t nebu-ctx .
 ```
 
 Run with PostgreSQL:
@@ -116,10 +116,10 @@ docker run --rm \
   -e NEBULA_STORE=postgres \
   -e DATABASE_URL='postgres://user:pass@db:5432/nebula' \
   -e NEBULA_CTX_HTTP_TOKEN='my-secret-token' \
-  nebula-ctx
+  nebu-ctx
 ```
 
-The container entrypoint now starts `nebula-ctx serve --port 4242` automatically. It binds to `0.0.0.0` only when `NEBULA_CTX_HTTP_TOKEN` is set.
+The container entrypoint now starts `nebu-ctx serve --port 4242` automatically. It binds to `0.0.0.0` only when `NEBULA_CTX_HTTP_TOKEN` is set.
 
 ## Home Assistant Addon
 
@@ -131,7 +131,7 @@ Operational guidance:
 2. Set `store` to `postgres` only when `database_url` is configured.
 3. Set `auth_token` if you need the MCP port reachable from outside the add-on container.
 4. Set `project_root` to a mounted path such as `/share` or `/config` so dashboard and MCP relative paths resolve meaningfully.
-5. Expect the MCP service to stay loopback-only when no auth token is provided.
+5. Expect the add-on to persist or generate an auth token and expose MCP on `4242/tcp` when that port is enabled.
 
 Connection model:
 

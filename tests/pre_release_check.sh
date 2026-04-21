@@ -11,7 +11,7 @@ FAIL=0
 CONTAINER_TOOL="${CONTAINER_TOOL:-podman}"
 SKIP_IMAGE_BUILD="${SKIP_IMAGE_BUILD:-0}"
 MAIN_IMAGE_TAG="${MAIN_IMAGE_TAG:-nebula-ctx-precheck:local}"
-ADDON_IMAGE_TAG="${ADDON_IMAGE_TAG:-nebula-ctx-addon-precheck:local}"
+ADDON_IMAGE_TAG="${ADDON_IMAGE_TAG:-nebu-ctx-addon-precheck:local}"
 
 step() { printf "\n\033[1;34m=== %s ===\033[0m\n" "$1"; }
 ok()   { printf "  \033[32m✓\033[0m %s\n" "$1"; PASS=$((PASS+1)); }
@@ -48,7 +48,7 @@ build_images() {
     "$CONTAINER_TOOL" build -t "$MAIN_IMAGE_TAG" -f Dockerfile .
 
     # The local add-on Dockerfile validates the current checkout rather than the published remote clone path.
-    "$CONTAINER_TOOL" build -t "$ADDON_IMAGE_TAG" -f homeassistant/Dockerfile.local .
+    "$CONTAINER_TOOL" build -t "$ADDON_IMAGE_TAG" -f homeassistant/Dockerfile.dev .
 }
 
 run_check "cargo fmt --check" cargo fmt --check

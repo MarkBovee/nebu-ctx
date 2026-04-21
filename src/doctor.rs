@@ -441,9 +441,9 @@ fn mcp_config_outcome() -> Outcome {
             String::new()
         };
         let hint = if has_claude {
-            format!("{DIM}(run: nebula-ctx doctor --fix OR nebula-ctx init --agent claude){RST}")
+            format!("{DIM}(run: nebu-ctx doctor --fix OR nebu-ctx init --agent claude){RST}")
         } else {
-            format!("{DIM}(run: nebula-ctx doctor --fix OR nebula-ctx setup){RST}")
+            format!("{DIM}(run: nebu-ctx doctor --fix OR nebu-ctx setup){RST}")
         };
         Outcome {
             ok: false,
@@ -456,7 +456,7 @@ fn mcp_config_outcome() -> Outcome {
         Outcome {
             ok: false,
             line: format!(
-                "{BOLD}MCP config{RST}  {YELLOW}no MCP config found{RST}  {DIM}(run: nebula-ctx setup){RST}"
+                "{BOLD}MCP config{RST}  {YELLOW}no MCP config found{RST}  {DIM}(run: nebu-ctx setup){RST}"
             ),
         }
     }
@@ -630,7 +630,7 @@ pub fn run() {
     let mut passed = 0u32;
     let total = 8u32;
 
-    println!("{BOLD}{WHITE}nebula-ctx doctor{RST}  {DIM}diagnostics{RST}\n");
+    println!("{BOLD}{WHITE}nebu-ctx doctor{RST}  {DIM}diagnostics{RST}\n");
 
     // 1) Binary on PATH
     let path_bin = resolve_nebula_ctx_binary();
@@ -931,8 +931,8 @@ pub fn run_cli(args: &[String]) -> i32 {
 
     if help {
         println!("Usage:");
-        println!("  nebula-ctx doctor");
-        println!("  nebula-ctx doctor --fix [--json]");
+        println!("  nebu-ctx doctor");
+        println!("  nebu-ctx doctor --fix [--json]");
         return 0;
     }
 
@@ -1191,7 +1191,7 @@ fn print_compact_status(passed: u32, total: u32) {
     let status = if passed == total {
         format!("{GREEN}✓ All {total} checks passed{RST}")
     } else {
-        format!("{YELLOW}{passed}/{total} passed{RST} — run {BOLD}nebula-ctx doctor{RST} for details")
+        format!("{YELLOW}{passed}/{total} passed{RST} — run {BOLD}nebu-ctx doctor{RST} for details")
     };
     println!("  {status}");
 }

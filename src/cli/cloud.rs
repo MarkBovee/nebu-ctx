@@ -47,7 +47,7 @@ pub fn cmd_login(args: &[String]) {
         std::process::exit(1);
     }
 
-    println!("Connecting to LeanCTX Cloud...");
+    println!("Connecting to nebu-ctx Cloud...");
 
     let result = {
         let login_result = cloud_client::login(&email, &pw);

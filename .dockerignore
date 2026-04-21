@@ -1,5 +1,6 @@
 .git
 target/**
+!target/release/nebu-ctx
 !target/release/nebula-ctx
 node_modules
 .claude

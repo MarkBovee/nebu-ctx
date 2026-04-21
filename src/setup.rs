@@ -106,7 +106,7 @@ pub fn run_setup() {
     let total_ok = newly_configured.len() + already_configured.len();
     if total_ok == 0 && errors.is_empty() {
         terminal_ui::print_status_warn(
-            "No AI tools detected. Install one and re-run: nebula-ctx setup",
+            "No AI tools detected. Install one and re-run: nebu-ctx setup",
         );
     }
 

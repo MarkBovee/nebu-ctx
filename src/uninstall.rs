@@ -10,7 +10,7 @@ pub fn run() {
         }
     };
 
-    println!("\n  nebula-ctx uninstall\n  ──────────────────────────────────\n");
+    println!("\n  nebu-ctx uninstall\n  ──────────────────────────────────\n");
 
     let mut removed_any = false;
 
@@ -26,9 +26,9 @@ pub fn run() {
 
     if removed_any {
         println!("  ──────────────────────────────────");
-        println!("  nebula-ctx configuration removed.\n");
+        println!("  nebu-ctx configuration removed.\n");
     } else {
-        println!("  Nothing to remove — nebula-ctx was not configured.\n");
+        println!("  Nothing to remove — nebu-ctx was not configured.\n");
     }
 
     print_binary_removal_instructions();
@@ -477,14 +477,14 @@ fn remove_data_dir(home: &Path) -> bool {
 fn print_binary_removal_instructions() {
     let binary_path = std::env::current_exe()
         .map(|p| p.display().to_string())
-        .unwrap_or_else(|_| "nebula-ctx".to_string());
+        .unwrap_or_else(|_| "nebu-ctx".to_string());
 
     println!("  To complete uninstallation, remove the binary:\n");
 
     if binary_path.contains(".cargo") {
-        println!("    cargo uninstall nebula-ctx\n");
+        println!("    cargo uninstall nebu-ctx\n");
     } else if binary_path.contains("homebrew") || binary_path.contains("Cellar") {
-        println!("    brew uninstall nebula-ctx\n");
+        println!("    brew uninstall nebu-ctx\n");
     } else {
         println!("    rm {binary_path}\n");
     }

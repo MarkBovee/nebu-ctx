@@ -1,4 +1,4 @@
-# Nebula Ctx Roadmap
+# nebu-ctx Roadmap
 
 > Updated: 2026-04-20
 > Goal: run and test locally tonight, then harden for production deployment tomorrow
@@ -13,7 +13,7 @@
 | Postgres-backed `ctx_brain` over HTTP | Done | `status`, `store`, and `recall` verified |
 | Docker and HA wrappers | In progress | obvious env/port bugs fixed tonight, not fully exercised end-to-end |
 | Hybrid local/cloud router | Planned | design exists, implementation does not |
-| Legacy LeanCTX cloud API binary | Exists | separate service, not the main MCP HTTP path |
+| Legacy cloud API binary | Exists | separate service, not the main MCP HTTP path |
 
 ## What Was Verified Tonight
 
@@ -50,7 +50,7 @@
 
 ## Current Architecture We Can Rely On Tomorrow
 
-- One `nebula-ctx` binary serves both stdio MCP and HTTP MCP.
+- One `nebu-ctx` binary serves both stdio MCP and HTTP MCP.
 - Postgres is selected with `NEBULA_STORE=postgres`.
 - The main HTTP MCP server lives in `src/http_server/mod.rs`.
 - The separate `cloud_server` binary is not the same thing as the HTTP MCP server.
@@ -140,11 +140,11 @@ set -a
 source <(tr -d '\r' < .env)
 set +a
 
-./target/release/nebula-ctx db status
-./target/release/nebula-ctx db init
-./target/release/nebula-ctx db test
+./target/release/nebu-ctx db status
+./target/release/nebu-ctx db init
+./target/release/nebu-ctx db test
 
-./target/release/nebula-ctx serve \
+./target/release/nebu-ctx serve \
   --host 127.0.0.1 \
   --port 4242 \
   --auth-token local-test-token
@@ -174,7 +174,7 @@ curl -X POST \
 
 ## Exit Criteria For Tomorrow
 
-- `nebula-ctx` starts cleanly with Postgres configured
+- `nebu-ctx` starts cleanly with Postgres configured
 - `db test` passes on the target machine
 - `/health` and `/v1/tools` are reachable from the intended client path
 - authenticated `/v1/tools/call` works without runtime aborts
