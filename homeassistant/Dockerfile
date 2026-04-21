@@ -11,8 +11,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Download pre-built binary from GitHub release
-RUN BINARY_ARCH="${TARGETARCH/amd64/amd64}" \
-    && BINARY_ARCH="${BINARY_ARCH/arm64/arm64}" \
+RUN BINARY_ARCH="${TARGETARCH}" \
     && if [ "${NEBULA_CTX_VERSION}" = "latest" ]; then \
          DOWNLOAD_URL=$(curl -sL "https://api.github.com/repos/MarkBovee/nebula-ctx/releases/latest" \
            | jq -r ".assets[] | select(.name == \"nebula-ctx-${BINARY_ARCH}\") | .browser_download_url"); \

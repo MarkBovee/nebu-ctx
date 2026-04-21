@@ -71,13 +71,18 @@ jobs:
         with:
           path: artifacts
 
+      - name: Rename binaries with arch suffix
+        run: |
+          mv artifacts/nebula-ctx-amd64/nebula-ctx artifacts/nebula-ctx-amd64/nebula-ctx-amd64
+          mv artifacts/nebula-ctx-arm64/nebula-ctx artifacts/nebula-ctx-arm64/nebula-ctx-arm64
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           files: |
-            artifacts/nebula-ctx-amd64/nebula-ctx
-            artifacts/nebula-ctx-arm64/nebula-ctx
+            artifacts/nebula-ctx-amd64/nebula-ctx-amd64
+            artifacts/nebula-ctx-arm64/nebula-ctx-arm64
           body: |
             Pre-built binaries for nebula-ctx ${{ steps.version.outputs.tag }}
 
