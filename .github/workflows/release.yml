@@ -8,6 +8,10 @@ on:
       version:
         description: "Version tag (e.g. v0.1.2)"
         required: true
+  workflow_run:
+    workflows: ["Auto Release"]
+    types: [completed]
+    branches: [main]
 
 env:
   CARGO_BUILD_JOBS: 2
@@ -65,11 +69,16 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - name: Determine version
         id: version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            VERSION=$(grep '^version:' homeassistant/config.yaml | head -1 | sed 's/version: *"\(.*\)"/\1/')
+            echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
           else
             echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
           fi
