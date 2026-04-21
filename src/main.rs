@@ -827,6 +827,7 @@ COMMANDS:
     watch                          Live TUI dashboard (real-time event stream)
     dashboard [--port=N] [--host=H] Open web dashboard (default: http://localhost:3333)
     serve [--host H] [--port N]    MCP over HTTP (Streamable HTTP, local-first)
+    server [--host H] [--port N]   Start nebula-ctx server (Postgres + MCP + dashboard)
     proxy start [--port=4444]      API proxy: compress tool_results before LLM API
     proxy status                   Show proxy statistics
     cache [list|clear|stats]       Show/manage file read cache
@@ -933,11 +934,11 @@ EXAMPLES:
     nebula-ctx grep \"pub fn\" src/
     nebula-ctx deps .
 
-CLOUD:
-    cloud status                   Show cloud connection status
-    login <email>                  Register/login to LeanCTX Cloud
-    sync                           Upload local stats to cloud dashboard
-    contribute                     Share anonymized compression data
+SERVER / NETWORK:
+    server [--host H] [--port N]   Start nebula-ctx server (Postgres, MCP + dashboard)
+    cloud connect <url> --token T  Connect to a nebula-ctx server on your network
+    cloud status                   Show server connection status
+    cloud disconnect               Disconnect from server
 
 TROUBLESHOOTING:
     Commands broken?     nebula-ctx-off             (fixes current session)
@@ -946,8 +947,8 @@ TROUBLESHOOTING:
     Binary missing?      Aliases auto-fallback to original commands (safe)
     Preview init?        nebula-ctx init --global --dry-run
 
-WEBSITE: https://leanctx.com
-GITHUB:  https://github.com/yvgude/nebula-ctx
+WEBSITE: https://github.com/MarkBovee/nebula-ctx
+GITHUB:  https://github.com/MarkBovee/nebula-ctx
 ",
         version = env!("CARGO_PKG_VERSION"),
     );
