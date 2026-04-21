@@ -1,6 +1,6 @@
 [package]
 name = "nebula-ctx"
-version = "0.2.3"
+version = "0.2.4"
 edition = "2021"
 description = "Context engineering layer for AI agents — forked from lean-ctx with PostgreSQL persistence, brain memory, and Home Assistant deployment."
 license = "Apache-2.0"
