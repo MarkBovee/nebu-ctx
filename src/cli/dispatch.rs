@@ -344,7 +344,7 @@ pub fn run() {
                                      \\n\\
                                      Options:\\n\\
                                        --host, -H            Bind host (default: 127.0.0.1)\\n\\
-                                       --port, -p            Bind port (default: 8080)\\n\\
+                                                                             --port, -p            Bind port (default: 4242)\\n\\
                                        --project-root        Resolve relative paths against this root (default: cwd)\\n\\
                                        --auth-token          Require Authorization: Bearer <token> (required for non-loopback binds)\\n\\
                                        --stateful/--stateless  Streamable HTTP session mode (default: stateless)\\n\\

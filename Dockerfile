@@ -40,12 +40,12 @@ WORKDIR /data
 # on 0.0.0.0; otherwise it stays on 127.0.0.1 for safety.
 ENV NEBULA_CTX_DATA_DIR=/data
 ENV NEBULA_STORE=sqlite
-ENV NEBULA_CTX_HTTP_PORT=8099
+ENV NEBULA_CTX_HTTP_PORT=4242
 
-EXPOSE 8099
+EXPOSE 4242
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD-SHELL curl -fsS http://127.0.0.1:${NEBULA_CTX_HTTP_PORT:-8099}/health || exit 1
+    CMD-SHELL curl -fsS http://127.0.0.1:${NEBULA_CTX_HTTP_PORT:-4242}/health || exit 1
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

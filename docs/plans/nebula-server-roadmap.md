@@ -19,7 +19,7 @@
 
 1. Built the release binary with Postgres support.
 2. Loaded Postgres settings from `.env` and verified database connectivity.
-3. Started the HTTP MCP server with an auth token on `127.0.0.1:8099`.
+3. Started the HTTP MCP server with an auth token on `127.0.0.1:4242`.
 4. Confirmed the server answered:
    - `/health`
    - `/v1/tools`
@@ -146,7 +146,7 @@ set +a
 
 ./target/release/nebula-ctx serve \
   --host 127.0.0.1 \
-  --port 8099 \
+  --port 4242 \
   --auth-token local-test-token
 ```
 
@@ -154,15 +154,15 @@ Then, from a second shell:
 
 ```bash
 curl -H 'Authorization: Bearer local-test-token' \
-  http://127.0.0.1:8099/health
+  http://127.0.0.1:4242/health
 
 curl -H 'Authorization: Bearer local-test-token' \
-  http://127.0.0.1:8099/v1/tools
+  http://127.0.0.1:4242/v1/tools
 
 curl -X POST \
   -H 'Authorization: Bearer local-test-token' \
   -H 'Content-Type: application/json' \
-  http://127.0.0.1:8099/v1/tools/call \
+  http://127.0.0.1:4242/v1/tools/call \
   -d '{
     "name": "ctx_brain",
     "arguments": {

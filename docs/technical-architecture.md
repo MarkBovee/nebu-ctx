@@ -228,7 +228,7 @@ The add-on wrapper lives in:
 Tonight's fixes corrected two mismatches:
 
 - `NEBULA_STORE` is now exported correctly
-- `serve` is now started explicitly with `--port 8099`
+- `serve` is now started explicitly with `--port 4242`
 
 ## Tests That Matter For This Path
 

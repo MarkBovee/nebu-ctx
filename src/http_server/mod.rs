@@ -43,7 +43,7 @@ impl Default for HttpServerConfig {
         let project_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         Self {
             host: "127.0.0.1".to_string(),
-            port: 8080,
+            port: 4242,
             project_root,
             auth_token: None,
             stateful_mode: false,

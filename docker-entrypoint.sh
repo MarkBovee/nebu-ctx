@@ -6,7 +6,7 @@ if [ "$#" -gt 0 ]; then
 fi
 
 host="${NEBULA_CTX_HTTP_HOST:-}"
-port="${NEBULA_CTX_HTTP_PORT:-8099}"
+port="${NEBULA_CTX_HTTP_PORT:-4242}"
 token="${NEBULA_CTX_HTTP_TOKEN:-}"
 
 if [ -z "$host" ]; then

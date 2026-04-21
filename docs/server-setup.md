@@ -54,7 +54,7 @@ Then verify the database path:
 ```bash
 ./target/release/nebula-ctx serve \
   --host 127.0.0.1 \
-  --port 8099 \
+  --port 4242 \
   --auth-token my-secret-token
 ```
 
@@ -64,15 +64,15 @@ For non-loopback binds, pass an auth token. The server refuses unsafe `0.0.0.0` 
 
 ```bash
 curl -H 'Authorization: Bearer my-secret-token' \
-  http://127.0.0.1:8099/health
+  http://127.0.0.1:4242/health
 
 curl -H 'Authorization: Bearer my-secret-token' \
-  http://127.0.0.1:8099/v1/tools
+  http://127.0.0.1:4242/v1/tools
 
 curl -X POST \
   -H 'Authorization: Bearer my-secret-token' \
   -H 'Content-Type: application/json' \
-  http://127.0.0.1:8099/v1/tools/call \
+  http://127.0.0.1:4242/v1/tools/call \
   -d '{
     "name": "ctx_brain",
     "arguments": {
@@ -91,7 +91,7 @@ The `/v1/tools/call` payload must include `name` and `arguments`.
   "mcpServers": {
     "nebula-ctx": {
       "type": "http",
-      "url": "http://your-server:8099/v1/tools/call",
+      "url": "http://your-server:4242/v1/tools/call",
       "headers": {
         "Authorization": "Bearer my-secret-token"
       }
@@ -112,14 +112,14 @@ Run with PostgreSQL:
 
 ```bash
 docker run --rm \
-  -p 8099:8099 \
+  -p 4242:4242 \
   -e NEBULA_STORE=postgres \
   -e DATABASE_URL='postgres://user:pass@db:5432/nebula' \
   -e NEBULA_CTX_HTTP_TOKEN='my-secret-token' \
   nebula-ctx
 ```
 
-The container entrypoint now starts `nebula-ctx serve --port 8099` automatically. It binds to `0.0.0.0` only when `NEBULA_CTX_HTTP_TOKEN` is set.
+The container entrypoint now starts `nebula-ctx serve --port 4242` automatically. It binds to `0.0.0.0` only when `NEBULA_CTX_HTTP_TOKEN` is set.
 
 ## Home Assistant Addon
 

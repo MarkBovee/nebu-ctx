@@ -2,6 +2,63 @@
 
 Rust MCP server and CLI for context engineering, brain memory, and PostgreSQL-backed persistence.
 
+## Installation
+
+There are four supported installation paths today.
+
+### Install From Source
+
+Use this when you want the local CLI and the HTTP MCP server directly on your machine.
+
+```bash
+git clone https://github.com/MarkBovee/nebula-ctx.git
+cd nebula-ctx
+cargo build --release --features cloud-server
+```
+
+The compiled binary will be available at `./target/release/nebula-ctx`.
+
+### Install As A Cargo Binary
+
+Use this if you want the binary installed into Cargo's bin directory.
+
+From a local clone:
+
+```bash
+cargo install --path . --bin nebula-ctx --features cloud-server
+```
+
+Directly from GitHub:
+
+```bash
+cargo install --git https://github.com/MarkBovee/nebula-ctx --bin nebula-ctx --features cloud-server
+```
+
+### Install With Docker
+
+Use this when you want a containerized HTTP MCP server.
+
+```bash
+docker build -t nebula-ctx .
+
+docker run --rm \
+  -p 4242:4242 \
+  -e NEBULA_STORE=postgres \
+  -e DATABASE_URL='postgres://user:pass@host:5432/nebula' \
+  -e NEBULA_CTX_HTTP_TOKEN='replace-me' \
+  nebula-ctx
+```
+
+### Install As A Home Assistant Add-on
+
+Use this when you want Home Assistant ingress for the dashboard plus an optional HTTP MCP endpoint.
+
+1. Add this repository to Home Assistant as a custom add-on repository.
+2. Install the `nebula-ctx` add-on.
+3. Configure the add-on options under `homeassistant/`.
+4. Use `Open Web UI` for the dashboard.
+5. Expose `4242/tcp` only if you want external MCP HTTP access.
+
 ## Status
 
 Validated locally on 2026-04-20:
@@ -44,7 +101,7 @@ set +a
 ```bash
 ./target/release/nebula-ctx serve \
   --host 127.0.0.1 \
-  --port 8099 \
+  --port 4242 \
   --auth-token local-test-token
 ```
 
@@ -52,15 +109,15 @@ set +a
 
 ```bash
 curl -H 'Authorization: Bearer local-test-token' \
-  http://127.0.0.1:8099/health
+  http://127.0.0.1:4242/health
 
 curl -H 'Authorization: Bearer local-test-token' \
-  http://127.0.0.1:8099/v1/tools
+  http://127.0.0.1:4242/v1/tools
 
 curl -X POST \
   -H 'Authorization: Bearer local-test-token' \
   -H 'Content-Type: application/json' \
-  http://127.0.0.1:8099/v1/tools/call \
+  http://127.0.0.1:4242/v1/tools/call \
   -d '{
     "name": "ctx_brain",
     "arguments": {
@@ -86,7 +143,7 @@ curl -X POST \
 ./target/release/nebula-ctx db test
 
 # HTTP MCP mode
-./target/release/nebula-ctx serve --host 127.0.0.1 --port 8099 --auth-token local-test-token
+./target/release/nebula-ctx serve --host 127.0.0.1 --port 4242 --auth-token local-test-token
 
 # Dashboard
 ./target/release/nebula-ctx dashboard --port=4747
@@ -106,7 +163,7 @@ Current validated Postgres-backed tool path: `ctx_brain`.
 docker build -t nebula-ctx .
 
 docker run --rm \
-  -p 8099:8099 \
+  -p 4242:4242 \
   -e NEBULA_STORE=postgres \
   -e DATABASE_URL='postgres://user:pass@host:5432/nebula' \
   -e NEBULA_CTX_HTTP_TOKEN='replace-me' \
