@@ -11,7 +11,7 @@ impl EventTail {
     pub fn new() -> Self {
         let path = dirs::home_dir()
             .unwrap_or_default()
-            .join(".nebula-ctx")
+            .join(".nebu-ctx")
             .join("events.jsonl");
         let offset = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
         Self { path, offset }

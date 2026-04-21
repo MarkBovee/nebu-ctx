@@ -29,7 +29,7 @@ pub fn run_cli(args: &[String]) -> i32 {
     let help = args.iter().any(|a| a == "--help" || a == "-h");
     if help {
         println!("Usage:");
-        println!("  nebula-ctx status [--json]");
+        println!("  nebu-ctx status [--json]");
         return 0;
     }
 
@@ -102,7 +102,7 @@ fn build_status_report() -> Result<(StatusReport, std::path::PathBuf), String> {
         } else {
             match std::fs::read_to_string(&t.config_path) {
                 Ok(s) => {
-                    if s.contains("nebula-ctx") {
+                    if s.contains("nebu-ctx") {
                         "configured".to_string()
                     } else {
                         "missing_entry".to_string()
@@ -151,7 +151,7 @@ fn build_status_report() -> Result<(StatusReport, std::path::PathBuf), String> {
 }
 
 fn print_human(report: &StatusReport, path: &std::path::Path) {
-    println!("nebula-ctx status  v{}", report.version);
+    println!("nebu-ctx status  v{}", report.version);
     println!(
         "  doctor: {}/{}",
         report.doctor_compact_passed, report.doctor_compact_total
@@ -166,7 +166,7 @@ fn print_human(report: &StatusReport, path: &std::path::Path) {
     } else if report.doctor_compact_passed == report.doctor_compact_total {
         println!("  last setup: (manual install — all checks pass)");
     } else {
-        println!("  last setup: (none) — run \x1b[1mnebula-ctx setup\x1b[0m to configure");
+        println!("  last setup: (none) — run \x1b[1mnebu-ctx setup\x1b[0m to configure");
     }
 
     let detected = report.mcp_targets.len();

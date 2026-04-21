@@ -1,13 +1,13 @@
 //! Automatic model download from HuggingFace Hub.
 //!
 //! Downloads the all-MiniLM-L6-v2 ONNX model and vocabulary on first use.
-//! Files are cached in `~/.nebula-ctx/models/` and only downloaded once.
+//! Files are cached in `~/.nebu-ctx/models/` and only downloaded once.
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
 const HF_BASE: &str = "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main";
-const USER_AGENT: &str = concat!("nebula-ctx/", env!("CARGO_PKG_VERSION"));
+const USER_AGENT: &str = concat!("nebu-ctx/", env!("CARGO_PKG_VERSION"));
 
 struct ModelFile {
     relative_url: &'static str,

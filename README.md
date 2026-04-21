@@ -4,7 +4,7 @@ Rust MCP server and CLI for context engineering, token-efficient file and shell 
 
 > `nebu-ctx` is the current product name for this context-engineering MCP server and dashboard stack. It builds on the earlier upstream context-engineering core and adds PostgreSQL persistence, brain-memory workflows, remote HTTP serving, and Home Assistant deployment.
 
-[Upstream: lean-ctx](https://github.com/yvgude/lean-ctx) | [Server setup](docs/server-setup.md) | [Technical architecture](docs/technical-architecture.md) | [Home Assistant add-on](homeassistant/README.md) | [Roadmap](docs/plans/nebula-server-roadmap.md)
+[Getting started](docs/getting-started.md) | [Server setup](docs/server-setup.md) | [Technical architecture](docs/technical-architecture.md) | [Home Assistant add-on](homeassistant/README.md) | [Roadmap](docs/plans/nebula-server-roadmap.md)
 
 ## Why nebu-ctx
 
@@ -33,39 +33,53 @@ It combines the original context-reduction model with earlier Nebula work around
 
 If you want the current deployable stack with persistent memory and Home Assistant packaging, this repository is `nebu-ctx`.
 
-## Installation
+## Get Started In 3 Steps
 
-There are four supported installation paths today.
+The main local install flow now mirrors the upstream pattern: install the binary, run setup, then verify.
 
-### Install from source
+### 1. Install `nebu-ctx`
 
-Use this when you want the local CLI and the HTTP MCP server directly on your machine.
+Pick one supported path:
 
 ```bash
+# Install directly from GitHub into Cargo's bin directory
+cargo install --git https://github.com/MarkBovee/nebu-ctx --bin nebu-ctx --features cloud-server
+
+# Or build from a local clone
 git clone https://github.com/MarkBovee/nebu-ctx.git
 cd nebu-ctx
 cargo build --release --features cloud-server
 ```
 
-The compiled binary will be available at `./target/release/nebu-ctx`.
-
-### Install as a Cargo binary
-
-Use this if you want the binary installed into Cargo's bin directory.
-
-From a local clone:
+### 2. Run setup
 
 ```bash
-cargo install --path . --bin nebu-ctx --features cloud-server
+nebu-ctx setup
 ```
 
-Directly from GitHub:
+This configures shell hooks and attempts editor setup automatically.
+
+If you want hook-only setup or need a fallback for a specific client:
 
 ```bash
-cargo install --git https://github.com/MarkBovee/nebu-ctx --bin nebu-ctx --features cloud-server
+nebu-ctx init --global
+nebu-ctx init --agent cursor
 ```
 
-### Install with Docker
+### 3. Restart and verify
+
+Restart your shell, then restart your editor completely.
+
+```bash
+nebu-ctx --version
+nebu-ctx doctor
+```
+
+Detailed install, fallback, and verification steps are in [docs/getting-started.md](docs/getting-started.md).
+
+## Additional Install Paths
+
+### Docker
 
 Use this when you want a containerized HTTP MCP server.
 
@@ -80,15 +94,17 @@ docker run --rm \
   nebu-ctx
 ```
 
-### Install as a Home Assistant add-on
+### Home Assistant Add-on
 
 Use this when you want Home Assistant ingress for the dashboard plus an optional HTTP MCP endpoint.
 
-1. Add `https://github.com/MarkBovee/nebu-ctx` to Home Assistant as a custom add-on repository.
+1. Add `https://github.com/MarkBovee/nebu-ctx` as a custom add-on repository.
 2. Install the `nebu-ctx` add-on.
-3. Configure the add-on options in Home Assistant.
-4. Use `Open Web UI` for the dashboard.
+3. Configure the PostgreSQL connection options.
+4. Start the add-on and use `Open Web UI`.
 5. Expose `4242/tcp` only if you want external MCP HTTP access.
+
+The published add-on downloads the prebuilt release binary instead of compiling Rust during install. The MCP token is generated on first boot and shown in the dashboard.
 
 ## Quick start
 

@@ -1,7 +1,7 @@
 /// SqliteStore — SQLite backend for local dev.
 ///
 /// Uses rusqlite with bundled SQLite. Stores everything in a single file
-/// at `{data_dir}/nebula-ctx.db`.
+/// at `{data_dir}/nebu-ctx.db`.
 
 use anyhow::{anyhow, Result};
 use rusqlite::{params, Connection, OptionalExtension};

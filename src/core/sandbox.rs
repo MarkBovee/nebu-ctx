@@ -212,7 +212,7 @@ fn execute_with_file(
     code: &str,
     timeout: u64,
 ) -> Result<(String, String, i32), String> {
-    let tmp_dir = std::env::temp_dir().join("nebula-ctx-sandbox");
+    let tmp_dir = std::env::temp_dir().join("nebu-ctx-sandbox");
     let _ = std::fs::create_dir_all(&tmp_dir);
 
     let file_name = format!(

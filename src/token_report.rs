@@ -74,7 +74,7 @@ pub fn run_cli(args: &[String]) -> i32 {
     let help = args.iter().any(|a| a == "--help" || a == "-h");
     if help {
         println!("Usage:");
-        println!("  nebula-ctx token-report [--json] [--project-root <path>]");
+        println!("  nebu-ctx token-report [--json] [--project-root <path>]");
         return 0;
     }
 
@@ -196,7 +196,7 @@ fn build_report(project_root_override: Option<&str>) -> Result<(TokenReport, Pat
 }
 
 fn print_human(report: &TokenReport, path: &Path) {
-    println!("nebula-ctx token-report  v{}", report.version);
+    println!("nebu-ctx token-report  v{}", report.version);
     println!("  project: {}", report.project_root);
     println!("  data:    {}", report.data_dir);
 

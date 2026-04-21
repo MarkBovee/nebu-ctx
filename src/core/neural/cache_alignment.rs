@@ -1,7 +1,7 @@
 //! KV-Cache alignment for commercial LLM prompt caching.
 //!
 //! Claude's prompt caching stores KV-tensors for byte-exact prefix matches.
-//! GPT models have similar mechanisms. This module ensures nebula-ctx outputs
+//! GPT models have similar mechanisms. This module ensures nebu-ctx outputs
 //! are structured to maximize cache hit rates.
 //!
 //! Key strategies:

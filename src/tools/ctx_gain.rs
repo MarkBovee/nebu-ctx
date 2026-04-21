@@ -50,7 +50,7 @@ fn format_summary(engine: &GainEngine, model: Option<&str>) -> String {
     };
 
     format!(
-        "nebula-ctx gain\n\
+        "nebu-ctx gain\n\
          ────────────\n\
          Score: {total}/100  (compression {comp}, cost {cost}, quality {qual}, consistency {cons})  trend={trend}\n\
          Tokens: {input} in → {out} out  | saved {saved}  ({rate:.1}%)\n\

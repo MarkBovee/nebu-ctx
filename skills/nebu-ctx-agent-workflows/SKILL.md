@@ -1,11 +1,11 @@
 ---
-name: nebula-ctx-agent-workflows
-description: Use when coordinating multi-agent work with nebula-ctx. Triggers on parallel execution, task handoff between sessions, multi-agent workflows, or when the user mentions another running session, shell, or agent. Also use when registering agents, sharing scratchpad context, handing off tasks, or cleaning up pending messages and status. Use when the user says "parallelize", "split this up", "I have another session running", or when the task clearly has independent parts that could run concurrently.
+name: nebu-ctx-agent-workflows
+description: Use when coordinating multi-agent work with nebu-ctx. Triggers on parallel execution, task handoff between sessions, multi-agent workflows, or when the user mentions another running session, shell, or agent. Also use when registering agents, sharing scratchpad context, handing off tasks, or cleaning up pending messages and status. Use when the user says "parallelize", "split this up", "I have another session running", or when the task clearly has independent parts that could run concurrently.
 ---
 
-# nebula-ctx Agent Workflows
+# nebu-ctx Agent Workflows
 
-Multi-agent coordination lifecycle for nebula-ctx. Covers evaluation, setup, execution patterns, and clean completion.
+Multi-agent coordination lifecycle for nebu-ctx. Covers evaluation, setup, execution patterns, and clean completion.
 
 ## When multi-agent makes sense
 
@@ -63,12 +63,12 @@ Type: [subagents | existing session | mixed]
 
 #### Option A: Subagents (automated)
 
-Spawn via the `Agent` tool. Each subagent registers with nebula-ctx, does its task, reports back.
+Spawn via the `Agent` tool. Each subagent registers with nebu-ctx, does its task, reports back.
 
 ```
 Agent({
   description: "brief task description",
-  prompt: "Register with nebula-ctx: ctx_agent(action='register', agent_type='subagent', role='dev').
+  prompt: "Register with nebu-ctx: ctx_agent(action='register', agent_type='subagent', role='dev').
   Then do [specific task].
   When done: ctx_agent(action='post', category='status', message='Completed: [result]')",
   run_in_background: true
@@ -79,7 +79,7 @@ Use when: task is self-contained, no user interaction needed.
 
 #### Option B: Existing sessions (manual coordination)
 
-The user has another session running. Coordination via nebula-ctx message bus:
+The user has another session running. Coordination via nebu-ctx message bus:
 
 1. **Register**: `ctx_agent(action="register", agent_type="claude", role="dev")`
 2. **Check who's online**: `ctx_agent(action="sync")`

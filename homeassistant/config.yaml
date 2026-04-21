@@ -1,6 +1,6 @@
-name: "nebu-ctx"
+name: "Nebu"
 description: "Context engineering MCP server with ingress dashboard and HTTP MCP endpoint"
-version: "0.2.5"
+version: "0.2.6"
 slug: "nebu_ctx"
 url: "https://github.com/MarkBovee/nebu-ctx/tree/main/homeassistant"
 stage: "experimental"
@@ -13,29 +13,23 @@ init: false
 ingress: true
 ingress_port: 3333
 panel_icon: "mdi:graph-box"
-panel_title: "nebu-ctx"
+panel_title: "Nebu-CTX cloud server"
 map:
   - config:rw
   - share:rw
 ports:
   4242/tcp: 4242
 ports_description:
-  4242/tcp: "nebu-ctx MCP HTTP endpoint"
+  4242/tcp: "Nebu-CTX MCP HTTP endpoint"
 options:
-  store: "sqlite"
-  database_url: ""
-  auth_token: ""
   postgres_host: "homeassistant"
   postgres_port: 5432
-  postgres_database: "nebula_ctx"
+  postgres_database: "nebula"
   postgres_username: "postgres"
   postgres_password: ""
   log_level: "info"
   project_root: "/share"
 schema:
-  store: "list(sqlite|postgres)"
-  database_url: "str?"
-  auth_token: "password?"
   postgres_host: "str?"
   postgres_port: "port?"
   postgres_database: "str?"

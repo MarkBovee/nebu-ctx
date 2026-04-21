@@ -1,9 +1,9 @@
-//! `nebula-ctx report-issue` — collects diagnostics and creates a GitHub issue.
+//! `nebu-ctx report-issue` — collects diagnostics and creates a GitHub issue.
 
 use std::path::PathBuf;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const REPO: &str = "yvgude/nebula-ctx";
+const REPO: &str = "yvgude/nebu-ctx";
 const BOLD: &str = "\x1b[1m";
 const RST: &str = "\x1b[0m";
 const DIM: &str = "\x1b[2m";
@@ -16,7 +16,7 @@ pub fn run(args: &[String]) {
     let dry_run = args.iter().any(|a| a == "--dry-run");
     let include_tee = args.iter().any(|a| a == "--include-tee");
 
-    println!("{BOLD}nebula-ctx report-issue{RST}\n");
+    println!("{BOLD}nebu-ctx report-issue{RST}\n");
 
     let title = title.unwrap_or_else(|| prompt_input("Issue title"));
     if title.trim().is_empty() {
@@ -93,7 +93,7 @@ fn section_environment() -> String {
     format!(
         "## Environment\n\n\
          | Field | Value |\n|---|---|\n\
-         | nebula-ctx | {VERSION} |\n\
+         | nebu-ctx | {VERSION} |\n\
          | OS | {os} {arch} |\n\
          | Shell | {shell} |\n\
          | IDE | {ide} |"
@@ -389,7 +389,7 @@ fn try_gh_cli(title: &str, body: &str) -> bool {
         None => return false,
     };
 
-    let tmp = std::env::temp_dir().join("nebula-ctx-report.md");
+    let tmp = std::env::temp_dir().join("nebu-ctx-report.md");
     if std::fs::write(&tmp, body).is_err() {
         return false;
     }
@@ -490,7 +490,7 @@ fn try_ureq_api(title: &str, body: &str) {
         .header("Authorization", &format!("Bearer {token}"))
         .header("Accept", "application/vnd.github.v3+json")
         .header("Content-Type", "application/json")
-        .header("User-Agent", &format!("nebula-ctx/{VERSION}"))
+        .header("User-Agent", &format!("nebu-ctx/{VERSION}"))
         .send(payload_bytes.as_slice())
     {
         Ok(resp) => {
@@ -521,13 +521,13 @@ fn save_report_locally(body: &str) {
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 fn nebula_ctx_dir() -> Option<PathBuf> {
-    dirs::home_dir().map(|h| h.join(".nebula-ctx"))
+    dirs::home_dir().map(|h| h.join(".nebu-ctx"))
 }
 
 fn which_nebula_ctx() -> Option<PathBuf> {
     let cmd = if cfg!(windows) { "where" } else { "which" };
     std::process::Command::new(cmd)
-        .arg("nebula-ctx")
+        .arg("nebu-ctx")
         .output()
         .ok()
         .filter(|o| o.status.success())
@@ -549,7 +549,7 @@ fn check_shell_hooks() -> String {
     for (file, name) in shells {
         let path = home.join(file);
         if let Ok(content) = std::fs::read_to_string(&path) {
-            if content.contains("nebula-ctx") {
+            if content.contains("nebu-ctx") {
                 found.push(name);
             }
         }
@@ -578,7 +578,7 @@ fn check_mcp_configs() -> String {
 
     for (full, name) in &configs {
         if let Ok(content) = std::fs::read_to_string(full) {
-            if content.contains("nebula-ctx") {
+            if content.contains("nebu-ctx") {
                 found.push(*name);
             }
         }

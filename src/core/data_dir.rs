@@ -10,7 +10,7 @@ pub fn nebula_ctx_data_dir() -> Result<PathBuf, String> {
 
     Ok(dirs::home_dir()
         .ok_or_else(|| "Cannot determine home directory".to_string())?
-        .join(".nebula-ctx"))
+        .join(".nebu-ctx"))
 }
 
 pub fn test_env_lock() -> std::sync::MutexGuard<'static, ()> {

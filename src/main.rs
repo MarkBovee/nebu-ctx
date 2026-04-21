@@ -41,7 +41,7 @@ fn main() {
                 if raw {
                     std::env::set_var("NEBULA_CTX_RAW", "1");
                 } else {
-                    // `nebula-ctx -c` is explicitly documented as "Execute with compressed output".
+                    // `nebu-ctx -c` is explicitly documented as "Execute with compressed output".
                     // Force buffered compression even when stdout is a TTY (fixes #100).
                     std::env::set_var("NEBULA_CTX_COMPRESS", "1");
                 }
@@ -338,7 +338,7 @@ fn main() {
                             }
                             "--help" | "-h" => {
                                 eprintln!(
-                                    "Usage: nebula-ctx serve [--host H] [--port N] [--project-root DIR]\\n\\
+                                    "Usage: nebu-ctx serve [--host H] [--port N] [--project-root DIR]\\n\\
                                      \\n\\
                                      Options:\\n\\
                                        --host, -H            Bind host (default: 127.0.0.1)\\n\\
@@ -378,7 +378,7 @@ fn main() {
                 }
                 #[cfg(not(feature = "http-server"))]
                 {
-                    eprintln!("nebula-ctx serve is not available in this build");
+                    eprintln!("nebu-ctx serve is not available in this build");
                     std::process::exit(1);
                 }
             }
@@ -442,7 +442,7 @@ fn main() {
                                         resp.into_body().read_to_string().unwrap_or_default();
                                     if let Ok(v) = serde_json::from_str::<serde_json::Value>(&body)
                                     {
-                                        println!("nebula-ctx proxy status:");
+                                        println!("nebu-ctx proxy status:");
                                         println!("  Requests:    {}", v["requests_total"]);
                                         println!("  Compressed:  {}", v["requests_compressed"]);
                                         println!("  Tokens saved: {}", v["tokens_saved"]);
@@ -456,19 +456,19 @@ fn main() {
                                 }
                                 Err(_) => {
                                     println!("No proxy running on port {port}.");
-                                    println!("Start with: nebula-ctx proxy start");
+                                    println!("Start with: nebu-ctx proxy start");
                                 }
                             }
                         }
                         _ => {
-                            println!("Usage: nebula-ctx proxy <start|stop|status> [--port=4444]");
+                            println!("Usage: nebu-ctx proxy <start|stop|status> [--port=4444]");
                         }
                     }
                     return;
                 }
                 #[cfg(not(feature = "http-server"))]
                 {
-                    eprintln!("nebula-ctx proxy is not available in this build");
+                    eprintln!("nebu-ctx proxy is not available in this build");
                     std::process::exit(1);
                 }
             }
@@ -611,7 +611,7 @@ fn main() {
                         );
                     }
                     _ => {
-                        eprintln!("Usage: nebula-ctx graph [build] [path]");
+                        eprintln!("Usage: nebu-ctx graph [build] [path]");
                     }
                 }
                 return;
@@ -683,7 +683,7 @@ fn main() {
                     "copilot" => hook_handlers::handle_copilot(),
                     "rewrite-inline" => hook_handlers::handle_rewrite_inline(),
                     _ => {
-                        eprintln!("Usage: nebula-ctx hook <rewrite|redirect|copilot|rewrite-inline>");
+                        eprintln!("Usage: nebu-ctx hook <rewrite|redirect|copilot|rewrite-inline>");
                         eprintln!("  Internal commands used by agent hooks (Claude, Cursor, Copilot, etc.)");
                         std::process::exit(1);
                     }
@@ -738,7 +738,7 @@ fn main() {
                 // fall through to MCP server startup below
             }
             _ => {
-                eprintln!("nebula-ctx: unknown command '{}'\n", args[1]);
+                eprintln!("nebu-ctx: unknown command '{}'\n", args[1]);
                 print_help();
                 std::process::exit(1);
             }
@@ -746,7 +746,7 @@ fn main() {
     }
 
     if let Err(e) = run_mcp_server() {
-        eprintln!("nebula-ctx: {e}");
+        eprintln!("nebu-ctx: {e}");
         std::process::exit(1);
     }
 }
@@ -783,7 +783,7 @@ fn run_mcp_server() -> Result<()> {
             .init();
 
         tracing::info!(
-            "nebula-ctx v{} MCP server starting",
+            "nebu-ctx v{} MCP server starting",
             env!("CARGO_PKG_VERSION")
         );
 
@@ -803,18 +803,18 @@ fn run_mcp_server() -> Result<()> {
 
 fn print_help() {
     println!(
-        "nebula-ctx {version} — Context Runtime for AI Agents
+        "nebu-ctx {version} — Context Runtime for AI Agents
 
 90+ compression patterns | 46 MCP tools | Context Continuity Protocol
 
 USAGE:
-    nebula-ctx                       Start MCP server (stdio)
-    nebula-ctx serve                 Start MCP server (Streamable HTTP)
-    nebula-ctx -t \"command\"          Track command (full output + stats, no compression)
-    nebula-ctx -c \"command\"          Execute with compressed output (used by AI hooks)
-    nebula-ctx -c --raw \"command\"    Execute without compression (full output)
-    nebula-ctx exec \"command\"        Same as -c
-    nebula-ctx shell                 Interactive shell with compression
+    nebu-ctx                       Start MCP server (stdio)
+    nebu-ctx serve                 Start MCP server (Streamable HTTP)
+    nebu-ctx -t \"command\"          Track command (full output + stats, no compression)
+    nebu-ctx -c \"command\"          Execute with compressed output (used by AI hooks)
+    nebu-ctx -c --raw \"command\"    Execute without compression (full output)
+    nebu-ctx exec \"command\"        Same as -c
+    nebu-ctx shell                 Interactive shell with compression
 
 COMMANDS:
     gain                           Visual dashboard (colors, bars, sparklines, USD)
@@ -827,12 +827,12 @@ COMMANDS:
     watch                          Live TUI dashboard (real-time event stream)
     dashboard [--port=N] [--host=H] Open web dashboard (default: http://localhost:3333)
     serve [--host H] [--port N]    MCP over HTTP (Streamable HTTP, local-first)
-    server [--host H] [--port N]   Start nebula-ctx server (Postgres + MCP + dashboard)
+    server [--host H] [--port N]   Start nebu-ctx server (Postgres + MCP + dashboard)
     proxy start [--port=4444]      API proxy: compress tool_results before LLM API
     proxy status                   Show proxy statistics
     cache [list|clear|stats]       Show/manage file read cache
     wrapped [--week|--month|--all] Savings report card (shareable)
-    sessions [list|show|cleanup]   Manage CCP sessions (~/.nebula-ctx/sessions/)
+    sessions [list|show|cleanup]   Manage CCP sessions (~/.nebu-ctx/sessions/)
     benchmark run [path] [--json]  Run real benchmark on project files
     benchmark report [path]        Generate shareable Markdown report
     cheatsheet                     Command cheat sheet & workflow quick reference
@@ -848,13 +848,13 @@ COMMANDS:
     ls [path]                      Directory listing with compression
     deps [path]                    Show project dependencies
     discover                       Find uncompressed commands in shell history
-    filter [list|validate|init]    Manage custom compression filters (~/.nebula-ctx/filters/)
+    filter [list|validate|init]    Manage custom compression filters (~/.nebu-ctx/filters/)
     session                        Show adoption statistics
-    config                         Show/edit configuration (~/.nebula-ctx/config.toml)
+    config                         Show/edit configuration (~/.nebu-ctx/config.toml)
     theme [list|set|export|import] Customize terminal colors and themes
-    tee [list|clear|show <file>|last] Manage output tee files (~/.nebula-ctx/tee/)
-    slow-log [list|clear]          Show/clear slow command log (~/.nebula-ctx/slow-commands.log)
-    update [--check]               Self-update nebula-ctx binary from GitHub Releases
+    tee [list|clear|show <file>|last] Manage output tee files (~/.nebu-ctx/tee/)
+    slow-log [list|clear]          Show/clear slow command log (~/.nebu-ctx/slow-commands.log)
+    update [--check]               Self-update nebu-ctx binary from GitHub Releases
     gotchas [list|clear|export|stats] Bug Memory: view/manage auto-detected error patterns
     buddy [show|stats|ascii|json]  Token Guardian: your data-driven coding companion
     doctor [--fix] [--json]        Run diagnostics (and optionally repair)
@@ -891,7 +891,7 @@ READ MODES:
 
 ENVIRONMENT:
     NEBULA_CTX_DISABLED=1            Bypass ALL compression + prevent shell hook from loading
-    NEBULA_CTX_ENABLED=0             Prevent shell hook auto-start (nebula-ctx-on still works)
+    NEBULA_CTX_ENABLED=0             Prevent shell hook auto-start (nebu-ctx-on still works)
     NEBULA_CTX_RAW=1                 Same as --raw for current command
     NEBULA_CTX_AUTONOMY=false        Disable autonomous features
     NEBULA_CTX_COMPRESS=1            Force compression (even for excluded commands)
@@ -901,54 +901,55 @@ OPTIONS:
     --help, -h                     Show this help
 
 EXAMPLES:
-    nebula-ctx -c \"git status\"       Compressed git output
-    nebula-ctx -c \"kubectl get pods\" Compressed k8s output
-    nebula-ctx -c \"gh pr list\"       Compressed GitHub CLI output
-    nebula-ctx gain                  Visual terminal dashboard
-    nebula-ctx gain --live           Live auto-updating terminal dashboard
-    nebula-ctx gain --graph          30-day savings chart
-    nebula-ctx gain --daily          Day-by-day breakdown with USD
-         nebula-ctx token-report --json   Machine-readable token + memory report
-    nebula-ctx dashboard             Open web dashboard at localhost:3333
-    nebula-ctx dashboard --host=0.0.0.0  Bind to all interfaces (remote access)
-    nebula-ctx wrapped               Weekly savings report card
-    nebula-ctx wrapped --month       Monthly savings report card
-    nebula-ctx sessions list         List all CCP sessions
-    nebula-ctx sessions show         Show latest session state
-    nebula-ctx discover              Find missed savings in shell history
-    nebula-ctx setup                 One-command setup (shell + editors + verify)
-    nebula-ctx bootstrap             Non-interactive setup + fix (zero-config)
-    nebula-ctx bootstrap --json      Machine-readable bootstrap report
-    nebula-ctx init --global         Install shell aliases (includes nebula-ctx-on/off/mode/status)
-    nebula-ctx-on                    Enable shell aliases in track mode (full output + stats)
-    nebula-ctx-off                   Disable all shell aliases
-    nebula-ctx-mode track            Track mode: full output, stats recorded (default)
-    nebula-ctx-mode compress         Compress mode: all output compressed (power users)
-    nebula-ctx-mode off              Same as nebula-ctx-off
-    nebula-ctx-status                Show whether compression is active
-    nebula-ctx init --agent pi       Install Pi Coding Agent extension
+    nebu-ctx -c \"git status\"       Compressed git output
+    nebu-ctx -c \"kubectl get pods\" Compressed k8s output
+    nebu-ctx -c \"gh pr list\"       Compressed GitHub CLI output
+    nebu-ctx gain                  Visual terminal dashboard
+    nebu-ctx gain --live           Live auto-updating terminal dashboard
+    nebu-ctx gain --graph          30-day savings chart
+    nebu-ctx gain --daily          Day-by-day breakdown with USD
+         nebu-ctx token-report --json   Machine-readable token + memory report
+    nebu-ctx dashboard             Open web dashboard at localhost:3333
+    nebu-ctx dashboard --host=0.0.0.0  Bind to all interfaces (remote access)
+    nebu-ctx wrapped               Weekly savings report card
+    nebu-ctx wrapped --month       Monthly savings report card
+    nebu-ctx sessions list         List all CCP sessions
+    nebu-ctx sessions show         Show latest session state
+    nebu-ctx discover              Find missed savings in shell history
+    nebu-ctx setup                 One-command setup (shell + editors + verify)
+    nebu-ctx bootstrap             Non-interactive setup + fix (zero-config)
+    nebu-ctx bootstrap --json      Machine-readable bootstrap report
+    nebu-ctx init --global         Install shell aliases (includes nebu-ctx-on/off/mode/status)
+    nebu-ctx-on                    Enable shell aliases in track mode (full output + stats)
+    nebu-ctx-off                   Disable all shell aliases
+    nebu-ctx-mode track            Track mode: full output, stats recorded (default)
+    nebu-ctx-mode compress         Compress mode: all output compressed (power users)
+    nebu-ctx-mode off              Same as nebu-ctx-off
+    nebu-ctx-status                Show whether compression is active
+    nebu-ctx init --agent pi       Install Pi Coding Agent extension
     nebu-ctx doctor                  Check PATH, config, MCP, and dashboard port
     nebu-ctx doctor --fix --json     Repair + machine-readable report
-    nebula-ctx status --json         Machine-readable current status
-    nebula-ctx read src/main.rs -m map
-    nebula-ctx grep \"pub fn\" src/
-    nebula-ctx deps .
+    nebu-ctx status --json         Machine-readable current status
+    nebu-ctx read src/main.rs -m map
+    nebu-ctx grep \"pub fn\" src/
+    nebu-ctx deps .
 
 SERVER / NETWORK:
-    server [--host H] [--port N]   Start nebula-ctx server (Postgres, MCP + dashboard)
-    cloud connect <url> --token T  Connect to a nebula-ctx server on your network
+    server [--host H] [--port N]   Start nebu-ctx server (Postgres, MCP + dashboard)
+    cloud                          Prompt for server endpoint and token
+    cloud connect <url> --token T  Connect to a nebu-ctx server on your network
     cloud status                   Show server connection status
     cloud disconnect               Disconnect from server
 
 TROUBLESHOOTING:
-    Commands broken?     nebula-ctx-off             (fixes current session)
+    Commands broken?     nebu-ctx-off             (fixes current session)
     Permanent fix?       nebu-ctx uninstall         (removes all hooks)
-    Manual fix?          Edit ~/.zshrc, remove the \"nebula-ctx shell hook\" block
+    Manual fix?          Edit ~/.zshrc, remove the \"nebu-ctx shell hook\" block
     Binary missing?      Aliases auto-fallback to original commands (safe)
-    Preview init?        nebula-ctx init --global --dry-run
+    Preview init?        nebu-ctx init --global --dry-run
 
-WEBSITE: https://github.com/MarkBovee/nebula-ctx
-GITHUB:  https://github.com/MarkBovee/nebula-ctx
+WEBSITE: https://github.com/MarkBovee/nebu-ctx
+GITHUB:  https://github.com/MarkBovee/nebu-ctx
 ",
         version = env!("CARGO_PKG_VERSION"),
     );
@@ -1027,7 +1028,7 @@ fn cmd_login(args: &[String]) {
                 let _ = cloud_client::save_plan(&plan);
             }
             println!("Logged in as {email}");
-            println!("API key saved to ~/.nebula-ctx/cloud/credentials.json");
+            println!("API key saved to ~/.nebu-ctx/cloud/credentials.json");
             if r.verification_sent {
                 println!("Verification email sent — please check your inbox.");
             }
@@ -1139,7 +1140,7 @@ fn collect_knowledge_entries() -> Vec<serde_json::Value> {
         Some(h) => h,
         None => return Vec::new(),
     };
-    let knowledge_dir = home.join(".nebula-ctx").join("knowledge");
+    let knowledge_dir = home.join(".nebu-ctx").join("knowledge");
     if !knowledge_dir.is_dir() {
         return Vec::new();
     }
@@ -1264,7 +1265,7 @@ fn collect_gotcha_entries() -> Vec<serde_json::Value> {
     let mut all_gotchas = core::gotcha_tracker::load_universal_gotchas();
 
     if let Some(home) = dirs::home_dir() {
-        let knowledge_dir = home.join(".nebula-ctx").join("knowledge");
+        let knowledge_dir = home.join(".nebu-ctx").join("knowledge");
         if let Ok(entries) = std::fs::read_dir(&knowledge_dir) {
             for entry in entries.flatten() {
                 let gotcha_path = entry.path().join("gotchas.json");
@@ -1326,7 +1327,7 @@ fn cmd_contribute() {
 
     // Try mode_stats.json first (per-extension, per-size-bucket data from ModePredictor)
     if let Some(home) = dirs::home_dir() {
-        let mode_stats_path = home.join(".nebula-ctx").join("mode_stats.json");
+        let mode_stats_path = home.join(".nebu-ctx").join("mode_stats.json");
         if let Ok(data) = std::fs::read_to_string(&mode_stats_path) {
             if let Ok(predictor) = serde_json::from_str::<serde_json::Value>(&data) {
                 if let Some(history) = predictor["history"].as_object() {
@@ -1400,7 +1401,7 @@ fn cmd_contribute() {
     }
 
     if entries.is_empty() {
-        println!("No compression data to contribute yet. Use nebula-ctx for a while first.");
+        println!("No compression data to contribute yet. Use nebu-ctx for a while first.");
         return;
     }
 
@@ -1448,11 +1449,11 @@ fn cmd_cloud(args: &[String]) {
                 println!("Connected to LeanCTX Cloud.");
             } else {
                 println!("Not connected to LeanCTX Cloud.");
-                println!("Get started: nebula-ctx login <email>");
+                println!("Get started: nebu-ctx login <email>");
             }
         }
         _ => {
-            println!("Usage: nebula-ctx cloud <command>");
+            println!("Usage: nebu-ctx cloud <command>");
             println!("  pull-models — Update adaptive compression models");
             println!("  status      — Show cloud connection status");
         }
@@ -1502,7 +1503,7 @@ fn cmd_gotchas(args: &[String]) {
             println!("  Session logs:        {}", store.error_log.len());
         }
         _ => {
-            println!("Usage: nebula-ctx gotchas [list|clear|export|stats]");
+            println!("Usage: nebu-ctx gotchas [list|clear|export|stats]");
         }
     }
 }
@@ -1510,7 +1511,7 @@ fn cmd_gotchas(args: &[String]) {
 fn cmd_buddy(args: &[String]) {
     let cfg = core::config::Config::load();
     if !cfg.buddy_enabled {
-        println!("Buddy is disabled. Enable with: nebula-ctx config buddy_enabled true");
+        println!("Buddy is disabled. Enable with: nebu-ctx config buddy_enabled true");
         return;
     }
 
@@ -1535,12 +1536,12 @@ fn cmd_buddy(args: &[String]) {
             Err(e) => eprintln!("JSON error: {e}"),
         },
         _ => {
-            println!("Usage: nebula-ctx buddy [show|stats|ascii|json]");
+            println!("Usage: nebu-ctx buddy [show|stats|ascii|json]");
         }
     }
 }
 
 fn cmd_upgrade() {
-    println!("'upgrade' has been renamed to 'update'. Running 'nebula-ctx update' instead.\n");
+    println!("'upgrade' has been renamed to 'update'. Running 'nebu-ctx update' instead.\n");
     core::updater::run(&[]);
 }

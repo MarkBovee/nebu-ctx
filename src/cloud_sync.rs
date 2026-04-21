@@ -157,7 +157,7 @@ pub fn collect_contribute_entries() -> Vec<serde_json::Value> {
 
     if let Some(home) = dirs::home_dir() {
         let mode_stats_path = crate::core::data_dir::nebula_ctx_data_dir()
-            .unwrap_or_else(|_| home.join(".nebula-ctx"))
+            .unwrap_or_else(|_| home.join(".nebu-ctx"))
             .join("mode_stats.json");
         if let Ok(data) = std::fs::read_to_string(&mode_stats_path) {
             if let Ok(predictor) = serde_json::from_str::<serde_json::Value>(&data) {

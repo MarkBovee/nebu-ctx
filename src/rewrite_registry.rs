@@ -1,4 +1,4 @@
-/// Single source of truth for all commands that nebula-ctx rewrites/compresses.
+/// Single source of truth for all commands that nebu-ctx rewrites/compresses.
 /// Used by: hook_handlers (PreToolUse), hooks.rs (bash scripts), cli.rs (shell aliases).
 pub const REWRITE_COMMANDS: &[RewriteEntry] = &[
     // Version control

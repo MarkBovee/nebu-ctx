@@ -1,8 +1,8 @@
-# nebula-ctx Technical Architecture
+# nebu-ctx Technical Architecture
 
 This document describes the code as it exists now, not the earlier aspirational design. The main points to keep straight are:
 
-- the primary production path is `nebula-ctx serve`
+- the primary production path is `nebu-ctx serve`
 - Postgres is selected with `NEBULA_STORE=postgres`
 - the `cloud_server` binary is a separate service surface, not the main MCP HTTP server
 - `ctx_brain` is the most clearly validated Postgres-backed MCP path today
@@ -11,7 +11,7 @@ This document describes the code as it exists now, not the earlier aspirational 
 
 ### Main Binary
 
-`src/main.rs` is the entry point for the `nebula-ctx` binary.
+`src/main.rs` is the entry point for the `nebu-ctx` binary.
 
 Important modes:
 

@@ -1,6 +1,6 @@
 [package]
 name = "nebu-ctx"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2021"
 description = "Context engineering layer for AI agents with PostgreSQL persistence, brain memory, deployable MCP HTTP serving, and Home Assistant support."
 license = "Apache-2.0"
@@ -15,20 +15,20 @@ name = "nebula_ctx"
 path = "src/lib.rs"
 
 [[bin]]
-name = "nebu-ctx"
-path = "src/main.rs"
-
-[[bin]]
 name = "nebula-ctx"
 path = "src/main.rs"
 
 [[bin]]
-name = "nebu-ctx-cloud-api"
+name = "nebu-ctx"
+path = "src/main.rs"
+
+[[bin]]
+name = "nebula-ctx-cloud-api"
 path = "src/cloud_server_main.rs"
 required-features = ["cloud-server"]
 
 [[bin]]
-name = "nebula-ctx-cloud-api"
+name = "nebu-ctx-cloud-api"
 path = "src/cloud_server_main.rs"
 required-features = ["cloud-server"]
 

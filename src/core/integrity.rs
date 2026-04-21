@@ -1,14 +1,14 @@
 //! Build-origin integrity verification and rebrand resistance.
 //!
 //! Detects if the binary has been modified by automated rebranding tools
-//! (e.g. `sed s/nebula-ctx/better-ctx/g`). The integrity seed is a compile-time
+//! (e.g. `sed s/nebu-ctx/better-ctx/g`). The integrity seed is a compile-time
 //! constant; its hash is precomputed and embedded. If the seed is altered by
 //! a text-replacement tool, the hash will no longer match.
 
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-const INTEGRITY_SEED: &str = "nebula-ctx";
+const INTEGRITY_SEED: &str = "nebu-ctx";
 const ORIGIN_REPO: &str = env!("CARGO_PKG_REPOSITORY");
 const ORIGIN_NAME: &str = env!("CARGO_PKG_NAME");
 const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -20,7 +20,7 @@ fn compute_seed_hash(seed: &str) -> u64 {
 }
 
 fn expected_hash() -> u64 {
-    compute_seed_hash("nebula-ctx")
+    compute_seed_hash("nebu-ctx")
 }
 
 pub fn verify_integrity() -> bool {
@@ -28,7 +28,7 @@ pub fn verify_integrity() -> bool {
 }
 
 pub fn is_official_origin() -> bool {
-    ORIGIN_REPO.contains("yvgude/nebula-ctx") && ORIGIN_NAME == "nebula-ctx"
+    ORIGIN_REPO.contains("yvgude/nebu-ctx") && ORIGIN_NAME == "nebu-ctx"
 }
 
 pub struct IntegrityReport {
@@ -52,11 +52,11 @@ pub fn check() -> IntegrityReport {
 pub fn origin_line() -> String {
     let report = check();
     if report.seed_ok && report.origin_ok {
-        format!("nebula-ctx {} (official, {})", report.version, report.repo)
+        format!("nebu-ctx {} (official, {})", report.version, report.repo)
     } else {
         format!(
             "WARNING: Modified redistribution detected. \
-             Official builds: https://github.com/yvgude/nebula-ctx \
+             Official builds: https://github.com/yvgude/nebu-ctx \
              (pkg={}, repo={})",
             report.pkg_name, report.repo
         )
@@ -74,8 +74,8 @@ mod tests {
 
     #[test]
     fn seed_hash_is_deterministic() {
-        let h1 = compute_seed_hash("nebula-ctx");
-        let h2 = compute_seed_hash("nebula-ctx");
+        let h1 = compute_seed_hash("nebu-ctx");
+        let h2 = compute_seed_hash("nebu-ctx");
         assert_eq!(h1, h2);
     }
 

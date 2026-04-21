@@ -4,7 +4,7 @@
 //! On re-index, only files whose hash has changed get re-embedded,
 //! avoiding expensive model inference for unchanged code.
 //!
-//! Storage format: `~/.nebula-ctx/vectors/<project_hash>/embeddings.json`
+//! Storage format: `~/.nebu-ctx/vectors/<project_hash>/embeddings.json`
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

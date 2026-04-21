@@ -105,7 +105,7 @@ impl EmbeddingEngine {
         anyhow::bail!("Embeddings feature not enabled. Compile with --features embeddings")
     }
 
-    /// Load from default model directory (~/.nebula-ctx/models/).
+    /// Load from default model directory (~/.nebu-ctx/models/).
     pub fn load_default() -> anyhow::Result<Self> {
         Self::load(&Self::model_directory())
     }

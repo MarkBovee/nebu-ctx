@@ -676,7 +676,7 @@ impl SessionState {
             fn has_marker(dir: &std::path::Path) -> bool {
                 const MARKERS: &[&str] = &[
                     ".git",
-                    ".nebula-ctx.toml",
+                    ".nebu-ctx.toml",
                     "Cargo.toml",
                     "package.json",
                     "go.mod",

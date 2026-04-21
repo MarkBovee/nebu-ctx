@@ -777,7 +777,7 @@ fn bench_tdd_symbols_token_efficiency() {
 }
 
 // SECTION 6: PERFORMANCE BENCHMARKS removed — machine-dependent timing
-// thresholds are unsuitable for OSS CI. Use `nebula-ctx benchmark` CLI instead.
+// thresholds are unsuitable for OSS CI. Use `nebu-ctx benchmark` CLI instead.
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SECTION 7: REGRESSION GUARDS — Ensure no performance degradation
@@ -861,7 +861,7 @@ fn guard_essential_instructions_present() {
     let instr = nebula_ctx::server::build_instructions_for_test(CrpMode::Off);
 
     let required = vec![
-        "ALWAYS use nebula-ctx MCP tools",
+        "ALWAYS use nebu-ctx MCP tools",
         "ctx_read",
         "ctx_shell",
         "ctx_search",
@@ -886,7 +886,7 @@ fn guard_essential_instructions_present() {
     );
 }
 
-// AUTONOMY TOKEN IMPACT removed — writes to ~/.nebula-ctx/ (not hermetic for CI)
+// AUTONOMY TOKEN IMPACT removed — writes to ~/.nebu-ctx/ (not hermetic for CI)
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DATA GENERATORS

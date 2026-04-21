@@ -29,7 +29,7 @@ fn write_exe(path: &std::path::Path, content: &str) {
 
 #[test]
 fn setup_bootstrap_doctor_status_json_smoke() {
-    let bin = env!("CARGO_BIN_EXE_nebula-ctx");
+    let bin = env!("CARGO_BIN_EXE_nebu-ctx");
 
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().join("home");
@@ -92,7 +92,7 @@ fn setup_bootstrap_doctor_status_json_smoke() {
     let env_sh = data_dir.join("env.sh");
     let env_sh_content = std::fs::read_to_string(&env_sh).expect("env.sh exists");
     assert!(
-        env_sh_content.contains("nebula-ctx docker self-heal"),
+        env_sh_content.contains("nebu-ctx docker self-heal"),
         "env.sh missing docker self-heal snippet"
     );
 
@@ -131,7 +131,7 @@ fn setup_bootstrap_doctor_status_json_smoke() {
 
 #[test]
 fn claude_config_dir_fallback_writes_dot_claude_json() {
-    let bin = env!("CARGO_BIN_EXE_nebula-ctx");
+    let bin = env!("CARGO_BIN_EXE_nebu-ctx");
 
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().join("home");
@@ -148,7 +148,7 @@ fn claude_config_dir_fallback_writes_dot_claude_json() {
     let data_str = data_dir.to_string_lossy().to_string();
     let claude_cfg_str = claude_cfg.to_string_lossy().to_string();
 
-    // Fake claude that fails (forces nebula-ctx to fallback to file merge/write).
+    // Fake claude that fails (forces nebu-ctx to fallback to file merge/write).
     let claude_path = bin_dir.join(if cfg!(windows) {
         "claude.cmd"
     } else {
@@ -194,7 +194,7 @@ fn claude_config_dir_fallback_writes_dot_claude_json() {
         content.contains("\"mcpServers\""),
         "must contain mcpServers"
     );
-    assert!(content.contains("nebula-ctx"), "must contain nebula-ctx entry");
+    assert!(content.contains("nebu-ctx"), "must contain nebu-ctx entry");
 
     let out = Command::new(bin)
         .args(["doctor"])
@@ -204,14 +204,14 @@ fn claude_config_dir_fallback_writes_dot_claude_json() {
     assert!(out.status.success(), "doctor exit");
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
-        stdout.contains("MCP config") && stdout.contains("nebula-ctx found"),
-        "doctor should report nebula-ctx found in MCP config; got:\n{stdout}"
+        stdout.contains("MCP config") && stdout.contains("nebu-ctx found"),
+        "doctor should report nebu-ctx found in MCP config; got:\n{stdout}"
     );
 }
 
 #[test]
 fn init_agent_preserves_agents_md_and_is_idempotent() {
-    let bin = env!("CARGO_BIN_EXE_nebula-ctx");
+    let bin = env!("CARGO_BIN_EXE_nebu-ctx");
 
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().join("home");
@@ -281,11 +281,11 @@ fn init_agent_preserves_agents_md_and_is_idempotent() {
         "must preserve user content"
     );
     assert!(
-        agents.contains("<!-- nebula-ctx -->") && agents.contains("@LEAN-CTX.md"),
-        "must add nebula-ctx reference block"
+        agents.contains("<!-- nebu-ctx -->") && agents.contains("@LEAN-CTX.md"),
+        "must add nebu-ctx reference block"
     );
     assert_eq!(
-        agents.matches("<!-- nebula-ctx -->").count(),
+        agents.matches("<!-- nebu-ctx -->").count(),
         1,
         "must not duplicate marker block"
     );
@@ -293,14 +293,14 @@ fn init_agent_preserves_agents_md_and_is_idempotent() {
     let nebula_ctx_md = project.join("LEAN-CTX.md");
     let nebula_ctx_content = std::fs::read_to_string(&nebula_ctx_md).expect("LEAN-CTX.md exists");
     assert!(
-        nebula_ctx_content.contains("nebula-ctx — Context Engineering Layer"),
+        nebula_ctx_content.contains("nebu-ctx — Context Engineering Layer"),
         "LEAN-CTX.md must contain rules"
     );
 }
 
 #[test]
 fn init_claude_installs_dedicated_rules_file_without_claude_md() {
-    let bin = env!("CARGO_BIN_EXE_nebula-ctx");
+    let bin = env!("CARGO_BIN_EXE_nebu-ctx");
 
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().join("home");
@@ -339,15 +339,15 @@ fn init_claude_installs_dedicated_rules_file_without_claude_md() {
     let claude_md_path = home.join(".claude/CLAUDE.md");
     assert!(
         claude_md_path.exists(),
-        "must create ~/.claude/CLAUDE.md with nebula-ctx block"
+        "must create ~/.claude/CLAUDE.md with nebu-ctx block"
     );
     let claude_md = std::fs::read_to_string(&claude_md_path).expect("CLAUDE.md readable");
     assert!(
-        claude_md.contains("<!-- nebula-ctx -->"),
-        "CLAUDE.md must contain nebula-ctx marker block"
+        claude_md.contains("<!-- nebu-ctx -->"),
+        "CLAUDE.md must contain nebu-ctx marker block"
     );
     assert!(
-        claude_md.contains("@rules/nebula-ctx.md"),
+        claude_md.contains("@rules/nebu-ctx.md"),
         "CLAUDE.md must import rules file"
     );
 
@@ -356,14 +356,14 @@ fn init_claude_installs_dedicated_rules_file_without_claude_md() {
         "must not create project CLAUDE.md"
     );
 
-    let rules_path = home.join(".claude/rules/nebula-ctx.md");
+    let rules_path = home.join(".claude/rules/nebu-ctx.md");
     assert!(
         rules_path.exists(),
         "must create dedicated Claude rules file"
     );
     let content = std::fs::read_to_string(&rules_path).expect("rules readable");
     assert!(
-        content.contains("nebula-ctx-rules-"),
+        content.contains("nebu-ctx-rules-"),
         "rules must contain marker"
     );
 }

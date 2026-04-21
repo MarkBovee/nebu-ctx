@@ -1,14 +1,14 @@
 use std::io::Read;
 
-const GITHUB_API_RELEASES: &str = "https://api.github.com/repos/yvgude/nebula-ctx/releases/latest";
+const GITHUB_API_RELEASES: &str = "https://api.github.com/repos/yvgude/nebu-ctx/releases/latest";
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn run(args: &[String]) {
     let check_only = args.iter().any(|a| a == "--check");
 
     println!();
-    println!("  \x1b[1m◆ nebula-ctx updater\x1b[0m  \x1b[2mv{CURRENT_VERSION}\x1b[0m");
-    println!("  \x1b[2mChecking github.com/yvgude/nebula-ctx …\x1b[0m");
+    println!("  \x1b[1m◆ nebu-ctx updater\x1b[0m  \x1b[2mv{CURRENT_VERSION}\x1b[0m");
+    println!("  \x1b[2mChecking github.com/yvgude/nebu-ctx …\x1b[0m");
 
     let release = match fetch_latest_release() {
         Ok(r) => r,
@@ -41,7 +41,7 @@ pub fn run(args: &[String]) {
     println!("  Update available: v{CURRENT_VERSION} → \x1b[1;32mv{latest_tag}\x1b[0m");
 
     if check_only {
-        println!("Run 'nebula-ctx update' to install.");
+        println!("Run 'nebu-ctx update' to install.");
         return;
     }
 
@@ -52,7 +52,7 @@ pub fn run(args: &[String]) {
         Some(u) => u,
         None => {
             eprintln!("No binary found for this platform ({asset_name}).");
-            eprintln!("Download manually: https://github.com/yvgude/nebula-ctx/releases/latest");
+            eprintln!("Download manually: https://github.com/yvgude/nebu-ctx/releases/latest");
             std::process::exit(1);
         }
     };
@@ -82,7 +82,7 @@ pub fn run(args: &[String]) {
     }
 
     println!();
-    println!("  \x1b[1;32m✓ Updated to nebula-ctx v{latest_tag}\x1b[0m");
+    println!("  \x1b[1;32m✓ Updated to nebu-ctx v{latest_tag}\x1b[0m");
     println!("  \x1b[2mBinary: {}\x1b[0m", current_exe.display());
 
     println!();
@@ -115,7 +115,7 @@ fn post_update_rewire() {
 
 fn fetch_latest_release() -> Result<serde_json::Value, String> {
     let response = ureq::get(GITHUB_API_RELEASES)
-        .header("User-Agent", &format!("nebula-ctx/{CURRENT_VERSION}"))
+        .header("User-Agent", &format!("nebu-ctx/{CURRENT_VERSION}"))
         .header("Accept", "application/vnd.github.v3+json")
         .call()
         .map_err(|e| e.to_string())?;
@@ -138,7 +138,7 @@ fn find_asset_url(release: &serde_json::Value, asset_name: &str) -> Option<Strin
 
 fn download_bytes(url: &str) -> Result<Vec<u8>, String> {
     let response = ureq::get(url)
-        .header("User-Agent", &format!("nebula-ctx/{CURRENT_VERSION}"))
+        .header("User-Agent", &format!("nebu-ctx/{CURRENT_VERSION}"))
         .call()
         .map_err(|e| e.to_string())?;
 
@@ -230,7 +230,7 @@ fn deferred_windows_update(
     staged_path: &std::path::Path,
     target_exe: &std::path::Path,
 ) -> Result<(), String> {
-    let pending_path = target_exe.with_file_name("nebula-ctx-pending.exe");
+    let pending_path = target_exe.with_file_name("nebu-ctx-pending.exe");
     std::fs::rename(staged_path, &pending_path).map_err(|e| {
         let _ = std::fs::remove_file(staged_path);
         format!("Cannot stage update: {e}")
@@ -242,7 +242,7 @@ fn deferred_windows_update(
 
     let script = format!(
         r#"@echo off
-echo Waiting for nebula-ctx to be released...
+echo Waiting for nebu-ctx to be released...
 :retry
 timeout /t 1 /nobreak >nul
 move /Y "{target}" "{old}" >nul 2>&1
@@ -250,7 +250,7 @@ if errorlevel 1 goto retry
 move /Y "{pending}" "{target}" >nul 2>&1
 if errorlevel 1 (
     move /Y "{old}" "{target}" >nul 2>&1
-    echo Update failed. Please close all editors and run: nebula-ctx update
+    echo Update failed. Please close all editors and run: nebu-ctx update
     pause
     exit /b 1
 )
@@ -263,7 +263,7 @@ del "%~f0" >nul 2>&1
         old = old_str,
     );
 
-    let script_path = target_exe.with_file_name("nebula-ctx-update.bat");
+    let script_path = target_exe.with_file_name("nebu-ctx-update.bat");
     std::fs::write(&script_path, &script)
         .map_err(|e| format!("Cannot write update script: {e}"))?;
 
@@ -292,13 +292,13 @@ fn extract_from_tar_gz(data: &[u8]) -> Result<Vec<u8>, String> {
         let path = entry.path().map_err(|e| e.to_string())?;
         let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
-        if name == "nebula-ctx" || name == "nebula-ctx.exe" {
+        if name == "nebu-ctx" || name == "nebu-ctx.exe" {
             let mut bytes = Vec::new();
             entry.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
             return Ok(bytes);
         }
     }
-    Err("nebula-ctx binary not found inside archive".to_string())
+    Err("nebu-ctx binary not found inside archive".to_string())
 }
 
 fn extract_from_zip(data: &[u8]) -> Result<Vec<u8>, String> {
@@ -310,13 +310,13 @@ fn extract_from_zip(data: &[u8]) -> Result<Vec<u8>, String> {
     for i in 0..zip.len() {
         let mut file = zip.by_index(i).map_err(|e| e.to_string())?;
         let name = file.name().to_string();
-        if name == "nebula-ctx.exe" || name == "nebula-ctx" {
+        if name == "nebu-ctx.exe" || name == "nebu-ctx" {
             let mut bytes = Vec::new();
             file.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
             return Ok(bytes);
         }
     }
-    Err("nebula-ctx binary not found inside zip archive".to_string())
+    Err("nebu-ctx binary not found inside zip archive".to_string())
 }
 
 fn detect_linux_libc() -> &'static str {
@@ -357,15 +357,15 @@ fn platform_asset_name() -> String {
         _ => {
             eprintln!(
                 "Unsupported platform: {os}/{arch}. Download manually from \
-                https://github.com/yvgude/nebula-ctx/releases/latest"
+                https://github.com/yvgude/nebu-ctx/releases/latest"
             );
             std::process::exit(1);
         }
     };
 
     if os == "windows" {
-        format!("nebula-ctx-{target}.zip")
+        format!("nebu-ctx-{target}.zip")
     } else {
-        format!("nebula-ctx-{target}.tar.gz")
+        format!("nebu-ctx-{target}.tar.gz")
     }
 }

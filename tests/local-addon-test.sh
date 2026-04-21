@@ -9,6 +9,12 @@ CONTAINER_TOOL="${CONTAINER_TOOL:-podman}"
 IMAGE_NAME="nebu-ctx-addon-dev"
 DOCKERFILE="homeassistant/Dockerfile.dev"
 BUILD_ARGS=()
+NETWORK_NAME="nebu-ctx-addon-test-net"
+DB_CONTAINER_NAME="nebu-ctx-addon-db"
+DB_IMAGE="docker.io/library/postgres:16-alpine"
+DB_NAME="nebula_ctx"
+DB_USER="postgres"
+DB_PASSWORD="nebu_ctx_test"
 
 # --- Step 1: Build on host ---
 echo "=== Building nebu-ctx binary (host) ==="
@@ -45,8 +51,11 @@ trap 'rm -rf "${TEST_DATA}"' EXIT
 
 cat > "${TEST_DATA}/options.json" <<'EOF'
 {
-  "store": "sqlite",
-  "auth_token": "",
+    "postgres_host": "nebu-ctx-addon-db",
+    "postgres_port": 5432,
+    "postgres_database": "nebula_ctx",
+    "postgres_username": "postgres",
+    "postgres_password": "nebu_ctx_test",
   "log_level": "debug",
   "project_root": "/share"
 }
@@ -54,8 +63,19 @@ EOF
 
 mkdir -p "${TEST_DATA}/share"
 
+"${CONTAINER_TOOL}" network create "${NETWORK_NAME}" >/dev/null 2>&1 || true
+
+DB_CONTAINER_ID="$(${CONTAINER_TOOL} run -d --rm \
+        --name "${DB_CONTAINER_NAME}" \
+        --network "${NETWORK_NAME}" \
+        -e POSTGRES_DB="${DB_NAME}" \
+        -e POSTGRES_USER="${DB_USER}" \
+        -e POSTGRES_PASSWORD="${DB_PASSWORD}" \
+        "${DB_IMAGE}")"
+
 CONTAINER_ID="$("${CONTAINER_TOOL}" run -d --rm \
     --name nebu-ctx-test \
+        --network "${NETWORK_NAME}" \
     --memory "2g" \
     -p 3333:3333 \
     -p 4242:4242 \
@@ -65,10 +85,20 @@ CONTAINER_ID="$("${CONTAINER_TOOL}" run -d --rm \
 
 cleanup_container() {
     "${CONTAINER_TOOL}" logs "${CONTAINER_ID}" 2>/dev/null || true
+    "${CONTAINER_TOOL}" logs "${DB_CONTAINER_ID}" 2>/dev/null || true
     "${CONTAINER_TOOL}" rm -f "${CONTAINER_ID}" 2>/dev/null || true
+    "${CONTAINER_TOOL}" rm -f "${DB_CONTAINER_ID}" 2>/dev/null || true
+    "${CONTAINER_TOOL}" network rm "${NETWORK_NAME}" 2>/dev/null || true
 }
 
 trap 'cleanup_container; rm -rf "${TEST_DATA}"' EXIT
+
+for _ in $(seq 1 60); do
+    if "${CONTAINER_TOOL}" exec "${DB_CONTAINER_NAME}" pg_isready -U "${DB_USER}" -d "${DB_NAME}" >/dev/null 2>&1; then
+        break
+    fi
+    sleep 1
+done
 
 for _ in $(seq 1 60); do
     if [ -s "${TEST_DATA}/auth_token" ]; then

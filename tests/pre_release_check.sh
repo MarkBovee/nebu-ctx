@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pre-release and packaging pre-check for nebula-ctx.
+# Pre-release and packaging pre-check for nebu-ctx.
 # Run from the repository root or as: bash tests/pre_release_check.sh
 set -euo pipefail
 
@@ -10,7 +10,7 @@ PASS=0
 FAIL=0
 CONTAINER_TOOL="${CONTAINER_TOOL:-podman}"
 SKIP_IMAGE_BUILD="${SKIP_IMAGE_BUILD:-0}"
-MAIN_IMAGE_TAG="${MAIN_IMAGE_TAG:-nebula-ctx-precheck:local}"
+MAIN_IMAGE_TAG="${MAIN_IMAGE_TAG:-nebu-ctx-precheck:local}"
 ADDON_IMAGE_TAG="${ADDON_IMAGE_TAG:-nebu-ctx-addon-precheck:local}"
 
 step() { printf "\n\033[1;34m=== %s ===\033[0m\n" "$1"; }

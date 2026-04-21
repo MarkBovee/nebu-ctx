@@ -2,9 +2,9 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-const MARKER: &str = "# nebula-ctx — Context Engineering Layer";
-const END_MARKER: &str = "<!-- /nebula-ctx -->";
-const RULES_VERSION: &str = "nebula-ctx-rules-v9";
+const MARKER: &str = "# nebu-ctx — Context Engineering Layer";
+const END_MARKER: &str = "<!-- /nebu-ctx -->";
+const RULES_VERSION: &str = "nebu-ctx-rules-v9";
 
 pub const RULES_MARKER: &str = MARKER;
 pub const RULES_VERSION_STR: &str = RULES_VERSION;
@@ -18,10 +18,10 @@ pub fn rules_dedicated_markdown() -> &'static str {
 // LITM-optimized: critical instruction at START and END of block.
 // Used for: CLAUDE.md, instructions.md, GEMINI.md, copilot-instructions.md
 // ---------------------------------------------------------------------------
-const RULES_SHARED: &str = r#"# nebula-ctx — Context Engineering Layer
-<!-- nebula-ctx-rules-v9 -->
+const RULES_SHARED: &str = r#"# nebu-ctx — Context Engineering Layer
+<!-- nebu-ctx-rules-v9 -->
 
-CRITICAL: ALWAYS use nebula-ctx MCP tools instead of native equivalents. This is NOT optional.
+CRITICAL: ALWAYS use nebu-ctx MCP tools instead of native equivalents. This is NOT optional.
 
 | ALWAYS USE | NEVER USE | Why |
 |------------|-----------|-----|
@@ -30,25 +30,25 @@ CRITICAL: ALWAYS use nebula-ctx MCP tools instead of native equivalents. This is
 | `ctx_search(pattern, path)` | `Grep` / `rg` | Compact, token-efficient results |
 | `ctx_tree(path, depth)` | `ls` / `find` | Compact directory maps |
 
-Compatibility: ctx_read replaces READ operations only. Your native Edit/Write/StrReplace tools remain unchanged — keep using them for editing. If your rules say "use Edit or Write tools only", that is compatible: nebula-ctx only replaces how you READ files, not how you EDIT them.
+Compatibility: ctx_read replaces READ operations only. Your native Edit/Write/StrReplace tools remain unchanged — keep using them for editing. If your rules say "use Edit or Write tools only", that is compatible: nebu-ctx only replaces how you READ files, not how you EDIT them.
 
 If Edit requires native Read and Read is unavailable, use `ctx_edit(path, old_string, new_string)` instead.
 Write, Delete, Glob → use normally. NEVER loop on Edit failures — switch to ctx_edit immediately.
 
 Preferred workflow control: use `ctx_workflow` to track states + enforce tool gates + evidence.
 
-Fallback only if a nebula-ctx tool is unavailable: use native equivalents.
-<!-- /nebula-ctx -->"#;
+Fallback only if a nebu-ctx tool is unavailable: use native equivalents.
+<!-- /nebu-ctx -->"#;
 
 // ---------------------------------------------------------------------------
-// Rules content for DEDICATED nebula-ctx rule files (we control entire file).
+// Rules content for DEDICATED nebu-ctx rule files (we control entire file).
 // LITM-optimized with critical mapping at start and end.
 // Used for: Windsurf, Zed, Cline, Roo Code, OpenCode, Continue, Aider
 // ---------------------------------------------------------------------------
-const RULES_DEDICATED: &str = r#"# nebula-ctx — Context Engineering Layer
-<!-- nebula-ctx-rules-v9 -->
+const RULES_DEDICATED: &str = r#"# nebu-ctx — Context Engineering Layer
+<!-- nebu-ctx-rules-v9 -->
 
-PREFER nebula-ctx MCP tools over native equivalents for token savings:
+PREFER nebu-ctx MCP tools over native equivalents for token savings:
 
 ## Tool preference:
 | PREFER | OVER | Why |
@@ -78,7 +78,7 @@ Write, Delete, Glob → use normally. NEVER loop on Edit failures — switch to 
 ## Proactive (use without being asked):
 - `ctx_overview(task)` at session start
 - `ctx_compress` when context grows large
-<!-- /nebula-ctx -->"#;
+<!-- /nebu-ctx -->"#;
 
 // ---------------------------------------------------------------------------
 // Rules for Cursor MDC format (dedicated file with frontmatter).
@@ -86,14 +86,14 @@ Write, Delete, Glob → use normally. NEVER loop on Edit failures — switch to 
 // LITM-optimized: critical warning at top and bottom.
 // ---------------------------------------------------------------------------
 const RULES_CURSOR_MDC: &str = r#"---
-description: "nebula-ctx: prefer ctx_read/ctx_shell/ctx_search/ctx_tree over Read/Shell/Grep/ls for token savings"
+description: "nebu-ctx: prefer ctx_read/ctx_shell/ctx_search/ctx_tree over Read/Shell/Grep/ls for token savings"
 alwaysApply: true
 ---
 
-# nebula-ctx — Context Engineering Layer
-<!-- nebula-ctx-rules-v9 -->
+# nebu-ctx — Context Engineering Layer
+<!-- nebu-ctx-rules-v9 -->
 
-PREFER nebula-ctx MCP tools over native equivalents for token savings:
+PREFER nebu-ctx MCP tools over native equivalents for token savings:
 
 ## Tool Mapping
 
@@ -124,8 +124,8 @@ PREFER nebula-ctx MCP tools over native equivalents for token savings:
 - If Edit requires native Read and Read is unavailable: use `ctx_edit(path, old_string, new_string)` instead.
 - NEVER loop trying to make Edit work. If it fails, switch to ctx_edit immediately.
 - Write, Delete, Glob → use normally.
-- Fallback only if a nebula-ctx tool is unavailable: use native equivalents.
-<!-- /nebula-ctx -->"#;
+- Fallback only if a nebu-ctx tool is unavailable: use native equivalents.
+<!-- /nebu-ctx -->"#;
 
 // ---------------------------------------------------------------------------
 
@@ -487,7 +487,7 @@ fn build_rules_targets(home: &std::path::Path) -> Vec<RulesTarget> {
         // --- Shared config files (append-only) ---
         RulesTarget {
             name: "Claude Code",
-            path: crate::core::editor_registry::claude_rules_dir(home).join("nebula-ctx.md"),
+            path: crate::core::editor_registry::claude_rules_dir(home).join("nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
@@ -505,95 +505,95 @@ fn build_rules_targets(home: &std::path::Path) -> Vec<RulesTarget> {
             path: copilot_instructions_path(home),
             format: RulesFormat::SharedMarkdown,
         },
-        // --- Dedicated nebula-ctx rule files ---
+        // --- Dedicated nebu-ctx rule files ---
         RulesTarget {
             name: "Cursor",
-            path: home.join(".cursor/rules/nebula-ctx.mdc"),
+            path: home.join(".cursor/rules/nebu-ctx.mdc"),
             format: RulesFormat::CursorMdc,
         },
         RulesTarget {
             name: "Windsurf",
-            path: home.join(".codeium/windsurf/rules/nebula-ctx.md"),
+            path: home.join(".codeium/windsurf/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Zed",
-            path: home.join(".config/zed/rules/nebula-ctx.md"),
+            path: home.join(".config/zed/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Cline",
-            path: home.join(".cline/rules/nebula-ctx.md"),
+            path: home.join(".cline/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Roo Code",
-            path: home.join(".roo/rules/nebula-ctx.md"),
+            path: home.join(".roo/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "OpenCode",
-            path: home.join(".config/opencode/rules/nebula-ctx.md"),
+            path: home.join(".config/opencode/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Continue",
-            path: home.join(".continue/rules/nebula-ctx.md"),
+            path: home.join(".continue/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Aider",
-            path: home.join(".aider/rules/nebula-ctx.md"),
+            path: home.join(".aider/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Amp",
-            path: home.join(".ampcoder/rules/nebula-ctx.md"),
+            path: home.join(".ampcoder/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Qwen Code",
-            path: home.join(".qwen/rules/nebula-ctx.md"),
+            path: home.join(".qwen/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Trae",
-            path: home.join(".trae/rules/nebula-ctx.md"),
+            path: home.join(".trae/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Amazon Q Developer",
-            path: home.join(".aws/amazonq/rules/nebula-ctx.md"),
+            path: home.join(".aws/amazonq/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "JetBrains IDEs",
-            path: home.join(".jb-rules/nebula-ctx.md"),
+            path: home.join(".jb-rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Antigravity",
-            path: home.join(".gemini/antigravity/rules/nebula-ctx.md"),
+            path: home.join(".gemini/antigravity/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Pi Coding Agent",
-            path: home.join(".pi/rules/nebula-ctx.md"),
+            path: home.join(".pi/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "AWS Kiro",
-            path: home.join(".kiro/steering/nebula-ctx.md"),
+            path: home.join(".kiro/steering/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Verdent",
-            path: home.join(".verdent/rules/nebula-ctx.md"),
+            path: home.join(".verdent/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Crush",
-            path: home.join(".config/crush/rules/nebula-ctx.md"),
+            path: home.join(".config/crush/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
     ]
@@ -642,7 +642,7 @@ mod tests {
 
     #[test]
     fn cursor_mdc_has_markers_and_frontmatter() {
-        assert!(RULES_CURSOR_MDC.contains("nebula-ctx"));
+        assert!(RULES_CURSOR_MDC.contains("nebu-ctx"));
         assert!(RULES_CURSOR_MDC.contains(END_MARKER));
         assert!(RULES_CURSOR_MDC.contains(RULES_VERSION));
         assert!(RULES_CURSOR_MDC.contains("alwaysApply: true"));
@@ -662,7 +662,7 @@ mod tests {
         let lines: Vec<&str> = RULES_SHARED.lines().collect();
         let first_5 = lines[..5.min(lines.len())].join("\n");
         assert!(
-            first_5.contains("PREFER") || first_5.contains("nebula-ctx"),
+            first_5.contains("PREFER") || first_5.contains("nebu-ctx"),
             "LITM: preference instruction must be near start"
         );
         let last_5 = lines[lines.len().saturating_sub(5)..].join("\n");
@@ -691,7 +691,7 @@ mod tests {
         let lines: Vec<&str> = RULES_DEDICATED.lines().collect();
         let first_5 = lines[..5.min(lines.len())].join("\n");
         assert!(
-            first_5.contains("PREFER") || first_5.contains("nebula-ctx"),
+            first_5.contains("PREFER") || first_5.contains("nebu-ctx"),
             "LITM: preference instruction must be near start"
         );
         let last_5 = lines[lines.len().saturating_sub(5)..].join("\n");
@@ -706,7 +706,7 @@ mod tests {
         let lines: Vec<&str> = RULES_CURSOR_MDC.lines().collect();
         let first_10 = lines[..10.min(lines.len())].join("\n");
         assert!(
-            first_10.contains("PREFER") || first_10.contains("nebula-ctx"),
+            first_10.contains("PREFER") || first_10.contains("nebu-ctx"),
             "LITM: preference instruction must be near start of MDC"
         );
         let last_5 = lines[lines.len().saturating_sub(5)..].join("\n");
@@ -726,7 +726,7 @@ mod tests {
     #[test]
     fn replace_section_with_end_marker() {
         ensure_temp_dir();
-        let old = "user stuff\n\n# nebula-ctx — Context Engineering Layer\n<!-- nebula-ctx-rules-v2 -->\nold rules\n<!-- /nebula-ctx -->\nmore user stuff\n";
+        let old = "user stuff\n\n# nebu-ctx — Context Engineering Layer\n<!-- nebu-ctx-rules-v2 -->\nold rules\n<!-- /nebu-ctx -->\nmore user stuff\n";
         let path = std::env::temp_dir().join("test_replace_with_end.md");
         std::fs::write(&path, old).unwrap();
 
@@ -737,7 +737,7 @@ mod tests {
         assert!(new_content.contains(RULES_VERSION));
         assert!(new_content.starts_with("user stuff"));
         assert!(new_content.contains("more user stuff"));
-        assert!(!new_content.contains("nebula-ctx-rules-v2"));
+        assert!(!new_content.contains("nebu-ctx-rules-v2"));
 
         std::fs::remove_file(&path).ok();
     }
@@ -745,7 +745,7 @@ mod tests {
     #[test]
     fn replace_section_without_end_marker() {
         ensure_temp_dir();
-        let old = "user stuff\n\n# nebula-ctx — Context Engineering Layer\nold rules only\n";
+        let old = "user stuff\n\n# nebu-ctx — Context Engineering Layer\nold rules only\n";
         let path = std::env::temp_dir().join("test_replace_no_end.md");
         std::fs::write(&path, old).unwrap();
 
@@ -798,7 +798,7 @@ mod tests {
     fn write_dedicated_updates_existing() {
         ensure_temp_dir();
         let path = std::env::temp_dir().join("test_write_dedicated_update.md");
-        std::fs::write(&path, "# nebula-ctx — Context Engineering Layer\nold version").unwrap();
+        std::fs::write(&path, "# nebu-ctx — Context Engineering Layer\nold version").unwrap();
 
         let result = write_dedicated(&path, RULES_DEDICATED).unwrap();
         assert!(matches!(result, RulesResult::Updated));

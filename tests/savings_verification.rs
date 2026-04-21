@@ -195,8 +195,8 @@ fn verify_overall_savings_estimation() {
 fn verify_cep_delta_tracking_prevents_overcounting() {
     use std::collections::HashMap;
 
-    let test_dir = std::env::temp_dir().join(format!("nebula-ctx-cep-test-{}", std::process::id()));
-    let nebula_ctx_dir = test_dir.join(".nebula-ctx");
+    let test_dir = std::env::temp_dir().join(format!("nebu-ctx-cep-test-{}", std::process::id()));
+    let nebula_ctx_dir = test_dir.join(".nebu-ctx");
     let _ = std::fs::create_dir_all(&nebula_ctx_dir);
     let stats_path = nebula_ctx_dir.join("stats.json");
     let _ = std::fs::remove_file(&stats_path);

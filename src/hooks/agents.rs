@@ -29,16 +29,16 @@ pub(super) fn install_claude_hook(global: bool) {
     let _ = global;
 }
 
-const CLAUDE_MD_BLOCK_START: &str = "<!-- nebula-ctx -->";
-const CLAUDE_MD_BLOCK_END: &str = "<!-- /nebula-ctx -->";
-const CLAUDE_MD_BLOCK_VERSION: &str = "nebula-ctx-claude-v2";
+const CLAUDE_MD_BLOCK_START: &str = "<!-- nebu-ctx -->";
+const CLAUDE_MD_BLOCK_END: &str = "<!-- /nebu-ctx -->";
+const CLAUDE_MD_BLOCK_VERSION: &str = "nebu-ctx-claude-v2";
 
 const CLAUDE_MD_BLOCK_CONTENT: &str = "\
-<!-- nebula-ctx -->
-<!-- nebula-ctx-claude-v2 -->
-## nebula-ctx — Context Runtime
+<!-- nebu-ctx -->
+<!-- nebu-ctx-claude-v2 -->
+## nebu-ctx — Context Runtime
 
-Always prefer nebula-ctx MCP tools over native equivalents:
+Always prefer nebu-ctx MCP tools over native equivalents:
 - `ctx_read` instead of `Read` / `cat` (cached, 10 modes, re-reads ~13 tokens)
 - `ctx_shell` instead of `bash` / `Shell` (90+ compression patterns)
 - `ctx_search` instead of `Grep` / `rg` (compact results)
@@ -46,10 +46,10 @@ Always prefer nebula-ctx MCP tools over native equivalents:
 - Native Edit/StrReplace stay unchanged. If Edit requires Read and Read is unavailable, use `ctx_edit(path, old_string, new_string)` instead.
 - Write, Delete, Glob — use normally.
 
-Full rules: @rules/nebula-ctx.md
+Full rules: @rules/nebu-ctx.md
 
-Verify setup: run `/mcp` to check nebula-ctx is connected, `/memory` to confirm this file loaded.
-<!-- /nebula-ctx -->";
+Verify setup: run `/mcp` to check nebu-ctx is connected, `/memory` to confirm this file loaded.
+<!-- /nebu-ctx -->";
 
 fn install_claude_global_claude_md(home: &std::path::Path) {
     let claude_dir = crate::core::editor_registry::claude_state_dir(home);
@@ -97,11 +97,11 @@ fn remove_block(content: &str, start: &str, end: &str) -> String {
 }
 
 fn install_claude_skill(home: &std::path::Path) {
-    let skill_dir = home.join(".claude/skills/nebula-ctx");
+    let skill_dir = home.join(".claude/skills/nebu-ctx");
     let _ = std::fs::create_dir_all(skill_dir.join("scripts"));
 
-    let skill_md = include_str!("../../skills/nebula-ctx/SKILL.md");
-    let install_sh = include_str!("../../skills/nebula-ctx/scripts/install.sh");
+    let skill_md = include_str!("../../skills/nebu-ctx/SKILL.md");
+    let install_sh = include_str!("../../skills/nebu-ctx/scripts/install.sh");
 
     let skill_path = skill_dir.join("SKILL.md");
     let script_path = skill_dir.join("scripts/install.sh");
@@ -122,7 +122,7 @@ fn install_claude_skill(home: &std::path::Path) {
 fn install_claude_rules_file(home: &std::path::Path) {
     let rules_dir = crate::core::editor_registry::claude_rules_dir(home);
     let _ = std::fs::create_dir_all(&rules_dir);
-    let rules_path = rules_dir.join("nebula-ctx.md");
+    let rules_path = rules_dir.join("nebu-ctx.md");
 
     let desired = crate::rules_inject::rules_dedicated_markdown();
     let existing = std::fs::read_to_string(&rules_path).unwrap_or_default();
@@ -134,7 +134,7 @@ fn install_claude_rules_file(home: &std::path::Path) {
     if existing.contains(crate::rules_inject::RULES_VERSION_STR) {
         return;
     }
-    if existing.contains("<!-- nebula-ctx-rules-") {
+    if existing.contains("<!-- nebu-ctx-rules-") {
         write_file(&rules_path, desired);
     }
 }
@@ -145,12 +145,12 @@ pub(super) fn install_claude_hook_scripts(home: &std::path::Path) {
 
     let binary = resolve_binary_path();
 
-    let rewrite_path = hooks_dir.join("nebula-ctx-rewrite.sh");
+    let rewrite_path = hooks_dir.join("nebu-ctx-rewrite.sh");
     let rewrite_script = generate_rewrite_script(&resolve_binary_path_for_bash());
     write_file(&rewrite_path, &rewrite_script);
     make_executable(&rewrite_path);
 
-    let redirect_path = hooks_dir.join("nebula-ctx-redirect.sh");
+    let redirect_path = hooks_dir.join("nebu-ctx-redirect.sh");
     write_file(&redirect_path, REDIRECT_SCRIPT_CLAUDE);
     make_executable(&redirect_path);
 
@@ -162,7 +162,7 @@ pub(super) fn install_claude_hook_scripts(home: &std::path::Path) {
         }
     };
 
-    let rewrite_native = hooks_dir.join("nebula-ctx-rewrite-native");
+    let rewrite_native = hooks_dir.join("nebu-ctx-rewrite-native");
     write_file(
         &rewrite_native,
         &format!(
@@ -172,7 +172,7 @@ pub(super) fn install_claude_hook_scripts(home: &std::path::Path) {
     );
     make_executable(&rewrite_native);
 
-    let redirect_native = hooks_dir.join("nebula-ctx-redirect-native");
+    let redirect_native = hooks_dir.join("nebu-ctx-redirect-native");
     write_file(
         &redirect_native,
         &format!(
@@ -201,8 +201,8 @@ pub(super) fn install_claude_hook_config(home: &std::path::Path) {
 
     let needs_update =
         !settings_content.contains("hook rewrite") || !settings_content.contains("hook redirect");
-    let has_old_hooks = settings_content.contains("nebula-ctx-rewrite.sh")
-        || settings_content.contains("nebula-ctx-redirect.sh");
+    let has_old_hooks = settings_content.contains("nebu-ctx-rewrite.sh")
+        || settings_content.contains("nebu-ctx-redirect.sh");
 
     if !needs_update && !has_old_hooks {
         return;
@@ -317,11 +317,11 @@ pub fn install_cursor_hook(global: bool) {
     if !skip_project {
         let rules_dir = PathBuf::from(".cursor").join("rules");
         let _ = std::fs::create_dir_all(&rules_dir);
-        let rule_path = rules_dir.join("nebula-ctx.mdc");
+        let rule_path = rules_dir.join("nebu-ctx.mdc");
         if !rule_path.exists() {
             let rule_content = include_str!("../templates/nebula-ctx.mdc");
             write_file(&rule_path, rule_content);
-            println!("Created .cursor/rules/nebula-ctx.mdc in current project.");
+            println!("Created .cursor/rules/nebu-ctx.mdc in current project.");
         } else {
             println!("Cursor rule already exists.");
         }
@@ -338,24 +338,24 @@ pub(super) fn install_cursor_hook_scripts(home: &std::path::Path) {
 
     let binary = resolve_binary_path_for_bash();
 
-    let rewrite_path = hooks_dir.join("nebula-ctx-rewrite.sh");
+    let rewrite_path = hooks_dir.join("nebu-ctx-rewrite.sh");
     let rewrite_script = generate_compact_rewrite_script(&binary);
     write_file(&rewrite_path, &rewrite_script);
     make_executable(&rewrite_path);
 
-    let redirect_path = hooks_dir.join("nebula-ctx-redirect.sh");
+    let redirect_path = hooks_dir.join("nebu-ctx-redirect.sh");
     write_file(&redirect_path, REDIRECT_SCRIPT_GENERIC);
     make_executable(&redirect_path);
 
     let native_binary = resolve_binary_path();
-    let rewrite_native = hooks_dir.join("nebula-ctx-rewrite-native");
+    let rewrite_native = hooks_dir.join("nebu-ctx-rewrite-native");
     write_file(
         &rewrite_native,
         &format!("#!/bin/sh\nexec {} hook rewrite\n", native_binary),
     );
     make_executable(&rewrite_native);
 
-    let redirect_native = hooks_dir.join("nebula-ctx-redirect-native");
+    let redirect_native = hooks_dir.join("nebu-ctx-redirect-native");
     write_file(
         &redirect_native,
         &format!("#!/bin/sh\nexec {} hook redirect\n", native_binary),
@@ -448,12 +448,12 @@ pub(super) fn install_gemini_hook_scripts(home: &std::path::Path) {
 
     let binary = resolve_binary_path_for_bash();
 
-    let rewrite_path = hooks_dir.join("nebula-ctx-rewrite-gemini.sh");
+    let rewrite_path = hooks_dir.join("nebu-ctx-rewrite-gemini.sh");
     let rewrite_script = generate_compact_rewrite_script(&binary);
     write_file(&rewrite_path, &rewrite_script);
     make_executable(&rewrite_path);
 
-    let redirect_path = hooks_dir.join("nebula-ctx-redirect-gemini.sh");
+    let redirect_path = hooks_dir.join("nebu-ctx-redirect-gemini.sh");
     write_file(&redirect_path, REDIRECT_SCRIPT_GENERIC);
     make_executable(&redirect_path);
 }
@@ -474,8 +474,8 @@ pub(super) fn install_gemini_hook_config(home: &std::path::Path) {
         && settings_content.contains("hook redirect")
         && settings_content.contains("\"type\"")
         && settings_content.contains("\"matcher\"");
-    let has_old_hooks = settings_content.contains("nebula-ctx-rewrite")
-        || settings_content.contains("nebula-ctx-redirect")
+    let has_old_hooks = settings_content.contains("nebu-ctx-rewrite")
+        || settings_content.contains("nebu-ctx-redirect")
         || (settings_content.contains("hook rewrite") && !settings_content.contains("\"matcher\""));
 
     if has_new_format && !has_old_hooks {
@@ -546,7 +546,7 @@ pub fn install_codex_hook() {
     let nebula_ctx_md = codex_dir.join("LEAN-CTX.md");
     let binary = resolve_binary_path();
     let nebula_ctx_content = format!(
-        r#"# nebula-ctx — Token Optimization
+        r#"# nebu-ctx — Token Optimization
 
 Prefix all shell commands with `{binary} -c` for compressed output:
 
@@ -563,7 +563,7 @@ Use `{binary} -c --raw <cmd>` to skip compression and get full output.
 
     if agents_path.exists() {
         let content = std::fs::read_to_string(&agents_path).unwrap_or_default();
-        if content.contains("nebula-ctx") || content.contains("LEAN-CTX") {
+        if content.contains("nebu-ctx") || content.contains("LEAN-CTX") {
             println!("Codex AGENTS.md already configured.");
             return;
         }
@@ -660,7 +660,7 @@ pub(super) fn install_codex_hook_scripts(home: &std::path::Path) {
     let _ = std::fs::create_dir_all(&hooks_dir);
 
     let binary = resolve_binary_path_for_bash();
-    let rewrite_path = hooks_dir.join("nebula-ctx-rewrite-codex.sh");
+    let rewrite_path = hooks_dir.join("nebu-ctx-rewrite-codex.sh");
     let rewrite_script = generate_compact_rewrite_script(&binary);
     write_file(&rewrite_path, &rewrite_script);
     make_executable(&rewrite_path);
@@ -688,7 +688,7 @@ pub(super) fn install_windsurf_rules(global: bool) {
     let rules_path = PathBuf::from(".windsurfrules");
     if rules_path.exists() {
         let content = std::fs::read_to_string(&rules_path).unwrap_or_default();
-        if content.contains("nebula-ctx") {
+        if content.contains("nebu-ctx") {
             println!(".windsurfrules already configured.");
             return;
         }
@@ -717,7 +717,7 @@ pub(super) fn install_cline_rules(global: bool) {
     let rules_path = PathBuf::from(".clinerules");
     if rules_path.exists() {
         let content = std::fs::read_to_string(&rules_path).unwrap_or_default();
-        if content.contains("nebula-ctx") {
+        if content.contains("nebu-ctx") {
             println!(".clinerules already configured.");
             return;
         }
@@ -725,7 +725,7 @@ pub(super) fn install_cline_rules(global: bool) {
 
     let binary = resolve_binary_path();
     let rules = format!(
-        r#"# nebula-ctx Shell Optimization
+        r#"# nebu-ctx Shell Optimization
 # Prefix all shell commands with `{binary} -c` for 60-90% token savings.
 
 When running shell commands, always prefix them with `{binary} -c` to compress output. For example:
@@ -753,20 +753,20 @@ pub(super) fn install_pi_hook(global: bool) {
         println!();
     }
 
-    println!("Installing pi-nebula-ctx Pi Package...");
+    println!("Installing pi-nebu-ctx Pi Package...");
     println!();
 
     let install_result = std::process::Command::new("pi")
-        .args(["install", "npm:pi-nebula-ctx"])
+        .args(["install", "npm:pi-nebu-ctx"])
         .status();
 
     match install_result {
         Ok(status) if status.success() => {
-            println!("Installed pi-nebula-ctx Pi Package.");
+            println!("Installed pi-nebu-ctx Pi Package.");
         }
         _ => {
-            println!("Could not auto-install pi-nebula-ctx. Install manually:");
-            println!("  pi install npm:pi-nebula-ctx");
+            println!("Could not auto-install pi-nebu-ctx. Install manually:");
+            println!("  pi install npm:pi-nebu-ctx");
             println!();
         }
     }
@@ -781,13 +781,13 @@ pub(super) fn install_pi_hook(global: bool) {
         if !agents_md.exists()
             || !std::fs::read_to_string(&agents_md)
                 .unwrap_or_default()
-                .contains("nebula-ctx")
+                .contains("nebu-ctx")
         {
             let content = include_str!("../templates/PI_AGENTS.md");
             write_file(&agents_md, content);
             println!("Created AGENTS.md in current project directory.");
         } else {
-            println!("AGENTS.md already contains nebula-ctx configuration.");
+            println!("AGENTS.md already contains nebu-ctx configuration.");
         }
     } else {
         println!(
@@ -796,9 +796,9 @@ pub(super) fn install_pi_hook(global: bool) {
     }
 
     println!();
-    println!("Setup complete. All Pi tools (bash, read, grep, find, ls) route through nebula-ctx.");
+    println!("Setup complete. All Pi tools (bash, read, grep, find, ls) route through nebu-ctx.");
     println!("MCP tools (ctx_session, ctx_knowledge, ctx_semantic_search, ...) also available.");
-    println!("Use /nebula-ctx in Pi to verify the binary path and MCP status.");
+    println!("Use /nebu-ctx in Pi to verify the binary path and MCP status.");
 }
 
 fn write_pi_mcp_config() {
@@ -819,8 +819,8 @@ fn write_pi_mcp_config() {
             Ok(c) => c,
             Err(_) => return,
         };
-        if content.contains("nebula-ctx") {
-            println!("  \x1b[32m✓\x1b[0m Pi MCP config already contains nebula-ctx");
+        if content.contains("nebu-ctx") {
+            println!("  \x1b[32m✓\x1b[0m Pi MCP config already contains nebu-ctx");
             return;
         }
 
@@ -830,12 +830,12 @@ fn write_pi_mcp_config() {
                     .entry("mcpServers")
                     .or_insert_with(|| serde_json::json!({}));
                 if let Some(servers_obj) = servers.as_object_mut() {
-                    servers_obj.insert("nebula-ctx".to_string(), pi_mcp_server_entry());
+                    servers_obj.insert("nebu-ctx".to_string(), pi_mcp_server_entry());
                 }
                 if let Ok(formatted) = serde_json::to_string_pretty(&json) {
                     let _ = std::fs::write(&mcp_config_path, formatted);
                     println!(
-                        "  \x1b[32m✓\x1b[0m Added nebula-ctx to Pi MCP config (~/.pi/agent/mcp.json)"
+                        "  \x1b[32m✓\x1b[0m Added nebu-ctx to Pi MCP config (~/.pi/agent/mcp.json)"
                     );
                 }
             }
@@ -845,7 +845,7 @@ fn write_pi_mcp_config() {
 
     let content = serde_json::json!({
         "mcpServers": {
-            "nebula-ctx": pi_mcp_server_entry()
+            "nebu-ctx": pi_mcp_server_entry()
         }
     });
     if let Ok(formatted) = serde_json::to_string_pretty(&content) {
@@ -994,23 +994,23 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
                         .entry("servers")
                         .or_insert_with(|| serde_json::json!({}));
                     if let Some(servers_obj) = servers.as_object_mut() {
-                        if servers_obj.get("nebula-ctx") == Some(&desired) {
+                        if servers_obj.get("nebu-ctx") == Some(&desired) {
                             println!("  \x1b[32m✓\x1b[0m Copilot already configured in {label}");
                             return;
                         }
-                        servers_obj.insert("nebula-ctx".to_string(), desired);
+                        servers_obj.insert("nebu-ctx".to_string(), desired);
                     }
                     write_file(
                         mcp_path,
                         &serde_json::to_string_pretty(&json).unwrap_or_default(),
                     );
-                    println!("  \x1b[32m✓\x1b[0m Added nebula-ctx to {label}");
+                    println!("  \x1b[32m✓\x1b[0m Added nebu-ctx to {label}");
                     return;
                 }
             }
             Err(e) => {
                 eprintln!(
-                    "Could not parse VS Code MCP config at {}: {e}\nAdd to \"servers\": \"nebula-ctx\": {{ \"command\": \"{}\", \"args\": [] }}",
+                    "Could not parse VS Code MCP config at {}: {e}\nAdd to \"servers\": \"nebu-ctx\": {{ \"command\": \"{}\", \"args\": [] }}",
                     mcp_path.display(),
                     binary
                 );
@@ -1028,7 +1028,7 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
         .unwrap_or_default();
     let config = serde_json::json!({
         "servers": {
-            "nebula-ctx": {
+            "nebu-ctx": {
                 "type": "stdio",
                 "command": binary,
                 "args": [],
@@ -1041,7 +1041,7 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
         mcp_path,
         &serde_json::to_string_pretty(&config).unwrap_or_default(),
     );
-    println!("  \x1b[32m✓\x1b[0m Created {label} with nebula-ctx MCP server");
+    println!("  \x1b[32m✓\x1b[0m Created {label} with nebu-ctx MCP server");
 }
 
 pub(super) fn install_amp_hook() {
@@ -1064,7 +1064,7 @@ pub(super) fn install_amp_hook() {
 
     if config_path.exists() {
         let content = std::fs::read_to_string(&config_path).unwrap_or_default();
-        if content.contains("nebula-ctx") {
+        if content.contains("nebu-ctx") {
             println!("Amp MCP already configured at {display_path}");
             return;
         }
@@ -1075,7 +1075,7 @@ pub(super) fn install_amp_hook() {
                     .entry("amp.mcpServers")
                     .or_insert_with(|| serde_json::json!({}));
                 if let Some(servers_obj) = servers.as_object_mut() {
-                    servers_obj.insert("nebula-ctx".to_string(), entry.clone());
+                    servers_obj.insert("nebu-ctx".to_string(), entry.clone());
                 }
                 if let Ok(formatted) = serde_json::to_string_pretty(&json) {
                     let _ = std::fs::write(&config_path, formatted);
@@ -1086,7 +1086,7 @@ pub(super) fn install_amp_hook() {
         }
     }
 
-    let config = serde_json::json!({ "amp.mcpServers": { "nebula-ctx": entry } });
+    let config = serde_json::json!({ "amp.mcpServers": { "nebu-ctx": entry } });
     if let Ok(json_str) = serde_json::to_string_pretty(&config) {
         let _ = std::fs::write(&config_path, json_str);
         println!("  \x1b[32m✓\x1b[0m Amp MCP configured at {display_path}");
@@ -1102,7 +1102,7 @@ pub(super) fn install_jetbrains_hook() {
     let display_path = "~/.jb-mcp.json";
 
     let entry = serde_json::json!({
-        "name": "nebula-ctx",
+        "name": "nebu-ctx",
         "command": binary,
         "args": [],
         "env": {
@@ -1114,7 +1114,7 @@ pub(super) fn install_jetbrains_hook() {
 
     if config_path.exists() {
         let content = std::fs::read_to_string(&config_path).unwrap_or_default();
-        if content.contains("nebula-ctx") {
+        if content.contains("nebu-ctx") {
             println!("JetBrains MCP already configured at {display_path}");
             return;
         }
@@ -1167,13 +1167,13 @@ pub(super) fn install_opencode_hook() {
 
     if config_path.exists() {
         let content = std::fs::read_to_string(&config_path).unwrap_or_default();
-        if content.contains("nebula-ctx") {
+        if content.contains("nebu-ctx") {
             println!("OpenCode MCP already configured at {display_path}");
         } else if let Ok(mut json) = serde_json::from_str::<serde_json::Value>(&content) {
             if let Some(obj) = json.as_object_mut() {
                 let mcp = obj.entry("mcp").or_insert_with(|| serde_json::json!({}));
                 if let Some(mcp_obj) = mcp.as_object_mut() {
-                    mcp_obj.insert("nebula-ctx".to_string(), desired.clone());
+                    mcp_obj.insert("nebu-ctx".to_string(), desired.clone());
                 }
                 if let Ok(formatted) = serde_json::to_string_pretty(&json) {
                     let _ = std::fs::write(&config_path, formatted);
@@ -1185,7 +1185,7 @@ pub(super) fn install_opencode_hook() {
         let content = serde_json::to_string_pretty(&serde_json::json!({
             "$schema": "https://opencode.ai/config.json",
             "mcp": {
-                "nebula-ctx": desired
+                "nebu-ctx": desired
             }
         }));
 
@@ -1203,7 +1203,7 @@ pub(super) fn install_opencode_hook() {
 fn install_opencode_plugin(home: &std::path::Path) {
     let plugin_dir = home.join(".config/opencode/plugins");
     let _ = std::fs::create_dir_all(&plugin_dir);
-    let plugin_path = plugin_dir.join("nebula-ctx.ts");
+    let plugin_path = plugin_dir.join("nebu-ctx.ts");
 
     let plugin_content = include_str!("../templates/opencode-plugin.ts");
     let _ = std::fs::write(&plugin_path, plugin_content);
@@ -1228,7 +1228,7 @@ pub(super) fn install_crush_hook() {
 
     if config_path.exists() {
         let content = std::fs::read_to_string(&config_path).unwrap_or_default();
-        if content.contains("nebula-ctx") {
+        if content.contains("nebu-ctx") {
             println!("Crush MCP already configured at {display_path}");
             return;
         }
@@ -1238,7 +1238,7 @@ pub(super) fn install_crush_hook() {
                 let servers = obj.entry("mcp").or_insert_with(|| serde_json::json!({}));
                 if let Some(servers_obj) = servers.as_object_mut() {
                     servers_obj.insert(
-                        "nebula-ctx".to_string(),
+                        "nebu-ctx".to_string(),
                         serde_json::json!({ "type": "stdio", "command": binary }),
                     );
                 }
@@ -1253,7 +1253,7 @@ pub(super) fn install_crush_hook() {
 
     let content = serde_json::to_string_pretty(&serde_json::json!({
         "mcp": {
-            "nebula-ctx": {
+            "nebu-ctx": {
                 "type": "stdio",
                 "command": binary
             }
@@ -1279,18 +1279,18 @@ pub(super) fn install_kiro_hook() {
 
     let cwd = std::env::current_dir().unwrap_or_default();
     let steering_dir = cwd.join(".kiro").join("steering");
-    let steering_file = steering_dir.join("nebula-ctx.md");
+    let steering_file = steering_dir.join("nebu-ctx.md");
 
     if steering_file.exists()
         && std::fs::read_to_string(&steering_file)
             .unwrap_or_default()
-            .contains("nebula-ctx")
+            .contains("nebu-ctx")
     {
-        println!("  Kiro steering file already exists at .kiro/steering/nebula-ctx.md");
+        println!("  Kiro steering file already exists at .kiro/steering/nebu-ctx.md");
     } else {
         let _ = std::fs::create_dir_all(&steering_dir);
         write_file(&steering_file, KIRO_STEERING_TEMPLATE);
-        println!("  \x1b[32m✓\x1b[0m Created .kiro/steering/nebula-ctx.md (Kiro will now prefer nebula-ctx tools)");
+        println!("  \x1b[32m✓\x1b[0m Created .kiro/steering/nebu-ctx.md (Kiro will now prefer nebu-ctx tools)");
     }
 }
 
@@ -1366,7 +1366,7 @@ fn install_hermes_rules(home: &std::path::Path) {
 
     if rules_path.exists() {
         let existing = std::fs::read_to_string(&rules_path).unwrap_or_default();
-        if existing.contains("nebula-ctx") {
+        if existing.contains("nebu-ctx") {
             println!("  Hermes rules already present in ~/.hermes/HERMES.md");
             return;
         }
@@ -1377,11 +1377,11 @@ fn install_hermes_rules(home: &std::path::Path) {
         updated.push('\n');
         updated.push_str(content);
         let _ = std::fs::write(&rules_path, updated);
-        println!("  \x1b[32m✓\x1b[0m Appended nebula-ctx rules to ~/.hermes/HERMES.md");
+        println!("  \x1b[32m✓\x1b[0m Appended nebu-ctx rules to ~/.hermes/HERMES.md");
     } else {
         let _ = std::fs::create_dir_all(rules_path.parent().unwrap());
         let _ = std::fs::write(&rules_path, content);
-        println!("  \x1b[32m✓\x1b[0m Created ~/.hermes/HERMES.md with nebula-ctx rules");
+        println!("  \x1b[32m✓\x1b[0m Created ~/.hermes/HERMES.md with nebu-ctx rules");
     }
 }
 
@@ -1393,8 +1393,8 @@ fn install_project_hermes_rules() {
     let rules_path = cwd.join(".hermes.md");
     if rules_path.exists() {
         let existing = std::fs::read_to_string(&rules_path).unwrap_or_default();
-        if existing.contains("nebula-ctx") {
-            println!("  .hermes.md already contains nebula-ctx rules");
+        if existing.contains("nebu-ctx") {
+            println!("  .hermes.md already contains nebu-ctx rules");
             return;
         }
         let mut updated = existing;
@@ -1404,17 +1404,17 @@ fn install_project_hermes_rules() {
         updated.push('\n');
         updated.push_str(HERMES_RULES_TEMPLATE);
         let _ = std::fs::write(&rules_path, updated);
-        println!("  \x1b[32m✓\x1b[0m Appended nebula-ctx rules to .hermes.md");
+        println!("  \x1b[32m✓\x1b[0m Appended nebu-ctx rules to .hermes.md");
     } else {
         let _ = std::fs::write(&rules_path, HERMES_RULES_TEMPLATE);
-        println!("  \x1b[32m✓\x1b[0m Created .hermes.md with nebula-ctx rules");
+        println!("  \x1b[32m✓\x1b[0m Created .hermes.md with nebu-ctx rules");
     }
 }
 
 const HERMES_RULES_TEMPLATE: &str = "\
-# nebula-ctx — Context Engineering Layer
+# nebu-ctx — Context Engineering Layer
 
-PREFER nebula-ctx MCP tools over native equivalents for token savings:
+PREFER nebu-ctx MCP tools over native equivalents for token savings:
 
 | PREFER | OVER | Why |
 |--------|------|-----|

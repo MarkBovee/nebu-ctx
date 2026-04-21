@@ -2,8 +2,8 @@ use std::path::Path;
 
 use crate::marked_block;
 
-const PROXY_ENV_START: &str = "# >>> nebula-ctx proxy env >>>";
-const PROXY_ENV_END: &str = "# <<< nebula-ctx proxy env <<<";
+const PROXY_ENV_START: &str = "# >>> nebu-ctx proxy env >>>";
+const PROXY_ENV_END: &str = "# <<< nebu-ctx proxy env <<<";
 
 const DEFAULT_PROXY_PORT: u16 = 4444;
 

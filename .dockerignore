@@ -1,9 +1,8 @@
 .git
 target/**
 !target/release/nebu-ctx
-!target/release/nebula-ctx
+!target/release/nebu-ctx
 node_modules
 .claude
-*.md
 homeassistant/Dockerfile
 tests/

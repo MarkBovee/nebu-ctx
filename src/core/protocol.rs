@@ -267,7 +267,7 @@ mod tests {
 
     #[test]
     fn is_project_root_marker_detects_git() {
-        let tmp = std::env::temp_dir().join("nebula-ctx-test-root-marker");
+        let tmp = std::env::temp_dir().join("nebu-ctx-test-root-marker");
         let _ = std::fs::create_dir_all(&tmp);
         let git_dir = tmp.join(".git");
         let _ = std::fs::create_dir_all(&git_dir);
@@ -277,7 +277,7 @@ mod tests {
 
     #[test]
     fn is_project_root_marker_detects_cargo_toml() {
-        let tmp = std::env::temp_dir().join("nebula-ctx-test-cargo-marker");
+        let tmp = std::env::temp_dir().join("nebu-ctx-test-cargo-marker");
         let _ = std::fs::create_dir_all(&tmp);
         let _ = std::fs::write(tmp.join("Cargo.toml"), "[package]");
         assert!(is_project_root_marker(&tmp));
@@ -286,7 +286,7 @@ mod tests {
 
     #[test]
     fn detect_project_root_finds_outermost() {
-        let base = std::env::temp_dir().join("nebula-ctx-test-monorepo");
+        let base = std::env::temp_dir().join("nebu-ctx-test-monorepo");
         let inner = base.join("packages").join("app");
         let _ = std::fs::create_dir_all(&inner);
         let _ = std::fs::create_dir_all(base.join(".git"));

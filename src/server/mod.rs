@@ -16,7 +16,7 @@ impl ServerHandler for LeanCtxServer {
         let instructions = crate::instructions::build_instructions(self.crp_mode);
 
         InitializeResult::new(capabilities)
-            .with_server_info(Implementation::new("nebula-ctx", env!("CARGO_PKG_VERSION")))
+            .with_server_info(Implementation::new("nebu-ctx", env!("CARGO_PKG_VERSION")))
             .with_instructions(instructions)
     }
 
@@ -98,7 +98,7 @@ impl ServerHandler for LeanCtxServer {
         let capabilities = ServerCapabilities::builder().enable_tools().build();
 
         Ok(InitializeResult::new(capabilities)
-            .with_server_info(Implementation::new("nebula-ctx", env!("CARGO_PKG_VERSION")))
+            .with_server_info(Implementation::new("nebu-ctx", env!("CARGO_PKG_VERSION")))
             .with_instructions(instructions))
     }
 
@@ -498,7 +498,7 @@ const PROJECT_MARKERS: &[&str] = &[
     "pom.xml",
     "build.gradle",
     "Makefile",
-    ".nebula-ctx.toml",
+    ".nebu-ctx.toml",
 ];
 
 fn has_project_marker(dir: &std::path::Path) -> bool {

@@ -1,4 +1,4 @@
-/// ContextStore — storage abstraction for nebula-ctx.
+/// ContextStore — storage abstraction for nebu-ctx.
 ///
 /// Currently lean-ctx only uses SQLite for the property graph.
 /// Everything else is in-memory. This trait defines what we persist,
@@ -226,7 +226,7 @@ pub fn open_store() -> Result<Box<dyn ContextStore>> {
         _ => {
             let data_dir = crate::core::data_dir::nebula_ctx_data_dir()
                 .map_err(|e| anyhow::anyhow!("{e}"))?;
-            let db_path = std::path::Path::new(&data_dir).join("nebula-ctx.db");
+            let db_path = std::path::Path::new(&data_dir).join("nebu-ctx.db");
             let store = sqlite::SqliteStore::open(&db_path)?;
             store.initialize()?;
             Ok(Box::new(store))

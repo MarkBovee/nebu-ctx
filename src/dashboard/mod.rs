@@ -36,7 +36,7 @@ pub async fn start(port: Option<u16>, host: Option<String>) {
     // Avoid accidental multiple dashboard instances (common source of "it hangs").
     // Only safe to auto-detect for local dashboards without auth.
     if is_local && dashboard_responding(&host, port) {
-        println!("\n  nebula-ctx dashboard already running → http://{host}:{port}");
+        println!("\n  nebu-ctx dashboard already running → http://{host}:{port}");
         println!("  Tip: use Ctrl+C in the existing terminal to stop it.\n");
         open_browser(&format!("http://localhost:{port}"));
         return;
@@ -73,13 +73,13 @@ pub async fn start(port: Option<u16>, host: Option<String>) {
 
     let stats_path = crate::core::data_dir::nebula_ctx_data_dir()
         .map(|d| d.join("stats.json").display().to_string())
-        .unwrap_or_else(|_| "~/.nebula-ctx/stats.json".to_string());
+        .unwrap_or_else(|_| "~/.nebu-ctx/stats.json".to_string());
 
     if host == "0.0.0.0" {
-        println!("\n  nebula-ctx dashboard → http://0.0.0.0:{port} (all interfaces)");
+        println!("\n  nebu-ctx dashboard → http://0.0.0.0:{port} (all interfaces)");
         println!("  Local access:  http://localhost:{port}");
     } else {
-        println!("\n  nebula-ctx dashboard → http://{host}:{port}");
+        println!("\n  nebu-ctx dashboard → http://{host}:{port}");
     }
     println!("  Stats file: {stats_path}");
     println!("  Press Ctrl+C to stop\n");
@@ -89,7 +89,7 @@ pub async fn start(port: Option<u16>, host: Option<String>) {
     }
     if crate::shell::is_container() && is_local {
         println!("  Tip (Docker): bind 0.0.0.0 + publish port:");
-        println!("    nebula-ctx dashboard --host=0.0.0.0 --port={port}");
+        println!("    nebu-ctx dashboard --host=0.0.0.0 --port={port}");
         println!("    docker run ... -p {port}:{port} ...");
         println!();
     }
@@ -916,7 +916,7 @@ fn build_agents_json() -> String {
     let pending_msgs = registry.scratchpad.len();
 
     let shared_dir = crate::core::data_dir::nebula_ctx_data_dir()
-        .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default().join(".nebula-ctx"))
+        .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default().join(".nebu-ctx"))
         .join("agents")
         .join("shared");
     let shared_count = if shared_dir.exists() {
@@ -995,7 +995,7 @@ fn is_real_project(path: &str) -> bool {
         "pom.xml",
         "build.gradle",
         "CMakeLists.txt",
-        ".nebula-ctx.toml",
+        ".nebu-ctx.toml",
     ];
     MARKERS.iter().any(|m| p.join(m).exists())
 }

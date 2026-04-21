@@ -781,7 +781,7 @@ fn format_cep_live(lv: &serde_json::Value, t: &Theme) -> String {
 }
 
 fn load_mcp_live() -> Option<serde_json::Value> {
-    let path = dirs::home_dir()?.join(".nebula-ctx/mcp-live.json");
+    let path = dirs::home_dir()?.join(".nebu-ctx/mcp-live.json");
     let content = std::fs::read_to_string(path).ok()?;
     serde_json::from_str(&content).ok()
 }
@@ -799,7 +799,7 @@ pub fn format_cep_report() -> String {
     if cep.sessions == 0 && live.is_none() {
         return format!(
             "{d}No CEP sessions recorded yet.{r}\n\
-             Use nebula-ctx as an MCP server in your editor to start tracking.\n\
+             Use nebu-ctx as an MCP server in your editor to start tracking.\n\
              CEP metrics are recorded automatically during MCP sessions."
         );
     }
@@ -942,7 +942,7 @@ pub fn format_cep_report() -> String {
                     .to_string(),
             );
             o.push(format!(
-                "     Run {sec}nebula-ctx setup{r} to auto-configure your editors."
+                "     Run {sec}nebu-ctx setup{r} to auto-configure your editors."
             ));
         }
         o.push(String::new());
@@ -1012,7 +1012,7 @@ pub fn format_cep_report() -> String {
     }
     if avg_score >= 70.0 {
         o.push(format!(
-            "    {sc}✓{r} Great score! You're using nebula-ctx effectively"
+            "    {sc}✓{r} Great score! You're using nebu-ctx effectively"
         ));
     }
     o.push(String::new());
@@ -1037,7 +1037,7 @@ pub fn format_gain_themed_at(t: &Theme, tick: Option<u64>) -> String {
 
     if store.total_commands == 0 {
         return format!(
-            "{d}No commands recorded yet.{r} Use {cmd}nebula-ctx -c \"command\"{r} to start tracking.",
+            "{d}No commands recorded yet.{r} Use {cmd}nebu-ctx -c \"command\"{r} to start tracking.",
             cmd = t.secondary.fg(),
         );
     }
@@ -1121,8 +1121,8 @@ pub fn format_gain_themed_at(t: &Theme, tick: Option<u64>) -> String {
     o.push(format!("  {ln}", ln = t.border_line(w)));
     o.push(String::new());
     let lbl_w = 20;
-    let lbl_without = theme::pad_right(&format!("{m}Without nebula-ctx{r}", m = t.muted.fg()), lbl_w);
-    let lbl_with = theme::pad_right(&format!("{m}With nebula-ctx{r}", m = t.muted.fg()), lbl_w);
+    let lbl_without = theme::pad_right(&format!("{m}Without nebu-ctx{r}", m = t.muted.fg()), lbl_w);
+    let lbl_with = theme::pad_right(&format!("{m}With nebu-ctx{r}", m = t.muted.fg()), lbl_w);
     let lbl_saved = theme::pad_right(&format!("{c}{b}You saved{r}", c = t.success.fg()), lbl_w);
 
     o.push(format!(
@@ -1323,12 +1323,12 @@ pub fn format_gain_themed_at(t: &Theme, tick: Option<u64>) -> String {
 
     let m = t.muted.fg();
     o.push(format!(
-        "    {m}🐛 Found a bug? Run: nebula-ctx report-issue{r}"
+        "    {m}🐛 Found a bug? Run: nebu-ctx report-issue{r}"
     ));
     o.push(format!(
-        "    {m}📊 Help improve nebula-ctx: nebula-ctx contribute{r}"
+        "    {m}📊 Help improve nebu-ctx: nebu-ctx contribute{r}"
     ));
-    o.push(format!("    {m}🧠 View bug memory: nebula-ctx gotchas{r}"));
+    o.push(format!("    {m}🧠 View bug memory: nebu-ctx gotchas{r}"));
 
     o.push(String::new());
     o.push(String::new());
@@ -1377,29 +1377,29 @@ fn build_tips(store: &StatsStore) -> Vec<String> {
     }
 
     if store.daily.len() >= 7 {
-        tips.push("Run nebula-ctx gain --graph for a 30-day sparkline chart.".into());
+        tips.push("Run nebu-ctx gain --graph for a 30-day sparkline chart.".into());
     }
 
     tips.push("Run ctx_overview(task) at session start for a task-aware project map.".into());
-    tips.push("Run nebula-ctx dashboard for a live web UI with all your stats.".into());
+    tips.push("Run nebu-ctx dashboard for a live web UI with all your stats.".into());
 
     let cfg = crate::core::config::Config::load();
     if cfg.theme == "default" {
         tips.push(
-            "Customize your dashboard! Try: nebula-ctx theme set cyberpunk (or neon, ocean, sunset, monochrome)".into(),
+            "Customize your dashboard! Try: nebu-ctx theme set cyberpunk (or neon, ocean, sunset, monochrome)".into(),
         );
         tips.push(
-            "Want a unique look? Run nebula-ctx theme list to see all available themes.".into(),
+            "Want a unique look? Run nebu-ctx theme list to see all available themes.".into(),
         );
     } else {
         tips.push(format!(
-            "Current theme: {}. Run nebula-ctx theme list to explore others.",
+            "Current theme: {}. Run nebu-ctx theme list to explore others.",
             cfg.theme
         ));
     }
 
     tips.push(
-        "Create your own theme with nebula-ctx theme create <name> and set custom colors!".into(),
+        "Create your own theme with nebu-ctx theme create <name> and set custom colors!".into(),
     );
 
     tips
@@ -1444,7 +1444,7 @@ pub fn format_gain_graph() -> String {
     let d = theme::dim();
 
     if store.daily.is_empty() {
-        return format!("{d}No daily data yet.{r} Use nebula-ctx for a few days to see the graph.");
+        return format!("{d}No daily data yet.{r} Use nebu-ctx for a few days to see the graph.");
     }
 
     let cm = CostModel::default();

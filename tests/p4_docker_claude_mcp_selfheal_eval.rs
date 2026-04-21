@@ -24,7 +24,7 @@ fn claude_mcp_add_json_used_when_available() {
     std::fs::create_dir_all(&home).expect("mkdir home");
     std::fs::create_dir_all(&bin_dir).expect("mkdir bin");
 
-    // Fake claude binary that accepts: claude mcp add-json --scope user nebula-ctx
+    // Fake claude binary that accepts: claude mcp add-json --scope user nebu-ctx
     // It writes the stdin JSON to a file so we can assert it was used.
     let claude = bin_dir.join(if cfg!(windows) {
         "claude.cmd"
@@ -56,7 +56,7 @@ fn claude_mcp_add_json_used_when_available() {
         .expect("claude target");
 
     let bin = std::env::current_exe()
-        .unwrap_or_else(|_| PathBuf::from("nebula-ctx"))
+        .unwrap_or_else(|_| PathBuf::from("nebu-ctx"))
         .to_string_lossy()
         .to_string();
 

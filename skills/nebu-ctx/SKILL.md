@@ -1,5 +1,5 @@
 ---
-name: lean-ctx
+name: nebu-ctx
 description: Context Runtime for AI Agents — 46 MCP tools, 10 read modes, 90+ shell patterns, tree-sitter AST for 18 languages. Compresses LLM context by up to 99%. Use when reading files, running shell commands, searching code, or exploring directories. Auto-installs if not present.
 ---
 

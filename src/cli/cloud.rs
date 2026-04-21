@@ -1,5 +1,73 @@
 use crate::{cloud_client, core};
 
+fn prompt_with_default(prompt: &str, default: Option<&str>) -> Result<String, std::io::Error> {
+    use std::io::{self, Write};
+
+    match default {
+        Some(value) if !value.is_empty() => print!("{} [{}]: ", prompt, value),
+        _ => print!("{}: ", prompt),
+    }
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let trimmed = input.trim();
+
+    if trimmed.is_empty() {
+        Ok(default.unwrap_or("").to_string())
+    } else {
+        Ok(trimmed.to_string())
+    }
+}
+
+fn connect_to_server(endpoint: &str, token: &str) {
+    let normalized_endpoint = cloud_client::normalize_server_endpoint(endpoint);
+    let trimmed_token = token.trim();
+
+    if normalized_endpoint.is_empty() {
+        eprintln!("Endpoint is required.");
+        std::process::exit(1);
+    }
+
+    if trimmed_token.is_empty() {
+        eprintln!("Token is required.");
+        std::process::exit(1);
+    }
+
+    if let Err(e) = cloud_client::check_server_connection(&normalized_endpoint, trimmed_token) {
+        eprintln!("{e}");
+        std::process::exit(1);
+    }
+
+    if let Err(e) = cloud_client::save_server_connection(&normalized_endpoint, trimmed_token) {
+        eprintln!("Could not save server connection: {e}");
+        std::process::exit(1);
+    }
+
+    println!("Connected to nebu-ctx server: {normalized_endpoint}");
+    println!("Connection saved to ~/.nebu-ctx/cloud/server_connection.json");
+}
+
+fn prompt_server_connection(default_endpoint: Option<&str>) {
+    let endpoint = match prompt_with_default("Server endpoint", default_endpoint) {
+        Ok(value) => value,
+        Err(e) => {
+            eprintln!("Could not read endpoint: {e}");
+            std::process::exit(1);
+        }
+    };
+
+    let token = match rpassword::prompt_password("Token: ") {
+        Ok(value) => value,
+        Err(e) => {
+            eprintln!("Could not read token: {e}");
+            std::process::exit(1);
+        }
+    };
+
+    connect_to_server(&endpoint, &token);
+}
+
 pub fn cmd_login(args: &[String]) {
     let mut email = String::new();
     let mut password: Option<String> = None;
@@ -22,7 +90,7 @@ pub fn cmd_login(args: &[String]) {
     }
 
     if email.is_empty() {
-        eprintln!("Usage: nebula-ctx login <email> [--password <password>]");
+        eprintln!("Usage: nebu-ctx login <email> [--password <password>]");
         std::process::exit(1);
     }
 
@@ -73,7 +141,7 @@ pub fn cmd_login(args: &[String]) {
                 let _ = cloud_client::save_plan(&plan);
             }
             println!("Logged in as {email}");
-            println!("API key saved to ~/.nebula-ctx/cloud/credentials.json");
+            println!("API key saved to ~/.nebu-ctx/cloud/credentials.json");
             if r.verification_sent {
                 println!("Verification email sent — please check your inbox.");
             }
@@ -90,7 +158,7 @@ pub fn cmd_login(args: &[String]) {
 
 pub fn cmd_sync() {
     if !cloud_client::is_logged_in() {
-        eprintln!("Not logged in. Run: nebula-ctx login <email>");
+        eprintln!("Not logged in. Run: nebu-ctx login <email>");
         std::process::exit(1);
     }
 
@@ -185,7 +253,7 @@ fn collect_knowledge_entries() -> Vec<serde_json::Value> {
         Some(h) => h,
         None => return Vec::new(),
     };
-    let knowledge_dir = home.join(".nebula-ctx").join("knowledge");
+    let knowledge_dir = home.join(".nebu-ctx").join("knowledge");
     if !knowledge_dir.is_dir() {
         return Vec::new();
     }
@@ -310,7 +378,7 @@ fn collect_gotcha_entries() -> Vec<serde_json::Value> {
     let mut all_gotchas = core::gotcha_tracker::load_universal_gotchas();
 
     if let Some(home) = dirs::home_dir() {
-        let knowledge_dir = home.join(".nebula-ctx").join("knowledge");
+        let knowledge_dir = home.join(".nebu-ctx").join("knowledge");
         if let Ok(entries) = std::fs::read_dir(&knowledge_dir) {
             for entry in entries.flatten() {
                 let gotcha_path = entry.path().join("gotchas.json");
@@ -371,7 +439,7 @@ pub fn cmd_contribute() {
     let mut entries = Vec::new();
 
     if let Some(home) = dirs::home_dir() {
-        let mode_stats_path = home.join(".nebula-ctx").join("mode_stats.json");
+        let mode_stats_path = home.join(".nebu-ctx").join("mode_stats.json");
         if let Ok(data) = std::fs::read_to_string(&mode_stats_path) {
             if let Ok(predictor) = serde_json::from_str::<serde_json::Value>(&data) {
                 if let Some(history) = predictor["history"].as_object() {
@@ -444,7 +512,7 @@ pub fn cmd_contribute() {
     }
 
     if entries.is_empty() {
-        println!("No compression data to contribute yet. Use nebula-ctx for a while first.");
+        println!("No compression data to contribute yet. Use nebu-ctx for a while first.");
         return;
     }
 
@@ -459,9 +527,81 @@ pub fn cmd_contribute() {
 }
 
 pub fn cmd_cloud(args: &[String]) {
+    if args.is_empty() {
+        let default_endpoint = cloud_client::load_server_connection().map(|conn| conn.endpoint);
+        prompt_server_connection(default_endpoint.as_deref());
+        return;
+    }
+
     let action = args.first().map(|s| s.as_str()).unwrap_or("help");
 
     match action {
+        "connect" => {
+            let mut endpoint: Option<String> = None;
+            let mut token: Option<String> = None;
+            let mut i = 1;
+
+            while i < args.len() {
+                match args[i].as_str() {
+                    "--url" | "--endpoint" => {
+                        i += 1;
+                        if i < args.len() {
+                            endpoint = Some(args[i].clone());
+                        }
+                    }
+                    arg if arg.starts_with("--url=") => {
+                        endpoint = Some(arg["--url=".len()..].to_string());
+                    }
+                    arg if arg.starts_with("--endpoint=") => {
+                        endpoint = Some(arg["--endpoint=".len()..].to_string());
+                    }
+                    "--token" => {
+                        i += 1;
+                        if i < args.len() {
+                            token = Some(args[i].clone());
+                        }
+                    }
+                    arg if arg.starts_with("--token=") => {
+                        token = Some(arg["--token=".len()..].to_string());
+                    }
+                    other => {
+                        if endpoint.is_none() {
+                            endpoint = Some(other.to_string());
+                        }
+                    }
+                }
+                i += 1;
+            }
+
+            let prompt_endpoint = endpoint.clone();
+
+            match (endpoint, token) {
+                (Some(endpoint), Some(token)) => connect_to_server(&endpoint, &token),
+                (Some(endpoint), None) => {
+                    let token = match rpassword::prompt_password("Token: ") {
+                        Ok(value) => value,
+                        Err(e) => {
+                            eprintln!("Could not read token: {e}");
+                            std::process::exit(1);
+                        }
+                    };
+                    connect_to_server(&endpoint, &token);
+                }
+                _ => {
+                    let default_endpoint = cloud_client::load_server_connection()
+                        .map(|conn| conn.endpoint)
+                        .or(prompt_endpoint);
+                    prompt_server_connection(default_endpoint.as_deref());
+                }
+            }
+        }
+        "disconnect" => {
+            if let Err(e) = cloud_client::clear_server_connection() {
+                eprintln!("Could not clear server connection: {e}");
+                std::process::exit(1);
+            }
+            println!("Disconnected from nebu-ctx server.");
+        }
         "pull-models" => {
             println!("Updating adaptive models...");
             match cloud_client::pull_cloud_models() {
@@ -488,17 +628,30 @@ pub fn cmd_cloud(args: &[String]) {
             }
         }
         "status" => {
-            if cloud_client::is_logged_in() {
-                println!("Connected to LeanCTX Cloud.");
+            if let Some(connection) = cloud_client::load_server_connection() {
+                println!("Configured server endpoint: {}", connection.endpoint);
+                match cloud_client::check_server_connection(&connection.endpoint, &connection.token) {
+                    Ok(()) => println!("Server connection: healthy"),
+                    Err(e) => println!("Server connection: {e}"),
+                }
             } else {
-                println!("Not connected to LeanCTX Cloud.");
-                println!("Get started: nebula-ctx login <email>");
+                println!("No nebu-ctx server connection configured.");
+                println!("Run `nebu-ctx cloud` to connect interactively.");
+            }
+
+            if cloud_client::is_logged_in() {
+                println!("Cloud sync login: configured");
+            } else {
+                println!("Cloud sync login: not configured");
             }
         }
         _ => {
-            println!("Usage: nebula-ctx cloud <command>");
+            println!("Usage: nebu-ctx cloud [connect <url> --token T | status | disconnect | pull-models]");
+            println!("  connect     — Connect to a nebu-ctx server on your network");
+            println!("  status      — Show saved server connection status");
+            println!("  disconnect  — Remove the saved server connection");
             println!("  pull-models — Update adaptive compression models");
-            println!("  status      — Show cloud connection status");
+            println!("  No command  — Prompt for endpoint and token interactively");
         }
     }
 }
@@ -546,7 +699,7 @@ pub fn cmd_gotchas(args: &[String]) {
             println!("  Session logs:        {}", store.error_log.len());
         }
         _ => {
-            println!("Usage: nebula-ctx gotchas [list|clear|export|stats]");
+            println!("Usage: nebu-ctx gotchas [list|clear|export|stats]");
         }
     }
 }
@@ -554,7 +707,7 @@ pub fn cmd_gotchas(args: &[String]) {
 pub fn cmd_buddy(args: &[String]) {
     let cfg = core::config::Config::load();
     if !cfg.buddy_enabled {
-        println!("Buddy is disabled. Enable with: nebula-ctx config buddy_enabled true");
+        println!("Buddy is disabled. Enable with: nebu-ctx config buddy_enabled true");
         return;
     }
 
@@ -579,12 +732,12 @@ pub fn cmd_buddy(args: &[String]) {
             Err(e) => eprintln!("JSON error: {e}"),
         },
         _ => {
-            println!("Usage: nebula-ctx buddy [show|stats|ascii|json]");
+            println!("Usage: nebu-ctx buddy [show|stats|ascii|json]");
         }
     }
 }
 
 pub fn cmd_upgrade() {
-    println!("'upgrade' has been renamed to 'update'. Running 'nebula-ctx update' instead.\n");
+    println!("'upgrade' has been renamed to 'update'. Running 'nebu-ctx update' instead.\n");
     core::updater::run(&[]);
 }

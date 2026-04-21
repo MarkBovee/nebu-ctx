@@ -9,8 +9,8 @@ This add-on packages the current `nebu-ctx` MCP server, dashboard, and persisten
 - Home Assistant ingress dashboard through `Open Web UI`
 - internal dashboard service on port `3333`
 - optional MCP-over-HTTP endpoint on port `4242`
-- SQLite storage under `/data` by default
-- PostgreSQL-backed operation when `store=postgres`
+- PostgreSQL-backed server operation
+- auto-generated MCP auth token surfaced in the dashboard
 - configurable `project_root` for mounted paths such as `/share` or `/config`
 
 ## Install in Home Assistant
@@ -20,6 +20,8 @@ This add-on packages the current `nebu-ctx` MCP server, dashboard, and persisten
 3. Configure the add-on options.
 4. Start the add-on.
 5. Use `Open Web UI` to open the dashboard through ingress.
+
+The published add-on install path is optimized for normal Home Assistant use: it downloads the tagged `nebu-ctx` release binary for the target architecture instead of compiling Rust inside the add-on image build.
 
 ## Runtime model
 
@@ -37,9 +39,11 @@ That split is intentional:
 
 | Option | Purpose | Notes |
 |--------|---------|-------|
-| `store` | Selects the persistence backend | `sqlite` or `postgres` |
-| `database_url` | PostgreSQL connection string | optional override when `store=postgres` |
-| `auth_token` | Bearer token for MCP access | leave empty to auto-generate and persist one in `/data/auth_token` |
+| `postgres_host` | PostgreSQL host name | add-on is PostgreSQL-backed only |
+| `postgres_port` | PostgreSQL port | default `5432` |
+| `postgres_database` | PostgreSQL database name | default `nebula_ctx` |
+| `postgres_username` | PostgreSQL user | default `postgres` |
+| `postgres_password` | PostgreSQL password | required for most deployments |
 | `log_level` | Sets `RUST_LOG` | typical values: `debug`, `info`, `warn`, `error` |
 | `project_root` | Default path root for MCP and dashboard actions | recommended: `/share` or `/config` |
 
@@ -59,7 +63,7 @@ The MCP HTTP endpoint is separate from the dashboard.
 
 To use it from external clients:
 
-1. Set `auth_token` in the add-on options, or copy the generated token from the startup log or `/data/auth_token`.
+1. Open the dashboard and copy the generated MCP token.
 2. Expose `4242/tcp` in the Home Assistant network settings.
 3. Connect to the Home Assistant host on port `4242` with `Authorization: Bearer <token>`.
 
@@ -83,7 +87,7 @@ podman build -t nebu-ctx-addon-local -f homeassistant/Dockerfile.dev .
 
 This is the build path used by `tests/pre_release_check.sh`.
 
-For a full local smoke test, run `tests/local-addon-test.sh`. It builds the local binary, starts the add-on in SQLite mode, reads the generated token from `/data/auth_token`, and verifies both the dashboard and the MCP HTTP endpoint.
+For a full local smoke test, run `tests/local-addon-test.sh`. It builds the local binary, starts PostgreSQL plus the add-on together, reads the generated token from `/data/auth_token`, and verifies both the dashboard and the MCP HTTP endpoint.
 
 ### Published add-on Dockerfile build
 
@@ -93,12 +97,13 @@ The shipped add-on Dockerfile can also be built directly:
 podman build -t nebu-ctx-addon -f homeassistant/Dockerfile homeassistant
 ```
 
-That build uses the repository URL and ref from `homeassistant/build.yaml`, so it validates the published add-on packaging path rather than your local Rust source tree.
+That build uses the version from `homeassistant/build.yaml` and downloads the matching GitHub release binary, so it validates the same fast-install path that Home Assistant uses.
+
+If you want to test local source changes before a release exists, use `homeassistant/Dockerfile.dev` or `homeassistant/Dockerfile.source` instead.
 
 ## Operational notes
 
-- SQLite data lives under `/data`.
+- PostgreSQL is required for the add-on runtime.
 - `project_root` only works for mounted paths that the add-on can actually access.
-- `store=postgres` requires a valid `database_url`.
-- without `auth_token`, the MCP endpoint is intentionally not reachable outside the add-on container.
+- the MCP token is generated automatically on first start and persisted in `/data/auth_token`.
 - the dashboard and MCP services are supervised separately inside the add-on container.

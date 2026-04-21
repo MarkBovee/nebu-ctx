@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>nebula-ctx Observatory</title>
+<title>nebu-ctx Observatory</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <style>
@@ -635,7 +635,7 @@ tr:hover td{background:var(--surface-2)}
     </div>
     <div id="updateBanner" class="update-banner">
       <strong>&#10227; Update available:</strong> <span id="ubCur"></span> &#8594; <strong><span id="ubNew"></span></strong>
-      &#8212; run: <code style="background:#f59e0b22;padding:2px 8px;border-radius:4px;font-weight:600">nebula-ctx update</code>
+      &#8212; run: <code style="background:#f59e0b22;padding:2px 8px;border-radius:4px;font-weight:600">nebu-ctx update</code>
     </div>
 
     <section id="view-overview" class="view active"></section>
@@ -1239,7 +1239,7 @@ async function loadOverview() {
     overviewGain = gain;
     loadAuthToken();
     if (!stats || !stats.total_commands) {
-      showEmpty(container, 'Start using nebula-ctx tools (ctx_read, ctx_shell, etc.) in your IDE to see savings here.');
+      showEmpty(container, 'Start using nebu-ctx tools (ctx_read, ctx_shell, etc.) in your IDE to see savings here.');
       overviewBuilt = false;
       return;
     }
@@ -1248,7 +1248,7 @@ async function loadOverview() {
     updateOverview(stats, gain);
     renderBuddy(buddy);
   } catch (e) {
-    showError(container, 'Dashboard API not responding. Make sure nebula-ctx dashboard is running.');
+    showError(container, 'Dashboard API not responding. Make sure nebu-ctx dashboard is running.');
   }
 }
 
@@ -1516,7 +1516,7 @@ async function loadTokenView() {
           <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> MCP Authentication Token</h3>
           ${token ? `
           <div style="margin-bottom:20px">
-            <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Use this token to authenticate MCP clients with the nebula-ctx server.</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Use this token to authenticate MCP clients with the nebu-ctx server.</div>
             <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px">
               <input id="tvTokenInput" readonly style="flex:1;font-size:13px;padding:12px 16px;font-family:var(--mono)" value="${esc(token)}">
               <button class="btn" id="tvCopyBtn" onclick="navigator.clipboard.writeText($('tvTokenInput').value).then(()=>{const b=$('tvCopyBtn');b.textContent='Copied!';b.style.color='var(--green)';setTimeout(()=>{b.textContent='Copy';b.style.color='';},2000)})">Copy</button>
@@ -1529,10 +1529,10 @@ async function loadTokenView() {
             </div>
             <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Connection URL</div>
             <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--rs);padding:12px 16px;font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:8px">
-              nebula-ctx cloud --url ${esc(endpoint)} --token ${esc(token.substring(0,12))}...
+              nebu-ctx cloud connect --url ${esc(endpoint)} --token ${esc(token.substring(0,12))}...
             </div>
           </div>
-          ${howItWorks('MCP Authentication', 'The token is auto-generated on first boot and stored in the addon data directory. It authenticates MCP clients connecting to the HTTP endpoint on port 4242. Use <strong>nebula-ctx cloud</strong> to connect from a remote machine, or configure your MCP client with the endpoint URL and Bearer token.')}
+          ${howItWorks('MCP Authentication', 'The token is auto-generated on first boot and stored in the addon data directory. It authenticates MCP clients connecting to the HTTP endpoint on port 4242. Use <strong>nebu-ctx cloud</strong> to connect from a remote machine, or configure your MCP client with the endpoint URL and Bearer token.')}
           ` : `
           <div class="empty-state" style="padding:40px">
             <h2>No token configured</h2>

@@ -1,13 +1,13 @@
 ---
-description: "nebula-ctx: prefer ctx_read/ctx_shell/ctx_search/ctx_tree over Read/Shell/Grep/ls for token savings"
+description: "nebu-ctx: prefer ctx_read/ctx_shell/ctx_search/ctx_tree over Read/Shell/Grep/ls for token savings"
 globs: **/*
 alwaysApply: true
 ---
 
-# nebula-ctx — Context Engineering Layer
-<!-- nebula-ctx-rules-v9 -->
+# nebu-ctx — Context Engineering Layer
+<!-- nebu-ctx-rules-v9 -->
 
-PREFER nebula-ctx MCP tools over native equivalents for token savings:
+PREFER nebu-ctx MCP tools over native equivalents for token savings:
 
 ## Tool Mapping
 
@@ -67,7 +67,7 @@ Use without being asked:
 
 ## Write, Delete, Glob
 
-These have no nebula-ctx equivalent — use them normally.
+These have no nebu-ctx equivalent — use them normally.
 
 ## CRP v2 — Compact Response Protocol
 
@@ -78,7 +78,7 @@ Every token costs money. This applies to input, output, AND thinking tokens.
 1. Parse task first, then act. Don't explore when you already know the answer.
 2. One hypothesis, test it. Don't enumerate 5 approaches — pick the most likely, try it.
 3. Stop thinking when you have the answer.
-4. Use structured context. nebula-ctx headers tell you deps/exports — don't re-read files to find imports.
+4. Use structured context. nebu-ctx headers tell you deps/exports — don't re-read files to find imports.
 5. File ref tracking: F1=auth.ts means F1 everywhere in this session.
 
 ### Output Reduction (saves 50-80% output tokens)
@@ -102,4 +102,4 @@ Every token costs money. This applies to input, output, AND thinking tokens.
 - Grep/search/explore → `model: "fast"`
 - Simple edits (rename, add field, fix typo) → `model: "fast"`
 - Multi-file refactors, architecture → default model
-<!-- /nebula-ctx -->
+<!-- /nebu-ctx -->

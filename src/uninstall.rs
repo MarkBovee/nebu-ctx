@@ -39,9 +39,9 @@ fn remove_project_agent_files() -> bool {
     let agents = cwd.join("AGENTS.md");
     let nebula_ctx_md = cwd.join("LEAN-CTX.md");
 
-    const START: &str = "<!-- nebula-ctx -->";
-    const END: &str = "<!-- /nebula-ctx -->";
-    const OWNED: &str = "<!-- nebula-ctx-owned: PROJECT-LEAN-CTX.md v1 -->";
+    const START: &str = "<!-- nebu-ctx -->";
+    const END: &str = "<!-- /nebu-ctx -->";
+    const OWNED: &str = "<!-- nebu-ctx-owned: PROJECT-LEAN-CTX.md v1 -->";
 
     let mut removed = false;
 
@@ -53,7 +53,7 @@ fn remove_project_agent_files() -> bool {
                     if let Err(e) = fs::write(&agents, cleaned) {
                         eprintln!("  ✗ Failed to update project AGENTS.md: {e}");
                     } else {
-                        println!("  ✓ Project: removed nebula-ctx block from AGENTS.md");
+                        println!("  ✓ Project: removed nebu-ctx block from AGENTS.md");
                         removed = true;
                     }
                 }
@@ -78,14 +78,14 @@ fn remove_project_agent_files() -> bool {
         ".windsurfrules",
         ".clinerules",
         ".cursorrules",
-        ".kiro/steering/nebula-ctx.md",
-        ".cursor/rules/nebula-ctx.mdc",
+        ".kiro/steering/nebu-ctx.md",
+        ".cursor/rules/nebu-ctx.mdc",
     ];
     for rel in &project_files {
         let path = cwd.join(rel);
         if path.exists() {
             if let Ok(content) = fs::read_to_string(&path) {
-                if content.contains("nebula-ctx") {
+                if content.contains("nebu-ctx") {
                     let _ = fs::remove_file(&path);
                     println!("  ✓ Project: removed {rel}");
                     removed = true;
@@ -140,13 +140,13 @@ fn remove_shell_hook(home: &Path) -> bool {
             Ok(c) => c,
             Err(_) => continue,
         };
-        if !content.contains("nebula-ctx") {
+        if !content.contains("nebu-ctx") {
             continue;
         }
 
         let cleaned = remove_nebula_ctx_block(&content);
         if cleaned.trim() != content.trim() {
-            let bak = rc.with_extension("nebula-ctx.bak");
+            let bak = rc.with_extension("nebu-ctx.bak");
             let _ = fs::copy(rc, &bak);
             if let Err(e) = fs::write(rc, &cleaned) {
                 eprintln!("  ✗ Failed to update {}: {}", rc.display(), e);
@@ -212,7 +212,7 @@ fn remove_mcp_configs(home: &Path) -> bool {
             Ok(c) => c,
             Err(_) => continue,
         };
-        if !content.contains("nebula-ctx") {
+        if !content.contains("nebu-ctx") {
             continue;
         }
 
@@ -241,9 +241,9 @@ fn remove_mcp_configs(home: &Path) -> bool {
     let zed_path = crate::core::editor_registry::zed_settings_path(home);
     if zed_path.exists() {
         if let Ok(content) = fs::read_to_string(&zed_path) {
-            if content.contains("nebula-ctx") {
+            if content.contains("nebu-ctx") {
                 println!(
-                    "  ⚠ Zed: manually remove nebula-ctx from {}",
+                    "  ⚠ Zed: manually remove nebu-ctx from {}",
                     shorten(&zed_path, home)
                 );
             }
@@ -253,7 +253,7 @@ fn remove_mcp_configs(home: &Path) -> bool {
     let vscode_path = crate::core::editor_registry::vscode_mcp_path();
     if vscode_path.exists() {
         if let Ok(content) = fs::read_to_string(&vscode_path) {
-            if content.contains("nebula-ctx") {
+            if content.contains("nebu-ctx") {
                 if let Some(cleaned) = remove_nebula_ctx_from_json(&content) {
                     if let Err(e) = fs::write(&vscode_path, &cleaned) {
                         eprintln!("  ✗ Failed to update VS Code config: {e}");
@@ -273,7 +273,7 @@ fn remove_rules_files(home: &Path) -> bool {
     let rules_files: Vec<(&str, PathBuf)> = vec![
         (
             "Claude Code",
-            crate::core::editor_registry::claude_rules_dir(home).join("nebula-ctx.md"),
+            crate::core::editor_registry::claude_rules_dir(home).join("nebu-ctx.md"),
         ),
         // Legacy: shared CLAUDE.md (older releases).
         (
@@ -282,37 +282,37 @@ fn remove_rules_files(home: &Path) -> bool {
         ),
         // Legacy: hardcoded home path (very old releases).
         ("Claude Code (legacy home)", home.join(".claude/CLAUDE.md")),
-        ("Cursor", home.join(".cursor/rules/nebula-ctx.mdc")),
+        ("Cursor", home.join(".cursor/rules/nebu-ctx.mdc")),
         ("Gemini CLI", home.join(".gemini/GEMINI.md")),
         (
             "Gemini CLI (legacy)",
-            home.join(".gemini/rules/nebula-ctx.md"),
+            home.join(".gemini/rules/nebu-ctx.md"),
         ),
         ("Codex CLI", home.join(".codex/LEAN-CTX.md")),
         ("Codex CLI", home.join(".codex/instructions.md")),
-        ("Windsurf", home.join(".codeium/windsurf/rules/nebula-ctx.md")),
-        ("Zed", home.join(".config/zed/rules/nebula-ctx.md")),
-        ("Cline", home.join(".cline/rules/nebula-ctx.md")),
-        ("Roo Code", home.join(".roo/rules/nebula-ctx.md")),
-        ("OpenCode", home.join(".config/opencode/rules/nebula-ctx.md")),
-        ("Continue", home.join(".continue/rules/nebula-ctx.md")),
-        ("Aider", home.join(".aider/rules/nebula-ctx.md")),
-        ("Amp", home.join(".ampcoder/rules/nebula-ctx.md")),
-        ("Qwen Code", home.join(".qwen/rules/nebula-ctx.md")),
-        ("Trae", home.join(".trae/rules/nebula-ctx.md")),
+        ("Windsurf", home.join(".codeium/windsurf/rules/nebu-ctx.md")),
+        ("Zed", home.join(".config/zed/rules/nebu-ctx.md")),
+        ("Cline", home.join(".cline/rules/nebu-ctx.md")),
+        ("Roo Code", home.join(".roo/rules/nebu-ctx.md")),
+        ("OpenCode", home.join(".config/opencode/rules/nebu-ctx.md")),
+        ("Continue", home.join(".continue/rules/nebu-ctx.md")),
+        ("Aider", home.join(".aider/rules/nebu-ctx.md")),
+        ("Amp", home.join(".ampcoder/rules/nebu-ctx.md")),
+        ("Qwen Code", home.join(".qwen/rules/nebu-ctx.md")),
+        ("Trae", home.join(".trae/rules/nebu-ctx.md")),
         (
             "Amazon Q Developer",
-            home.join(".aws/amazonq/rules/nebula-ctx.md"),
+            home.join(".aws/amazonq/rules/nebu-ctx.md"),
         ),
-        ("JetBrains IDEs", home.join(".jb-rules/nebula-ctx.md")),
+        ("JetBrains IDEs", home.join(".jb-rules/nebu-ctx.md")),
         (
             "Antigravity",
-            home.join(".gemini/antigravity/rules/nebula-ctx.md"),
+            home.join(".gemini/antigravity/rules/nebu-ctx.md"),
         ),
-        ("Pi Coding Agent", home.join(".pi/rules/nebula-ctx.md")),
-        ("AWS Kiro", home.join(".kiro/steering/nebula-ctx.md")),
-        ("Verdent", home.join(".verdent/rules/nebula-ctx.md")),
-        ("Crush", home.join(".config/crush/rules/nebula-ctx.md")),
+        ("Pi Coding Agent", home.join(".pi/rules/nebu-ctx.md")),
+        ("AWS Kiro", home.join(".kiro/steering/nebu-ctx.md")),
+        ("Verdent", home.join(".verdent/rules/nebu-ctx.md")),
+        ("Crush", home.join(".config/crush/rules/nebu-ctx.md")),
     ];
 
     let mut removed = false;
@@ -321,7 +321,7 @@ fn remove_rules_files(home: &Path) -> bool {
             continue;
         }
         if let Ok(content) = fs::read_to_string(path) {
-            if content.contains("nebula-ctx") {
+            if content.contains("nebu-ctx") {
                 if let Err(e) = fs::remove_file(path) {
                     eprintln!("  ✗ Failed to remove {name} rules: {e}");
                 } else {
@@ -335,7 +335,7 @@ fn remove_rules_files(home: &Path) -> bool {
     let hermes_md = home.join(".hermes/HERMES.md");
     if hermes_md.exists() {
         if let Ok(content) = fs::read_to_string(&hermes_md) {
-            if content.contains("nebula-ctx") {
+            if content.contains("nebu-ctx") {
                 let cleaned = remove_nebula_ctx_block_from_md(&content);
                 if cleaned.trim().is_empty() {
                     let _ = fs::remove_file(&hermes_md);
@@ -352,7 +352,7 @@ fn remove_rules_files(home: &Path) -> bool {
         let project_hermes = cwd.join(".hermes.md");
         if project_hermes.exists() {
             if let Ok(content) = fs::read_to_string(&project_hermes) {
-                if content.contains("nebula-ctx") {
+                if content.contains("nebu-ctx") {
                     let cleaned = remove_nebula_ctx_block_from_md(&content);
                     if cleaned.trim().is_empty() {
                         let _ = fs::remove_file(&project_hermes);
@@ -377,12 +377,12 @@ fn remove_nebula_ctx_block_from_md(content: &str) -> String {
     let mut in_block = false;
 
     for line in content.lines() {
-        if !in_block && line.contains("nebula-ctx") && line.starts_with('#') {
+        if !in_block && line.contains("nebu-ctx") && line.starts_with('#') {
             in_block = true;
             continue;
         }
         if in_block {
-            if line.starts_with('#') && !line.contains("nebula-ctx") {
+            if line.starts_with('#') && !line.contains("nebu-ctx") {
                 in_block = false;
                 out.push_str(line);
                 out.push('\n');
@@ -405,18 +405,18 @@ fn remove_nebula_ctx_block_from_md(content: &str) -> String {
 fn remove_hook_files(home: &Path) -> bool {
     let claude_hooks_dir = crate::core::editor_registry::claude_state_dir(home).join("hooks");
     let hook_files: Vec<PathBuf> = vec![
-        claude_hooks_dir.join("nebula-ctx-rewrite.sh"),
-        claude_hooks_dir.join("nebula-ctx-redirect.sh"),
-        claude_hooks_dir.join("nebula-ctx-rewrite-native"),
-        claude_hooks_dir.join("nebula-ctx-redirect-native"),
-        home.join(".cursor/hooks/nebula-ctx-rewrite.sh"),
-        home.join(".cursor/hooks/nebula-ctx-redirect.sh"),
-        home.join(".cursor/hooks/nebula-ctx-rewrite-native"),
-        home.join(".cursor/hooks/nebula-ctx-redirect-native"),
-        home.join(".gemini/hooks/nebula-ctx-rewrite-gemini.sh"),
-        home.join(".gemini/hooks/nebula-ctx-redirect-gemini.sh"),
-        home.join(".gemini/hooks/nebula-ctx-hook-gemini.sh"),
-        home.join(".codex/hooks/nebula-ctx-rewrite-codex.sh"),
+        claude_hooks_dir.join("nebu-ctx-rewrite.sh"),
+        claude_hooks_dir.join("nebu-ctx-redirect.sh"),
+        claude_hooks_dir.join("nebu-ctx-rewrite-native"),
+        claude_hooks_dir.join("nebu-ctx-redirect-native"),
+        home.join(".cursor/hooks/nebu-ctx-rewrite.sh"),
+        home.join(".cursor/hooks/nebu-ctx-redirect.sh"),
+        home.join(".cursor/hooks/nebu-ctx-rewrite-native"),
+        home.join(".cursor/hooks/nebu-ctx-redirect-native"),
+        home.join(".gemini/hooks/nebu-ctx-rewrite-gemini.sh"),
+        home.join(".gemini/hooks/nebu-ctx-redirect-gemini.sh"),
+        home.join(".gemini/hooks/nebu-ctx-hook-gemini.sh"),
+        home.join(".codex/hooks/nebu-ctx-rewrite-codex.sh"),
     ];
 
     let mut removed = false;
@@ -440,7 +440,7 @@ fn remove_hook_files(home: &Path) -> bool {
     ] {
         if hj_path.exists() {
             if let Ok(content) = fs::read_to_string(&hj_path) {
-                if content.contains("nebula-ctx") {
+                if content.contains("nebu-ctx") {
                     if let Err(e) = fs::remove_file(&hj_path) {
                         eprintln!("  ✗ Failed to remove {label} hooks.json: {e}");
                     } else {
@@ -456,7 +456,7 @@ fn remove_hook_files(home: &Path) -> bool {
 }
 
 fn remove_data_dir(home: &Path) -> bool {
-    let data_dir = home.join(".nebula-ctx");
+    let data_dir = home.join(".nebu-ctx");
     if !data_dir.exists() {
         println!("  · No data directory found");
         return false;
@@ -464,11 +464,11 @@ fn remove_data_dir(home: &Path) -> bool {
 
     match fs::remove_dir_all(&data_dir) {
         Ok(_) => {
-            println!("  ✓ Data directory removed (~/.nebula-ctx/)");
+            println!("  ✓ Data directory removed (~/.nebu-ctx/)");
             true
         }
         Err(e) => {
-            eprintln!("  ✗ Failed to remove ~/.nebula-ctx/: {e}");
+            eprintln!("  ✗ Failed to remove ~/.nebu-ctx/: {e}");
             false
         }
     }
@@ -493,7 +493,7 @@ fn print_binary_removal_instructions() {
 }
 
 fn remove_nebula_ctx_block(content: &str) -> String {
-    if content.contains("# nebula-ctx shell hook — end") {
+    if content.contains("# nebu-ctx shell hook — end") {
         return remove_nebula_ctx_block_by_marker(content);
     }
     remove_nebula_ctx_block_legacy(content)
@@ -504,12 +504,12 @@ fn remove_nebula_ctx_block_by_marker(content: &str) -> String {
     let mut in_block = false;
 
     for line in content.lines() {
-        if !in_block && line.contains("nebula-ctx shell hook") && !line.contains("end") {
+        if !in_block && line.contains("nebu-ctx shell hook") && !line.contains("end") {
             in_block = true;
             continue;
         }
         if in_block {
-            if line.trim() == "# nebula-ctx shell hook — end" {
+            if line.trim() == "# nebu-ctx shell hook — end" {
                 in_block = false;
             }
             continue;
@@ -525,7 +525,7 @@ fn remove_nebula_ctx_block_legacy(content: &str) -> String {
     let mut in_block = false;
 
     for line in content.lines() {
-        if line.contains("nebula-ctx shell hook") {
+        if line.contains("nebu-ctx shell hook") {
             in_block = true;
             continue;
         }
@@ -554,28 +554,28 @@ fn remove_nebula_ctx_from_json(content: &str) -> Option<String> {
     let mut modified = false;
 
     if let Some(servers) = parsed.get_mut("mcpServers").and_then(|s| s.as_object_mut()) {
-        modified |= servers.remove("nebula-ctx").is_some();
+        modified |= servers.remove("nebu-ctx").is_some();
     }
 
     if let Some(servers) = parsed.get_mut("servers").and_then(|s| s.as_object_mut()) {
-        modified |= servers.remove("nebula-ctx").is_some();
+        modified |= servers.remove("nebu-ctx").is_some();
     }
 
     if let Some(servers) = parsed.get_mut("servers").and_then(|s| s.as_array_mut()) {
         let before = servers.len();
-        servers.retain(|entry| entry.get("name").and_then(|n| n.as_str()) != Some("nebula-ctx"));
+        servers.retain(|entry| entry.get("name").and_then(|n| n.as_str()) != Some("nebu-ctx"));
         modified |= servers.len() < before;
     }
 
     if let Some(mcp) = parsed.get_mut("mcp").and_then(|s| s.as_object_mut()) {
-        modified |= mcp.remove("nebula-ctx").is_some();
+        modified |= mcp.remove("nebu-ctx").is_some();
     }
 
     if let Some(amp) = parsed
         .get_mut("amp.mcpServers")
         .and_then(|s| s.as_object_mut())
     {
-        modified |= amp.remove("nebula-ctx").is_some();
+        modified |= amp.remove("nebu-ctx").is_some();
     }
 
     if modified {
@@ -599,7 +599,7 @@ fn remove_nebula_ctx_from_yaml(content: &str) -> String {
         }
 
         let trimmed = line.trim();
-        if trimmed == "nebula-ctx:" || trimmed.starts_with("nebula-ctx:") {
+        if trimmed == "nebu-ctx:" || trimmed.starts_with("nebu-ctx:") {
             let indent = line.len() - line.trim_start().len();
             skip_depth = Some(indent);
             continue;
@@ -621,10 +621,10 @@ fn remove_nebula_ctx_from_toml(content: &str) -> String {
 
         if trimmed.starts_with('[') && trimmed.ends_with(']') {
             let section = trimmed.trim_start_matches('[').trim_end_matches(']').trim();
-            if section == "mcp_servers.nebula-ctx"
-                || section == "mcp_servers.\"nebula-ctx\""
-                || section.starts_with("mcp_servers.nebula-ctx.")
-                || section.starts_with("mcp_servers.\"nebula-ctx\".")
+            if section == "mcp_servers.nebu-ctx"
+                || section == "mcp_servers.\"nebu-ctx\""
+                || section.starts_with("mcp_servers.nebu-ctx.")
+                || section.starts_with("mcp_servers.\"nebu-ctx\".")
             {
                 skip = true;
                 continue;
@@ -677,8 +677,8 @@ mod tests {
 [features]
 codex_hooks = true
 
-[mcp_servers.nebula-ctx]
-command = \"/usr/local/bin/nebula-ctx\"
+[mcp_servers.nebu-ctx]
+command = \"/usr/local/bin/nebu-ctx\"
 args = []
 
 [mcp_servers.other-tool]
@@ -686,8 +686,8 @@ command = \"/usr/bin/other\"
 ";
         let result = remove_nebula_ctx_from_toml(input);
         assert!(
-            !result.contains("nebula-ctx"),
-            "nebula-ctx section should be removed"
+            !result.contains("nebu-ctx"),
+            "nebu-ctx section should be removed"
         );
         assert!(
             result.contains("[mcp_servers.other-tool]"),
@@ -702,8 +702,8 @@ command = \"/usr/bin/other\"
     #[test]
     fn remove_toml_only_nebula_ctx() {
         let input = "\
-[mcp_servers.nebula-ctx]
-command = \"nebula-ctx\"
+[mcp_servers.nebu-ctx]
+command = \"nebu-ctx\"
 ";
         let result = remove_nebula_ctx_from_toml(input);
         assert!(

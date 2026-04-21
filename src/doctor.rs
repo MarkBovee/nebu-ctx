@@ -1,4 +1,4 @@
-//! Environment diagnostics for nebula-ctx installation and integration.
+//! Environment diagnostics for nebu-ctx installation and integration.
 
 use std::net::TcpListener;
 use std::path::PathBuf;
@@ -30,11 +30,11 @@ fn print_check(outcome: &Outcome) {
 fn path_in_path_env() -> bool {
     if let Ok(path) = std::env::var("PATH") {
         for dir in std::env::split_paths(&path) {
-            if dir.join("nebula-ctx").is_file() {
+            if dir.join("nebu-ctx").is_file() {
                 return true;
             }
             if cfg!(windows)
-                && (dir.join("nebula-ctx.exe").is_file() || dir.join("nebula-ctx.cmd").is_file())
+                && (dir.join("nebu-ctx.exe").is_file() || dir.join("nebu-ctx.cmd").is_file())
             {
                 return true;
             }
@@ -47,16 +47,16 @@ fn resolve_nebula_ctx_binary() -> Option<PathBuf> {
     if let Ok(path) = std::env::var("PATH") {
         for dir in std::env::split_paths(&path) {
             if cfg!(windows) {
-                let exe = dir.join("nebula-ctx.exe");
+                let exe = dir.join("nebu-ctx.exe");
                 if exe.is_file() {
                     return Some(exe);
                 }
-                let cmd = dir.join("nebula-ctx.cmd");
+                let cmd = dir.join("nebu-ctx.cmd");
                 if cmd.is_file() {
                     return Some(cmd);
                 }
             } else {
-                let bin = dir.join("nebula-ctx");
+                let bin = dir.join("nebu-ctx");
                 if bin.is_file() {
                     return Some(bin);
                 }
@@ -70,7 +70,7 @@ fn nebula_ctx_version_from_path() -> Outcome {
     let resolved = resolve_nebula_ctx_binary();
     let bin = resolved
         .clone()
-        .unwrap_or_else(|| std::env::current_exe().unwrap_or_else(|_| "nebula-ctx".into()));
+        .unwrap_or_else(|| std::env::current_exe().unwrap_or_else(|_| "nebu-ctx".into()));
 
     let v = env!("CARGO_PKG_VERSION");
     let note = match std::env::current_exe() {
@@ -80,13 +80,13 @@ fn nebula_ctx_version_from_path() -> Outcome {
     };
     Outcome {
         ok: true,
-        line: format!("{BOLD}nebula-ctx version{RST}  {WHITE}nebula-ctx {v}{RST}  {note}"),
+        line: format!("{BOLD}nebu-ctx version{RST}  {WHITE}nebu-ctx {v}{RST}  {note}"),
     }
 }
 
 fn rc_contains_nebula_ctx(path: &PathBuf) -> bool {
     match std::fs::read_to_string(path) {
-        Ok(s) => s.contains("nebula-ctx"),
+        Ok(s) => s.contains("nebu-ctx"),
         Err(_) => false,
     }
 }
@@ -174,9 +174,9 @@ fn shell_aliases_outcome() -> Outcome {
 
     if parts.is_empty() {
         let hint = if cfg!(windows) {
-            "no \"nebula-ctx\" in PowerShell profile, ~/.zshrc or ~/.bashrc"
+            "no \"nebu-ctx\" in PowerShell profile, ~/.zshrc or ~/.bashrc"
         } else {
-            "no \"nebula-ctx\" in ~/.zshrc, ~/.bashrc, or ~/.config/fish/config.fish"
+            "no \"nebu-ctx\" in ~/.zshrc, ~/.bashrc, or ~/.config/fish/config.fish"
         };
         Outcome {
             ok: false,
@@ -186,7 +186,7 @@ fn shell_aliases_outcome() -> Outcome {
         Outcome {
             ok: false,
             line: format!(
-                "{BOLD}Shell aliases{RST}  {YELLOW}outdated hook in {} — run {BOLD}nebula-ctx init --global{RST}{YELLOW} to fix (pipe guard missing){RST}",
+                "{BOLD}Shell aliases{RST}  {YELLOW}outdated hook in {} — run {BOLD}nebu-ctx init --global{RST}{YELLOW} to fix (pipe guard missing){RST}",
                 needs_update.join(", ")
             ),
         }
@@ -194,7 +194,7 @@ fn shell_aliases_outcome() -> Outcome {
         Outcome {
             ok: true,
             line: format!(
-                "{BOLD}Shell aliases{RST}  {GREEN}nebula-ctx referenced in {}{RST}",
+                "{BOLD}Shell aliases{RST}  {GREEN}nebu-ctx referenced in {}{RST}",
                 parts.join(", ")
             ),
         }
@@ -429,14 +429,14 @@ fn mcp_config_outcome() -> Outcome {
         Outcome {
             ok: true,
             line: format!(
-                "{BOLD}MCP config{RST}  {GREEN}nebula-ctx found in: {}{RST}",
+                "{BOLD}MCP config{RST}  {GREEN}nebu-ctx found in: {}{RST}",
                 found.join(", ")
             ),
         }
     } else if !exists_no_ref.is_empty() {
         let has_claude = exists_no_ref.iter().any(|n| n.starts_with("Claude Code"));
         let cause = if has_claude {
-            format!("{DIM}(Claude Code may overwrite ~/.claude.json on startup — nebula-ctx entry missing from mcpServers){RST}")
+            format!("{DIM}(Claude Code may overwrite ~/.claude.json on startup — nebu-ctx entry missing from mcpServers){RST}")
         } else {
             String::new()
         };
@@ -448,7 +448,7 @@ fn mcp_config_outcome() -> Outcome {
         Outcome {
             ok: false,
             line: format!(
-                "{BOLD}MCP config{RST}  {YELLOW}config exists for {} but mcpServers does not contain nebula-ctx{RST}  {cause} {hint}",
+                "{BOLD}MCP config{RST}  {YELLOW}config exists for {} but mcpServers does not contain nebu-ctx{RST}  {cause} {hint}",
                 exists_no_ref.join(", "),
             ),
         }
@@ -465,17 +465,17 @@ fn mcp_config_outcome() -> Outcome {
 fn has_nebula_ctx_mcp_entry(content: &str) -> bool {
     if let Ok(json) = serde_json::from_str::<serde_json::Value>(content) {
         if let Some(servers) = json.get("mcpServers").and_then(|v| v.as_object()) {
-            return servers.contains_key("nebula-ctx");
+            return servers.contains_key("nebu-ctx");
         }
         if let Some(servers) = json
             .get("mcp")
             .and_then(|v| v.get("servers"))
             .and_then(|v| v.as_object())
         {
-            return servers.contains_key("nebula-ctx");
+            return servers.contains_key("nebu-ctx");
         }
     }
-    content.contains("nebula-ctx")
+    content.contains("nebu-ctx")
 }
 
 fn port_3333_outcome() -> Outcome {
@@ -500,34 +500,34 @@ fn pi_outcome() -> Option<Outcome> {
             let has_plugin = std::process::Command::new("pi")
                 .args(["list"])
                 .output()
-                .map(|o| String::from_utf8_lossy(&o.stdout).contains("pi-nebula-ctx"))
+                .map(|o| String::from_utf8_lossy(&o.stdout).contains("pi-nebu-ctx"))
                 .unwrap_or(false);
 
             let has_mcp = dirs::home_dir()
                 .map(|h| h.join(".pi/agent/mcp.json"))
                 .and_then(|p| std::fs::read_to_string(p).ok())
-                .map(|c| c.contains("nebula-ctx"))
+                .map(|c| c.contains("nebu-ctx"))
                 .unwrap_or(false);
 
             if has_plugin && has_mcp {
                 Some(Outcome {
                     ok: true,
                     line: format!(
-                        "{BOLD}Pi Coding Agent{RST}  {GREEN}{version}, pi-nebula-ctx + MCP configured{RST}"
+                        "{BOLD}Pi Coding Agent{RST}  {GREEN}{version}, pi-nebu-ctx + MCP configured{RST}"
                     ),
                 })
             } else if has_plugin {
                 Some(Outcome {
                     ok: true,
                     line: format!(
-                        "{BOLD}Pi Coding Agent{RST}  {GREEN}{version}, pi-nebula-ctx installed{RST}  {DIM}(MCP not configured — embedded bridge active){RST}"
+                        "{BOLD}Pi Coding Agent{RST}  {GREEN}{version}, pi-nebu-ctx installed{RST}  {DIM}(MCP not configured — embedded bridge active){RST}"
                     ),
                 })
             } else {
                 Some(Outcome {
                     ok: false,
                     line: format!(
-                        "{BOLD}Pi Coding Agent{RST}  {YELLOW}{version}, but pi-nebula-ctx not installed{RST}  {DIM}(run: pi install npm:pi-nebula-ctx){RST}"
+                        "{BOLD}Pi Coding Agent{RST}  {YELLOW}{version}, but pi-nebu-ctx not installed{RST}  {DIM}(run: pi install npm:pi-nebu-ctx){RST}"
                     ),
                 })
             }
@@ -572,12 +572,12 @@ fn docker_env_outcomes() -> Vec<Outcome> {
     }
     let env_sh = dirs::home_dir()
         .map(|h| {
-            h.join(".nebula-ctx")
+            h.join(".nebu-ctx")
                 .join("env.sh")
                 .to_string_lossy()
                 .to_string()
         })
-        .unwrap_or_else(|| "/root/.nebula-ctx/env.sh".to_string());
+        .unwrap_or_else(|| "/root/.nebu-ctx/env.sh".to_string());
 
     let mut outcomes = vec![];
 
@@ -640,13 +640,13 @@ pub fn run() {
         passed += 1;
     }
     let bin_line = if let Some(p) = path_bin {
-        format!("{BOLD}nebula-ctx in PATH{RST}  {WHITE}{}{RST}", p.display())
+        format!("{BOLD}nebu-ctx in PATH{RST}  {WHITE}{}{RST}", p.display())
     } else if also_in_path_dirs {
         format!(
-            "{BOLD}nebula-ctx in PATH{RST}  {YELLOW}found via PATH walk (not resolved by `command -v`){RST}"
+            "{BOLD}nebu-ctx in PATH{RST}  {YELLOW}found via PATH walk (not resolved by `command -v`){RST}"
         )
     } else {
-        format!("{BOLD}nebula-ctx in PATH{RST}  {RED}not found{RST}")
+        format!("{BOLD}nebu-ctx in PATH{RST}  {RED}not found{RST}")
     };
     print_check(&Outcome {
         ok: bin_ok,
@@ -659,7 +659,7 @@ pub fn run() {
     } else {
         Outcome {
             ok: false,
-            line: format!("{BOLD}nebula-ctx version{RST}  {RED}skipped (binary not in PATH){RST}"),
+            line: format!("{BOLD}nebu-ctx version{RST}  {RED}skipped (binary not in PATH){RST}"),
         }
     };
     if ver.ok {
@@ -667,15 +667,15 @@ pub fn run() {
     }
     print_check(&ver);
 
-    // 3) ~/.nebula-ctx directory
-    let lean_dir = dirs::home_dir().map(|h| h.join(".nebula-ctx"));
+    // 3) ~/.nebu-ctx directory
+    let lean_dir = dirs::home_dir().map(|h| h.join(".nebu-ctx"));
     let dir_outcome = match &lean_dir {
         Some(p) if p.is_dir() => {
             passed += 1;
             Outcome {
                 ok: true,
                 line: format!(
-                    "{BOLD}~/.nebula-ctx/{RST}  {GREEN}exists{RST}  {DIM}{}{RST}",
+                    "{BOLD}~/.nebu-ctx/{RST}  {GREEN}exists{RST}  {DIM}{}{RST}",
                     p.display()
                 ),
             }
@@ -683,13 +683,13 @@ pub fn run() {
         Some(p) => Outcome {
             ok: false,
             line: format!(
-                "{BOLD}~/.nebula-ctx/{RST}  {RED}missing or not a directory{RST}  {DIM}{}{RST}",
+                "{BOLD}~/.nebu-ctx/{RST}  {RED}missing or not a directory{RST}  {DIM}{}{RST}",
                 p.display()
             ),
         },
         None => Outcome {
             ok: false,
-            line: format!("{BOLD}~/.nebula-ctx/{RST}  {RED}could not resolve home directory{RST}"),
+            line: format!("{BOLD}~/.nebu-ctx/{RST}  {RED}could not resolve home directory{RST}"),
         },
     };
     print_check(&dir_outcome);
@@ -889,8 +889,8 @@ fn claude_truncation_outcome() -> Option<Outcome> {
         return None;
     }
 
-    let rules_path = crate::core::editor_registry::claude_rules_dir(&home).join("nebula-ctx.md");
-    let skill_path = home.join(".claude/skills/nebula-ctx/SKILL.md");
+    let rules_path = crate::core::editor_registry::claude_rules_dir(&home).join("nebu-ctx.md");
+    let skill_path = home.join(".claude/skills/nebu-ctx/SKILL.md");
 
     let has_rules = rules_path.exists();
     let has_skill = skill_path.exists();
@@ -913,7 +913,7 @@ fn claude_truncation_outcome() -> Option<Outcome> {
         Some(Outcome {
             ok: false,
             line: format!(
-                "{BOLD}Claude Code instructions{RST}  {YELLOW}MCP instructions truncated at 2048 chars, no rules file found{RST}  {DIM}(run: nebula-ctx init --agent claude){RST}"
+                "{BOLD}Claude Code instructions{RST}  {YELLOW}MCP instructions truncated at 2048 chars, no rules file found{RST}  {DIM}(run: nebu-ctx init --agent claude){RST}"
             ),
         })
     }
@@ -1165,7 +1165,7 @@ pub fn compact_score() -> (u32, u32) {
     if resolve_nebula_ctx_binary().is_some() || path_in_path_env() {
         passed += 1;
     }
-    let lean_dir = dirs::home_dir().map(|h| h.join(".nebula-ctx"));
+    let lean_dir = dirs::home_dir().map(|h| h.join(".nebu-ctx"));
     if lean_dir.as_ref().is_some_and(|p| p.is_dir()) {
         passed += 1;
     }

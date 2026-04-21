@@ -2,11 +2,15 @@ use std::path::PathBuf;
 
 fn config_dir() -> PathBuf {
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-    home.join(".nebula-ctx").join("cloud")
+    home.join(".nebu-ctx").join("cloud")
 }
 
 fn credentials_path() -> PathBuf {
     config_dir().join("credentials.json")
+}
+
+fn server_connection_path() -> PathBuf {
+    config_dir().join("server_connection.json")
 }
 
 pub fn api_url() -> String {
@@ -18,6 +22,12 @@ struct Credentials {
     api_key: String,
     user_id: String,
     email: String,
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub struct ServerConnection {
+    pub endpoint: String,
+    pub token: String,
 }
 
 pub fn save_credentials(api_key: &str, user_id: &str, email: &str) -> std::io::Result<()> {
@@ -40,6 +50,57 @@ pub fn load_api_key() -> Option<String> {
 
 pub fn is_logged_in() -> bool {
     load_api_key().is_some()
+}
+
+pub fn save_server_connection(endpoint: &str, token: &str) -> std::io::Result<()> {
+    let dir = config_dir();
+    std::fs::create_dir_all(&dir)?;
+    let connection = ServerConnection {
+        endpoint: normalize_server_endpoint(endpoint),
+        token: token.trim().to_string(),
+    };
+    let json = serde_json::to_string_pretty(&connection).map_err(std::io::Error::other)?;
+    std::fs::write(server_connection_path(), json)
+}
+
+pub fn load_server_connection() -> Option<ServerConnection> {
+    let data = std::fs::read_to_string(server_connection_path()).ok()?;
+    serde_json::from_str(&data).ok()
+}
+
+pub fn clear_server_connection() -> std::io::Result<()> {
+    match std::fs::remove_file(server_connection_path()) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e),
+    }
+}
+
+pub fn normalize_server_endpoint(endpoint: &str) -> String {
+    let trimmed = endpoint.trim().trim_end_matches('/');
+    if let Some(prefix) = trimmed.strip_suffix("/v1/tools/call") {
+        return prefix.to_string();
+    }
+    if let Some(prefix) = trimmed.strip_suffix("/v1/tools") {
+        return prefix.to_string();
+    }
+    if let Some(prefix) = trimmed.strip_suffix("/health") {
+        return prefix.to_string();
+    }
+    trimmed.to_string()
+}
+
+pub fn server_health_url(endpoint: &str) -> String {
+    format!("{}/health", normalize_server_endpoint(endpoint))
+}
+
+pub fn check_server_connection(endpoint: &str, token: &str) -> Result<(), String> {
+    let url = server_health_url(endpoint);
+    ureq::get(&url)
+        .header("Authorization", &format!("Bearer {}", token.trim()))
+        .call()
+        .map_err(|e| format!("Connection failed: {e}"))?;
+    Ok(())
 }
 
 pub struct RegisterResult {

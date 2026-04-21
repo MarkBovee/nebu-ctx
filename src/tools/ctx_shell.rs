@@ -144,7 +144,7 @@ pub fn handle(command: &str, output: &str, crp_mode: CrpMode) -> String {
     if contains_auth_flow(output) {
         let savings = protocol::format_savings(original_tokens, original_tokens);
         return format!(
-            "{output}\n[nebula-ctx: auth/device-code flow detected — output preserved uncompressed]\n{savings}"
+            "{output}\n[nebu-ctx: auth/device-code flow detected — output preserved uncompressed]\n{savings}"
         );
     }
 
@@ -429,7 +429,7 @@ mod tests {
 
     #[test]
     fn auth_flow_ignores_normal_build_output() {
-        let output = "Compiling nebula-ctx v2.21.9\nFinished release profile\n";
+        let output = "Compiling nebu-ctx v2.21.9\nFinished release profile\n";
         assert!(!contains_auth_flow(output));
     }
 
@@ -441,7 +441,7 @@ mod tests {
 
     #[test]
     fn auth_flow_ignores_npm_install_output() {
-        let output = "added 150 packages in 3s\n\n24 packages are looking for funding\n  run `npm fund` for details\nhttps://npmjs.com/package/nebula-ctx";
+        let output = "added 150 packages in 3s\n\n24 packages are looking for funding\n  run `npm fund` for details\nhttps://npmjs.com/package/nebu-ctx";
         assert!(!contains_auth_flow(output));
     }
 

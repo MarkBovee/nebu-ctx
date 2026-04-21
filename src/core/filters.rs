@@ -55,7 +55,7 @@ impl FilterEngine {
                         }
                     }
                     Err(e) => {
-                        eprintln!("nebula-ctx: filter parse error in {}: {e}", path.display());
+                        eprintln!("nebu-ctx: filter parse error in {}: {e}", path.display());
                     }
                 }
             }
@@ -129,7 +129,7 @@ fn compile_rule(raw: RawFilterRule, path: &Path) -> Option<CompiledRule> {
     let command_re = raw.command.as_ref().and_then(|s| {
         Regex::new(s)
             .map_err(|e| {
-                eprintln!("nebula-ctx: invalid command regex in {}: {e}", path.display());
+                eprintln!("nebu-ctx: invalid command regex in {}: {e}", path.display());
             })
             .ok()
     });
@@ -137,7 +137,7 @@ fn compile_rule(raw: RawFilterRule, path: &Path) -> Option<CompiledRule> {
     let pattern_re = raw.pattern.as_ref().and_then(|s| {
         Regex::new(s)
             .map_err(|e| {
-                eprintln!("nebula-ctx: invalid pattern regex in {}: {e}", path.display());
+                eprintln!("nebu-ctx: invalid pattern regex in {}: {e}", path.display());
             })
             .ok()
     });
@@ -177,8 +177,8 @@ pub fn create_example_filter() -> Result<String, String> {
         return Err(format!("{} already exists", path.display()));
     }
 
-    let content = r#"# nebula-ctx custom filter example
-# Place .toml files in $NEBULA_CTX_DATA_DIR/filters (default: ~/.nebula-ctx/filters) to define custom compression rules.
+    let content = r#"# nebu-ctx custom filter example
+# Place .toml files in $NEBULA_CTX_DATA_DIR/filters (default: ~/.nebu-ctx/filters) to define custom compression rules.
 # User filters are applied BEFORE builtin patterns.
 
 # Rule 1: Replace verbose upload logs with a summary

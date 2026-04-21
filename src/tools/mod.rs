@@ -618,7 +618,7 @@ pub fn create_server() -> LeanCtxServer {
 
 const PROJECT_ROOT_MARKERS: &[&str] = &[
     ".git",
-    ".nebula-ctx.toml",
+    ".nebu-ctx.toml",
     "Cargo.toml",
     "package.json",
     "go.mod",

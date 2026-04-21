@@ -278,7 +278,7 @@ impl Theme {
 
     pub fn brand_title(&self) -> String {
         if no_color() {
-            return "nebula-ctx".to_string();
+            return "nebu-ctx".to_string();
         }
         let p = self.primary.fg();
         let s = self.secondary.fg();

@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 const IDE_CONFIG_DIRS: &[&str] = &[
-    ".nebula-ctx",
+    ".nebu-ctx",
     ".cursor",
     ".claude",
     ".codex",

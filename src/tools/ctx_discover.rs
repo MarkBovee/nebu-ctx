@@ -66,7 +66,7 @@ pub fn analyze_history(history: &[String], limit: usize) -> DiscoverResult {
         }
         total_commands += 1;
 
-        if trimmed.starts_with("nebula-ctx ") {
+        if trimmed.starts_with("nebu-ctx ") {
             already_optimized += 1;
             continue;
         }
@@ -152,7 +152,7 @@ pub fn discover_from_history(history: &[String], limit: usize) -> String {
 
     let total_missed: u32 = result.missed_commands.iter().map(|m| m.count).sum();
     lines.push(format!(
-        "{total_missed} commands could benefit from nebula-ctx:"
+        "{total_missed} commands could benefit from nebu-ctx:"
     ));
     lines.push(String::new());
 
@@ -169,8 +169,8 @@ pub fn discover_from_history(history: &[String], limit: usize) -> String {
         result.potential_tokens, result.potential_usd
     ));
     lines.push(String::new());
-    lines.push("Fix: run 'nebula-ctx init --global' to auto-compress all commands.".to_string());
-    lines.push("Or:  run 'nebula-ctx init --agent <tool>' for AI tool hooks.".to_string());
+    lines.push("Fix: run 'nebu-ctx init --global' to auto-compress all commands.".to_string());
+    lines.push("Or:  run 'nebu-ctx init --agent <tool>' for AI tool hooks.".to_string());
 
     let output = lines.join("\n");
     let tokens = count_tokens(&output);
@@ -180,8 +180,8 @@ pub fn discover_from_history(history: &[String], limit: usize) -> String {
 pub fn format_cli_output(result: &DiscoverResult) -> String {
     if result.missed_commands.is_empty() {
         return format!(
-            "All compressible commands are already using nebula-ctx!\n\
-             ({} commands analyzed, {} via nebula-ctx)",
+            "All compressible commands are already using nebu-ctx!\n\
+             ({} commands analyzed, {} via nebu-ctx)",
             result.total_commands, result.already_optimized
         );
     }
@@ -190,7 +190,7 @@ pub fn format_cli_output(result: &DiscoverResult) -> String {
     let total_missed: u32 = result.missed_commands.iter().map(|m| m.count).sum();
 
     lines.push(format!(
-        "Found {total_missed} compressible commands not using nebula-ctx:\n"
+        "Found {total_missed} compressible commands not using nebu-ctx:\n"
     ));
     lines.push(format!(
         "  {:<14} {:>5}  {:>10}  {:<30} {}",
@@ -212,11 +212,11 @@ pub fn format_cli_output(result: &DiscoverResult) -> String {
         result.potential_usd * 30.0
     ));
     lines.push(format!(
-        "Already using nebula-ctx: {} commands",
+        "Already using nebu-ctx: {} commands",
         result.already_optimized
     ));
     lines.push(String::new());
-    lines.push("Run 'nebula-ctx init --global' to enable compression for all commands.".to_string());
+    lines.push("Run 'nebu-ctx init --global' to enable compression for all commands.".to_string());
 
     lines.join("\n")
 }

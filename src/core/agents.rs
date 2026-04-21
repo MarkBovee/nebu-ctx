@@ -586,7 +586,7 @@ impl AgentRegistry {
     fn shared_knowledge_path() -> PathBuf {
         dirs::home_dir()
             .unwrap_or_else(|| PathBuf::from("."))
-            .join(".nebula-ctx")
+            .join(".nebu-ctx")
             .join("shared_knowledge.json")
     }
 }

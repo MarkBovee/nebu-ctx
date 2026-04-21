@@ -1,6 +1,6 @@
 //! E2E tests for shell detection, LEAN_CTX_SHELL override,
 //! agent init (incl. antigravity alias), Windows path handling,
-//! and pipe-guard (stdout not a terminal → bypass nebula-ctx).
+//! and pipe-guard (stdout not a terminal → bypass nebu-ctx).
 
 use std::io::Write;
 use std::process::{Command, Stdio};
@@ -10,7 +10,7 @@ use std::process::{Command, Stdio};
 // ---------------------------------------------------------------------------
 
 fn nebula_ctx_bin() -> String {
-    env!("CARGO_BIN_EXE_nebula-ctx").to_string()
+    env!("CARGO_BIN_EXE_nebu-ctx").to_string()
 }
 
 fn run_with_env(
@@ -29,7 +29,7 @@ fn run_with_env(
         cmd.env(k, v);
     }
 
-    let mut child = cmd.spawn().expect("failed to spawn nebula-ctx");
+    let mut child = cmd.spawn().expect("failed to spawn nebu-ctx");
 
     if let Some(data) = stdin_data {
         child
@@ -48,7 +48,7 @@ fn run_with_env(
 }
 
 // ---------------------------------------------------------------------------
-// LEAN_CTX_SHELL override tests (via `nebula-ctx -c`)
+// LEAN_CTX_SHELL override tests (via `nebu-ctx -c`)
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -197,7 +197,7 @@ fn agent_init_antigravity_alias() {
 
     let hooks_dir = gemini_dir.join("hooks");
     if hooks_dir.exists() {
-        let rewrite = hooks_dir.join("nebula-ctx-rewrite-gemini.sh");
+        let rewrite = hooks_dir.join("nebu-ctx-rewrite-gemini.sh");
         assert!(rewrite.exists(), "rewrite script should be created");
         let content = std::fs::read_to_string(&rewrite).unwrap();
         assert!(
@@ -258,18 +258,18 @@ fn hook_rewrite_works_with_shell_override() {
 
 #[test]
 fn generated_script_handles_windows_path() {
-    let script = nebula_ctx::hooks::generate_rewrite_script("/c/Users/Jaina/bin/nebula-ctx.exe");
+    let script = nebula_ctx::hooks::generate_rewrite_script("/c/Users/Jaina/bin/nebu-ctx.exe");
     assert!(
-        script.contains("LEAN_CTX_BIN=\"/c/Users/Jaina/bin/nebula-ctx.exe\""),
+        script.contains("LEAN_CTX_BIN=\"/c/Users/Jaina/bin/nebu-ctx.exe\""),
         "Windows bash path should be properly quoted in script"
     );
 }
 
 #[test]
 fn generated_script_handles_path_with_spaces() {
-    let script = nebula_ctx::hooks::generate_rewrite_script("/c/Program Files/nebula-ctx/nebula-ctx.exe");
+    let script = nebula_ctx::hooks::generate_rewrite_script("/c/Program Files/nebu-ctx/nebu-ctx.exe");
     assert!(
-        script.contains("LEAN_CTX_BIN=\"/c/Program Files/nebula-ctx/nebula-ctx.exe\""),
+        script.contains("LEAN_CTX_BIN=\"/c/Program Files/nebu-ctx/nebu-ctx.exe\""),
         "path with spaces should be quoted"
     );
 }
@@ -277,19 +277,19 @@ fn generated_script_handles_path_with_spaces() {
 #[test]
 fn generated_compact_script_handles_windows_path() {
     let script =
-        nebula_ctx::hooks::generate_compact_rewrite_script("/c/Users/Jaina/bin/nebula-ctx.exe");
+        nebula_ctx::hooks::generate_compact_rewrite_script("/c/Users/Jaina/bin/nebu-ctx.exe");
     assert!(
-        script.contains("LEAN_CTX_BIN=\"/c/Users/Jaina/bin/nebula-ctx.exe\""),
+        script.contains("LEAN_CTX_BIN=\"/c/Users/Jaina/bin/nebu-ctx.exe\""),
         "compact script should handle Windows path"
     );
 }
 
 #[test]
 fn generated_script_skips_own_binary() {
-    let script = nebula_ctx::hooks::generate_rewrite_script("nebula-ctx");
+    let script = nebula_ctx::hooks::generate_rewrite_script("nebu-ctx");
     assert!(
-        script.contains("nebula-ctx ") || script.contains("$LEAN_CTX_BIN "),
-        "script should reference nebula-ctx for self-skip check"
+        script.contains("nebu-ctx ") || script.contains("$LEAN_CTX_BIN "),
+        "script should reference nebu-ctx for self-skip check"
     );
 }
 
@@ -303,7 +303,7 @@ fn bash_script_with_windows_binary_path_produces_valid_json() {
         return; // bash not available on Windows CI
     }
     let script =
-        nebula_ctx::hooks::generate_compact_rewrite_script("/c/Users/Jaina/bin/nebula-ctx.exe");
+        nebula_ctx::hooks::generate_compact_rewrite_script("/c/Users/Jaina/bin/nebu-ctx.exe");
     let script_path =
         std::env::temp_dir().join(format!("nebula_ctx_winpath_test_{}.sh", std::process::id()));
     std::fs::write(&script_path, &script).expect("write script");
@@ -336,7 +336,7 @@ fn bash_script_with_windows_binary_path_produces_valid_json() {
             .as_str()
             .expect("should have command");
         assert!(
-            cmd.contains("/c/Users/Jaina/bin/nebula-ctx.exe"),
+            cmd.contains("/c/Users/Jaina/bin/nebu-ctx.exe"),
             "rewritten command should use the Windows bash path: {cmd}"
         );
         assert!(
@@ -347,7 +347,7 @@ fn bash_script_with_windows_binary_path_produces_valid_json() {
 }
 
 // ---------------------------------------------------------------------------
-// Pipe guard: nebula-ctx must NOT compress when stdout is piped
+// Pipe guard: nebu-ctx must NOT compress when stdout is piped
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -394,7 +394,7 @@ fn bash_hook_contains_pipe_guard() {
 
 #[test]
 fn generated_bash_hook_has_tty_check() {
-    let script = nebula_ctx::hooks::generate_rewrite_script("nebula-ctx");
+    let script = nebula_ctx::hooks::generate_rewrite_script("nebu-ctx");
     // The rewrite hook is for Claude Code / Gemini, not the shell alias.
     // The shell alias pipe guard is in cli.rs.
     // But we can verify the compact hook doesn't break on pipes either.
@@ -417,11 +417,11 @@ fn nebula_ctx_c_preserves_output_when_piped() {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("run nebula-ctx -c echo");
+        .expect("run nebu-ctx -c echo");
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
         stdout.contains("MARKER_STRING_12345"),
-        "nebula-ctx -c must preserve output content when piped: {stdout}"
+        "nebu-ctx -c must preserve output content when piped: {stdout}"
     );
 }
 
