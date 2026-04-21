@@ -599,6 +599,15 @@ fn route_response(
             let json = serde_json::to_string(&intent_data).unwrap_or_else(|_| "{}".to_string());
             ("200 OK", "application/json", json)
         }
+        "/api/auth-token" => {
+            let token_file = std::env::var("NEBULA_CTX_TOKEN_FILE").ok();
+            let token = token_file
+                .and_then(|f| std::fs::read_to_string(f).ok())
+                .filter(|t| !t.is_empty())
+                .unwrap_or_default();
+            let json = format!(r#"{{"token":"{}"}}"#, token.replace('"', "\\\""));
+            ("200 OK", "application/json", json)
+        }
         "/favicon.ico" => ("204 No Content", "text/plain", String::new()),
         _ => ("404 Not Found", "text/plain", "Not Found".to_string()),
     }

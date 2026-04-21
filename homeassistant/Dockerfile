@@ -1,30 +1,28 @@
-FROM rust:1.95-slim-bookworm AS build
-WORKDIR /src
+ARG TARGETARCH
+FROM docker.io/library/debian:bookworm-slim AS runtime
 
-ARG NEBULA_CTX_REPO_URL=https://github.com/MarkBovee/nebula-ctx.git
-ARG NEBULA_CTX_REPO_REF=main
-ARG BUILD_VERSION=dev
+ARG NEBULA_CTX_VERSION=latest
+ARG TARGETARCH
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends git pkg-config libssl-dev ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN echo "nebula-ctx build version: ${BUILD_VERSION}" \
-    && git clone --depth 1 --branch "${NEBULA_CTX_REPO_REF}" "${NEBULA_CTX_REPO_URL}" /src/nebula-ctx \
-    && git -C /src/nebula-ctx rev-parse HEAD > /tmp/nebula_ctx_commit.txt
-
-WORKDIR /src/nebula-ctx
-RUN cargo build --release --features cloud-server -p nebula-ctx
-
-FROM debian:bookworm-slim AS runtime
 WORKDIR /app
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends jq ca-certificates curl libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=build /src/nebula-ctx/target/release/nebula-ctx /usr/local/bin/nebula-ctx
-COPY --from=build /tmp/nebula_ctx_commit.txt /app/nebula_ctx_commit.txt
+# Download pre-built binary from GitHub release
+RUN BINARY_ARCH="${TARGETARCH/amd64/amd64}" \
+    && BINARY_ARCH="${BINARY_ARCH/arm64/arm64}" \
+    && if [ "${NEBULA_CTX_VERSION}" = "latest" ]; then \
+         DOWNLOAD_URL=$(curl -sL "https://api.github.com/repos/MarkBovee/nebula-ctx/releases/latest" \
+           | jq -r ".assets[] | select(.name == \"nebula-ctx-${BINARY_ARCH}\") | .browser_download_url"); \
+       else \
+         DOWNLOAD_URL="https://github.com/MarkBovee/nebula-ctx/releases/download/${NEBULA_CTX_VERSION}/nebula-ctx-${BINARY_ARCH}"; \
+       fi \
+    && echo "Downloading: ${DOWNLOAD_URL}" \
+    && curl -sL "${DOWNLOAD_URL}" -o /usr/local/bin/nebula-ctx \
+    && chmod +x /usr/local/bin/nebula-ctx
+
 COPY run.sh /run.sh
 
 RUN sed -i 's/\r$//' /run.sh \

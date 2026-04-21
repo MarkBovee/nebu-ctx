@@ -1,0 +1,8 @@
+.git
+target/**
+!target/release/nebula-ctx
+node_modules
+.claude
+*.md
+homeassistant/Dockerfile
+tests/

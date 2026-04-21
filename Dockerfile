@@ -1,6 +1,6 @@
 # Multi-stage build for nebula-ctx
 # Stage 1: Build
-FROM rust:1.95-slim-bookworm AS builder
+FROM docker.io/library/rust:1.95-slim-bookworm AS builder
 
 RUN apt-get update && apt-get install -y \
     pkg-config \
@@ -14,7 +14,7 @@ COPY . .
 RUN cargo build --release --features cloud-server -p nebula-ctx
 
 # Stage 2: Runtime
-FROM debian:bookworm-slim
+FROM docker.io/library/debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y \
     ca-certificates \

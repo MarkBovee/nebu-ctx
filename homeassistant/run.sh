@@ -2,6 +2,7 @@
 set -eu
 
 OPTIONS_FILE="/data/options.json"
+AUTH_TOKEN_FILE="/data/auth_token"
 MCP_PID=""
 DASHBOARD_PID=""
 
@@ -25,9 +26,12 @@ if [ ! -f "$OPTIONS_FILE" ]; then
     exit 1
 fi
 
-STORE="$(jq -r '.store // "sqlite"' "$OPTIONS_FILE")"
-DATABASE_URL="$(jq -r '.database_url // ""' "$OPTIONS_FILE")"
-AUTH_TOKEN="$(jq -r '.auth_token // ""' "$OPTIONS_FILE")"
+# --- Read options ---
+PG_HOST="$(jq -r '.postgres_host // "homeassistant"' "$OPTIONS_FILE")"
+PG_PORT="$(jq -r '.postgres_port // 5432' "$OPTIONS_FILE")"
+PG_DB="$(jq -r '.postgres_database // "nebula_ctx"' "$OPTIONS_FILE")"
+PG_USER="$(jq -r '.postgres_username // "postgres"' "$OPTIONS_FILE")"
+PG_PASS="$(jq -r '.postgres_password // ""' "$OPTIONS_FILE")"
 LOG_LEVEL="$(jq -r '.log_level // "info"' "$OPTIONS_FILE")"
 PROJECT_ROOT="$(jq -r '.project_root // "/share"' "$OPTIONS_FILE")"
 
@@ -35,9 +39,24 @@ if [ -z "$PROJECT_ROOT" ] || [ "$PROJECT_ROOT" = "null" ]; then
     PROJECT_ROOT="/share"
 fi
 
+# --- Assemble PostgreSQL URL ---
+DATABASE_URL="postgresql://${PG_USER}:${PG_PASS}@${PG_HOST}:${PG_PORT}/${PG_DB}"
+export DATABASE_URL
+export NEBULA_STORE="postgres"
+
+# --- Auth token: auto-generate on first boot ---
+if [ ! -f "$AUTH_TOKEN_FILE" ]; then
+    TOKEN="nctx_$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')"
+    printf '%s' "$TOKEN" > "$AUTH_TOKEN_FILE"
+    log "Generated new auth token"
+fi
+AUTH_TOKEN="$(cat "$AUTH_TOKEN_FILE")"
+
+# --- Environment ---
 export NEBULA_CTX_DATA_DIR="/data"
 export NEBULA_CTX_DASHBOARD_PROJECT="$PROJECT_ROOT"
 export NEBULA_CTX_DASHBOARD_DISABLE_AUTH="1"
+export NEBULA_CTX_TOKEN_FILE="$AUTH_TOKEN_FILE"
 
 if [ -n "$LOG_LEVEL" ] && [ "$LOG_LEVEL" != "null" ]; then
     export RUST_LOG="$LOG_LEVEL"
@@ -45,42 +64,23 @@ fi
 
 log "Initializing nebula-ctx add-on"
 log "Project root: $PROJECT_ROOT"
-
-if [ "$STORE" = "postgres" ]; then
-    if [ -z "$DATABASE_URL" ]; then
-        log "PostgreSQL store selected but database_url is empty"
-        exit 1
-    fi
-    export NEBULA_STORE="postgres"
-    export DATABASE_URL="$DATABASE_URL"
-    log "Using PostgreSQL backend"
-else
-    export NEBULA_STORE="sqlite"
-    log "Using SQLite backend under /data"
-fi
-
-MCP_HOST="127.0.0.1"
-if [ -n "$AUTH_TOKEN" ] && [ "$AUTH_TOKEN" != "null" ]; then
-    MCP_HOST="0.0.0.0"
-fi
+log "PostgreSQL: ${PG_HOST}:${PG_PORT}/${PG_DB}"
 
 if [ -f "/app/nebula_ctx_commit.txt" ]; then
     log "Image source commit: $(cat /app/nebula_ctx_commit.txt)"
 fi
 
+# --- Start dashboard (ingress) ---
 log "Starting dashboard ingress service on 0.0.0.0:3333"
 nebula-ctx dashboard --host=0.0.0.0 --port=3333 &
 DASHBOARD_PID="$!"
 
-log "Starting MCP HTTP service on ${MCP_HOST}:4242"
-if [ "$MCP_HOST" = "0.0.0.0" ]; then
-    nebula-ctx serve --host "$MCP_HOST" --port 4242 --project-root "$PROJECT_ROOT" --auth-token "$AUTH_TOKEN" &
-else
-    log "No auth_token configured; MCP will stay on loopback inside the add-on container"
-    nebula-ctx serve --host "$MCP_HOST" --port 4242 --project-root "$PROJECT_ROOT" &
-fi
+# --- Start MCP HTTP (always exposed) ---
+log "Starting MCP HTTP service on 0.0.0.0:4242"
+nebula-ctx serve --host 0.0.0.0 --port 4242 --project-root "$PROJECT_ROOT" --auth-token "$AUTH_TOKEN" &
 MCP_PID="$!"
 
+# --- Health check loop ---
 while :; do
     if ! kill -0 "$DASHBOARD_PID" 2>/dev/null; then
         wait "$DASHBOARD_PID"
