@@ -8,6 +8,13 @@ const DEFAULT_PORT: u16 = 3333;
 const DEFAULT_HOST: &str = "127.0.0.1";
 const DASHBOARD_HTML: &str = include_str!("dashboard.html");
 
+fn dashboard_auth_disabled() -> bool {
+    std::env::var("NEBULA_CTX_DASHBOARD_DISABLE_AUTH")
+        .ok()
+        .map(|value| matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+        .unwrap_or(false)
+}
+
 pub async fn start(port: Option<u16>, host: Option<String>) {
     let port = port.unwrap_or_else(|| {
         std::env::var("NEBULA_CTX_PORT")
@@ -21,6 +28,7 @@ pub async fn start(port: Option<u16>, host: Option<String>) {
             .ok()
             .unwrap_or_else(|| DEFAULT_HOST.to_string())
     });
+    let disable_auth = dashboard_auth_disabled();
 
     let addr = format!("{host}:{port}");
     let is_local = host == "127.0.0.1" || host == "localhost" || host == "::1";
@@ -34,7 +42,7 @@ pub async fn start(port: Option<u16>, host: Option<String>) {
         return;
     }
 
-    let token = if !is_local {
+    let token = if !is_local && !disable_auth {
         let t = generate_token();
         save_token(&t);
         Some(Arc::new(t))
@@ -42,12 +50,16 @@ pub async fn start(port: Option<u16>, host: Option<String>) {
         None
     };
 
-    if !is_local {
+    if !is_local && !disable_auth {
         let t = token.as_ref().unwrap();
         eprintln!(
             "  \x1b[33m⚠\x1b[0m Binding to {host} — authentication enabled.\n  \
              Bearer token: \x1b[1;32m{t}\x1b[0m\n  \
              Browser URL:  http://<your-ip>:{port}/?token={t}"
+        );
+    } else if !is_local {
+        eprintln!(
+            "  Binding dashboard to {host} without dashboard auth because NEBULA_CTX_DASHBOARD_DISABLE_AUTH is enabled."
         );
     }
 

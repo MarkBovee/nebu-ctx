@@ -1,28 +1,35 @@
-name: "Nebula Ctx"
-description: "Context engineering layer for AI agents — MCP server with brain memory and PostgreSQL persistence"
-version: "0.1.0"
-slug: "nebula-ctx"
-url: "https://github.com/MarkBovee/nebula-ctx"
+name: "nebula-ctx"
+description: "Context engineering MCP server with ingress dashboard and optional HTTP MCP endpoint"
+version: "0.1.1"
+slug: "nebula_ctx"
+url: "https://github.com/MarkBovee/nebula-ctx/tree/main/homeassistant"
+stage: "experimental"
 arch:
   - amd64
   - aarch64
-startup: "application"
+startup: "services"
 boot: "auto"
+init: false
+ingress: true
+ingress_port: 3333
+panel_icon: "mdi:graph-box"
+panel_title: "nebula-ctx"
 map:
   - config:rw
+  - share:rw
 ports:
-  8099/tcp: 8099
+  4242/tcp: 4242
 ports_description:
-  8099/tcp: "MCP HTTP server endpoint"
+  4242/tcp: "nebula-ctx MCP HTTP endpoint"
 options:
   store: "sqlite"
   database_url: ""
   auth_token: ""
   log_level: "info"
+  project_root: "/share"
 schema:
   store: "list(sqlite|postgres)"
   database_url: "password?"
   auth_token: "password?"
   log_level: "list(debug|info|warn|error)"
-environment:
-  NEBULA_CTX_DATA_DIR: "/data"
+  project_root: "str?"

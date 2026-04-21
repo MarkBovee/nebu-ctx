@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LeanCTX Observatory</title>
+<title>nebula-ctx Observatory</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <style>
@@ -814,7 +814,7 @@ function manualRefresh() {
 
 async function checkPulse() {
   try {
-    const res = await fetch('/api/pulse');
+    const res = await fetch(resolveDashboardUrl('/api/pulse'));
     if (!res.ok) return;
     const data = await res.json();
     if (pulseHash !== null && data.hash !== pulseHash) {
@@ -1120,6 +1120,19 @@ function isBuildingData(d) { return d && d.status === 'building'; }
 function showIndexing(container, msg, view, fn) { showEmpty(container, msg); scheduleRetry(view, fn); }
 
 const inFlight = new Map();
+function dashboardBasePath() {
+  const pathname = window.location.pathname || '/';
+  if (pathname.endsWith('/')) return pathname;
+  const lastSlash = pathname.lastIndexOf('/');
+  return lastSlash >= 0 ? pathname.slice(0, lastSlash + 1) : '/';
+}
+
+function resolveDashboardUrl(path) {
+  if (/^[a-z]+:\/\//i.test(path)) return path;
+  const normalized = path.replace(/^\/+/, '');
+  return new URL(normalized, window.location.origin + dashboardBasePath()).toString();
+}
+
 async function apiFetch(path, opts) {
   const timeoutMs = (opts && opts.timeoutMs) ?? (
     path.startsWith('/api/graph') || path.startsWith('/api/search-index') ? 8000 : 3000
@@ -1127,7 +1140,7 @@ async function apiFetch(path, opts) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const r = await fetch(path, { signal: ctrl.signal, cache: 'no-store' });
+    const r = await fetch(resolveDashboardUrl(path), { signal: ctrl.signal, cache: 'no-store' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r.json();
   } catch (e) {
@@ -1222,7 +1235,7 @@ async function loadOverview() {
     overviewRaw = stats;
     overviewGain = gain;
     if (!stats || !stats.total_commands) {
-      showEmpty(container, 'Start using LeanCTX tools (ctx_read, ctx_shell, etc.) in your IDE to see savings here.');
+      showEmpty(container, 'Start using nebula-ctx tools (ctx_read, ctx_shell, etc.) in your IDE to see savings here.');
       overviewBuilt = false;
       return;
     }
@@ -1231,7 +1244,7 @@ async function loadOverview() {
     updateOverview(stats, gain);
     renderBuddy(buddy);
   } catch (e) {
-    showError(container, 'Dashboard API not responding. Make sure lean-ctx dashboard is running.');
+    showError(container, 'Dashboard API not responding. Make sure nebula-ctx dashboard is running.');
   }
 }
 

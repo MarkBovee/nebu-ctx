@@ -123,13 +123,20 @@ The container entrypoint now starts `nebula-ctx serve --port 8099` automatically
 
 ## Home Assistant Addon
 
-The add-on wrapper under `homeassistant/` now exports `NEBULA_STORE` correctly and starts `serve` explicitly on port `8099`.
+The add-on under `homeassistant/` is now packaged as a standalone Home Assistant add-on.
 
 Operational guidance:
 
-1. Set `store` to `postgres` only when `database_url` is configured.
-2. Set `auth_token` if you need access beyond loopback.
-3. Expect the add-on to stay loopback-only when no auth token is provided.
+1. Use `Open Web UI` to access the dashboard through Home Assistant ingress.
+2. Set `store` to `postgres` only when `database_url` is configured.
+3. Set `auth_token` if you need the MCP port reachable from outside the add-on container.
+4. Set `project_root` to a mounted path such as `/share` or `/config` so dashboard and MCP relative paths resolve meaningfully.
+5. Expect the MCP service to stay loopback-only when no auth token is provided.
+
+Connection model:
+
+- Dashboard: Home Assistant ingress -> internal dashboard server on port `3333`
+- MCP HTTP: direct network exposure on `4242/tcp` when enabled in Home Assistant network settings
 
 ## Brain Memory Tool
 

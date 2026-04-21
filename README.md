@@ -117,7 +117,14 @@ The container entrypoint binds to `0.0.0.0` automatically when `NEBULA_CTX_HTTP_
 
 ## Home Assistant Addon
 
-The add-on scaffold lives under `homeassistant/`. It now passes the correct store env var and explicit serve port. For remote access, configure `auth_token` so the server can bind beyond loopback safely.
+The add-on under `homeassistant/` is now structured as a standalone Home Assistant add-on package.
+
+- Dashboard access is through Home Assistant ingress on the add-on `Open Web UI` action
+- MCP access is separate on `4242/tcp`
+- Set `auth_token` if you want the MCP endpoint reachable outside the add-on container
+- Set `project_root` to a mounted path such as `/share` or `/config`
+
+See [homeassistant/README.md](homeassistant/README.md) for the settings review and dashboard/MCP connection model.
 
 ## Architecture Notes
 
