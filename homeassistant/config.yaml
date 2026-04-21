@@ -1,6 +1,6 @@
 name: "nebula-ctx"
 description: "Context engineering MCP server with ingress dashboard and HTTP MCP endpoint"
-version: "0.2.2"
+version: "0.2.3"
 slug: "nebula_ctx"
 url: "https://github.com/MarkBovee/nebula-ctx/tree/main/homeassistant"
 stage: "experimental"

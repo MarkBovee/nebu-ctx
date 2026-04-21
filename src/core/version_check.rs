@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const VERSION_URL: &str = "https://leanctx.com/version.txt";
+const VERSION_URL: &str = "https://github.com/MarkBovee/nebula-ctx/releases/latest/download/version.txt";
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CACHE_TTL_SECS: u64 = 24 * 60 * 60;
 
