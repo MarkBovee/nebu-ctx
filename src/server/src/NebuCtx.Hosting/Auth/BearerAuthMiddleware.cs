@@ -15,6 +15,8 @@ public sealed class BearerAuthMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly byte[]? _expectedTokenBytes;
+    private readonly bool _dashboardDisableAuth;
+    private readonly int _dashboardPort;
     private readonly ILogger<BearerAuthMiddleware> _logger;
 
     /// <summary>
@@ -29,6 +31,8 @@ public sealed class BearerAuthMiddleware
         _expectedTokenBytes = options.AuthToken is not null
             ? Encoding.UTF8.GetBytes(options.AuthToken)
             : null;
+        _dashboardDisableAuth = options.DashboardDisableAuth;
+        _dashboardPort = options.DashboardPort;
         _logger = logger;
     }
 
@@ -37,8 +41,8 @@ public sealed class BearerAuthMiddleware
     /// </summary>
     public async Task InvokeAsync(HttpContext context)
     {
-        // Health endpoint is always public
-        if (IsAuthExempt(context.Request.Path))
+        // Health is always public, and the add-on dashboard can opt out of auth on its own port.
+        if (IsAuthExempt(context))
         {
             await _next(context);
             return;
@@ -75,9 +79,10 @@ public sealed class BearerAuthMiddleware
     /// <summary>
     /// Checks whether the given path is exempt from auth.
     /// </summary>
-    private static bool IsAuthExempt(PathString path)
+    private bool IsAuthExempt(HttpContext context)
     {
-        return path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase);
+        return context.Request.Path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase)
+            || (_dashboardDisableAuth && context.Connection.LocalPort == _dashboardPort);
     }
 
     /// <summary>

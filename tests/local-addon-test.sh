@@ -115,7 +115,7 @@ wait_for_http "http://127.0.0.1:${HOST_MCP_PORT}/health" -H "Authorization: Bear
 
 printf '\n=== Validating dashboard routes ===\n'
 dashboard_html="$(curl -fsS "http://127.0.0.1:${HOST_DASHBOARD_PORT}/")"
-printf '%s' "$dashboard_html" | grep -Eqi '<html|<!doctype html'
+grep -Eqi '<html|<!doctype html' <<<"$dashboard_html"
 
 for path in \
     /api/version \
@@ -158,7 +158,7 @@ printf '%s' "$tools_json" | assert_json
 printf '%s' "$tools_json" | grep -q 'ctx_brain'
 
 store_body="$(cat <<EOF
-{"name":"ctx_brain","arguments":{"action":"store","brain_id":"default","content":"${SMOKE_MARKER}","memory_type":"semantic","importance":0.9}}
+{"name":"ctx_brain","arguments":{"action":"store","key":"${SMOKE_MARKER}","value":"${SMOKE_MARKER}"}}
 EOF
 )"
 
@@ -169,7 +169,7 @@ curl -fsS \
     "http://127.0.0.1:${HOST_MCP_PORT}/v1/tools/call" | assert_json
 
 recall_body="$(cat <<EOF
-{"name":"ctx_brain","arguments":{"action":"recall","brain_id":"default","query":"${SMOKE_MARKER}","limit":5}}
+{"name":"ctx_brain","arguments":{"action":"recall","query":"${SMOKE_MARKER}","limit":5}}
 EOF
 )"
 
