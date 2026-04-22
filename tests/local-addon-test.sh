@@ -1,146 +1,184 @@
-#!/bin/bash
-# Fast local test for nebu-ctx HA addon
-# Step 1: Build binary on host (incremental after first run)
-# Step 2: Package into container via thin Dockerfile
+#!/usr/bin/env bash
 set -euo pipefail
 
-PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CONTAINER_TOOL="${CONTAINER_TOOL:-podman}"
-IMAGE_NAME="nebu-ctx-addon-dev"
-DOCKERFILE="homeassistant/Dockerfile.dev"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=tests/lib/postgres_env.sh
+source "$PROJECT_ROOT/tests/lib/postgres_env.sh"
+
+load_repo_postgres_env "$PROJECT_ROOT"
+eval "$(parse_database_url_exports "$DATABASE_URL")"
+
+CONTAINER_TOOL="$(detect_container_tool)"
+IMAGE_NAME="${IMAGE_NAME:-nebu-ctx-addon-smoke:local}"
+ADDON_DOCKERFILE="${ADDON_DOCKERFILE:-homeassistant/Dockerfile.dev}"
+HOST_DASHBOARD_PORT="${HOST_DASHBOARD_PORT:-3333}"
+HOST_MCP_PORT="${HOST_MCP_PORT:-4242}"
+CONTAINER_NAME="${CONTAINER_NAME:-nebu-ctx-addon-smoke}"
 BUILD_ARGS=()
-NETWORK_NAME="nebu-ctx-addon-test-net"
-DB_CONTAINER_NAME="nebu-ctx-addon-db"
-DB_IMAGE="docker.io/library/postgres:16-alpine"
-DB_NAME="nebula_ctx"
-DB_USER="postgres"
-DB_PASSWORD="nebu_ctx_test"
+BUILD_CONTEXT="$PROJECT_ROOT"
+PROJECT_ROOT_PATH="${ADDON_PROJECT_ROOT:-/share}"
+SMOKE_MARKER="addon-smoke-$(date +%s)"
+TEST_DATA="$(mktemp -d)"
 
-# --- Step 1: Build on host ---
-echo "=== Building nebu-ctx binary (host) ==="
-cd "${PROJECT_ROOT}"
+cleanup() {
+    "$CONTAINER_TOOL" logs "$CONTAINER_NAME" 2>/dev/null || true
+    "$CONTAINER_TOOL" rm -f "$CONTAINER_NAME" 2>/dev/null || true
+    rm -rf "$TEST_DATA"
+}
 
-if command -v cargo >/dev/null 2>&1; then
-    CARGO_BUILD_JOBS=2 cargo build --release --features cloud-server --bin nebu-ctx
-elif [ -f target/release/nebu-ctx ]; then
-    echo "cargo not found in bash PATH, reusing existing target/release/nebu-ctx"
-else
-    echo "cargo not found in bash PATH and target/release/nebu-ctx is missing"
-    echo "falling back to containerized source build via homeassistant/Dockerfile.source"
-    DOCKERFILE="homeassistant/Dockerfile.source"
+trap cleanup EXIT
+
+wait_for_http() {
+    local url="$1"
+    shift
+
+    for _ in $(seq 1 90); do
+        if curl -fsS "$@" "$url" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 1
+    done
+
+    fail_msg "Timed out waiting for $url"
+}
+
+assert_json() {
+    python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null
+}
+
+printf 'Using database %s\n' "$(mask_database_url "$DATABASE_URL")"
+cd "$PROJECT_ROOT"
+
+if [ "$ADDON_DOCKERFILE" = "homeassistant/Dockerfile.dev" ]; then
+    if command -v cargo >/dev/null 2>&1; then
+        printf '=== Building local add-on binary ===\n'
+        CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}" cargo build --release --features cloud-server --bin nebu-ctx
+    elif [ ! -f "$PROJECT_ROOT/target/release/nebu-ctx" ]; then
+        printf 'cargo not found; falling back to %s\n' 'homeassistant/Dockerfile.source'
+        ADDON_DOCKERFILE="homeassistant/Dockerfile.source"
+        BUILD_ARGS+=(--build-arg BUILD_VERSION=local-smoke)
+    fi
+fi
+
+if [ "$ADDON_DOCKERFILE" = "homeassistant/Dockerfile.source" ]; then
     BUILD_ARGS+=(--build-arg BUILD_VERSION=local-smoke)
 fi
 
-if [ "${DOCKERFILE}" = "homeassistant/Dockerfile.dev" ] && [ ! -f target/release/nebu-ctx ]; then
-    echo "ERROR: Binary not found at target/release/nebu-ctx"
-    exit 1
+if [ "$ADDON_DOCKERFILE" = "homeassistant/Dockerfile" ]; then
+    BUILD_CONTEXT="$PROJECT_ROOT/homeassistant"
 fi
 
-# --- Step 2: Package into container ---
-echo ""
-echo "=== Packaging container (thin Dockerfile) ==="
-"${CONTAINER_TOOL}" build \
+printf '\n=== Building Home Assistant image (%s) ===\n' "$ADDON_DOCKERFILE"
+"$CONTAINER_TOOL" build \
     "${BUILD_ARGS[@]}" \
-    -t "${IMAGE_NAME}" \
-    -f "${DOCKERFILE}" \
-    "${PROJECT_ROOT}"
+    -t "$IMAGE_NAME" \
+    -f "$PROJECT_ROOT/$ADDON_DOCKERFILE" \
+    "$BUILD_CONTEXT"
 
-# --- Step 3: Run with mock HA data ---
-TEST_DATA="$(mktemp -d)"
-trap 'rm -rf "${TEST_DATA}"' EXIT
+mkdir -p "$TEST_DATA/share"
 
-cat > "${TEST_DATA}/options.json" <<'EOF'
+cat > "$TEST_DATA/options.json" <<EOF
 {
-    "postgres_host": "nebu-ctx-addon-db",
-    "postgres_port": 5432,
-    "postgres_database": "nebula_ctx",
-    "postgres_username": "postgres",
-    "postgres_password": "nebu_ctx_test",
-  "log_level": "debug",
-  "project_root": "/share"
+  "postgres_host": "${PG_HOST}",
+  "postgres_port": ${PG_PORT},
+  "postgres_database": "${PG_DATABASE}",
+  "postgres_username": "${PG_USER}",
+  "postgres_password": "${PG_PASSWORD}",
+  "log_level": "info",
+  "project_root": "${PROJECT_ROOT_PATH}"
 }
 EOF
 
-mkdir -p "${TEST_DATA}/share"
+printf '\n=== Starting Home Assistant add-on container ===\n'
+"$CONTAINER_TOOL" rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+"$CONTAINER_TOOL" run -d --rm \
+    --name "$CONTAINER_NAME" \
+    -p "$HOST_DASHBOARD_PORT:3333" \
+    -p "$HOST_MCP_PORT:4242" \
+    -v "$TEST_DATA:/data:rw" \
+    -v "$TEST_DATA/share:/share:rw" \
+    -v "$TEST_DATA/share:/config:rw" \
+    "$IMAGE_NAME" >/dev/null
 
-"${CONTAINER_TOOL}" network create "${NETWORK_NAME}" >/dev/null 2>&1 || true
-
-DB_CONTAINER_ID="$(${CONTAINER_TOOL} run -d --rm \
-        --name "${DB_CONTAINER_NAME}" \
-        --network "${NETWORK_NAME}" \
-        -e POSTGRES_DB="${DB_NAME}" \
-        -e POSTGRES_USER="${DB_USER}" \
-        -e POSTGRES_PASSWORD="${DB_PASSWORD}" \
-        "${DB_IMAGE}")"
-
-CONTAINER_ID="$("${CONTAINER_TOOL}" run -d --rm \
-    --name nebu-ctx-test \
-        --network "${NETWORK_NAME}" \
-    --memory "2g" \
-    -p 3333:3333 \
-    -p 4242:4242 \
-    -v "${TEST_DATA}:/data:rw" \
-    -v "${TEST_DATA}/share:/share:rw" \
-    "${IMAGE_NAME}")"
-
-cleanup_container() {
-    "${CONTAINER_TOOL}" logs "${CONTAINER_ID}" 2>/dev/null || true
-    "${CONTAINER_TOOL}" logs "${DB_CONTAINER_ID}" 2>/dev/null || true
-    "${CONTAINER_TOOL}" rm -f "${CONTAINER_ID}" 2>/dev/null || true
-    "${CONTAINER_TOOL}" rm -f "${DB_CONTAINER_ID}" 2>/dev/null || true
-    "${CONTAINER_TOOL}" network rm "${NETWORK_NAME}" 2>/dev/null || true
-}
-
-trap 'cleanup_container; rm -rf "${TEST_DATA}"' EXIT
-
-for _ in $(seq 1 60); do
-    if "${CONTAINER_TOOL}" exec "${DB_CONTAINER_NAME}" pg_isready -U "${DB_USER}" -d "${DB_NAME}" >/dev/null 2>&1; then
+for _ in $(seq 1 90); do
+    if [ -s "$TEST_DATA/auth_token" ]; then
         break
     fi
     sleep 1
 done
 
-for _ in $(seq 1 60); do
-    if [ -s "${TEST_DATA}/auth_token" ]; then
-        break
-    fi
-    sleep 1
+[ -s "$TEST_DATA/auth_token" ] || fail_msg "Auth token was not generated"
+TOKEN="$(tr -d '\r\n' < "$TEST_DATA/auth_token")"
+
+wait_for_http "http://127.0.0.1:${HOST_DASHBOARD_PORT}/"
+wait_for_http "http://127.0.0.1:${HOST_MCP_PORT}/health" -H "Authorization: Bearer ${TOKEN}"
+
+printf '\n=== Validating dashboard routes ===\n'
+dashboard_html="$(curl -fsS "http://127.0.0.1:${HOST_DASHBOARD_PORT}/")"
+printf '%s' "$dashboard_html" | grep -Eqi '<html|<!doctype html'
+
+for path in \
+    /api/version \
+    /api/stats \
+    /api/agents \
+    /api/buddy \
+    /api/session \
+    /api/pipeline-stats \
+    /api/context-ledger \
+    /api/intent \
+    '/api/search?q=ctx&limit=1'
+do
+    response="$(curl -fsS "http://127.0.0.1:${HOST_DASHBOARD_PORT}${path}")"
+    printf '%s' "$response" | assert_json
 done
 
-if [ ! -s "${TEST_DATA}/auth_token" ]; then
-    echo "ERROR: auth token was not generated"
-    exit 1
-fi
+auth_json="$(curl -fsS "http://127.0.0.1:${HOST_DASHBOARD_PORT}/api/auth-token")"
+printf '%s' "$auth_json" | assert_json
+python3 - "$TOKEN" <<'PY' <<<"$auth_json"
+import json
+import sys
 
-TOKEN="$(cat "${TEST_DATA}/auth_token")"
+expected = sys.argv[1]
+payload = json.load(sys.stdin)
+assert payload["token"] == expected, payload
+PY
 
-echo ""
-echo "Test data: ${TEST_DATA}"
-echo "Dashboard:  http://localhost:3333"
-echo "MCP:        http://localhost:4242"
-echo "Token:      ${TOKEN}"
-echo ""
+favicon_code="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${HOST_DASHBOARD_PORT}/favicon.ico")"
+[ "$favicon_code" = "204" ] || fail_msg "Expected /favicon.ico to return 204, got $favicon_code"
 
-for _ in $(seq 1 60); do
-    if curl -fsS http://127.0.0.1:3333/ >/dev/null \
-        && curl -fsS -H "Authorization: Bearer ${TOKEN}" http://127.0.0.1:4242/v1/tools >/dev/null; then
-        break
-    fi
-    sleep 1
-done
+printf '\n=== Validating MCP routes ===\n'
+unauthorized_code="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${HOST_MCP_PORT}/v1/tools")"
+[ "$unauthorized_code" = "401" ] || fail_msg "Expected unauthorized /v1/tools to return 401, got $unauthorized_code"
 
-curl -fsS http://127.0.0.1:3333/ >/dev/null
-curl -fsS -H "Authorization: Bearer ${TOKEN}" http://127.0.0.1:4242/health >/dev/null
-curl -fsS -H "Authorization: Bearer ${TOKEN}" http://127.0.0.1:4242/v1/tools >/dev/null
+manifest_json="$(curl -fsS -H "Authorization: Bearer ${TOKEN}" "http://127.0.0.1:${HOST_MCP_PORT}/v1/manifest")"
+printf '%s' "$manifest_json" | assert_json
 
-REQUEST_BODY='{"name":"ctx_brain","arguments":{"action":"status","brain_id":"default"}}'
-TOOL_RESULT="$(curl -fsS \
+tools_json="$(curl -fsS -H "Authorization: Bearer ${TOKEN}" "http://127.0.0.1:${HOST_MCP_PORT}/v1/tools")"
+printf '%s' "$tools_json" | assert_json
+printf '%s' "$tools_json" | grep -q 'ctx_brain'
+
+store_body="$(cat <<EOF
+{"name":"ctx_brain","arguments":{"action":"store","brain_id":"default","content":"${SMOKE_MARKER}","memory_type":"semantic","importance":0.9}}
+EOF
+)"
+
+curl -fsS \
     -H "Authorization: Bearer ${TOKEN}" \
-    -H "Content-Type: application/json" \
-    -d "${REQUEST_BODY}" \
-    http://127.0.0.1:4242/v1/tools/call)"
+    -H 'Content-Type: application/json' \
+    -d "$store_body" \
+    "http://127.0.0.1:${HOST_MCP_PORT}/v1/tools/call" | assert_json
 
-printf '%s' "${TOOL_RESULT}" | grep -Eq 'ctx_brain|default|status|content|structuredContent'
+recall_body="$(cat <<EOF
+{"name":"ctx_brain","arguments":{"action":"recall","brain_id":"default","query":"${SMOKE_MARKER}","limit":5}}
+EOF
+)"
 
-echo "Authenticated tool call: ${TOOL_RESULT}"
-echo "Full add-on flow validated successfully."
+recall_json="$(curl -fsS \
+    -H "Authorization: Bearer ${TOKEN}" \
+    -H 'Content-Type: application/json' \
+    -d "$recall_body" \
+    "http://127.0.0.1:${HOST_MCP_PORT}/v1/tools/call")"
+printf '%s' "$recall_json" | assert_json
+printf '%s' "$recall_json" | grep -q "$SMOKE_MARKER"
+
+printf '\nDashboard + MCP add-on smoke passed.\n'

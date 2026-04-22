@@ -1416,48 +1416,7 @@ fn cmd_contribute() {
 }
 
 fn cmd_cloud(args: &[String]) {
-    let action = args.first().map(|s| s.as_str()).unwrap_or("help");
-
-    match action {
-        "pull-models" => {
-            println!("Updating adaptive models...");
-            match cloud_client::pull_cloud_models() {
-                Ok(data) => {
-                    let count = data
-                        .get("models")
-                        .and_then(|v| v.as_array())
-                        .map(|a| a.len())
-                        .unwrap_or(0);
-
-                    if let Err(e) = cloud_client::save_cloud_models(&data) {
-                        eprintln!("Warning: Could not save models: {e}");
-                        return;
-                    }
-                    println!("{count} adaptive models updated.");
-                    if let Some(est) = data.get("improvement_estimate").and_then(|v| v.as_f64()) {
-                        println!("Estimated compression improvement: +{:.0}%", est * 100.0);
-                    }
-                }
-                Err(e) => {
-                    eprintln!("{e}");
-                    std::process::exit(1);
-                }
-            }
-        }
-        "status" => {
-            if cloud_client::is_logged_in() {
-                println!("Connected to LeanCTX Cloud.");
-            } else {
-                println!("Not connected to LeanCTX Cloud.");
-                println!("Get started: nebu-ctx login <email>");
-            }
-        }
-        _ => {
-            println!("Usage: nebu-ctx cloud <command>");
-            println!("  pull-models — Update adaptive compression models");
-            println!("  status      — Show cloud connection status");
-        }
-    }
+    cli::cloud::cmd_cloud(args);
 }
 
 fn cmd_gotchas(args: &[String]) {

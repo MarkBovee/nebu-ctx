@@ -87,7 +87,7 @@ podman build -t nebu-ctx-addon-local -f homeassistant/Dockerfile.dev .
 
 This is the build path used by `tests/pre_release_check.sh`.
 
-For a full local smoke test, run `tests/local-addon-test.sh`. It builds the local binary, starts PostgreSQL plus the add-on together, reads the generated token from `/data/auth_token`, and verifies both the dashboard and the MCP HTTP endpoint.
+For a full local smoke test, run `tests/local-addon-test.sh`. It loads PostgreSQL settings from the repo `.env`, starts the add-on, reads the generated token from `/data/auth_token`, and verifies both the dashboard and the MCP HTTP endpoint.
 
 ### Published add-on Dockerfile build
 
@@ -100,6 +100,12 @@ podman build -t nebu-ctx-addon -f homeassistant/Dockerfile homeassistant
 That build uses the version from `homeassistant/build.yaml` and downloads the matching GitHub release binary, so it validates the same fast-install path that Home Assistant uses.
 
 If you want to test local source changes before a release exists, use `homeassistant/Dockerfile.dev` or `homeassistant/Dockerfile.source` instead.
+
+The smoke test defaults to the local-source add-on image. To validate the published fast-install path directly, run:
+
+```bash
+ADDON_DOCKERFILE=homeassistant/Dockerfile bash tests/local-addon-test.sh
+```
 
 ## Operational notes
 

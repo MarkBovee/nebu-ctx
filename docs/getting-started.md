@@ -10,12 +10,12 @@ Pick one supported install path:
 
 ```bash
 # Install from GitHub with Cargo
-cargo install --git https://github.com/MarkBovee/nebu-ctx --bin nebu-ctx --features cloud-server
+cargo install --git https://github.com/MarkBovee/nebu-ctx --bin nebu-ctx
 
 # Or build from source
 git clone https://github.com/MarkBovee/nebu-ctx.git
 cd nebu-ctx
-cargo build --release --features cloud-server
+cargo build --release
 ```
 
 If you built from source, use `./target/release/nebu-ctx` or add that directory to your `PATH`.

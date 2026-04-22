@@ -367,67 +367,167 @@ mod tests {
     use super::*;
     use axum::body::Body;
     use axum::http::Request;
-    use rmcp::transport::{StreamableHttpServerConfig, StreamableHttpService};
     use serde_json::json;
     use tower::ServiceExt;
 
-    #[tokio::test]
-    async fn auth_token_blocks_requests_without_bearer_header() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let base =
-            LeanCtxServer::new_with_project_root(Some(dir.path().to_string_lossy().to_string()));
-        let service_factory = move || Ok(base.clone());
-        let cfg = StreamableHttpServerConfig::default()
-            .with_stateful_mode(false)
-            .with_json_response(true);
-
-        let mcp_http = StreamableHttpService::new(
-            service_factory,
-            Arc::new(
-                rmcp::transport::streamable_http_server::session::local::LocalSessionManager::default(),
-            ),
-            cfg,
-        );
-
+    fn test_app(dir: &tempfile::TempDir, token: Option<&str>) -> Router {
         let state = AppState {
-            token: Some("secret".to_string()),
-            concurrency: Arc::new(tokio::sync::Semaphore::new(4)),
+            token: token.map(ToString::to_string),
+            concurrency: Arc::new(tokio::sync::Semaphore::new(8)),
             rate: Arc::new(RateLimiter::new(50, 100)),
-            engine: Arc::new(ContextEngine::from_server(
-                LeanCtxServer::new_with_project_root(Some(
-                    dir.path().to_string_lossy().to_string(),
-                )),
-            )),
+            engine: Arc::new(ContextEngine::from_server(LeanCtxServer::new_with_project_root(
+                Some(dir.path().to_string_lossy().to_string()),
+            ))),
             timeout: Duration::from_millis(30_000),
         };
 
-        let app = Router::new()
-            .fallback_service(mcp_http)
+        Router::new()
+            .route("/health", get(health))
+            .route("/v1/manifest", get(v1_manifest))
+            .route("/v1/tools", get(v1_tools))
+            .route("/v1/tools/call", axum::routing::post(v1_tool_call))
+            .layer(middleware::from_fn_with_state(
+                state.clone(),
+                rate_limit_middleware,
+            ))
+            .layer(middleware::from_fn_with_state(
+                state.clone(),
+                concurrency_middleware,
+            ))
             .layer(middleware::from_fn_with_state(
                 state.clone(),
                 auth_middleware,
             ))
-            .with_state(state);
+            .with_state(state)
+    }
+
+    #[tokio::test]
+    async fn auth_token_blocks_requests_without_bearer_header() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let app = test_app(&dir, Some("secret"));
 
         let body = json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/list",
-            "params": {}
+            "name": "ctx_read",
+            "arguments": {
+                "path": dir.path().join("missing.txt").to_string_lossy().to_string(),
+                "mode": "full"
+            }
         })
         .to_string();
 
         let req = Request::builder()
             .method("POST")
-            .uri("/")
+            .uri("/v1/tools/call")
             .header("Host", "localhost")
-            .header("Accept", "application/json, text/event-stream")
             .header("Content-Type", "application/json")
             .body(Body::from(body))
             .expect("request");
 
         let resp = app.clone().oneshot(req).await.expect("resp");
         assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn health_is_public_even_with_auth_token() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let app = test_app(&dir, Some("secret"));
+
+        let req = Request::builder()
+            .method("GET")
+            .uri("/health")
+            .header("Host", "localhost")
+            .body(Body::empty())
+            .expect("request");
+
+        let resp = app.oneshot(req).await.expect("resp");
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn direct_v1_routes_work_with_bearer_token() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let file_path = dir.path().join("a.txt");
+        std::fs::write(&file_path, "hello\n").expect("write file");
+        let app = test_app(&dir, Some("secret"));
+
+        let unauthorized_req = Request::builder()
+            .method("GET")
+            .uri("/v1/tools")
+            .header("Host", "localhost")
+            .body(Body::empty())
+            .expect("unauthorized request");
+        let unauthorized_resp = app
+            .clone()
+            .oneshot(unauthorized_req)
+            .await
+            .expect("unauthorized resp");
+        assert_eq!(unauthorized_resp.status(), StatusCode::UNAUTHORIZED);
+
+        let manifest_req = Request::builder()
+            .method("GET")
+            .uri("/v1/manifest")
+            .header("Host", "localhost")
+            .header("Authorization", "Bearer secret")
+            .body(Body::empty())
+            .expect("manifest request");
+        let manifest_resp = app
+            .clone()
+            .oneshot(manifest_req)
+            .await
+            .expect("manifest resp");
+        assert_eq!(manifest_resp.status(), StatusCode::OK);
+        let manifest_bytes = axum::body::to_bytes(manifest_resp.into_body(), usize::MAX)
+            .await
+            .expect("manifest body");
+        let manifest_json: serde_json::Value =
+            serde_json::from_slice(&manifest_bytes).expect("manifest json");
+        assert!(manifest_json.get("tools").is_some());
+
+        let tools_req = Request::builder()
+            .method("GET")
+            .uri("/v1/tools?limit=5")
+            .header("Host", "localhost")
+            .header("Authorization", "Bearer secret")
+            .body(Body::empty())
+            .expect("tools request");
+        let tools_resp = app.clone().oneshot(tools_req).await.expect("tools resp");
+        assert_eq!(tools_resp.status(), StatusCode::OK);
+        let tools_bytes = axum::body::to_bytes(tools_resp.into_body(), usize::MAX)
+            .await
+            .expect("tools body");
+        let tools_json: serde_json::Value =
+            serde_json::from_slice(&tools_bytes).expect("tools json");
+        assert!(tools_json["tools"].is_array());
+        assert!(tools_json["total"].as_u64().unwrap_or(0) > 0);
+
+        let body = json!({
+            "name": "ctx_read",
+            "arguments": {
+                "path": file_path.to_string_lossy().to_string(),
+                "mode": "full"
+            }
+        })
+        .to_string();
+
+        let call_req = Request::builder()
+            .method("POST")
+            .uri("/v1/tools/call")
+            .header("Host", "localhost")
+            .header("Authorization", "Bearer secret")
+            .header("Content-Type", "application/json")
+            .body(Body::from(body))
+            .expect("call request");
+        let call_resp = app.clone().oneshot(call_req).await.expect("call resp");
+        assert_eq!(call_resp.status(), StatusCode::OK);
+        let call_bytes = axum::body::to_bytes(call_resp.into_body(), usize::MAX)
+            .await
+            .expect("call body");
+        let call_json: serde_json::Value =
+            serde_json::from_slice(&call_bytes).expect("call json");
+        let call_text = call_json["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap_or_default();
+        assert!(call_text.contains("hello"));
     }
 
     #[tokio::test]

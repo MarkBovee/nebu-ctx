@@ -7,7 +7,7 @@ ARG NEBULA_CTX_REPOSITORY=https://github.com/MarkBovee/nebu-ctx.git
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl libssl3 \
+    && apt-get install -y --no-install-recommends jq ca-certificates curl libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN case "${BUILD_ARCH}" in \

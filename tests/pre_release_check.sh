@@ -12,6 +12,7 @@ CONTAINER_TOOL="${CONTAINER_TOOL:-podman}"
 SKIP_IMAGE_BUILD="${SKIP_IMAGE_BUILD:-0}"
 MAIN_IMAGE_TAG="${MAIN_IMAGE_TAG:-nebu-ctx-precheck:local}"
 ADDON_IMAGE_TAG="${ADDON_IMAGE_TAG:-nebu-ctx-addon-precheck:local}"
+PUBLISHED_ADDON_IMAGE_TAG="${PUBLISHED_ADDON_IMAGE_TAG:-nebu-ctx-addon-published-precheck:local}"
 
 step() { printf "\n\033[1;34m=== %s ===\033[0m\n" "$1"; }
 ok()   { printf "  \033[32m✓\033[0m %s\n" "$1"; PASS=$((PASS+1)); }
@@ -31,10 +32,15 @@ run_check() {
 validate_files() {
     sh -n docker-entrypoint.sh
     sh -n homeassistant/run.sh
+    bash -n tests/local-addon-test.sh
+    bash -n tests/local-server-cli-test.sh
+    bash -n tests/lib/postgres_env.sh
     python3 -m json.tool repository.json >/dev/null
 }
 
 build_images() {
+    local build_arch
+
     if [ "$SKIP_IMAGE_BUILD" = "1" ]; then
         printf "Skipping image builds because SKIP_IMAGE_BUILD=1\n"
         return 0
@@ -45,10 +51,23 @@ build_images() {
         return 1
     fi
 
+    case "$(uname -m)" in
+        x86_64) build_arch="amd64" ;;
+        aarch64|arm64) build_arch="arm64" ;;
+        *) build_arch="amd64" ;;
+    esac
+
     "$CONTAINER_TOOL" build -t "$MAIN_IMAGE_TAG" -f Dockerfile .
 
     # The local add-on Dockerfile validates the current checkout rather than the published remote clone path.
     "$CONTAINER_TOOL" build -t "$ADDON_IMAGE_TAG" -f homeassistant/Dockerfile.dev .
+
+    # The published add-on Dockerfile validates the Home Assistant fast-install runtime path.
+    "$CONTAINER_TOOL" build \
+        --build-arg BUILD_ARCH="$build_arch" \
+        -t "$PUBLISHED_ADDON_IMAGE_TAG" \
+        -f homeassistant/Dockerfile \
+        homeassistant
 }
 
 run_check "cargo fmt --check" cargo fmt --check

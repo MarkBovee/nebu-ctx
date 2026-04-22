@@ -1018,6 +1018,42 @@ fn git_root_for(path: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::TempDir;
+
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn restore_env(name: &str, previous: Option<String>) {
+        match previous {
+            Some(value) => std::env::set_var(name, value),
+            None => std::env::remove_var(name),
+        }
+    }
+
+    fn with_dashboard_test_env<T>(f: impl FnOnce(&TempDir) -> T) -> T {
+        let _guard = ENV_LOCK.lock().expect("env lock");
+        let dir = tempfile::tempdir().expect("tempdir");
+        let token_file = dir.path().join("auth_token");
+        std::fs::write(&token_file, "nctx_test_token").expect("write token file");
+
+        let old_nebu_project = std::env::var("NEBU_CTX_DASHBOARD_PROJECT").ok();
+        let old_nebula_project = std::env::var("NEBULA_CTX_DASHBOARD_PROJECT").ok();
+        let old_nebu_token = std::env::var("NEBU_CTX_TOKEN_FILE").ok();
+        let old_nebula_token = std::env::var("NEBULA_CTX_TOKEN_FILE").ok();
+
+        std::env::set_var("NEBU_CTX_DASHBOARD_PROJECT", dir.path());
+        std::env::set_var("NEBULA_CTX_DASHBOARD_PROJECT", dir.path());
+        std::env::set_var("NEBU_CTX_TOKEN_FILE", &token_file);
+        std::env::set_var("NEBULA_CTX_TOKEN_FILE", &token_file);
+
+        let result = f(&dir);
+
+        restore_env("NEBU_CTX_DASHBOARD_PROJECT", old_nebu_project);
+        restore_env("NEBULA_CTX_DASHBOARD_PROJECT", old_nebula_project);
+        restore_env("NEBU_CTX_TOKEN_FILE", old_nebu_token);
+        restore_env("NEBULA_CTX_TOKEN_FILE", old_nebula_token);
+
+        result
+    }
 
     #[test]
     fn check_auth_with_valid_bearer() {
@@ -1080,5 +1116,68 @@ mod tests {
     fn normalize_dashboard_demo_path_preserves_unc_path() {
         let input = r"\\server\share\backend\list_tables.js";
         assert_eq!(normalize_dashboard_demo_path(input), input);
+    }
+
+    #[test]
+    fn route_response_core_json_routes_return_ok() {
+        with_dashboard_test_env(|_| {
+            let routes = [
+                ("/api/stats", ""),
+                ("/api/gain", ""),
+                ("/api/mcp", ""),
+                ("/api/agents", ""),
+                ("/api/buddy", ""),
+                ("/api/version", ""),
+                ("/api/pulse", ""),
+                ("/api/events", ""),
+                ("/api/feedback", ""),
+                ("/api/session", ""),
+                ("/api/search-index", ""),
+                ("/api/search", "q=ctx&limit=1"),
+                ("/api/pipeline-stats", ""),
+                ("/api/context-ledger", ""),
+                ("/api/intent", ""),
+                ("/api/auth-token", ""),
+            ];
+
+            for (path, query) in routes {
+                let (status, content_type, body) = route_response(path, query, &None, &None);
+                assert_eq!(status, "200 OK", "unexpected status for {path}");
+                assert_eq!(
+                    content_type, "application/json",
+                    "unexpected content type for {path}"
+                );
+                serde_json::from_str::<serde_json::Value>(&body)
+                    .unwrap_or_else(|_| panic!("invalid json for {path}: {body}"));
+            }
+        });
+    }
+
+    #[test]
+    fn route_response_injects_query_token_and_reads_auth_token_file() {
+        with_dashboard_test_env(|_| {
+            let (status, content_type, html) =
+                route_response("/", "", &Some("query_token".to_string()), &None);
+            assert_eq!(status, "200 OK");
+            assert_eq!(content_type, "text/html; charset=utf-8");
+            assert!(html.contains("window.__NEBULA_CTX_TOKEN__=\"query_token\""));
+
+            let (_, _, body) = route_response("/api/auth-token", "", &None, &None);
+            let payload: serde_json::Value = serde_json::from_str(&body).expect("auth token json");
+            assert_eq!(payload["token"], "nctx_test_token");
+        });
+    }
+
+    #[test]
+    fn route_response_static_paths_return_expected_status() {
+        let (status, content_type, body) = route_response("/favicon.ico", "", &None, &None);
+        assert_eq!(status, "204 No Content");
+        assert_eq!(content_type, "text/plain");
+        assert!(body.is_empty());
+
+        let (status, content_type, body) = route_response("/missing", "", &None, &None);
+        assert_eq!(status, "404 Not Found");
+        assert_eq!(content_type, "text/plain");
+        assert_eq!(body, "Not Found");
     }
 }

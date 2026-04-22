@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=tests/lib/postgres_env.sh
+source "$PROJECT_ROOT/tests/lib/postgres_env.sh"
+
+load_repo_postgres_env "$PROJECT_ROOT"
+eval "$(parse_database_url_exports "$DATABASE_URL")"
+
+CONTAINER_TOOL="$(detect_container_tool)"
+IMAGE_NAME="${IMAGE_NAME:-nebu-ctx-server-smoke:local}"
+SERVER_DOCKERFILE="${SERVER_DOCKERFILE:-Dockerfile.dev}"
+CONTAINER_NAME="${CONTAINER_NAME:-nebu-ctx-server-smoke}"
+HOST_HTTP_PORT="${HOST_HTTP_PORT:-4243}"
+SERVER_NETWORK_MODE="${SERVER_NETWORK_MODE:-}"
+CLI_ROOT="$(mktemp -d)"
+CLI_HOME="$(mktemp -d)"
+TOKEN="nctx_smoke_$(od -An -tx1 -N16 /dev/urandom | tr -d ' \n')"
+SMOKE_MARKER="server-smoke-$(date +%s)"
+BUILD_CONTEXT="$PROJECT_ROOT"
+
+cleanup() {
+    "$CONTAINER_TOOL" logs "$CONTAINER_NAME" 2>/dev/null || true
+    "$CONTAINER_TOOL" rm -f "$CONTAINER_NAME" 2>/dev/null || true
+    rm -rf "$CLI_ROOT" "$CLI_HOME"
+}
+
+trap cleanup EXIT
+
+wait_for_http() {
+    local url="$1"
+    shift
+
+    for _ in $(seq 1 90); do
+        if curl -fsS "$@" "$url" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 1
+    done
+
+    fail_msg "Timed out waiting for $url"
+}
+
+assert_json() {
+    python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null
+}
+
+if [ -z "$SERVER_NETWORK_MODE" ]; then
+    case "$(uname -s)" in
+        Linux) SERVER_NETWORK_MODE="host" ;;
+        *) SERVER_NETWORK_MODE="bridge" ;;
+    esac
+fi
+
+printf 'Using database %s\n' "$(mask_database_url "$DATABASE_URL")"
+
+if [ "$SERVER_DOCKERFILE" = "Dockerfile.dev" ]; then
+    if command -v cargo >/dev/null 2>&1; then
+        printf '=== Building local server binary ===\n'
+        CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}" cargo build --release --features cloud-server --bin nebu-ctx
+    elif [ ! -f "$PROJECT_ROOT/target/release/nebu-ctx" ]; then
+        fail_msg "cargo is required for $SERVER_DOCKERFILE when target/release/nebu-ctx is missing"
+    fi
+fi
+
+printf '=== Building standalone server image (%s) ===\n' "$SERVER_DOCKERFILE"
+"$CONTAINER_TOOL" build -t "$IMAGE_NAME" -f "$PROJECT_ROOT/$SERVER_DOCKERFILE" "$BUILD_CONTEXT"
+
+printf '\n=== Starting standalone server container ===\n'
+"$CONTAINER_TOOL" rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+if [ "$SERVER_NETWORK_MODE" = "host" ]; then
+    "$CONTAINER_TOOL" run -d --rm \
+        --name "$CONTAINER_NAME" \
+        --network host \
+        -e NEBULA_STORE=postgres \
+        -e DATABASE_URL="$DATABASE_URL" \
+        -e NEBULA_CTX_HTTP_PORT="$HOST_HTTP_PORT" \
+        -e NEBULA_CTX_HTTP_TOKEN="$TOKEN" \
+        "$IMAGE_NAME" >/dev/null
+else
+    "$CONTAINER_TOOL" run -d --rm \
+        --name "$CONTAINER_NAME" \
+        -p "$HOST_HTTP_PORT:4242" \
+        -e NEBULA_STORE=postgres \
+        -e DATABASE_URL="$DATABASE_URL" \
+        -e NEBULA_CTX_HTTP_TOKEN="$TOKEN" \
+        "$IMAGE_NAME" >/dev/null
+fi
+
+wait_for_http "http://127.0.0.1:${HOST_HTTP_PORT}/health" -H "Authorization: Bearer ${TOKEN}"
+
+printf '\n=== Validating server endpoints ===\n'
+health_code="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${HOST_HTTP_PORT}/health")"
+[ "$health_code" = "200" ] || fail_msg "Expected /health to return 200, got $health_code"
+
+unauthorized_code="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${HOST_HTTP_PORT}/v1/tools")"
+[ "$unauthorized_code" = "401" ] || fail_msg "Expected unauthorized /v1/tools to return 401, got $unauthorized_code"
+
+manifest_json="$(curl -fsS -H "Authorization: Bearer ${TOKEN}" "http://127.0.0.1:${HOST_HTTP_PORT}/v1/manifest")"
+printf '%s' "$manifest_json" | assert_json
+
+tools_json="$(curl -fsS -H "Authorization: Bearer ${TOKEN}" "http://127.0.0.1:${HOST_HTTP_PORT}/v1/tools")"
+printf '%s' "$tools_json" | assert_json
+printf '%s' "$tools_json" | grep -q 'ctx_brain'
+
+store_body="$(cat <<EOF
+{"name":"ctx_brain","arguments":{"action":"store","brain_id":"default","content":"${SMOKE_MARKER}","memory_type":"semantic","importance":0.9}}
+EOF
+)"
+
+store_json="$(curl -fsS \
+    -H "Authorization: Bearer ${TOKEN}" \
+    -H 'Content-Type: application/json' \
+    -d "$store_body" \
+    "http://127.0.0.1:${HOST_HTTP_PORT}/v1/tools/call")"
+printf '%s' "$store_json" | assert_json
+
+recall_body="$(cat <<EOF
+{"name":"ctx_brain","arguments":{"action":"recall","brain_id":"default","query":"${SMOKE_MARKER}","limit":5}}
+EOF
+)"
+
+recall_json="$(curl -fsS \
+    -H "Authorization: Bearer ${TOKEN}" \
+    -H 'Content-Type: application/json' \
+    -d "$recall_body" \
+    "http://127.0.0.1:${HOST_HTTP_PORT}/v1/tools/call")"
+printf '%s' "$recall_json" | assert_json
+printf '%s' "$recall_json" | grep -q "$SMOKE_MARKER"
+
+printf '\n=== Installing CLI and connecting to the server ===\n'
+cargo install --path "$PROJECT_ROOT" --bin nebu-ctx --locked --root "$CLI_ROOT" --force
+
+HOME="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx" cloud connect --url "http://127.0.0.1:${HOST_HTTP_PORT}" --token "$TOKEN"
+
+status_output="$(HOME="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx" cloud status)"
+printf '%s\n' "$status_output"
+printf '%s' "$status_output" | grep -q 'Server connection: healthy'
+
+python3 - "$CLI_HOME/.nebu-ctx/cloud/server_connection.json" "http://127.0.0.1:${HOST_HTTP_PORT}" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+expected = sys.argv[2]
+data = json.loads(path.read_text())
+assert data["endpoint"] == expected, data
+assert data["token"], data
+PY
+
+printf '\nStandalone server container + CLI smoke passed.\n'

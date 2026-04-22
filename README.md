@@ -43,12 +43,12 @@ Pick one supported path:
 
 ```bash
 # Install directly from GitHub into Cargo's bin directory
-cargo install --git https://github.com/MarkBovee/nebu-ctx --bin nebu-ctx --features cloud-server
+cargo install --git https://github.com/MarkBovee/nebu-ctx --bin nebu-ctx
 
 # Or build from a local clone
 git clone https://github.com/MarkBovee/nebu-ctx.git
 cd nebu-ctx
-cargo build --release --features cloud-server
+cargo build --release
 ```
 
 ### 2. Run setup
@@ -105,6 +105,15 @@ Use this when you want Home Assistant ingress for the dashboard plus an optional
 5. Expose `4242/tcp` only if you want external MCP HTTP access.
 
 The published add-on downloads the prebuilt release binary instead of compiling Rust during install. The MCP token is generated on first boot and shown in the dashboard.
+
+Local production-shaped smoke checks:
+
+```bash
+bash tests/local-server-cli-test.sh
+bash tests/local-addon-test.sh
+```
+
+Both scripts load PostgreSQL settings from `.env`. The standalone server smoke defaults to a fast local-source container image; set `SERVER_DOCKERFILE=Dockerfile` if you want it to exercise the full production Dockerfile. Set `ADDON_DOCKERFILE=homeassistant/Dockerfile` when you want the add-on smoke test to exercise the published fast-install image instead of the local-source image.
 
 ## Quick start
 
