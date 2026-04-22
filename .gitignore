@@ -20,6 +20,8 @@ Thumbs.db
 # Build
 dist/
 build/
+src/server/**/bin/
+src/server/**/obj/
 
 # Database
 *.db
