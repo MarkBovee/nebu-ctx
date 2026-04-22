@@ -1,0 +1,12 @@
+E:\Projects\Personal\nebu-ctx\src\server\src\NebuCtx.Contracts\bin\Debug\net10.0\NebuCtx.Contracts.deps.json
+E:\Projects\Personal\nebu-ctx\src\server\src\NebuCtx.Contracts\bin\Debug\net10.0\NebuCtx.Contracts.dll
+E:\Projects\Personal\nebu-ctx\src\server\src\NebuCtx.Contracts\bin\Debug\net10.0\NebuCtx.Contracts.pdb
+E:\Projects\Personal\nebu-ctx\src\server\src\NebuCtx.Contracts\obj\Debug\net10.0\NebuCtx.Contracts.GeneratedMSBuildEditorConfig.editorconfig
+E:\Projects\Personal\nebu-ctx\src\server\src\NebuCtx.Contracts\obj\Debug\net10.0\NebuCtx.Contracts.AssemblyInfoInputs.cache
+E:\Projects\Personal\nebu-ctx\src\server\src\NebuCtx.Contracts\obj\Debug\net10.0\NebuCtx.Contracts.AssemblyInfo.cs
+E:\Projects\Personal\nebu-ctx\src\server\src\NebuCtx.Contracts\obj\Debug\net10.0\NebuCtx.Contracts.csproj.CoreCompileInputs.cache
+E:\Projects\Personal\nebu-ctx\src\server\src\NebuCtx.Contracts\obj\Debug\net10.0\NebuCtx.Contracts.sourcelink.json
+E:\Projects\Personal\nebu-ctx\src\server\src\NebuCtx.Contracts\obj\Debug\net10.0\NebuCtx.Contracts.dll
+E:\Projects\Personal\nebu-ctx\src\server\src\NebuCtx.Contracts\obj\Debug\net10.0\refint\NebuCtx.Contracts.dll
+E:\Projects\Personal\nebu-ctx\src\server\src\NebuCtx.Contracts\obj\Debug\net10.0\NebuCtx.Contracts.pdb
+E:\Projects\Personal\nebu-ctx\src\server\src\NebuCtx.Contracts\obj\Debug\net10.0\ref\NebuCtx.Contracts.dll

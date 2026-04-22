@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>NebuCtx.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NebuCtx.Contracts\NebuCtx.Contracts.csproj" />
+    <ProjectReference Include="..\NebuCtx.Storage\NebuCtx.Storage.csproj" />
+    <ProjectReference Include="..\NebuCtx.Projects\NebuCtx.Projects.csproj" />
+  </ItemGroup>
+
+</Project>

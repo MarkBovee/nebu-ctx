@@ -20,6 +20,32 @@ TOKEN="nctx_smoke_$(od -An -tx1 -N16 /dev/urandom | tr -d ' \n')"
 SMOKE_MARKER="server-smoke-$(date +%s)"
 BUILD_CONTEXT="$PROJECT_ROOT"
 
+detect_cargo() {
+    if command -v cargo >/dev/null 2>&1; then
+        command -v cargo
+        return 0
+    fi
+
+    if [ -n "${USERPROFILE:-}" ] && [ -x "${USERPROFILE}\\.cargo\\bin\\cargo.exe" ]; then
+        printf '%s\n' "${USERPROFILE}\\.cargo\\bin\\cargo.exe"
+        return 0
+    fi
+
+    if [ -n "${HOME:-}" ] && [ -x "${HOME}/.cargo/bin/cargo" ]; then
+        printf '%s\n' "${HOME}/.cargo/bin/cargo"
+        return 0
+    fi
+
+    if [ -n "${HOME:-}" ] && [ -x "/mnt/c/Users/$(basename "$HOME")/.cargo/bin/cargo.exe" ]; then
+        printf '%s\n' "/mnt/c/Users/$(basename "$HOME")/.cargo/bin/cargo.exe"
+        return 0
+    fi
+
+    fail_msg "cargo is required to install the new Rust client for the smoke test"
+}
+
+CARGO_BIN="$(detect_cargo)"
+
 cleanup() {
     "$CONTAINER_TOOL" logs "$CONTAINER_NAME" 2>/dev/null || true
     "$CONTAINER_TOOL" rm -f "$CONTAINER_NAME" 2>/dev/null || true
@@ -56,11 +82,11 @@ fi
 printf 'Using database %s\n' "$(mask_database_url "$DATABASE_URL")"
 
 if [ "$SERVER_DOCKERFILE" = "Dockerfile.dev" ]; then
-    if command -v cargo >/dev/null 2>&1; then
-        printf '=== Building local server binary ===\n'
-        CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}" cargo build --release --features cloud-server --bin nebu-ctx
-    elif [ ! -f "$PROJECT_ROOT/target/release/nebu-ctx" ]; then
-        fail_msg "cargo is required for $SERVER_DOCKERFILE when target/release/nebu-ctx is missing"
+    if command -v dotnet >/dev/null 2>&1; then
+        printf '=== Publishing local .NET host ===\n'
+        dotnet publish "$PROJECT_ROOT/src/server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj" -c Release >/dev/null
+    elif [ ! -f "$PROJECT_ROOT/src/server/src/NebuCtx.Server.Host/bin/Release/net10.0/publish/NebuCtx.Server.Host.dll" ]; then
+        fail_msg "dotnet is required for $SERVER_DOCKERFILE when the published .NET host output is missing"
     fi
 fi
 
@@ -105,7 +131,7 @@ printf '%s' "$tools_json" | assert_json
 printf '%s' "$tools_json" | grep -q 'ctx_brain'
 
 store_body="$(cat <<EOF
-{"name":"ctx_brain","arguments":{"action":"store","brain_id":"default","content":"${SMOKE_MARKER}","memory_type":"semantic","importance":0.9}}
+{"name":"ctx_brain","arguments":{"action":"store","key":"${SMOKE_MARKER}","value":"${SMOKE_MARKER}"}}
 EOF
 )"
 
@@ -117,7 +143,7 @@ store_json="$(curl -fsS \
 printf '%s' "$store_json" | assert_json
 
 recall_body="$(cat <<EOF
-{"name":"ctx_brain","arguments":{"action":"recall","brain_id":"default","query":"${SMOKE_MARKER}","limit":5}}
+{"name":"ctx_brain","arguments":{"action":"recall","query":"${SMOKE_MARKER}","limit":5}}
 EOF
 )"
 
@@ -130,13 +156,23 @@ printf '%s' "$recall_json" | assert_json
 printf '%s' "$recall_json" | grep -q "$SMOKE_MARKER"
 
 printf '\n=== Installing CLI and connecting to the server ===\n'
-cargo install --path "$PROJECT_ROOT" --bin nebu-ctx --locked --root "$CLI_ROOT" --force
+"$CARGO_BIN" install --path "$PROJECT_ROOT/src/client" --bin nebu-ctx-client --root "$CLI_ROOT" --force
 
-HOME="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx" cloud connect --url "http://127.0.0.1:${HOST_HTTP_PORT}" --token "$TOKEN"
+HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx-client" server connect --endpoint "http://127.0.0.1:${HOST_HTTP_PORT}" --token "$TOKEN" >/dev/null
 
-status_output="$(HOME="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx" cloud status)"
+status_output="$(HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx-client" server status)"
 printf '%s\n' "$status_output"
-printf '%s' "$status_output" | grep -q 'Server connection: healthy'
+printf '%s' "$status_output" | grep -q '"saved": true'
+
+bind_output="$(HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx-client" server bind)"
+printf '%s' "$bind_output" | grep -q '"project"'
+
+client_store_json="$(HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx-client" ctx_brain action=store key="$SMOKE_MARKER" value="$SMOKE_MARKER")"
+printf '%s' "$client_store_json" | assert_json
+
+client_recall_json="$(HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx-client" ctx_brain action=recall query="$SMOKE_MARKER")"
+printf '%s' "$client_recall_json" | assert_json
+printf '%s' "$client_recall_json" | grep -q "$SMOKE_MARKER"
 
 python3 - "$CLI_HOME/.nebu-ctx/cloud/server_connection.json" "http://127.0.0.1:${HOST_HTTP_PORT}" <<'PY'
 import json
@@ -150,4 +186,4 @@ assert data["endpoint"] == expected, data
 assert data["token"], data
 PY
 
-printf '\nStandalone server container + CLI smoke passed.\n'
+printf '\nStandalone server container + new Rust client smoke passed.\n'

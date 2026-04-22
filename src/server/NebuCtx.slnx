@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NebuCtx.Application/NebuCtx.Application.csproj" />
+    <Project Path="src/NebuCtx.Contracts/NebuCtx.Contracts.csproj" />
+    <Project Path="src/NebuCtx.Dashboard/NebuCtx.Dashboard.csproj" />
+    <Project Path="src/NebuCtx.Hosting/NebuCtx.Hosting.csproj" />
+    <Project Path="src/NebuCtx.Projects/NebuCtx.Projects.csproj" />
+    <Project Path="src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj" />
+    <Project Path="src/NebuCtx.Storage/NebuCtx.Storage.csproj" />
+    <Project Path="src/NebuCtx.Tools/NebuCtx.Tools.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NebuCtx.ContractTests/NebuCtx.ContractTests.csproj" />
+    <Project Path="tests/NebuCtx.IntegrationTests/NebuCtx.IntegrationTests.csproj" />
+    <Project Path="tests/NebuCtx.ProjectIdentityTests/NebuCtx.ProjectIdentityTests.csproj" />
+  </Folder>
+</Solution>

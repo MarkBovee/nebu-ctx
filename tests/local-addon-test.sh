@@ -50,10 +50,10 @@ printf 'Using database %s\n' "$(mask_database_url "$DATABASE_URL")"
 cd "$PROJECT_ROOT"
 
 if [ "$ADDON_DOCKERFILE" = "homeassistant/Dockerfile.dev" ]; then
-    if command -v cargo >/dev/null 2>&1; then
-        printf '=== Building local add-on binary ===\n'
-        CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}" cargo build --release --features cloud-server --bin nebu-ctx
-    elif [ ! -f "$PROJECT_ROOT/target/release/nebu-ctx" ]; then
+    if command -v dotnet >/dev/null 2>&1; then
+        printf '=== Publishing local .NET host ===\n'
+        dotnet publish "$PROJECT_ROOT/src/server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj" -c Release
+    elif [ ! -f "$PROJECT_ROOT/src/server/src/NebuCtx.Server.Host/bin/Release/net10.0/publish/NebuCtx.Server.Host.dll" ]; then
         printf 'cargo not found; falling back to %s\n' 'homeassistant/Dockerfile.source'
         ADDON_DOCKERFILE="homeassistant/Dockerfile.source"
         BUILD_ARGS+=(--build-arg BUILD_VERSION=local-smoke)

@@ -1,27 +1,28 @@
-FROM docker.io/library/rust:1.95-slim-bookworm AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src/nebu-ctx
 
 ARG BUILD_VERSION=local
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates \
+    && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 COPY . /src/nebu-ctx
 
-ENV CARGO_BUILD_JOBS=2
-
 RUN printf '%s\n' "${BUILD_VERSION}" > /tmp/nebula_ctx_commit.txt \
-    && cargo build --release --features cloud-server --bin nebu-ctx
+    && dotnet publish src/server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj \
+        -c Release \
+        -o /app/publish \
+        /p:UseAppHost=false
 
-FROM docker.io/library/debian:bookworm-slim AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends jq ca-certificates curl libssl3 \
+    && apt-get install -y --no-install-recommends jq ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=build /src/nebu-ctx/target/release/nebu-ctx /usr/local/bin/nebu-ctx
+COPY --from=build /app/publish /app
 COPY --from=build /tmp/nebula_ctx_commit.txt /app/nebula_ctx_commit.txt
 COPY homeassistant/run.sh /run.sh
 

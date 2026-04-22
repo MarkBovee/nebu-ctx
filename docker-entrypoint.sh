@@ -2,11 +2,12 @@
 set -eu
 
 if [ "$#" -gt 0 ]; then
-    exec nebu-ctx "$@"
+    exec "$@"
 fi
 
-host="${NEBULA_CTX_HTTP_HOST:-}"
+host="${NEBULA_CTX_HOST:-}"
 port="${NEBULA_CTX_HTTP_PORT:-4242}"
+dashboard_port="${NEBULA_CTX_PORT:-3333}"
 token="${NEBULA_CTX_HTTP_TOKEN:-}"
 
 if [ -z "$host" ]; then
@@ -17,10 +18,8 @@ if [ -z "$host" ]; then
     fi
 fi
 
-set -- nebu-ctx serve --host "$host" --port "$port"
+export NEBULA_CTX_HOST="$host"
+export NEBULA_CTX_HTTP_PORT="$port"
+export NEBULA_CTX_PORT="$dashboard_port"
 
-if [ -n "$token" ]; then
-    set -- "$@" --auth-token "$token"
-fi
-
-exec "$@"
+exec dotnet /app/NebuCtx.Server.Host.dll

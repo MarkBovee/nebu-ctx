@@ -1,0 +1,169 @@
+namespace NebuCtx.Server.Host.Projects;
+
+using NebuCtx.Application;
+using NebuCtx.Contracts.Mcp;
+using NebuCtx.Contracts.Projects;
+using NebuCtx.Projects;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+
+/// <summary>
+/// Maps project identity and binding endpoints for the server-aware client flow.
+/// </summary>
+public static class ProjectApiEndpoints
+{
+    /// <summary>
+    /// Maps project identity endpoints used by the Rust client.
+    /// </summary>
+    /// <param name="app">Endpoint route builder.</param>
+    /// <returns>The same route builder for chaining.</returns>
+    public static IEndpointRouteBuilder MapProjectApi(this IEndpointRouteBuilder app)
+    {
+        app.MapPost("/v1/projects/resolve", ResolveProjectAsync);
+        app.MapGet("/v1/projects", ListProjectsAsync);
+        app.MapGet("/v1/projects/{projectId}/bindings", GetBindingsAsync);
+        app.MapPost("/v1/projects/{projectId}/bindings", BindWorkspaceAsync);
+
+        return app;
+    }
+
+    /// <summary>
+    /// Resolves a canonical project from a repository fingerprint and optionally persists a workspace binding.
+    /// </summary>
+    private static async Task<IResult> ResolveProjectAsync(ProjectResolutionRequest request, ProjectRegistry projectRegistry, CancellationToken cancellationToken)
+    {
+        var suggestedSlug = ResolveSuggestedSlug(request.SuggestedSlug, request.Fingerprint);
+        var project = await projectRegistry.ResolveOrCreateAsync(request.Fingerprint, suggestedSlug, cancellationToken);
+        if (project is null)
+        {
+            return Results.Conflict(new ToolCallErrorResponse { Error = "Project fingerprint is ambiguous. Explicit binding is required." });
+        }
+
+        var workspaceBound = false;
+        if (request.WorkspaceBinding is not null)
+        {
+            await projectRegistry.BindWorkspaceAsync(CloneBinding(request.WorkspaceBinding, project.ProjectId), cancellationToken);
+            workspaceBound = true;
+        }
+
+        return Results.Ok(new ProjectResolutionResponse
+        {
+            Project = project,
+            WorkspaceBound = workspaceBound,
+        });
+    }
+
+    /// <summary>
+    /// Lists registered projects.
+    /// </summary>
+    private static async Task<IResult> ListProjectsAsync(ProjectRegistry projectRegistry, CancellationToken cancellationToken)
+    {
+        var projects = await projectRegistry.ListAsync(cancellationToken);
+        return Results.Ok(projects);
+    }
+
+    /// <summary>
+    /// Lists workspace bindings for a single project.
+    /// </summary>
+    private static async Task<IResult> GetBindingsAsync(string projectId, ProjectRegistry projectRegistry, CancellationToken cancellationToken)
+    {
+        var bindings = await projectRegistry.GetBindingsAsync(projectId, cancellationToken);
+        return Results.Ok(bindings);
+    }
+
+    /// <summary>
+    /// Persists or updates a workspace binding for a resolved project.
+    /// </summary>
+    private static async Task<IResult> BindWorkspaceAsync(string projectId, WorkspaceBinding request, ProjectRegistry projectRegistry, CancellationToken cancellationToken)
+    {
+        await projectRegistry.BindWorkspaceAsync(CloneBinding(request, projectId), cancellationToken);
+        return Results.Ok();
+    }
+
+    /// <summary>
+    /// Resolves a tool execution context from an MCP tool call request.
+    /// </summary>
+    /// <param name="request">Incoming tool call request.</param>
+    /// <param name="projectRegistry">Project registry service.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Resolved tool execution context for the call.</returns>
+    public static async Task<ToolExecutionContext> ResolveToolExecutionContextAsync(ToolCallRequest request, ProjectRegistry projectRegistry, CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(request.ProjectId))
+        {
+            if (request.WorkspaceBinding is not null)
+            {
+                await projectRegistry.BindWorkspaceAsync(CloneBinding(request.WorkspaceBinding, request.ProjectId), cancellationToken);
+            }
+
+            return CreateToolExecutionContext(request.ProjectId, request.WorkspaceBinding);
+        }
+
+        if (request.RepositoryFingerprint is null)
+        {
+            return CreateToolExecutionContext("default", request.WorkspaceBinding);
+        }
+
+        var suggestedSlug = ResolveSuggestedSlug(request.ProjectSlug, request.RepositoryFingerprint);
+        var project = await projectRegistry.ResolveOrCreateAsync(request.RepositoryFingerprint, suggestedSlug, cancellationToken);
+        if (project is null)
+        {
+            throw new InvalidOperationException("Project fingerprint is ambiguous. Resolve the project explicitly before calling tools.");
+        }
+
+        if (request.WorkspaceBinding is not null)
+        {
+            await projectRegistry.BindWorkspaceAsync(CloneBinding(request.WorkspaceBinding, project.ProjectId), cancellationToken);
+        }
+
+        return CreateToolExecutionContext(project.ProjectId, request.WorkspaceBinding);
+    }
+
+    /// <summary>
+    /// Clones a client workspace binding and forces the resolved project identifier.
+    /// </summary>
+    private static WorkspaceBinding CloneBinding(WorkspaceBinding source, string projectId)
+    {
+        return new WorkspaceBinding
+        {
+            ProjectId = projectId,
+            LocalRoot = source.LocalRoot,
+            Branch = source.Branch,
+            LastCommit = source.LastCommit,
+            ClientLabel = source.ClientLabel,
+            LastSync = source.LastSync ?? DateTimeOffset.UtcNow,
+        };
+    }
+
+    /// <summary>
+    /// Creates a tool execution context from resolved project and workspace metadata.
+    /// </summary>
+    private static ToolExecutionContext CreateToolExecutionContext(string projectId, WorkspaceBinding? workspaceBinding)
+    {
+        return new ToolExecutionContext
+        {
+            ProjectId = projectId,
+            Cwd = workspaceBinding?.LocalRoot,
+            ProjectRoot = workspaceBinding?.LocalRoot,
+        };
+    }
+
+    /// <summary>
+    /// Picks the slug used for project creation when the client did not provide one explicitly.
+    /// </summary>
+    private static string ResolveSuggestedSlug(string? suggestedSlug, RepositoryFingerprint fingerprint)
+    {
+        if (!string.IsNullOrWhiteSpace(suggestedSlug))
+        {
+            return suggestedSlug;
+        }
+
+        if (!string.IsNullOrWhiteSpace(fingerprint.RepoName))
+        {
+            return fingerprint.RepoName;
+        }
+
+        return "project";
+    }
+}

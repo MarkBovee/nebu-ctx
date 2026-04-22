@@ -1,0 +1,10 @@
+{
+  "NebuCtx.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "E:\\Projects\\Personal\\nebu-ctx\\src\\server\\src\\NebuCtx.Application",
+  "NebuCtx.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "E:\\Projects\\Personal\\nebu-ctx\\src\\server\\src\\NebuCtx.Contracts",
+  "NebuCtx.Dashboard, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "E:\\Projects\\Personal\\nebu-ctx\\src\\server\\src\\NebuCtx.Dashboard",
+  "NebuCtx.Hosting, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "E:\\Projects\\Personal\\nebu-ctx\\src\\server\\src\\NebuCtx.Hosting",
+  "NebuCtx.Projects, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "E:\\Projects\\Personal\\nebu-ctx\\src\\server\\src\\NebuCtx.Projects",
+  "NebuCtx.Server.Host, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "E:\\Projects\\Personal\\nebu-ctx\\src\\server\\src\\NebuCtx.Server.Host",
+  "NebuCtx.Storage, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "E:\\Projects\\Personal\\nebu-ctx\\src\\server\\src\\NebuCtx.Storage",
+  "NebuCtx.Tools, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "E:\\Projects\\Personal\\nebu-ctx\\src\\server\\src\\NebuCtx.Tools"
+}

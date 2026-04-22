@@ -10,26 +10,30 @@ keywords = ["mcp", "llm", "tokens", "compression", "ai"]
 categories = ["command-line-utilities", "development-tools"]
 exclude = ["examples/", "tests/"]
 
+[workspace]
+members = ["src/client"]
+resolver = "2"
+
 [lib]
 name = "nebula_ctx"
-path = "src/lib.rs"
+path = "src-rust/lib.rs"
 
 [[bin]]
 name = "nebula-ctx"
-path = "src/main.rs"
+path = "src-rust/main.rs"
 
 [[bin]]
 name = "nebu-ctx"
-path = "src/main.rs"
+path = "src-rust/main.rs"
 
 [[bin]]
 name = "nebula-ctx-cloud-api"
-path = "src/cloud_server_main.rs"
+path = "src-rust/cloud_server_main.rs"
 required-features = ["cloud-server"]
 
 [[bin]]
 name = "nebu-ctx-cloud-api"
-path = "src/cloud_server_main.rs"
+path = "src-rust/cloud_server_main.rs"
 required-features = ["cloud-server"]
 
 [features]

@@ -1,11 +1,11 @@
-FROM docker.io/library/ubuntu:noble
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends jq ca-certificates curl libssl3 \
+    && apt-get install -y --no-install-recommends jq ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY target/release/nebu-ctx /usr/local/bin/nebu-ctx
+COPY src/server/src/NebuCtx.Server.Host/bin/Release/net10.0/publish/ /app/
 COPY homeassistant/run.sh /run.sh
 
 RUN sed -i 's/\r$//' /run.sh \

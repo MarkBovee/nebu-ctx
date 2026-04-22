@@ -1,0 +1,26 @@
+[package]
+name = "nebu-ctx-client"
+version = "0.2.6"
+edition = "2021"
+description = "Thin Rust client for the .NET nebu-ctx MCP and dashboard server."
+license = "Apache-2.0"
+repository = "https://github.com/MarkBovee/nebu-ctx"
+
+[[bin]]
+name = "nebu-ctx-client"
+path = "src/main.rs"
+
+[lib]
+name = "nebu_ctx_client"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1"
+dirs = "5"
+rpassword = "7.4.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ureq = { version = "3.3.0", default-features = false }
+
+[dev-dependencies]
+tempfile = "3.27.0"

@@ -1,32 +1,36 @@
-FROM docker.io/library/debian:bookworm-slim AS runtime
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
 ARG BUILD_ARCH=amd64
 ARG NEBULA_CTX_VERSION=latest
 ARG NEBULA_CTX_REPOSITORY=https://github.com/MarkBovee/nebu-ctx.git
 
+WORKDIR /src
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone "${NEBULA_CTX_REPOSITORY}" nebu-ctx
+
+WORKDIR /src/nebu-ctx
+
+RUN if [ "${NEBULA_CTX_VERSION}" != "latest" ]; then git checkout "${NEBULA_CTX_VERSION}"; fi \
+    && printf '%s\n' "${NEBULA_CTX_VERSION}" > /tmp/nebula_ctx_commit.txt \
+    && dotnet publish src/server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj \
+        -c Release \
+        -o /app/publish \
+        /p:UseAppHost=false
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends jq ca-certificates curl libssl3 \
+    && apt-get install -y --no-install-recommends jq ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
-RUN case "${BUILD_ARCH}" in \
-        amd64) RELEASE_ARCH="amd64" ;; \
-        aarch64|arm64) RELEASE_ARCH="arm64" ;; \
-        *) echo "Unsupported BUILD_ARCH: ${BUILD_ARCH}" >&2; exit 1 ;; \
-    esac \
-    && if [ "${NEBULA_CTX_VERSION}" = "latest" ]; then \
-        DOWNLOAD_URL="https://github.com/MarkBovee/nebu-ctx/releases/latest/download/nebu-ctx-${RELEASE_ARCH}"; \
-        VERSION_LABEL="latest"; \
-    else \
-        DOWNLOAD_URL="https://github.com/MarkBovee/nebu-ctx/releases/download/${NEBULA_CTX_VERSION}/nebu-ctx-${RELEASE_ARCH}"; \
-        VERSION_LABEL="${NEBULA_CTX_VERSION}"; \
-    fi \
-    && test -n "${DOWNLOAD_URL}" \
-    && curl -fsSL "${DOWNLOAD_URL}" -o /usr/local/bin/nebu-ctx \
-    && chmod +x /usr/local/bin/nebu-ctx \
-    && /usr/local/bin/nebu-ctx --help >/dev/null \
-    && printf '%s\n' "${VERSION_LABEL}" > /app/nebula_ctx_commit.txt
+COPY --from=build /app/publish /app
+COPY --from=build /tmp/nebula_ctx_commit.txt /app/nebula_ctx_commit.txt
 
 COPY run.sh /run.sh
 
