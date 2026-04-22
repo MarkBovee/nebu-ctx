@@ -1,8 +1,16 @@
 # nebu-ctx .NET 10 Server Migration Plan
 
 > Updated: 2026-04-22
-> Status: Draft for review
+> Status: In progress, Phase 5 of 6
 > Goal: replace the Rust-based deployed server, dashboard, and container/add-on runtime with a .NET 10 implementation that becomes the canonical project system for nebu-ctx. The first release is an MVP migration of current behavior, not an optimization pass.
+
+## Current Delivery Phase
+
+- Phase: 5 of 6
+- Overall progress: about 93%
+- Completed in the current hybrid track: project-aware thin client, server project binding, local file tools, local symbol tools, hybrid manifest/tool listing, focused validation, compact metadata sync envelope, server-side metadata persistence, telemetry-backed dashboard stats/live endpoints, multi-user session aggregation keyed by client label, and derived operator payloads for agents, buddy, gotchas, learning, intent, and compression demo
+- In progress now: the final end-to-end container plus thin-client validation pass for the .NET server runtime
+- Remaining before this track is complete: run the full CLI-to-server runtime validation in container/add-on form and close any parity gaps that only show up in packaged deployment
 
 ## Understanding Summary
 

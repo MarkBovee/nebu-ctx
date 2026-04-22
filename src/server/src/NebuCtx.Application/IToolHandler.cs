@@ -53,4 +53,9 @@ public sealed class ToolExecutionContext
     /// Project root path from the client, if provided (execution context only).
     /// </summary>
     public string? ProjectRoot { get; init; }
+
+    /// <summary>
+    /// Actor label for the calling client or user when available.
+    /// </summary>
+    public string? ActorLabel { get; init; }
 }

@@ -17,6 +17,8 @@ path = "src/lib.rs"
 [dependencies]
 anyhow = "1"
 dirs = "5"
+ignore = "0.4"
+regex = "1"
 rpassword = "7.4.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

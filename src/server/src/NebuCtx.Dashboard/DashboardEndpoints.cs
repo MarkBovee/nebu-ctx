@@ -38,20 +38,13 @@ public static class DashboardEndpoints
         }));
 
         // Stats endpoint — placeholder returning empty stats for MVP
-        app.MapGet("/api/stats", async (ToolRegistry toolRegistry, ProjectRegistry projectRegistry, CancellationToken cancellationToken) =>
+        app.MapGet("/api/stats", async (ToolRegistry toolRegistry, ProjectRegistry projectRegistry, TelemetryStore telemetryStore, CancellationToken cancellationToken) =>
         {
             var projects = await projectRegistry.ListAsync(cancellationToken);
-            return Results.Ok(DashboardPayloadFactory.BuildStatsPayload(toolRegistry, projects));
+            return Results.Ok(DashboardPayloadFactory.BuildStatsPayload(toolRegistry, projects, telemetryStore));
         });
 
-        // Session endpoint — placeholder returning minimal session for MVP
-        app.MapGet("/api/session", () => Results.Ok(new SessionResponse
-        {
-            Id = "server",
-            Version = 1,
-            StartedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow,
-        }));
+        app.MapGet("/api/session", (TelemetryStore telemetryStore) => Results.Ok(DashboardPayloadFactory.BuildSessionPayload(telemetryStore)));
 
         // Auth token endpoint — reads from env/token file
         app.MapGet("/api/auth-token", () =>
@@ -70,29 +63,37 @@ public static class DashboardEndpoints
 
         // Placeholder endpoints that return empty arrays/objects for MVP
         // These preserve the dashboard API surface without full implementation yet
-        app.MapGet("/api/gain", (ToolRegistry toolRegistry) => Results.Ok(DashboardPayloadFactory.BuildGainPayload(toolRegistry)));
-        app.MapGet("/api/mcp", () => Results.Ok(DashboardPayloadFactory.BuildMcpPayload()));
-        app.MapGet("/api/agents", () => Results.Ok(DashboardPayloadFactory.BuildAgentsPayload()));
+        app.MapGet("/api/gain", (TelemetryStore telemetryStore) => Results.Ok(DashboardPayloadFactory.BuildGainPayload(telemetryStore)));
+        app.MapGet("/api/mcp", (TelemetryStore telemetryStore) => Results.Ok(DashboardPayloadFactory.BuildMcpPayload(telemetryStore)));
+        app.MapGet("/api/agents", async (ProjectRegistry projectRegistry, TelemetryStore telemetryStore, CancellationToken cancellationToken) =>
+        {
+            var projects = await projectRegistry.ListAsync(cancellationToken);
+            return Results.Ok(DashboardPayloadFactory.BuildAgentsPayload(telemetryStore, projects));
+        });
         app.MapGet("/api/knowledge", async (ProjectRegistry projectRegistry, CancellationToken cancellationToken) =>
         {
             var projects = await projectRegistry.ListAsync(cancellationToken);
-            return Results.Ok(new
-            {
-                items = projects.Select(project => new
-                {
-                    category = "project",
-                    key = project.ProjectId,
-                    value = project.Slug,
-                }).ToArray(),
-            });
+            return Results.Ok(DashboardPayloadFactory.BuildKnowledgePayload(projects));
         });
-        app.MapGet("/api/gotchas", () => Results.Ok(DashboardPayloadFactory.BuildGotchasPayload()));
-        app.MapGet("/api/buddy", () => Results.Ok(new { state = (object?)null }));
+        app.MapGet("/api/gotchas", (TelemetryStore telemetryStore) => Results.Ok(DashboardPayloadFactory.BuildGotchasPayload(telemetryStore)));
+        app.MapGet("/api/buddy", async (ProjectRegistry projectRegistry, TelemetryStore telemetryStore, CancellationToken cancellationToken) =>
+        {
+            var projects = await projectRegistry.ListAsync(cancellationToken);
+            return Results.Ok(DashboardPayloadFactory.BuildBuddyPayload(telemetryStore, projects));
+        });
         app.MapGet("/api/heatmap", () => Results.Ok(new { files = Array.Empty<object>() }));
-        app.MapGet("/api/events", () => Results.Ok(Array.Empty<object>()));
-        app.MapGet("/api/graph", () => Results.Ok(new { nodes = Array.Empty<object>(), edges = Array.Empty<object>() }));
+        app.MapGet("/api/events", (TelemetryStore telemetryStore) => Results.Ok(DashboardPayloadFactory.BuildEventsPayload(telemetryStore)));
+        app.MapGet("/api/graph", async (ProjectRegistry projectRegistry, CancellationToken cancellationToken) =>
+        {
+            var projects = await projectRegistry.ListAsync(cancellationToken);
+            return Results.Ok(DashboardPayloadFactory.BuildGraphPayload(projects));
+        });
         app.MapGet("/api/call-graph", (ToolRegistry toolRegistry) => Results.Ok(DashboardPayloadFactory.BuildCallGraphPayload(toolRegistry)));
-        app.MapGet("/api/feedback", () => Results.Ok(DashboardPayloadFactory.BuildFeedbackPayload()));
+        app.MapGet("/api/feedback", async (ProjectRegistry projectRegistry, TelemetryStore telemetryStore, CancellationToken cancellationToken) =>
+        {
+            var projects = await projectRegistry.ListAsync(cancellationToken);
+            return Results.Ok(DashboardPayloadFactory.BuildFeedbackPayload(telemetryStore, projects));
+        });
         app.MapGet("/api/symbols", (string? q, string? kind, ToolRegistry toolRegistry) =>
         {
             var symbols = DashboardPayloadFactory.BuildSymbolsPayload(toolRegistry).AsEnumerable();
@@ -106,10 +107,18 @@ public static class DashboardEndpoints
         app.MapGet("/api/routes", () => Results.Ok(DashboardPayloadFactory.BuildRoutesPayload()));
         app.MapGet("/api/search-index", (ToolRegistry toolRegistry) => Results.Ok(DashboardPayloadFactory.BuildSearchIndexPayload(toolRegistry)));
         app.MapGet("/api/search", (string? q, int? limit, ToolRegistry toolRegistry) => Results.Ok(DashboardPayloadFactory.BuildSearchPayload(q, limit, toolRegistry)));
-        app.MapGet("/api/compression-demo", (string? path, string? task) => Results.Ok(new { modes = Array.Empty<object>() }));
-        app.MapGet("/api/pipeline-stats", () => Results.Ok(DashboardPayloadFactory.BuildPipelineStatsPayload()));
-        app.MapGet("/api/context-ledger", () => Results.Ok(DashboardPayloadFactory.BuildContextLedgerPayload()));
-        app.MapGet("/api/intent", () => Results.Ok(DashboardPayloadFactory.BuildIntentPayload()));
+        app.MapGet("/api/compression-demo", async (string? path, string? task, ToolRegistry toolRegistry, ProjectRegistry projectRegistry, CancellationToken cancellationToken) =>
+        {
+            var projects = await projectRegistry.ListAsync(cancellationToken);
+            return Results.Ok(DashboardPayloadFactory.BuildCompressionDemoPayload(path, task, toolRegistry, projects));
+        });
+        app.MapGet("/api/pipeline-stats", (TelemetryStore telemetryStore) => Results.Ok(DashboardPayloadFactory.BuildPipelineStatsPayload(telemetryStore)));
+        app.MapGet("/api/context-ledger", (TelemetryStore telemetryStore) => Results.Ok(DashboardPayloadFactory.BuildContextLedgerPayload(telemetryStore)));
+        app.MapGet("/api/intent", async (ProjectRegistry projectRegistry, TelemetryStore telemetryStore, CancellationToken cancellationToken) =>
+        {
+            var projects = await projectRegistry.ListAsync(cancellationToken);
+            return Results.Ok(DashboardPayloadFactory.BuildIntentPayload(telemetryStore, projects));
+        });
 
         // Favicon — 204 No Content
         app.MapGet("/favicon.ico", () => Results.NoContent());

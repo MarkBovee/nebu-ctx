@@ -1906,6 +1906,8 @@ version = "0.2.6"
 dependencies = [
  "anyhow",
  "dirs",
+ "ignore",
+ "regex",
  "rpassword",
  "serde",
  "serde_json",

@@ -37,6 +37,12 @@ public sealed class ProjectRecord
     /// </summary>
     [JsonPropertyName("updated_at")]
     public DateTimeOffset UpdatedAt { get; set; }
+
+    /// <summary>
+    /// Most recent compact project metadata snapshot sent by a client.
+    /// </summary>
+    [JsonPropertyName("project_metadata")]
+    public ProjectMetadataEnvelope? ProjectMetadata { get; set; }
 }
 
 /// <summary>

@@ -41,6 +41,7 @@ pub struct ProjectResolutionRequest {
     pub fingerprint: RepositoryFingerprint,
     pub suggested_slug: Option<String>,
     pub workspace_binding: Option<WorkspaceBinding>,
+    pub project_metadata: Option<ProjectMetadataEnvelope>,
 }
 
 /// Canonical project information returned by the server.
@@ -85,6 +86,7 @@ pub struct ToolCallRequest {
     pub project_slug: Option<String>,
     pub repository_fingerprint: Option<RepositoryFingerprint>,
     pub workspace_binding: Option<WorkspaceBinding>,
+    pub project_metadata: Option<ProjectMetadataEnvelope>,
 }
 
 /// Generic tool call response from the server.
@@ -100,10 +102,38 @@ pub struct ServerConnection {
     pub token: String,
 }
 
-/// Repository-derived context attached to most client requests.
+/// Compact metadata envelope that can be synced to the server without sending raw files.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectMetadataEnvelope {
+    pub schema_version: u32,
+    pub summary: ProjectMetadataSummary,
+}
+
+/// Compact project summary used by future hybrid graph and search flows.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectMetadataSummary {
+    pub total_file_count: u64,
+    pub source_file_count: u64,
+    pub markers: Vec<String>,
+    pub languages: Vec<ProjectLanguageStat>,
+}
+
+/// Per-language source counts inside the compact project summary.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectLanguageStat {
+    pub language: String,
+    pub file_count: u64,
+}
+
+/// Project-derived context attached to most client requests.
 #[derive(Debug, Clone)]
-pub struct RepositoryContext {
-    pub suggested_slug: String,
+pub struct ProjectContext {
+    pub project_slug: String,
+    pub project_root: String,
     pub fingerprint: RepositoryFingerprint,
     pub workspace_binding: WorkspaceBinding,
+    pub project_metadata: Option<ProjectMetadataEnvelope>,
 }
+
+/// Backwards-compatible alias while the client transitions to project-first naming.
+pub type RepositoryContext = ProjectContext;

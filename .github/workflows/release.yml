@@ -11,7 +11,8 @@ on:
 
 env:
   CARGO_BUILD_JOBS: 2
-  BINARY_NAME: nebu-ctx
+  CLIENT_MANIFEST_PATH: src/client/Cargo.toml
+  CLIENT_BINARY_NAME: nebu-ctx-client
 
 jobs:
   build:
@@ -47,17 +48,17 @@ jobs:
 
       - name: Build (native in Bookworm)
         if: matrix.container != ''
-        run: cargo build --release --features cloud-server --bin nebu-ctx
+        run: cargo build --release --manifest-path ${{ env.CLIENT_MANIFEST_PATH }} --bin ${{ env.CLIENT_BINARY_NAME }}
 
       - name: Build (cross for arm64)
         if: matrix.container == ''
-        run: cross build --release --features cloud-server --bin nebu-ctx --target ${{ matrix.target }}
+        run: cross build --release --manifest-path ${{ env.CLIENT_MANIFEST_PATH }} --bin ${{ env.CLIENT_BINARY_NAME }} --target ${{ matrix.target }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: nebu-ctx-${{ matrix.arch }}
-          path: ${{ matrix.container != '' && 'target/release/nebu-ctx' || format('target/{0}/release/nebu-ctx', matrix.target) }}
+          path: ${{ matrix.container != '' && format('src/client/target/release/{0}', env.CLIENT_BINARY_NAME) || format('src/client/target/{0}/release/{1}', matrix.target, env.CLIENT_BINARY_NAME) }}
 
   release:
     needs: build
@@ -87,8 +88,8 @@ jobs:
 
       - name: Rename binaries with arch suffix
         run: |
-          mv artifacts/nebu-ctx-amd64/nebu-ctx artifacts/nebu-ctx-amd64/nebu-ctx-amd64
-          mv artifacts/nebu-ctx-arm64/nebu-ctx artifacts/nebu-ctx-arm64/nebu-ctx-arm64
+          mv artifacts/nebu-ctx-amd64/${{ env.CLIENT_BINARY_NAME }} artifacts/nebu-ctx-amd64/nebu-ctx-amd64
+          mv artifacts/nebu-ctx-arm64/${{ env.CLIENT_BINARY_NAME }} artifacts/nebu-ctx-arm64/nebu-ctx-arm64
 
       - name: Create release
         uses: softprops/action-gh-release@v2
@@ -98,7 +99,9 @@ jobs:
             artifacts/nebu-ctx-amd64/nebu-ctx-amd64
             artifacts/nebu-ctx-arm64/nebu-ctx-arm64
           body: |
-            Pre-built binaries for nebu-ctx ${{ steps.version.outputs.tag }}
+            Pre-built thin client binaries for nebu-ctx ${{ steps.version.outputs.tag }}
+
+            These binaries connect to the .NET nebu-ctx server and dashboard runtime.
 
             | Arch | Binary |
             |------|--------|

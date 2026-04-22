@@ -29,18 +29,24 @@ public sealed class ProjectRegistry
     /// </summary>
     /// <param name="fingerprint">Repository fingerprint from the client.</param>
     /// <param name="suggestedSlug">Suggested human-readable slug for new project creation.</param>
+    /// <param name="projectMetadata">Optional compact project metadata snapshot from the client.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The resolved project record, or null if ambiguous.</returns>
-    public async Task<ProjectRecord?> ResolveOrCreateAsync(RepositoryFingerprint fingerprint, string suggestedSlug, CancellationToken cancellationToken = default)
+    public async Task<ProjectRecord?> ResolveOrCreateAsync(RepositoryFingerprint fingerprint, string suggestedSlug, ProjectMetadataEnvelope? projectMetadata = null, CancellationToken cancellationToken = default)
     {
-        // Try fingerprint match first
         var existing = await _projectStore.FindByFingerprintAsync(fingerprint, cancellationToken);
         if (existing is not null)
         {
+            if (projectMetadata is not null)
+            {
+                existing.ProjectMetadata = projectMetadata;
+                existing.UpdatedAt = DateTimeOffset.UtcNow;
+                await _projectStore.UpdateProjectAsync(existing, cancellationToken);
+            }
+
             return existing;
         }
 
-        // No match — create new project
         var projectId = GenerateProjectId();
         var now = DateTimeOffset.UtcNow;
 
@@ -51,6 +57,7 @@ public sealed class ProjectRegistry
             Fingerprint = fingerprint,
             CreatedAt = now,
             UpdatedAt = now,
+            ProjectMetadata = projectMetadata,
         };
 
         await _projectStore.CreateProjectAsync(project, cancellationToken);
@@ -76,6 +83,30 @@ public sealed class ProjectRegistry
     public Task<IReadOnlyList<ProjectRecord>> ListAsync(CancellationToken cancellationToken = default)
     {
         return _projectStore.ListProjectsAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Persists the latest compact project metadata snapshot for an existing project.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="projectMetadata">Compact project metadata snapshot.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task SyncProjectMetadataAsync(string projectId, ProjectMetadataEnvelope? projectMetadata, CancellationToken cancellationToken = default)
+    {
+        if (projectMetadata is null)
+        {
+            return;
+        }
+
+        var project = await _projectStore.GetProjectAsync(projectId, cancellationToken);
+        if (project is null)
+        {
+            return;
+        }
+
+        project.ProjectMetadata = projectMetadata;
+        project.UpdatedAt = DateTimeOffset.UtcNow;
+        await _projectStore.UpdateProjectAsync(project, cancellationToken);
     }
 
     /// <summary>

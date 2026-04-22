@@ -4,13 +4,15 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=tests/lib/postgres_env.sh
 source "$PROJECT_ROOT/tests/lib/postgres_env.sh"
+# shellcheck source=tests/lib/dotnet_dist.sh
+source "$PROJECT_ROOT/tests/lib/dotnet_dist.sh"
 
 load_repo_postgres_env "$PROJECT_ROOT"
 eval "$(parse_database_url_exports "$DATABASE_URL")"
 
 CONTAINER_TOOL="$(detect_container_tool)"
 IMAGE_NAME="${IMAGE_NAME:-nebu-ctx-server-smoke:local}"
-SERVER_DOCKERFILE="${SERVER_DOCKERFILE:-Dockerfile.dev}"
+SERVER_DOCKERFILE="${SERVER_DOCKERFILE:-Dockerfile}"
 CONTAINER_NAME="${CONTAINER_NAME:-nebu-ctx-server-smoke}"
 HOST_HTTP_PORT="${HOST_HTTP_PORT:-4243}"
 SERVER_NETWORK_MODE="${SERVER_NETWORK_MODE:-}"
@@ -81,13 +83,8 @@ fi
 
 printf 'Using database %s\n' "$(mask_database_url "$DATABASE_URL")"
 
-if [ "$SERVER_DOCKERFILE" = "Dockerfile.dev" ]; then
-    if command -v dotnet >/dev/null 2>&1; then
-        printf '=== Publishing local .NET host ===\n'
-        dotnet publish "$PROJECT_ROOT/src/server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj" -c Release >/dev/null
-    elif [ ! -f "$PROJECT_ROOT/src/server/src/NebuCtx.Server.Host/bin/Release/net10.0/publish/NebuCtx.Server.Host.dll" ]; then
-        fail_msg "dotnet is required for $SERVER_DOCKERFILE when the published .NET host output is missing"
-    fi
+if [ "$SERVER_DOCKERFILE" = "Dockerfile" ]; then
+    publish_dotnet_server_dist "$PROJECT_ROOT"
 fi
 
 printf '=== Building standalone server image (%s) ===\n' "$SERVER_DOCKERFILE"

@@ -50,40 +50,15 @@ export NEBU_CTX_TOKEN_FILE="$AUTH_TOKEN_FILE"
 export NEBULA_CTX_TOKEN_FILE="$AUTH_TOKEN_FILE"
 
 if [ -n "$LOG_LEVEL" ] && [ "$LOG_LEVEL" != "null" ]; then
-    export RUST_LOG="$LOG_LEVEL"
+    case "$LOG_LEVEL" in
+        debug) DOTNET_LOG_LEVEL="Debug" ;;
+        info) DOTNET_LOG_LEVEL="Information" ;;
+        warn) DOTNET_LOG_LEVEL="Warning" ;;
+        error) DOTNET_LOG_LEVEL="Error" ;;
+        *) DOTNET_LOG_LEVEL="Information" ;;
+    esac
+    export Logging__LogLevel__Default="$DOTNET_LOG_LEVEL"
 fi
-
-run_dotnet_host() {
-    export NEBULA_CTX_HOST="0.0.0.0"
-    export NEBULA_CTX_HTTP_PORT="4242"
-    export NEBULA_CTX_PORT="3333"
-    export NEBULA_CTX_HTTP_TOKEN="$AUTH_TOKEN"
-
-    log "Starting .NET host with dashboard on 0.0.0.0:3333 and MCP on 0.0.0.0:4242"
-    exec dotnet /app/NebuCtx.Server.Host.dll
-}
-
-run_legacy_rust_host() {
-    log "Falling back to legacy Rust runtime"
-    nebu-ctx dashboard --host=0.0.0.0 --port=3333 &
-    DASHBOARD_PID="$!"
-    nebu-ctx serve --host 0.0.0.0 --port 4242 --project-root "$PROJECT_ROOT" --auth-token "$AUTH_TOKEN" &
-    MCP_PID="$!"
-
-    trap 'kill "$DASHBOARD_PID" 2>/dev/null || true; kill "$MCP_PID" 2>/dev/null || true' INT TERM EXIT
-
-    while :; do
-        if ! kill -0 "$DASHBOARD_PID" 2>/dev/null; then
-            wait "$DASHBOARD_PID"
-            exit 1
-        fi
-        if ! kill -0 "$MCP_PID" 2>/dev/null; then
-            wait "$MCP_PID"
-            exit 1
-        fi
-        sleep 2
-    done
-}
 
 log "Initializing nebu-ctx add-on"
 log "Project root: $PROJECT_ROOT"
@@ -95,8 +70,17 @@ if [ -f "/app/nebula_ctx_commit.txt" ]; then
     log "Image source commit: $(cat /app/nebula_ctx_commit.txt)"
 fi
 
-if [ -f "/app/NebuCtx.Server.Host.dll" ]; then
-    run_dotnet_host
+if [ ! -f "/app/NebuCtx.Server.Host.dll" ]; then
+    log "Missing /app/NebuCtx.Server.Host.dll"
+    exit 1
 fi
 
-run_legacy_rust_host
+export NEBULA_CTX_HOST="0.0.0.0"
+export NEBULA_CTX_HTTP_PORT="4242"
+export NEBULA_CTX_PORT="3333"
+export NEBULA_CTX_HTTP_TOKEN="$AUTH_TOKEN"
+export ASPNETCORE_ENVIRONMENT="Production"
+export DOTNET_EnableDiagnostics="0"
+
+log "Starting .NET host with dashboard on 0.0.0.0:3333 and MCP on 0.0.0.0:4242"
+exec dotnet /app/NebuCtx.Server.Host.dll

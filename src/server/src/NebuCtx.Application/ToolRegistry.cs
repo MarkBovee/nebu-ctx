@@ -13,16 +13,19 @@ public sealed class ToolRegistry
 {
     private readonly FrozenDictionary<string, IToolHandler> _handlers;
     private readonly ILogger<ToolRegistry> _logger;
+    private readonly TelemetryStore _telemetryStore;
 
     /// <summary>
     /// Initializes the tool registry with all registered handlers.
     /// </summary>
     /// <param name="handlers">Enumerable of all tool handler instances.</param>
     /// <param name="logger">Logger for tool dispatch events.</param>
-    public ToolRegistry(IEnumerable<IToolHandler> handlers, ILogger<ToolRegistry> logger)
+    /// <param name="telemetryStore">Telemetry store for dashboard statistics.</param>
+    public ToolRegistry(IEnumerable<IToolHandler> handlers, ILogger<ToolRegistry> logger, TelemetryStore telemetryStore)
     {
         _handlers = handlers.ToFrozenDictionary(h => h.Name, h => h, StringComparer.OrdinalIgnoreCase);
         _logger = logger;
+        _telemetryStore = telemetryStore;
     }
 
     /// <summary>
@@ -42,8 +45,10 @@ public sealed class ToolRegistry
             throw new KeyNotFoundException($"Tool '{toolName}' is not registered.");
         }
 
-        _logger.LogInformation("Executing tool {ToolName} for project {ProjectId}", toolName, context.ProjectId);
-        return await handler.ExecuteAsync(arguments, context, cancellationToken);
+        _logger.LogInformation("Executing tool {ToolName} for project {ProjectId} by {ActorLabel}", toolName, context.ProjectId, context.ActorLabel ?? "anonymous");
+        var result = await handler.ExecuteAsync(arguments, context, cancellationToken);
+        _telemetryStore.RecordToolCall(toolName, arguments, result, context);
+        return result;
     }
 
     /// <summary>

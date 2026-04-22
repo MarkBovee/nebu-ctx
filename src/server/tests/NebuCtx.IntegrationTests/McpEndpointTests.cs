@@ -42,6 +42,7 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.NotNull(manifest);
         Assert.Equal("nebu-ctx", manifest.Name);
         Assert.NotEmpty(manifest.Tools);
+        Assert.Contains(manifest.Tools, tool => tool.Name == "ctx_routes");
     }
 
     /// <summary>
@@ -73,6 +74,26 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
 
         var result = await response.Content.ReadFromJsonAsync<ToolCallResponse>();
         Assert.NotNull(result?.Result);
+    }
+
+    /// <summary>
+    /// Tool call with ctx_routes returns known routes and respects path filtering.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_Routes_ReturnsKnownRoutes()
+    {
+        var request = new ToolCallRequest
+        {
+            Name = "ctx_routes",
+            Arguments = new Dictionary<string, object?> { ["path"] = "/api" },
+        };
+
+        var response = await _client.PostAsJsonAsync("/v1/tools/call", request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("/api/routes", payload, StringComparison.Ordinal);
+        Assert.DoesNotContain("/v1/projects", payload, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -115,6 +136,17 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
                 Branch = "main",
                 ClientLabel = "integration-test",
             },
+            ProjectMetadata = new ProjectMetadataEnvelope
+            {
+                SchemaVersion = 1,
+                Summary = new ProjectMetadataSummary
+                {
+                    TotalFileCount = 12,
+                    SourceFileCount = 7,
+                    Markers = [".git", "Cargo.toml"],
+                    Languages = [new ProjectLanguageStat { Language = "rust", FileCount = 7 }],
+                },
+            },
         };
 
         var response = await _client.PostAsJsonAsync("/v1/projects/resolve", request);
@@ -125,6 +157,8 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal("nebu-ctx", payload.Project.Slug);
         Assert.StartsWith("proj_", payload.Project.ProjectId, StringComparison.Ordinal);
         Assert.True(payload.WorkspaceBound);
+        Assert.NotNull(payload.Project.ProjectMetadata);
+        Assert.Equal(7, payload.Project.ProjectMetadata!.Summary.SourceFileCount);
     }
 
     /// <summary>
@@ -242,6 +276,278 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         var payload = await response.Content.ReadAsStringAsync();
         Assert.Contains("doc_count", payload, StringComparison.Ordinal);
         Assert.Contains("top_chunks_by_token_count", payload, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Dashboard graph endpoint returns known source files for graph- and compression-driven views.
+    /// </summary>
+    [Fact]
+    public async Task DashboardGraph_ReturnsKnownFiles()
+    {
+        await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "nebu-ctx",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/MarkBovee/nebu-ctx.git",
+                Host = "github.com",
+                Owner = "MarkBovee",
+                RepoName = "nebu-ctx",
+                DefaultBranch = "main",
+            },
+            ProjectMetadata = new ProjectMetadataEnvelope
+            {
+                SchemaVersion = 1,
+                Summary = new ProjectMetadataSummary
+                {
+                    TotalFileCount = 12,
+                    SourceFileCount = 7,
+                    Markers = [".git", "Cargo.toml"],
+                    Languages = [new ProjectLanguageStat { Language = "rust", FileCount = 7 }],
+                },
+            },
+        });
+
+        var response = await _client.GetAsync("/api/graph");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("files", payload, StringComparison.Ordinal);
+        Assert.Contains("NebuCtx.Server.Host/Program.cs", payload, StringComparison.Ordinal);
+        Assert.Contains("project/nebu-ctx", payload, StringComparison.Ordinal);
+        Assert.Contains("project-language", payload, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Dashboard knowledge endpoint returns facts derived from persisted project metadata.
+    /// </summary>
+    [Fact]
+    public async Task DashboardKnowledge_ReturnsProjectFacts()
+    {
+        await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "nebu-ctx",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/MarkBovee/nebu-ctx.git",
+                Host = "github.com",
+                Owner = "MarkBovee",
+                RepoName = "nebu-ctx",
+                DefaultBranch = "main",
+            },
+            ProjectMetadata = new ProjectMetadataEnvelope
+            {
+                SchemaVersion = 1,
+                Summary = new ProjectMetadataSummary
+                {
+                    TotalFileCount = 20,
+                    SourceFileCount = 8,
+                    Markers = [".git", "Cargo.toml"],
+                    Languages = [new ProjectLanguageStat { Language = "rust", FileCount = 8 }],
+                },
+            },
+        });
+
+        var response = await _client.GetAsync("/api/knowledge");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("facts", payload, StringComparison.Ordinal);
+        Assert.Contains("architecture:language", payload, StringComparison.Ordinal);
+        Assert.Contains("rust", payload, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Dashboard stats endpoint reflects persisted project language metadata.
+    /// </summary>
+    [Fact]
+    public async Task DashboardStats_ReturnsProjectMetadataSummary()
+    {
+        await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "nebu-ctx",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/MarkBovee/nebu-ctx.git",
+                Host = "github.com",
+                Owner = "MarkBovee",
+                RepoName = "nebu-ctx",
+                DefaultBranch = "main",
+            },
+            ProjectMetadata = new ProjectMetadataEnvelope
+            {
+                SchemaVersion = 1,
+                Summary = new ProjectMetadataSummary
+                {
+                    TotalFileCount = 24,
+                    SourceFileCount = 10,
+                    Markers = [".git", "Cargo.toml"],
+                    Languages = [new ProjectLanguageStat { Language = "rust", FileCount = 10 }],
+                },
+            },
+        });
+
+        var response = await _client.GetAsync("/api/stats");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("language_distribution", payload, StringComparison.Ordinal);
+        Assert.Contains("indexed_file_count", payload, StringComparison.Ordinal);
+        Assert.Contains("rust", payload, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Dashboard live telemetry endpoints expose multi-user tool activity and derived context metrics.
+    /// </summary>
+    [Fact]
+    public async Task DashboardTelemetry_ReturnsMultiUserLiveData()
+    {
+        var fingerprint = new RepositoryFingerprint
+        {
+            RemoteUrl = "https://github.com/MarkBovee/nebu-ctx.git",
+            Host = "github.com",
+            Owner = "MarkBovee",
+            RepoName = "nebu-ctx",
+            DefaultBranch = "main",
+        };
+        var actorA = $"telemetry-a-{Guid.NewGuid():N}";
+        var actorB = $"telemetry-b-{Guid.NewGuid():N}";
+
+        var firstResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_brain",
+            ProjectSlug = "nebu-ctx",
+            RepositoryFingerprint = fingerprint,
+            WorkspaceBinding = new WorkspaceBinding
+            {
+                ProjectId = "ignored-by-server",
+                LocalRoot = "/tmp/telemetry-a",
+                Branch = "main",
+                ClientLabel = actorA,
+            },
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "status",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+
+        var secondResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_routes",
+            ProjectSlug = "nebu-ctx",
+            RepositoryFingerprint = fingerprint,
+            WorkspaceBinding = new WorkspaceBinding
+            {
+                ProjectId = "ignored-by-server",
+                LocalRoot = "/tmp/telemetry-b",
+                Branch = "main",
+                ClientLabel = actorB,
+            },
+            Arguments = new Dictionary<string, object?>
+            {
+                ["path"] = "/api",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, secondResponse.StatusCode);
+
+        var statsPayload = await (await _client.GetAsync("/api/stats")).Content.ReadAsStringAsync();
+        var mcpPayload = await (await _client.GetAsync("/api/mcp")).Content.ReadAsStringAsync();
+        var eventsPayload = await (await _client.GetAsync("/api/events")).Content.ReadAsStringAsync();
+        var pipelinePayload = await (await _client.GetAsync("/api/pipeline-stats")).Content.ReadAsStringAsync();
+        var ledgerPayload = await (await _client.GetAsync("/api/context-ledger")).Content.ReadAsStringAsync();
+
+        Assert.Contains("total_commands", statsPayload, StringComparison.Ordinal);
+        Assert.Contains("ctx_brain", statsPayload, StringComparison.Ordinal);
+        Assert.Contains(actorA, mcpPayload, StringComparison.Ordinal);
+        Assert.Contains(actorB, mcpPayload, StringComparison.Ordinal);
+        Assert.Contains("ToolCall", eventsPayload, StringComparison.Ordinal);
+        Assert.Contains(actorA, eventsPayload, StringComparison.Ordinal);
+        Assert.Contains("runs", pipelinePayload, StringComparison.Ordinal);
+        Assert.Contains("entries_count", ledgerPayload, StringComparison.Ordinal);
+        Assert.Contains(actorB, ledgerPayload, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Dashboard operator views return derived payloads for agents, buddy, gotchas, learning, intent, and compression demo.
+    /// </summary>
+    [Fact]
+    public async Task DashboardOperatorViews_ReturnDerivedPayloads()
+    {
+        var fingerprint = new RepositoryFingerprint
+        {
+            RemoteUrl = "https://github.com/MarkBovee/nebu-ctx.git",
+            Host = "github.com",
+            Owner = "MarkBovee",
+            RepoName = "nebu-ctx",
+            DefaultBranch = "main",
+        };
+        var actorLabel = $"operator-view-{Guid.NewGuid():N}";
+
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "nebu-ctx",
+            Fingerprint = fingerprint,
+            WorkspaceBinding = new WorkspaceBinding
+            {
+                ProjectId = "ignored-by-server",
+                LocalRoot = "/tmp/operator-view",
+                Branch = "main",
+                ClientLabel = actorLabel,
+            },
+            ProjectMetadata = new ProjectMetadataEnvelope
+            {
+                SchemaVersion = 1,
+                Summary = new ProjectMetadataSummary
+                {
+                    TotalFileCount = 30,
+                    SourceFileCount = 12,
+                    Markers = [".git", "Cargo.toml"],
+                    Languages = [new ProjectLanguageStat { Language = "rust", FileCount = 12 }],
+                },
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, resolveResponse.StatusCode);
+
+        var toolCallResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_routes",
+            ProjectSlug = "nebu-ctx",
+            RepositoryFingerprint = fingerprint,
+            WorkspaceBinding = new WorkspaceBinding
+            {
+                ProjectId = "ignored-by-server",
+                LocalRoot = "/tmp/operator-view",
+                Branch = "main",
+                ClientLabel = actorLabel,
+            },
+            Arguments = new Dictionary<string, object?>
+            {
+                ["path"] = "/api",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, toolCallResponse.StatusCode);
+
+        var agentsPayload = await (await _client.GetAsync("/api/agents")).Content.ReadAsStringAsync();
+        var buddyPayload = await (await _client.GetAsync("/api/buddy")).Content.ReadAsStringAsync();
+        var gotchasPayload = await (await _client.GetAsync("/api/gotchas")).Content.ReadAsStringAsync();
+        var feedbackPayload = await (await _client.GetAsync("/api/feedback")).Content.ReadAsStringAsync();
+        var intentPayload = await (await _client.GetAsync("/api/intent")).Content.ReadAsStringAsync();
+        var compressionPayload = await (await _client.GetAsync("/api/compression-demo?path=NebuCtx.Tools&task=routes")).Content.ReadAsStringAsync();
+
+        Assert.Contains(actorLabel, agentsPayload, StringComparison.Ordinal);
+        Assert.Contains("thin-client", agentsPayload, StringComparison.Ordinal);
+        Assert.Contains("Nebby", buddyPayload, StringComparison.Ordinal);
+        Assert.Contains("rarity", buddyPayload, StringComparison.Ordinal);
+        Assert.Contains("gotchas", gotchasPayload, StringComparison.Ordinal);
+        Assert.Contains("compression", gotchasPayload, StringComparison.Ordinal);
+        Assert.Contains("learned_thresholds", feedbackPayload, StringComparison.Ordinal);
+        Assert.Contains("rust", feedbackPayload, StringComparison.Ordinal);
+        Assert.Contains("task_type", intentPayload, StringComparison.Ordinal);
+        Assert.Contains("routing", intentPayload, StringComparison.Ordinal);
+        Assert.Contains("original_tokens", compressionPayload, StringComparison.Ordinal);
+        Assert.Contains("modes", compressionPayload, StringComparison.Ordinal);
+        Assert.Contains("task", compressionPayload, StringComparison.Ordinal);
     }
 
     /// <summary>

@@ -58,6 +58,7 @@ builder.Services.AddSingleton<ProjectRegistry>();
 
 // Application services
 builder.Services.AddSingleton<BrainService>();
+builder.Services.AddSingleton<TelemetryStore>();
 builder.Services.AddSingleton<ToolRegistry>();
 
 // Tool handlers

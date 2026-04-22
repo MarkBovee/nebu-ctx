@@ -2,6 +2,7 @@ namespace NebuCtx.Storage.Sqlite;
 
 using Microsoft.Data.Sqlite;
 using NebuCtx.Contracts.Projects;
+using System.Text.Json;
 
 /// <summary>
 /// SQLite implementation of <see cref="IProjectStore"/>.
@@ -27,7 +28,7 @@ public sealed class SqliteProjectStore : IProjectStore
         await conn.OpenAsync(cancellationToken);
 
         await using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT project_id, slug, remote_url, host, owner, repo_name, default_branch, created_at, updated_at FROM projects WHERE project_id = @id";
+        cmd.CommandText = "SELECT project_id, slug, remote_url, host, owner, repo_name, default_branch, project_metadata_json, created_at, updated_at FROM projects WHERE project_id = @id";
         cmd.Parameters.AddWithValue("@id", projectId);
 
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
@@ -48,7 +49,7 @@ public sealed class SqliteProjectStore : IProjectStore
         await using var cmd = conn.CreateCommand();
         cmd.CommandText =
             """
-            SELECT project_id, slug, remote_url, host, owner, repo_name, default_branch, created_at, updated_at
+            SELECT project_id, slug, remote_url, host, owner, repo_name, default_branch, project_metadata_json, created_at, updated_at
             FROM projects
             WHERE remote_url = @remote_url
                OR (host = @host AND owner = @owner AND repo_name = @repo_name)
@@ -80,8 +81,8 @@ public sealed class SqliteProjectStore : IProjectStore
         await using var cmd = conn.CreateCommand();
         cmd.CommandText =
             """
-            INSERT INTO projects (project_id, slug, remote_url, host, owner, repo_name, default_branch, created_at, updated_at)
-            VALUES (@project_id, @slug, @remote_url, @host, @owner, @repo_name, @default_branch, @created_at, @updated_at)
+            INSERT INTO projects (project_id, slug, remote_url, host, owner, repo_name, default_branch, project_metadata_json, created_at, updated_at)
+            VALUES (@project_id, @slug, @remote_url, @host, @owner, @repo_name, @default_branch, @project_metadata_json, @created_at, @updated_at)
             """;
         BindProjectParameters(cmd, project);
 
@@ -98,7 +99,7 @@ public sealed class SqliteProjectStore : IProjectStore
         cmd.CommandText =
             """
             UPDATE projects SET slug = @slug, remote_url = @remote_url, host = @host, owner = @owner,
-                repo_name = @repo_name, default_branch = @default_branch, updated_at = @updated_at
+                repo_name = @repo_name, default_branch = @default_branch, project_metadata_json = @project_metadata_json, updated_at = @updated_at
             WHERE project_id = @project_id
             """;
         BindProjectParameters(cmd, project);
@@ -113,7 +114,7 @@ public sealed class SqliteProjectStore : IProjectStore
         await conn.OpenAsync(cancellationToken);
 
         await using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT project_id, slug, remote_url, host, owner, repo_name, default_branch, created_at, updated_at FROM projects ORDER BY created_at";
+        cmd.CommandText = "SELECT project_id, slug, remote_url, host, owner, repo_name, default_branch, project_metadata_json, created_at, updated_at FROM projects ORDER BY created_at";
 
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
         var projects = new List<ProjectRecord>();
@@ -143,8 +144,9 @@ public sealed class SqliteProjectStore : IProjectStore
                 RepoName = reader.IsDBNull(5) ? null : reader.GetString(5),
                 DefaultBranch = reader.IsDBNull(6) ? null : reader.GetString(6),
             },
-            CreatedAt = DateTimeOffset.Parse(reader.GetString(7)),
-            UpdatedAt = DateTimeOffset.Parse(reader.GetString(8)),
+            ProjectMetadata = DeserializeProjectMetadata(reader.IsDBNull(7) ? null : reader.GetString(7)),
+            CreatedAt = DateTimeOffset.Parse(reader.GetString(8)),
+            UpdatedAt = DateTimeOffset.Parse(reader.GetString(9)),
         };
     }
 
@@ -160,7 +162,28 @@ public sealed class SqliteProjectStore : IProjectStore
         cmd.Parameters.AddWithValue("@owner", (object?)project.Fingerprint?.Owner ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@repo_name", (object?)project.Fingerprint?.RepoName ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@default_branch", (object?)project.Fingerprint?.DefaultBranch ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@project_metadata_json", (object?)SerializeProjectMetadata(project.ProjectMetadata) ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@created_at", project.CreatedAt.ToString("O"));
         cmd.Parameters.AddWithValue("@updated_at", project.UpdatedAt.ToString("O"));
+    }
+
+    /// <summary>
+    /// Serializes the compact project metadata snapshot for storage.
+    /// </summary>
+    /// <param name="projectMetadata">Project metadata snapshot.</param>
+    /// <returns>JSON payload or null.</returns>
+    private static string? SerializeProjectMetadata(ProjectMetadataEnvelope? projectMetadata)
+    {
+        return projectMetadata is null ? null : JsonSerializer.Serialize(projectMetadata);
+    }
+
+    /// <summary>
+    /// Deserializes the compact project metadata snapshot from storage.
+    /// </summary>
+    /// <param name="value">Stored JSON payload.</param>
+    /// <returns>Parsed project metadata snapshot or null.</returns>
+    private static ProjectMetadataEnvelope? DeserializeProjectMetadata(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : JsonSerializer.Deserialize<ProjectMetadataEnvelope>(value);
     }
 }

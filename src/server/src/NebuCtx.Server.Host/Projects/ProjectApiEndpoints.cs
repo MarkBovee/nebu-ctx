@@ -34,7 +34,7 @@ public static class ProjectApiEndpoints
     private static async Task<IResult> ResolveProjectAsync(ProjectResolutionRequest request, ProjectRegistry projectRegistry, CancellationToken cancellationToken)
     {
         var suggestedSlug = ResolveSuggestedSlug(request.SuggestedSlug, request.Fingerprint);
-        var project = await projectRegistry.ResolveOrCreateAsync(request.Fingerprint, suggestedSlug, cancellationToken);
+        var project = await projectRegistry.ResolveOrCreateAsync(request.Fingerprint, suggestedSlug, request.ProjectMetadata, cancellationToken);
         if (project is null)
         {
             return Results.Conflict(new ToolCallErrorResponse { Error = "Project fingerprint is ambiguous. Explicit binding is required." });
@@ -92,6 +92,7 @@ public static class ProjectApiEndpoints
     {
         if (!string.IsNullOrWhiteSpace(request.ProjectId))
         {
+            await projectRegistry.SyncProjectMetadataAsync(request.ProjectId, request.ProjectMetadata, cancellationToken);
             if (request.WorkspaceBinding is not null)
             {
                 await projectRegistry.BindWorkspaceAsync(CloneBinding(request.WorkspaceBinding, request.ProjectId), cancellationToken);
@@ -106,7 +107,7 @@ public static class ProjectApiEndpoints
         }
 
         var suggestedSlug = ResolveSuggestedSlug(request.ProjectSlug, request.RepositoryFingerprint);
-        var project = await projectRegistry.ResolveOrCreateAsync(request.RepositoryFingerprint, suggestedSlug, cancellationToken);
+        var project = await projectRegistry.ResolveOrCreateAsync(request.RepositoryFingerprint, suggestedSlug, request.ProjectMetadata, cancellationToken);
         if (project is null)
         {
             throw new InvalidOperationException("Project fingerprint is ambiguous. Resolve the project explicitly before calling tools.");
@@ -146,6 +147,7 @@ public static class ProjectApiEndpoints
             ProjectId = projectId,
             Cwd = workspaceBinding?.LocalRoot,
             ProjectRoot = workspaceBinding?.LocalRoot,
+            ActorLabel = workspaceBinding?.ClientLabel,
         };
     }
 

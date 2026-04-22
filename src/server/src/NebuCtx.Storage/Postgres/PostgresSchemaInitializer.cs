@@ -20,6 +20,19 @@ public static class PostgresSchemaInitializer
 
         await using var cmd = new NpgsqlCommand(SchemaSql, conn);
         await cmd.ExecuteNonQueryAsync(cancellationToken);
+
+        await EnsureProjectMetadataColumnAsync(conn, cancellationToken);
+    }
+
+    /// <summary>
+    /// Adds the compact project metadata column when upgrading existing Postgres databases.
+    /// </summary>
+    /// <param name="conn">Open Postgres connection.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private static async Task EnsureProjectMetadataColumnAsync(NpgsqlConnection conn, CancellationToken cancellationToken)
+    {
+        await using var cmd = new NpgsqlCommand("ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_metadata_json JSONB", conn);
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
     /// <summary>
@@ -35,6 +48,7 @@ public static class PostgresSchemaInitializer
             owner        TEXT,
             repo_name    TEXT,
             default_branch TEXT,
+            project_metadata_json JSONB,
             created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );

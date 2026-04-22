@@ -43,6 +43,12 @@ public sealed class ToolCallRequest
     /// </summary>
     [JsonPropertyName("workspace_binding")]
     public WorkspaceBinding? WorkspaceBinding { get; set; }
+
+    /// <summary>
+    /// Optional compact client-side project metadata for future hybrid sync flows.
+    /// </summary>
+    [JsonPropertyName("project_metadata")]
+    public ProjectMetadataEnvelope? ProjectMetadata { get; set; }
 }
 
 /// <summary>

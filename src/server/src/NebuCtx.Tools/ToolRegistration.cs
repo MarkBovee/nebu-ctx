@@ -3,6 +3,7 @@ namespace NebuCtx.Tools;
 using Microsoft.Extensions.DependencyInjection;
 using NebuCtx.Application;
 using NebuCtx.Tools.Brain;
+using NebuCtx.Tools.Routes;
 
 /// <summary>
 /// Registers all tool handlers with the DI container.
@@ -18,6 +19,7 @@ public static class ToolRegistration
     {
         // Brain tool — MVP critical path
         services.AddSingleton<IToolHandler, BrainToolHandler>();
+        services.AddSingleton<IToolHandler, RoutesToolHandler>();
 
         return services;
     }

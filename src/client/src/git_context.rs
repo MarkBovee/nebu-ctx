@@ -1,9 +1,10 @@
-use crate::models::{RepositoryContext, RepositoryFingerprint, WorkspaceBinding};
+use crate::models::{ProjectContext, RepositoryFingerprint, WorkspaceBinding};
+use crate::project_metadata;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Discovers repository metadata from the current workspace so tool calls become project-aware.
-pub fn discover_repository_context(current_directory: &Path) -> RepositoryContext {
+/// Discovers project metadata from the current checkout so tool calls become project-aware.
+pub fn discover_project_context(current_directory: &Path) -> ProjectContext {
     let local_root = git_output(current_directory, ["rev-parse", "--show-toplevel"])
         .map(PathBuf::from)
         .unwrap_or_else(|| current_directory.to_path_buf());
@@ -13,7 +14,7 @@ pub fn discover_repository_context(current_directory: &Path) -> RepositoryContex
     let default_branch = git_output(&local_root, ["symbolic-ref", "refs/remotes/origin/HEAD"])
         .and_then(|value| value.rsplit('/').next().map(ToString::to_string));
     let parsed_remote = remote_url.as_deref().and_then(parse_remote_url);
-    let suggested_slug = parsed_remote
+    let project_slug = parsed_remote
         .as_ref()
         .map(|(_, _, repo_name)| repo_name.clone())
         .or_else(|| local_root.file_name().map(|value| value.to_string_lossy().to_string()))
@@ -36,11 +37,18 @@ pub fn discover_repository_context(current_directory: &Path) -> RepositoryContex
         last_sync: None,
     };
 
-    RepositoryContext {
-        suggested_slug,
+    ProjectContext {
+        project_slug,
+        project_root: local_root.to_string_lossy().to_string(),
         fingerprint,
         workspace_binding,
+        project_metadata: project_metadata::build_project_metadata(&local_root).ok(),
     }
+}
+
+/// Backwards-compatible wrapper while call sites move to project-first naming.
+pub fn discover_repository_context(current_directory: &Path) -> ProjectContext {
+    discover_project_context(current_directory)
 }
 
 /// Parses a remote URL into host, owner and repository name.

@@ -1,17 +1,28 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS restore
 WORKDIR /src/nebu-ctx
 
 ARG BUILD_VERSION=local
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+COPY src/server/Directory.Build.props src/server/Directory.Build.props
+COPY src/server/src/NebuCtx.Application/NebuCtx.Application.csproj src/server/src/NebuCtx.Application/
+COPY src/server/src/NebuCtx.Contracts/NebuCtx.Contracts.csproj src/server/src/NebuCtx.Contracts/
+COPY src/server/src/NebuCtx.Dashboard/NebuCtx.Dashboard.csproj src/server/src/NebuCtx.Dashboard/
+COPY src/server/src/NebuCtx.Hosting/NebuCtx.Hosting.csproj src/server/src/NebuCtx.Hosting/
+COPY src/server/src/NebuCtx.Projects/NebuCtx.Projects.csproj src/server/src/NebuCtx.Projects/
+COPY src/server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj src/server/src/NebuCtx.Server.Host/
+COPY src/server/src/NebuCtx.Storage/NebuCtx.Storage.csproj src/server/src/NebuCtx.Storage/
+COPY src/server/src/NebuCtx.Tools/NebuCtx.Tools.csproj src/server/src/NebuCtx.Tools/
 
-COPY . /src/nebu-ctx
+RUN dotnet restore src/server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj
+
+FROM restore AS build
+
+COPY src/server src/server
 
 RUN printf '%s\n' "${BUILD_VERSION}" > /tmp/nebula_ctx_commit.txt \
     && dotnet publish src/server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj \
         -c Release \
+        --no-restore \
         -o /app/publish \
         /p:UseAppHost=false
 
@@ -29,6 +40,9 @@ COPY homeassistant/run.sh /run.sh
 RUN sed -i 's/\r$//' /run.sh \
     && chmod +x /run.sh \
     && mkdir -p /data
+
+ENV ASPNETCORE_ENVIRONMENT=Production
+ENV DOTNET_EnableDiagnostics=0
 
 EXPOSE 4242 3333
 

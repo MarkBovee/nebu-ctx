@@ -6,6 +6,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+# shellcheck source=tests/lib/dotnet_dist.sh
+source "$ROOT_DIR/tests/lib/dotnet_dist.sh"
+
 PASS=0
 FAIL=0
 CONTAINER_TOOL="${CONTAINER_TOOL:-podman}"
@@ -57,10 +60,12 @@ build_images() {
         *) build_arch="amd64" ;;
     esac
 
+    publish_dotnet_server_dist "$ROOT_DIR"
+
     "$CONTAINER_TOOL" build -t "$MAIN_IMAGE_TAG" -f Dockerfile .
 
-    # The local add-on Dockerfile validates the current checkout rather than the published remote clone path.
-    "$CONTAINER_TOOL" build -t "$ADDON_IMAGE_TAG" -f homeassistant/Dockerfile.dev .
+    # The local add-on runtime reuses the same dist-first image as the standalone server.
+    "$CONTAINER_TOOL" tag "$MAIN_IMAGE_TAG" "$ADDON_IMAGE_TAG"
 
     # The published add-on Dockerfile validates the Home Assistant fast-install runtime path.
     "$CONTAINER_TOOL" build \

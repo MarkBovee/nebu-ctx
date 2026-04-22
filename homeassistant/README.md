@@ -82,7 +82,7 @@ If you want to validate the add-on container yourself outside Home Assistant, us
 This build uses your current checkout and is the recommended packaging pre-check:
 
 ```bash
-podman build -t nebu-ctx-addon-local -f homeassistant/Dockerfile.dev .
+podman build -t nebu-ctx-addon-local -f Dockerfile .
 ```
 
 This is the build path used by `tests/pre_release_check.sh`.
@@ -99,7 +99,7 @@ podman build -t nebu-ctx-addon -f homeassistant/Dockerfile homeassistant
 
 That build uses the version from `homeassistant/build.yaml` and downloads the matching GitHub release binary, so it validates the same fast-install path that Home Assistant uses.
 
-If you want to test local source changes before a release exists, use `homeassistant/Dockerfile.dev` or `homeassistant/Dockerfile.source` instead.
+If you want to test local source changes before a release exists, use the root `Dockerfile` first. Fall back to `homeassistant/Dockerfile.source` only when you explicitly want to validate the source-build path without a local dist publish.
 
 The smoke test defaults to the local-source add-on image. To validate the published fast-install path directly, run:
 

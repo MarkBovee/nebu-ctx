@@ -1,5 +1,5 @@
 use crate::config;
-use crate::models::{ProjectResolutionRequest, ProjectResolutionResponse, RepositoryContext, ServerConnection, ToolCallRequest, ToolCallResponse, ToolListResponse};
+use crate::models::{ProjectContext, ProjectResolutionRequest, ProjectResolutionResponse, ServerConnection, ToolCallRequest, ToolCallResponse, ToolListResponse};
 use anyhow::{anyhow, Context, Result};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -43,29 +43,31 @@ impl ServerClient {
         self.get_json("/v1/tools")
     }
 
-    /// Resolves the current repository context to a canonical project.
-    pub fn resolve_project(&self, repository_context: &RepositoryContext) -> Result<ProjectResolutionResponse> {
+    /// Resolves the current project context to a canonical project.
+    pub fn resolve_project(&self, project_context: &ProjectContext) -> Result<ProjectResolutionResponse> {
         self.post_json(
             "/v1/projects/resolve",
             &ProjectResolutionRequest {
-                fingerprint: repository_context.fingerprint.clone(),
-                suggested_slug: Some(repository_context.suggested_slug.clone()),
-                workspace_binding: Some(repository_context.workspace_binding.clone()),
+                fingerprint: project_context.fingerprint.clone(),
+                suggested_slug: Some(project_context.project_slug.clone()),
+                workspace_binding: Some(project_context.workspace_binding.clone()),
+                project_metadata: project_context.project_metadata.clone(),
             },
         )
     }
 
     /// Calls a tool through the server-side registry.
-    pub fn call_tool(&self, tool_name: &str, arguments: Map<String, Value>, repository_context: &RepositoryContext) -> Result<Value> {
+    pub fn call_tool(&self, tool_name: &str, arguments: Map<String, Value>, project_context: &ProjectContext) -> Result<Value> {
         let response: ToolCallResponse = self.post_json(
             "/v1/tools/call",
             &ToolCallRequest {
                 name: tool_name.to_string(),
                 arguments,
                 project_id: None,
-                project_slug: Some(repository_context.suggested_slug.clone()),
-                repository_fingerprint: Some(repository_context.fingerprint.clone()),
-                workspace_binding: Some(repository_context.workspace_binding.clone()),
+                project_slug: Some(project_context.project_slug.clone()),
+                repository_fingerprint: Some(project_context.fingerprint.clone()),
+                workspace_binding: Some(project_context.workspace_binding.clone()),
+                project_metadata: project_context.project_metadata.clone(),
             },
         )?;
 

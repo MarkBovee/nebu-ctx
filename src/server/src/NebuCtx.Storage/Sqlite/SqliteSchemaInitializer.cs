@@ -21,6 +21,27 @@ public static class SqliteSchemaInitializer
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = SchemaSql;
         await cmd.ExecuteNonQueryAsync(cancellationToken);
+
+        await EnsureProjectMetadataColumnAsync(conn, cancellationToken);
+    }
+
+    /// <summary>
+    /// Adds the compact project metadata column when upgrading existing SQLite databases.
+    /// </summary>
+    /// <param name="conn">Open SQLite connection.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private static async Task EnsureProjectMetadataColumnAsync(SqliteConnection conn, CancellationToken cancellationToken)
+    {
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "ALTER TABLE projects ADD COLUMN project_metadata_json TEXT";
+
+        try
+        {
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (SqliteException ex) when (ex.SqliteErrorCode == 1 && ex.Message.Contains("duplicate column name", StringComparison.OrdinalIgnoreCase))
+        {
+        }
     }
 
     /// <summary>
@@ -36,6 +57,7 @@ public static class SqliteSchemaInitializer
             owner        TEXT,
             repo_name    TEXT,
             default_branch TEXT,
+            project_metadata_json TEXT,
             created_at   TEXT NOT NULL,
             updated_at   TEXT NOT NULL
         );

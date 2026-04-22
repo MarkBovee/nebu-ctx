@@ -136,4 +136,43 @@ public class ProjectResolutionTests : IAsyncLifetime
         var bindings = await _registry.GetBindingsAsync(project.ProjectId);
         Assert.Equal(2, bindings.Count);
     }
+
+    /// <summary>
+    /// Project metadata snapshots persist on the canonical project record.
+    /// </summary>
+    [Fact]
+    public async Task ProjectMetadata_PersistsOnProjectRecord()
+    {
+        var fingerprint = new RepositoryFingerprint
+        {
+            RemoteUrl = "https://github.com/MarkBovee/nebu-ctx.git",
+            Host = "github.com",
+            Owner = "MarkBovee",
+            RepoName = "nebu-ctx",
+        };
+
+        var project = await _registry.ResolveOrCreateAsync(
+            fingerprint,
+            "nebu-ctx",
+            new ProjectMetadataEnvelope
+            {
+                SchemaVersion = 1,
+                Summary = new ProjectMetadataSummary
+                {
+                    TotalFileCount = 20,
+                    SourceFileCount = 8,
+                    Markers = [".git", "Cargo.toml"],
+                    Languages = [new ProjectLanguageStat { Language = "rust", FileCount = 8 }],
+                },
+            });
+
+        Assert.NotNull(project);
+        Assert.NotNull(project!.ProjectMetadata);
+        Assert.Equal(8, project.ProjectMetadata!.Summary.SourceFileCount);
+
+        var reloaded = await _registry.GetAsync(project.ProjectId);
+        Assert.NotNull(reloaded);
+        Assert.NotNull(reloaded!.ProjectMetadata);
+        Assert.Equal("rust", reloaded.ProjectMetadata!.Summary.Languages[0].Language);
+    }
 }
