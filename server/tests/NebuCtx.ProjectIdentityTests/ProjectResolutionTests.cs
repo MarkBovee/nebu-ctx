@@ -18,7 +18,7 @@ public class ProjectResolutionTests
     public ProjectResolutionTests()
     {
         var projectStore = new InMemoryProjectStore();
-        var bindingStore = new InMemoryWorkspaceBindingStore();
+        var bindingStore = new InMemoryCheckoutBindingStore();
         _registry = new ProjectRegistry(projectStore, bindingStore);
     }
 
@@ -78,10 +78,10 @@ public class ProjectResolutionTests
     }
 
     /// <summary>
-    /// Workspace bindings are tracked per project.
+    /// Checkout bindings are tracked per project.
     /// </summary>
     [Fact]
-    public async Task WorkspaceBinding_TrackedPerProject()
+    public async Task CheckoutBinding_TrackedPerProject()
     {
         var fingerprint = new RepositoryFingerprint
         {
@@ -93,7 +93,7 @@ public class ProjectResolutionTests
 
         var project = await _registry.ResolveOrCreateAsync(fingerprint, "nebu-ctx");
 
-        await _registry.BindWorkspaceAsync(new WorkspaceBinding
+        await _registry.BindCheckoutAsync(new CheckoutBinding
         {
             ProjectId = project!.ProjectId,
             LocalRoot = "/home/user/projects/nebu-ctx",
@@ -102,7 +102,7 @@ public class ProjectResolutionTests
             LastSync = DateTimeOffset.UtcNow,
         });
 
-        await _registry.BindWorkspaceAsync(new WorkspaceBinding
+        await _registry.BindCheckoutAsync(new CheckoutBinding
         {
             ProjectId = project.ProjectId,
             LocalRoot = "C:\\Projects\\nebu-ctx",
@@ -171,7 +171,7 @@ public class ProjectResolutionTests
         /// <inheritdoc />
         public Task<ProjectRecord?> FindByFingerprintAsync(RepositoryFingerprint fingerprint, CancellationToken cancellationToken = default)
         {
-            var project = _projects.Values.FirstOrDefault(project => FingerprintsMatch(project.Fingerprint, fingerprint));
+            var project = _projects.Values.FirstOrDefault(project => project.Fingerprint is not null && FingerprintsMatch(project.Fingerprint, fingerprint));
             return Task.FromResult(project);
         }
 
@@ -212,14 +212,14 @@ public class ProjectResolutionTests
     }
 
     /// <summary>
-    /// In-memory workspace binding store used by the registry tests.
+    /// In-memory checkout binding store used by the registry tests.
     /// </summary>
-    private sealed class InMemoryWorkspaceBindingStore : IWorkspaceBindingStore
+    private sealed class InMemoryCheckoutBindingStore : ICheckoutBindingStore
     {
-        private readonly ConcurrentDictionary<string, List<WorkspaceBinding>> _bindingsByProject = new();
+        private readonly ConcurrentDictionary<string, List<CheckoutBinding>> _bindingsByProject = new();
 
         /// <inheritdoc />
-        public Task UpsertBindingAsync(WorkspaceBinding binding, CancellationToken cancellationToken = default)
+        public Task UpsertBindingAsync(CheckoutBinding binding, CancellationToken cancellationToken = default)
         {
             var bindings = _bindingsByProject.GetOrAdd(binding.ProjectId, _ => []);
             var existingIndex = bindings.FindIndex(existing => string.Equals(existing.LocalRoot, binding.LocalRoot, StringComparison.OrdinalIgnoreCase));
@@ -237,13 +237,13 @@ public class ProjectResolutionTests
         }
 
         /// <inheritdoc />
-        public Task<IReadOnlyList<WorkspaceBinding>> GetBindingsAsync(string projectId, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<CheckoutBinding>> GetBindingsAsync(string projectId, CancellationToken cancellationToken = default)
         {
             var bindings = _bindingsByProject.TryGetValue(projectId, out var storedBindings)
                 ? storedBindings.ToList()
                 : [];
 
-            return Task.FromResult<IReadOnlyList<WorkspaceBinding>>(bindings);
+            return Task.FromResult<IReadOnlyList<CheckoutBinding>>(bindings);
         }
     }
 }

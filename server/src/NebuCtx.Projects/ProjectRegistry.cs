@@ -10,14 +10,14 @@ using NebuCtx.Storage;
 public sealed class ProjectRegistry
 {
     private readonly IProjectStore _projectStore;
-    private readonly IWorkspaceBindingStore _bindingStore;
+    private readonly ICheckoutBindingStore _bindingStore;
 
     /// <summary>
     /// Initializes the project registry.
     /// </summary>
     /// <param name="projectStore">Project persistence store.</param>
-    /// <param name="bindingStore">Workspace binding persistence store.</param>
-    public ProjectRegistry(IProjectStore projectStore, IWorkspaceBindingStore bindingStore)
+    /// <param name="bindingStore">Checkout binding persistence store.</param>
+    public ProjectRegistry(IProjectStore projectStore, ICheckoutBindingStore bindingStore)
     {
         _projectStore = projectStore;
         _bindingStore = bindingStore;
@@ -130,22 +130,22 @@ public sealed class ProjectRegistry
     }
 
     /// <summary>
-    /// Binds a workspace (local checkout) to a project.
+    /// Binds a local checkout to a project.
     /// </summary>
-    /// <param name="binding">The workspace binding to persist.</param>
+    /// <param name="binding">The checkout binding to persist.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task BindWorkspaceAsync(WorkspaceBinding binding, CancellationToken cancellationToken = default)
+    public Task BindCheckoutAsync(CheckoutBinding binding, CancellationToken cancellationToken = default)
     {
         return _bindingStore.UpsertBindingAsync(binding, cancellationToken);
     }
 
     /// <summary>
-    /// Gets all workspace bindings for a project.
+    /// Gets all checkout bindings for a project.
     /// </summary>
     /// <param name="projectId">Project identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>All bindings for the project.</returns>
-    public Task<IReadOnlyList<WorkspaceBinding>> GetBindingsAsync(string projectId, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<CheckoutBinding>> GetBindingsAsync(string projectId, CancellationToken cancellationToken = default)
     {
         return _bindingStore.GetBindingsAsync(projectId, cancellationToken);
     }

@@ -48,24 +48,24 @@ public interface IProjectStore
 }
 
 /// <summary>
-/// Abstraction for workspace binding persistence.
+/// Abstraction for checkout binding persistence.
 /// </summary>
-public interface IWorkspaceBindingStore
+public interface ICheckoutBindingStore
 {
     /// <summary>
-    /// Saves or updates a workspace binding for a project.
+    /// Saves or updates a checkout binding for a project.
     /// </summary>
     /// <param name="binding">The binding to persist.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task UpsertBindingAsync(WorkspaceBinding binding, CancellationToken cancellationToken = default);
+    Task UpsertBindingAsync(CheckoutBinding binding, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Lists all workspace bindings for a given project.
+    /// Lists all checkout bindings for a given project.
     /// </summary>
     /// <param name="projectId">The project's unique identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>All bindings for the project.</returns>
-    Task<IReadOnlyList<WorkspaceBinding>> GetBindingsAsync(string projectId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<CheckoutBinding>> GetBindingsAsync(string projectId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

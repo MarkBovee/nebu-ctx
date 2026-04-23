@@ -50,7 +50,7 @@ builder.Services.AddSingleton(serverOptions);
 
 // Storage
 builder.Services.AddSingleton<IProjectStore>(sp => StoreFactory.CreateProjectStore(sp.GetRequiredService<ServerOptions>()));
-builder.Services.AddSingleton<IWorkspaceBindingStore>(sp => StoreFactory.CreateWorkspaceBindingStore(sp.GetRequiredService<ServerOptions>()));
+builder.Services.AddSingleton<ICheckoutBindingStore>(sp => StoreFactory.CreateCheckoutBindingStore(sp.GetRequiredService<ServerOptions>()));
 builder.Services.AddSingleton<IBrainStore>(sp => StoreFactory.CreateBrainStore(sp.GetRequiredService<ServerOptions>()));
 
 // Projects

@@ -22,6 +22,7 @@ public static class PostgresSchemaInitializer
         await cmd.ExecuteNonQueryAsync(cancellationToken);
 
         await EnsureProjectMetadataColumnAsync(conn, cancellationToken);
+        await MigrateWorkspaceBindingsTableAsync(conn, cancellationToken);
     }
 
     /// <summary>
@@ -36,8 +37,27 @@ public static class PostgresSchemaInitializer
     }
 
     /// <summary>
-    /// Additive schema DDL. Uses IF NOT EXISTS to be safe for repeated runs.
+    /// Renames the legacy workspace_bindings table to checkout_bindings when upgrading existing databases.
+    /// Safe to run repeatedly — no-ops if the table has already been renamed.
     /// </summary>
+    private static async Task MigrateWorkspaceBindingsTableAsync(NpgsqlConnection conn, CancellationToken cancellationToken)
+    {
+        await using var cmd = new NpgsqlCommand(
+            """
+            DO $$
+            BEGIN
+                IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'workspace_bindings')
+                   AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'checkout_bindings') THEN
+                    ALTER TABLE workspace_bindings RENAME TO checkout_bindings;
+                END IF;
+            END;
+            $$;
+            """,
+            conn);
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <summary>
     private const string SchemaSql =
         """
         CREATE TABLE IF NOT EXISTS projects (
@@ -59,7 +79,7 @@ public static class PostgresSchemaInitializer
         CREATE INDEX IF NOT EXISTS idx_projects_remote_url
             ON projects (remote_url) WHERE remote_url IS NOT NULL;
 
-        CREATE TABLE IF NOT EXISTS workspace_bindings (
+        CREATE TABLE IF NOT EXISTS checkout_bindings (
             project_id   TEXT NOT NULL REFERENCES projects(project_id),
             local_root   TEXT,
             branch       TEXT,

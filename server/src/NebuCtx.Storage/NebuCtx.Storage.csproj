@@ -9,10 +9,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="Sqlite\**\*.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\NebuCtx.Contracts\NebuCtx.Contracts.csproj" />
   </ItemGroup>
 

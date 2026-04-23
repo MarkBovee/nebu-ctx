@@ -4,30 +4,30 @@ using Npgsql;
 using NebuCtx.Contracts.Projects;
 
 /// <summary>
-/// Postgres implementation of <see cref="IWorkspaceBindingStore"/>.
+/// Postgres implementation of <see cref="ICheckoutBindingStore"/>.
 /// </summary>
-public sealed class PostgresWorkspaceBindingStore : IWorkspaceBindingStore
+public sealed class PostgresCheckoutBindingStore : ICheckoutBindingStore
 {
     private readonly string _connectionString;
 
     /// <summary>
-    /// Initializes the Postgres workspace binding store.
+    /// Initializes the Postgres checkout binding store.
     /// </summary>
     /// <param name="connectionString">Postgres connection string.</param>
-    public PostgresWorkspaceBindingStore(string connectionString)
+    public PostgresCheckoutBindingStore(string connectionString)
     {
         _connectionString = connectionString;
     }
 
     /// <inheritdoc />
-    public async Task UpsertBindingAsync(WorkspaceBinding binding, CancellationToken cancellationToken = default)
+    public async Task UpsertBindingAsync(CheckoutBinding binding, CancellationToken cancellationToken = default)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(cancellationToken);
 
         await using var cmd = new NpgsqlCommand(
             """
-            INSERT INTO workspace_bindings (project_id, local_root, branch, last_commit, client_label, last_sync)
+            INSERT INTO checkout_bindings (project_id, local_root, branch, last_commit, client_label, last_sync)
             VALUES (@project_id, @local_root, @branch, @last_commit, @client_label, @last_sync)
             ON CONFLICT (project_id, local_root) DO UPDATE SET
                 branch = EXCLUDED.branch,
@@ -48,22 +48,22 @@ public sealed class PostgresWorkspaceBindingStore : IWorkspaceBindingStore
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<WorkspaceBinding>> GetBindingsAsync(string projectId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<CheckoutBinding>> GetBindingsAsync(string projectId, CancellationToken cancellationToken = default)
     {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(cancellationToken);
 
         await using var cmd = new NpgsqlCommand(
-            "SELECT project_id, local_root, branch, last_commit, client_label, last_sync FROM workspace_bindings WHERE project_id = @project_id ORDER BY last_sync DESC",
+            "SELECT project_id, local_root, branch, last_commit, client_label, last_sync FROM checkout_bindings WHERE project_id = @project_id ORDER BY last_sync DESC",
             conn);
         cmd.Parameters.AddWithValue("project_id", projectId);
 
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
-        var bindings = new List<WorkspaceBinding>();
+        var bindings = new List<CheckoutBinding>();
 
         while (await reader.ReadAsync(cancellationToken))
         {
-            bindings.Add(new WorkspaceBinding
+            bindings.Add(new CheckoutBinding
             {
                 ProjectId = reader.GetString(0),
                 LocalRoot = reader.IsDBNull(1) ? null : reader.GetString(1),

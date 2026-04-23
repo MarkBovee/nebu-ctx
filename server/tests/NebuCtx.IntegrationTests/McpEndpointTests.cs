@@ -129,7 +129,7 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
                 RepoName = "nebu-ctx",
                 DefaultBranch = "main",
             },
-            WorkspaceBinding = new WorkspaceBinding
+            WorkspaceBinding = new CheckoutBinding
             {
                 ProjectId = "ignored-by-server",
                 LocalRoot = "E:/Projects/Personal/nebu-ctx",
@@ -181,7 +181,7 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
             Name = "ctx_brain",
             RepositoryFingerprint = fingerprint,
             ProjectSlug = "nebu-ctx",
-            WorkspaceBinding = new WorkspaceBinding
+            WorkspaceBinding = new CheckoutBinding
             {
                 ProjectId = "ignored-by-server",
                 LocalRoot = "/tmp/root-a",
@@ -202,7 +202,7 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
             Name = "ctx_brain",
             RepositoryFingerprint = fingerprint,
             ProjectSlug = "nebu-ctx",
-            WorkspaceBinding = new WorkspaceBinding
+            WorkspaceBinding = new CheckoutBinding
             {
                 ProjectId = "ignored-by-server",
                 LocalRoot = "/tmp/root-b",
@@ -466,7 +466,7 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
             Name = "ctx_brain",
             ProjectSlug = "nebu-ctx",
             RepositoryFingerprint = fingerprint,
-            WorkspaceBinding = new WorkspaceBinding
+            WorkspaceBinding = new CheckoutBinding
             {
                 ProjectId = "ignored-by-server",
                 LocalRoot = "/tmp/telemetry-a",
@@ -485,7 +485,7 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
             Name = "ctx_routes",
             ProjectSlug = "nebu-ctx",
             RepositoryFingerprint = fingerprint,
-            WorkspaceBinding = new WorkspaceBinding
+            WorkspaceBinding = new CheckoutBinding
             {
                 ProjectId = "ignored-by-server",
                 LocalRoot = "/tmp/telemetry-b",
@@ -536,7 +536,7 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         {
             SuggestedSlug = "nebu-ctx",
             Fingerprint = fingerprint,
-            WorkspaceBinding = new WorkspaceBinding
+            WorkspaceBinding = new CheckoutBinding
             {
                 ProjectId = "ignored-by-server",
                 LocalRoot = "/tmp/operator-view",
@@ -562,7 +562,7 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
             Name = "ctx_routes",
             ProjectSlug = "nebu-ctx",
             RepositoryFingerprint = fingerprint,
-            WorkspaceBinding = new WorkspaceBinding
+            WorkspaceBinding = new CheckoutBinding
             {
                 ProjectId = "ignored-by-server",
                 LocalRoot = "/tmp/operator-view",

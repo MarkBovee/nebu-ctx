@@ -23,7 +23,7 @@ public static class ProjectApiEndpoints
         app.MapPost("/v1/projects/resolve", ResolveProjectAsync);
         app.MapGet("/v1/projects", ListProjectsAsync);
         app.MapGet("/v1/projects/{projectId}/bindings", GetBindingsAsync);
-        app.MapPost("/v1/projects/{projectId}/bindings", BindWorkspaceAsync);
+        app.MapPost("/v1/projects/{projectId}/bindings", BindCheckoutAsync);
 
         return app;
     }
@@ -43,7 +43,7 @@ public static class ProjectApiEndpoints
         var checkoutBound = false;
         if (request.CheckoutBinding is not null)
         {
-            await projectRegistry.BindWorkspaceAsync(CloneBinding(request.CheckoutBinding, project.ProjectId), cancellationToken);
+            await projectRegistry.BindCheckoutAsync(CloneBinding(request.CheckoutBinding, project.ProjectId), cancellationToken);
             checkoutBound = true;
         }
 
@@ -73,11 +73,11 @@ public static class ProjectApiEndpoints
     }
 
     /// <summary>
-    /// Persists or updates a workspace binding for a resolved project.
+    /// Persists or updates a checkout binding for a resolved project.
     /// </summary>
-    private static async Task<IResult> BindWorkspaceAsync(string projectId, WorkspaceBinding request, ProjectRegistry projectRegistry, CancellationToken cancellationToken)
+    private static async Task<IResult> BindCheckoutAsync(string projectId, CheckoutBinding request, ProjectRegistry projectRegistry, CancellationToken cancellationToken)
     {
-        await projectRegistry.BindWorkspaceAsync(CloneBinding(request, projectId), cancellationToken);
+        await projectRegistry.BindCheckoutAsync(CloneBinding(request, projectId), cancellationToken);
         return Results.Ok();
     }
 
@@ -95,7 +95,7 @@ public static class ProjectApiEndpoints
             await projectRegistry.SyncProjectMetadataAsync(request.ProjectId, request.ProjectMetadata, cancellationToken);
             if (request.CheckoutBinding is not null)
             {
-                await projectRegistry.BindWorkspaceAsync(CloneBinding(request.CheckoutBinding, request.ProjectId), cancellationToken);
+                await projectRegistry.BindCheckoutAsync(CloneBinding(request.CheckoutBinding, request.ProjectId), cancellationToken);
             }
 
             return CreateToolExecutionContext(request.ProjectId, request.CheckoutBinding);
@@ -115,18 +115,18 @@ public static class ProjectApiEndpoints
 
         if (request.CheckoutBinding is not null)
         {
-            await projectRegistry.BindWorkspaceAsync(CloneBinding(request.CheckoutBinding, project.ProjectId), cancellationToken);
+            await projectRegistry.BindCheckoutAsync(CloneBinding(request.CheckoutBinding, project.ProjectId), cancellationToken);
         }
 
         return CreateToolExecutionContext(project.ProjectId, request.CheckoutBinding);
     }
 
     /// <summary>
-    /// Clones a client workspace binding and forces the resolved project identifier.
+    /// Clones a client checkout binding and forces the resolved project identifier.
     /// </summary>
-    private static WorkspaceBinding CloneBinding(WorkspaceBinding source, string projectId)
+    private static CheckoutBinding CloneBinding(CheckoutBinding source, string projectId)
     {
-        return new WorkspaceBinding
+        return new CheckoutBinding
         {
             ProjectId = projectId,
             LocalRoot = source.LocalRoot,
@@ -138,16 +138,16 @@ public static class ProjectApiEndpoints
     }
 
     /// <summary>
-    /// Creates a tool execution context from resolved project and workspace metadata.
+    /// Creates a tool execution context from resolved project and checkout metadata.
     /// </summary>
-    private static ToolExecutionContext CreateToolExecutionContext(string projectId, WorkspaceBinding? workspaceBinding)
+    private static ToolExecutionContext CreateToolExecutionContext(string projectId, CheckoutBinding? checkoutBinding)
     {
         return new ToolExecutionContext
         {
             ProjectId = projectId,
-            Cwd = workspaceBinding?.LocalRoot,
-            ProjectRoot = workspaceBinding?.LocalRoot,
-            ActorLabel = workspaceBinding?.ClientLabel,
+            Cwd = checkoutBinding?.LocalRoot,
+            ProjectRoot = checkoutBinding?.LocalRoot,
+            ActorLabel = checkoutBinding?.ClientLabel,
         };
     }
 

@@ -7,7 +7,7 @@ using System.Text.Json.Serialization;
 /// </summary>
 public sealed class ProjectResolutionRequest
 {
-    private WorkspaceBinding? _checkoutBinding;
+    private CheckoutBinding? _checkoutBinding;
 
     /// <summary>
     /// Repository fingerprint used for project matching.
@@ -25,7 +25,7 @@ public sealed class ProjectResolutionRequest
     /// Optional checkout binding that should be persisted after resolution.
     /// </summary>
     [JsonPropertyName("checkout_binding")]
-    public WorkspaceBinding? CheckoutBinding
+    public CheckoutBinding? CheckoutBinding
     {
         get => _checkoutBinding;
         set => _checkoutBinding = value;
@@ -35,7 +35,7 @@ public sealed class ProjectResolutionRequest
     /// Legacy workspace binding alias kept for older clients.
     /// </summary>
     [JsonPropertyName("workspace_binding")]
-    public WorkspaceBinding? WorkspaceBinding
+    public CheckoutBinding? WorkspaceBinding
     {
         get => _checkoutBinding;
         set => _checkoutBinding = value;

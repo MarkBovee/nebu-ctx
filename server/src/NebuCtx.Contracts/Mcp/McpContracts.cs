@@ -8,7 +8,7 @@ using System.Text.Json.Serialization;
 /// </summary>
 public sealed class ToolCallRequest
 {
-    private WorkspaceBinding? _checkoutBinding;
+    private CheckoutBinding? _checkoutBinding;
 
     /// <summary>
     /// The name of the tool to execute.
@@ -44,7 +44,7 @@ public sealed class ToolCallRequest
     /// Non-canonical local checkout binding metadata from the client.
     /// </summary>
     [JsonPropertyName("checkout_binding")]
-    public WorkspaceBinding? CheckoutBinding
+    public CheckoutBinding? CheckoutBinding
     {
         get => _checkoutBinding;
         set => _checkoutBinding = value;
@@ -54,7 +54,7 @@ public sealed class ToolCallRequest
     /// Legacy workspace binding alias kept for older clients.
     /// </summary>
     [JsonPropertyName("workspace_binding")]
-    public WorkspaceBinding? WorkspaceBinding
+    public CheckoutBinding? WorkspaceBinding
     {
         get => _checkoutBinding;
         set => _checkoutBinding = value;

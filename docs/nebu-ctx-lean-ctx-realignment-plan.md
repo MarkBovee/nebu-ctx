@@ -105,6 +105,7 @@ These decisions are final for the realignment work.
 22. Canonical stats, gain, cost, heatmaps, wrapped metrics, and dashboard rollups live in NebuCtx Cloud only.
 23. The Rust client may buffer telemetry locally for retry or offline durability, but local stats files are never the canonical analytics source of truth.
 24. The local Rust MCP runtime is a local execution and sync edge only. It is not a second shared-state server and it does not own shared dashboard views.
+25. **PostgreSQL is the only supported server storage backend.** SQLite store implementations are removed. Do not add SQLite support back. All server-side persistence uses Postgres only. `NEBULA_STORE=postgres` and `DATABASE_URL` are the only valid configuration path.
 
 ## 4. Naming And UX Contract
 

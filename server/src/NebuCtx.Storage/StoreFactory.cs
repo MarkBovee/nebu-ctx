@@ -20,13 +20,13 @@ public static class StoreFactory
     }
 
     /// <summary>
-    /// Creates an <see cref="IWorkspaceBindingStore"/> based on the server options.
+    /// Creates an <see cref="ICheckoutBindingStore"/> backed by Postgres.
     /// </summary>
     /// <param name="options">Server configuration containing store selection and connection details.</param>
-    /// <returns>A Postgres-backed workspace binding store.</returns>
-    public static IWorkspaceBindingStore CreateWorkspaceBindingStore(ServerOptions options)
+    /// <returns>A Postgres-backed checkout binding store.</returns>
+    public static ICheckoutBindingStore CreateCheckoutBindingStore(ServerOptions options)
     {
-        return new PostgresWorkspaceBindingStore(BuildConfiguredPostgresConnectionString(options));
+        return new PostgresCheckoutBindingStore(BuildConfiguredPostgresConnectionString(options));
     }
 
     /// <summary>
