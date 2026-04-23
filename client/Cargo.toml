@@ -22,7 +22,7 @@ name = "lean_ctx"
 path = "src/lib.rs"
 
 [features]
-default = ["tree-sitter", "embeddings", "http-server"]
+default = ["tree-sitter", "http-server"]
 neural = ["dep:rten", "dep:rten-tensor"]
 embeddings = ["dep:rten", "dep:rten-tensor"]
 http-server = ["dep:axum", "dep:tower-http", "dep:reqwest"]
@@ -97,8 +97,6 @@ rten-tensor = { version = "0.24", optional = true }
 axum = { version = "0.8", optional = true }
 tower-http = { version = "0.6", features = ["cors", "auth"], optional = true }
 glob = "0.3.3"
-ratatui = "0.30"
-crossterm = "0.28"
 rpassword = "7.4.0"
 getrandom = "0.3"
 reqwest = { version = "0.13.2", default-features = false, features = ["rustls", "stream", "json"], optional = true }

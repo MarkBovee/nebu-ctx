@@ -1,7 +1,7 @@
 use anyhow::Result;
 use lean_ctx::{
-    cli, core, doctor, heatmap, hook_handlers, local_dashboard, mcp_stdio, report, setup, shell,
-    status, tools, tui, uninstall,
+    cli, core, doctor, hook_handlers, mcp_stdio, report, setup, shell,
+    status, tools, uninstall,
 };
 
 fn main() {
@@ -194,25 +194,6 @@ fn main() {
                 println!("{}", tools::ctx_gain::handle("score", None, None, Some(10)));
                 return;
             }
-            "dashboard" => {
-                let port = rest
-                    .iter()
-                    .find_map(|p| p.strip_prefix("--port=").or_else(|| p.strip_prefix("-p=")))
-                    .and_then(|p| p.parse().ok());
-                let host = rest
-                    .iter()
-                    .find_map(|p| p.strip_prefix("--host=").or_else(|| p.strip_prefix("-H=")))
-                    .map(String::from);
-                let project = rest
-                    .iter()
-                    .find_map(|p| p.strip_prefix("--project="))
-                    .map(String::from);
-                if let Some(ref p) = project {
-                    std::env::set_var("LEAN_CTX_DASHBOARD_PROJECT", p);
-                }
-                run_async(local_dashboard::start(port, host));
-                return;
-            }
             "serve" => {
                 #[cfg(feature = "http-server")]
                 {
@@ -386,13 +367,6 @@ fn main() {
                     eprintln!("nebu-ctx serve is not available in this build");
                     std::process::exit(1);
                 }
-            }
-            "watch" => {
-                if let Err(e) = tui::run() {
-                    eprintln!("TUI error: {e}");
-                    std::process::exit(1);
-                }
-                return;
             }
             "proxy" => {
                 #[cfg(feature = "http-server")]
@@ -582,10 +556,6 @@ fn main() {
             }
             "filter" => {
                 cli::cmd_filter(&rest);
-                return;
-            }
-            "heatmap" => {
-                heatmap::cmd_heatmap(&rest);
                 return;
             }
             "graph" => {
