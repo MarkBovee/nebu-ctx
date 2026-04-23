@@ -76,16 +76,35 @@ public static class DashboardPayloadFactory
     /// <returns>Knowledge payload compatible with the legacy dashboard UI.</returns>
     public static object BuildKnowledgePayload(IReadOnlyList<ProjectRecord> projects)
     {
-        var facts = projects
+        var facts = DeduplicateKnowledgeFacts(projects
             .SelectMany(BuildProjectFacts)
+            .Concat(BuildDemoKnowledgeFacts(projects)))
             .OrderByDescending(fact => Convert.ToDouble(fact["confidence"], System.Globalization.CultureInfo.InvariantCulture))
+            .ThenBy(fact => fact["project_name"]?.ToString(), StringComparer.OrdinalIgnoreCase)
             .ThenBy(fact => fact["category"]?.ToString(), StringComparer.OrdinalIgnoreCase)
             .Cast<object>()
+            .ToArray();
+
+        var projectSummaries = facts
+            .Cast<Dictionary<string, object?>>()
+            .GroupBy(fact => new
+            {
+                ProjectId = fact["project_id"]?.ToString() ?? string.Empty,
+                ProjectName = fact["project_name"]?.ToString() ?? string.Empty,
+            })
+            .Select(group => new
+            {
+                project_id = group.Key.ProjectId,
+                project_name = group.Key.ProjectName,
+                fact_count = group.Count(),
+            })
+            .OrderBy(summary => summary.project_name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
         return new
         {
             facts,
+            projects = projectSummaries,
             project_count = projects.Count,
         };
     }
@@ -914,47 +933,129 @@ public static class DashboardPayloadFactory
             yield break;
         }
 
-        yield return new Dictionary<string, object?>
-        {
-            ["category"] = "architecture:project",
-            ["key"] = $"project:{project.ProjectId}:slug",
-            ["value"] = project.Slug,
-            ["confidence"] = 0.98,
-            ["project_id"] = project.ProjectId,
-        };
+        yield return CreateKnowledgeFact(project, "architecture:project", "Project Name", $"project:{project.ProjectId}:slug", project.Slug, 0.98);
 
-        yield return new Dictionary<string, object?>
+        if (project.Fingerprint?.RepoName is { Length: > 0 } repoName)
         {
-            ["category"] = "architecture:files",
-            ["key"] = $"project:{project.ProjectId}:source-files",
-            ["value"] = $"{summary.SourceFileCount} source files across {summary.TotalFileCount} total files",
-            ["confidence"] = 0.93,
-            ["project_id"] = project.ProjectId,
-        };
+            yield return CreateKnowledgeFact(project, "architecture:repository", "Repository Name", $"project:{project.ProjectId}:repository", repoName, 0.96);
+        }
+
+        if (project.Fingerprint?.Host is { Length: > 0 } host)
+        {
+            yield return CreateKnowledgeFact(project, "architecture:repository", "Repository Host", $"project:{project.ProjectId}:host", host, 0.94);
+        }
+
+        if (project.Fingerprint?.DefaultBranch is { Length: > 0 } defaultBranch)
+        {
+            yield return CreateKnowledgeFact(project, "workflow:branch", "Default Branch", $"project:{project.ProjectId}:default-branch", defaultBranch, 0.9);
+        }
+
+        yield return CreateKnowledgeFact(project, "architecture:files", "File Inventory", $"project:{project.ProjectId}:source-files", $"{summary.SourceFileCount} source files across {summary.TotalFileCount} total files", 0.93);
+
+        yield return CreateKnowledgeFact(project, "architecture:files", "Marker Count", $"project:{project.ProjectId}:marker-count", $"{summary.Markers.Count} repository markers detected", 0.87);
 
         foreach (var marker in summary.Markers)
         {
-            yield return new Dictionary<string, object?>
-            {
-                ["category"] = "architecture:marker",
-                ["key"] = $"project:{project.ProjectId}:marker:{marker}",
-                ["value"] = marker,
-                ["confidence"] = 0.9,
-                ["project_id"] = project.ProjectId,
-            };
+            yield return CreateKnowledgeFact(project, "architecture:marker", $"Marker {marker}", $"project:{project.ProjectId}:marker:{marker}", marker, 0.9);
         }
 
         foreach (var language in summary.Languages)
         {
-            yield return new Dictionary<string, object?>
-            {
-                ["category"] = "architecture:language",
-                ["key"] = $"project:{project.ProjectId}:language:{language.Language}",
-                ["value"] = $"{language.FileCount} files",
-                ["confidence"] = 0.88,
-                ["project_id"] = project.ProjectId,
-            };
+            yield return CreateKnowledgeFact(project, "architecture:language", $"Language {language.Language}", $"project:{project.ProjectId}:language:{language.Language}", $"{language.FileCount} files", 0.88);
         }
+
+        if (summary.Languages.OrderByDescending(language => language.FileCount).FirstOrDefault() is { } dominantLanguage)
+        {
+            yield return CreateKnowledgeFact(project, "architecture:language", "Primary Language", $"project:{project.ProjectId}:primary-language", dominantLanguage.Language, 0.91);
+        }
+    }
+
+    /// <summary>
+    /// Creates a dashboard knowledge fact with stable project and human-readable labels.
+    /// </summary>
+    /// <param name="project">Owning project.</param>
+    /// <param name="category">Knowledge category.</param>
+    /// <param name="factName">Human-readable fact label.</param>
+    /// <param name="key">Stable fact key.</param>
+    /// <param name="value">Fact value.</param>
+    /// <param name="confidence">Fact confidence score.</param>
+    /// <returns>Dashboard fact dictionary.</returns>
+    private static Dictionary<string, object?> CreateKnowledgeFact(ProjectRecord project, string category, string factName, string key, object? value, double confidence)
+    {
+        return new Dictionary<string, object?>
+        {
+            ["category"] = category,
+            ["fact_name"] = factName,
+            ["key"] = key,
+            ["value"] = value,
+            ["confidence"] = confidence,
+            ["project_id"] = project.ProjectId,
+            ["project_name"] = project.Slug,
+        };
+    }
+
+    /// <summary>
+    /// Builds stable demo facts so the dashboard graph has enough shape during local iteration.
+    /// </summary>
+    /// <param name="projects">Registered projects.</param>
+    /// <returns>Demo facts grouped by project.</returns>
+    private static IEnumerable<Dictionary<string, object?>> BuildDemoKnowledgeFacts(IReadOnlyList<ProjectRecord> projects)
+    {
+        foreach (var project in projects.Where(project => project.ProjectMetadata?.Summary is not null))
+        {
+            foreach (var fact in CreateDemoFacts(project))
+            {
+                yield return fact;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Creates a small deterministic demo fact pack for one project.
+    /// </summary>
+    /// <param name="project">Owning project.</param>
+    /// <returns>Demo facts used to shape the graph visually.</returns>
+    private static IEnumerable<Dictionary<string, object?>> CreateDemoFacts(ProjectRecord project)
+    {
+        yield return CreateDemoKnowledgeFact(project, "workflow:demo", "Demo Fact Layout", "Project facts are grouped under a visible project hub so the graph reads by product area first.", 0.74);
+        yield return CreateDemoKnowledgeFact(project, "testing:demo", "Knowledge Graph Review", "Use these seeded facts to tune spacing, labels, and detail panel readability before wiring richer sources.", 0.71);
+        yield return CreateDemoKnowledgeFact(project, "architecture:demo", "Fact Labels", "Readable fact names should be short, scannable, and distinct from raw storage keys.", 0.77);
+    }
+
+    /// <summary>
+    /// Creates a single demo fact dictionary.
+    /// </summary>
+    /// <param name="project">Owning project.</param>
+    /// <param name="category">Fact category.</param>
+    /// <param name="factName">Fact name shown in the dashboard.</param>
+    /// <param name="value">Fact value text.</param>
+    /// <param name="confidence">Demo confidence value.</param>
+    /// <returns>Dashboard fact dictionary.</returns>
+    private static Dictionary<string, object?> CreateDemoKnowledgeFact(ProjectRecord project, string category, string factName, string value, double confidence)
+    {
+        var fact = CreateKnowledgeFact(project, category, factName, $"project:{project.ProjectId}:demo:{factName.ToLowerInvariant().Replace(' ', '-')}", value, confidence);
+        fact["source"] = "demo";
+        fact["is_demo"] = true;
+        return fact;
+    }
+
+    /// <summary>
+    /// Removes repeated knowledge facts for the same project and readable fact label.
+    /// </summary>
+    /// <param name="facts">Knowledge facts to normalize.</param>
+    /// <returns>Deduplicated fact dictionaries.</returns>
+    private static IEnumerable<Dictionary<string, object?>> DeduplicateKnowledgeFacts(IEnumerable<Dictionary<string, object?>> facts)
+    {
+        return facts
+            .GroupBy(fact => string.Join(
+                '|',
+                fact["project_id"]?.ToString() ?? string.Empty,
+                fact["category"]?.ToString() ?? string.Empty,
+                fact["fact_name"]?.ToString() ?? string.Empty,
+                fact["value"]?.ToString() ?? string.Empty), StringComparer.OrdinalIgnoreCase)
+            .Select(group => group
+                .OrderByDescending(fact => Convert.ToDouble(fact["confidence"], System.Globalization.CultureInfo.InvariantCulture))
+                .First());
     }
 
     /// <summary>

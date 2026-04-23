@@ -1833,7 +1833,7 @@ dependencies = [
 
 [[package]]
 name = "nebu-ctx"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "anyhow",
  "axum",
@@ -1902,7 +1902,7 @@ dependencies = [
 
 [[package]]
 name = "nebu-ctx-client"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "anyhow",
  "dirs",

@@ -31,6 +31,7 @@ public class StartupValidatorTests
         {
             McpHost = "0.0.0.0",
             AuthToken = null,
+            DatabaseUrl = "Host=localhost;Database=nebu_ctx;Username=postgres",
         };
 
         var errors = StartupValidator.Validate(options);
@@ -48,6 +49,7 @@ public class StartupValidatorTests
         {
             McpHost = "127.0.0.1",
             AuthToken = null,
+            DatabaseUrl = "Host=localhost;Database=nebu_ctx;Username=postgres",
         };
 
         var errors = StartupValidator.Validate(options);
@@ -68,5 +70,21 @@ public class StartupValidatorTests
 
         var errors = StartupValidator.Validate(options);
         Assert.Contains(errors, e => e.Contains("DATABASE_URL"));
+    }
+
+    /// <summary>
+    /// Verifies that non-Postgres stores are rejected.
+    /// </summary>
+    [Fact]
+    public void Validate_SqliteStore_ReturnsError()
+    {
+        var options = new Contracts.Configuration.ServerOptions
+        {
+            Store = "sqlite",
+            DatabaseUrl = "Host=localhost;Database=nebu_ctx;Username=postgres",
+        };
+
+        var errors = StartupValidator.Validate(options);
+        Assert.Contains(errors, e => e.Contains("NEBULA_STORE"));
     }
 }

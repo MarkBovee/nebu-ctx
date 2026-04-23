@@ -8,6 +8,22 @@ log() {
     printf '[nebu-ctx] %s\n' "$1"
 }
 
+require_postgres_configuration() {
+    configured_store="${NEBULA_STORE:-postgres}"
+
+    if [ "$configured_store" != "postgres" ]; then
+        log "NEBULA_STORE=$configured_store is not supported. Only postgres is supported."
+        exit 1
+    fi
+
+    if [ -z "${DATABASE_URL:-}" ]; then
+        log "DATABASE_URL is required. SQLite is no longer supported."
+        exit 1
+    fi
+
+    export NEBULA_STORE="postgres"
+}
+
 map_log_level() {
     case "$1" in
         debug) printf '%s' 'Debug' ;;
@@ -34,10 +50,11 @@ configure_standalone_mode() {
 
     export NEBU_CTX_DATA_DIR="${NEBU_CTX_DATA_DIR:-/data}"
     export NEBULA_CTX_DATA_DIR="${NEBULA_CTX_DATA_DIR:-/data}"
-    export NEBULA_STORE="${NEBULA_STORE:-sqlite}"
     export NEBULA_CTX_HOST="$host"
     export NEBULA_CTX_HTTP_PORT="$port"
     export NEBULA_CTX_PORT="$dashboard_port"
+
+    require_postgres_configuration
 
     log "Starting standalone runtime on ${host}:${dashboard_port} (dashboard) and ${host}:${port} (MCP)"
 }
@@ -81,6 +98,8 @@ configure_addon_mode() {
     export NEBULA_CTX_HTTP_PORT="4242"
     export NEBULA_CTX_PORT="3333"
     export NEBULA_CTX_HTTP_TOKEN="$token"
+
+    require_postgres_configuration
 
     if [ -n "$log_level" ] && [ "$log_level" != "null" ]; then
         export Logging__LogLevel__Default="$(map_log_level "$log_level")"

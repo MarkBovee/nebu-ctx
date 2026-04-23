@@ -19,6 +19,11 @@ public static class StartupValidator
     {
         var errors = new List<string>();
 
+        if (!string.Equals(options.Store, "postgres", StringComparison.OrdinalIgnoreCase))
+        {
+            errors.Add($"NEBULA_STORE must be 'postgres'. '{options.Store}' is no longer supported.");
+        }
+
         // Non-loopback binding requires auth token
         if (!IsLoopback(options.McpHost) && string.IsNullOrEmpty(options.AuthToken))
         {
@@ -35,9 +40,9 @@ public static class StartupValidator
             errors.Add($"Dashboard port {options.DashboardPort} is out of valid range (1-65535).");
         }
 
-        if (options.Store.Equals("postgres", StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(options.DatabaseUrl))
+        if (string.IsNullOrWhiteSpace(options.DatabaseUrl))
         {
-            errors.Add("DATABASE_URL is required when NEBULA_STORE is set to 'postgres'.");
+            errors.Add("DATABASE_URL is required because Postgres is the only supported store.");
         }
 
         return errors;

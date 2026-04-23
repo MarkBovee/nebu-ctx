@@ -75,6 +75,11 @@ public static class DashboardEndpoints
             var projects = await projectRegistry.ListAsync(cancellationToken);
             return Results.Ok(DashboardPayloadFactory.BuildKnowledgePayload(projects));
         });
+        app.MapPost("/api/knowledge/projects/{projectId}/clear", async (string projectId, ProjectRegistry projectRegistry, CancellationToken cancellationToken) =>
+        {
+            var cleared = await projectRegistry.ClearProjectMetadataAsync(projectId, cancellationToken);
+            return cleared ? Results.Ok(new { cleared = true, project_id = projectId }) : Results.NotFound(new { cleared = false, project_id = projectId });
+        });
         app.MapGet("/api/gotchas", (TelemetryStore telemetryStore) => Results.Ok(DashboardPayloadFactory.BuildGotchasPayload(telemetryStore)));
         app.MapGet("/api/buddy", async (ProjectRegistry projectRegistry, TelemetryStore telemetryStore, CancellationToken cancellationToken) =>
         {

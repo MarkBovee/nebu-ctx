@@ -3,10 +3,9 @@ namespace NebuCtx.Storage;
 using Npgsql;
 using NebuCtx.Contracts.Configuration;
 using NebuCtx.Storage.Postgres;
-using NebuCtx.Storage.Sqlite;
 
 /// <summary>
-/// Factory for creating store instances based on the configured backend (SQLite or Postgres).
+/// Factory for creating Postgres-backed store instances.
 /// </summary>
 public static class StoreFactory
 {
@@ -14,73 +13,51 @@ public static class StoreFactory
     /// Creates an <see cref="IProjectStore"/> based on the server options.
     /// </summary>
     /// <param name="options">Server configuration containing store selection and connection details.</param>
-    /// <returns>A project store implementation for the configured backend.</returns>
+    /// <returns>A Postgres-backed project store.</returns>
     public static IProjectStore CreateProjectStore(ServerOptions options)
     {
-        return options.Store.ToLowerInvariant() switch
-        {
-            "postgres" => new PostgresProjectStore(BuildPostgresConnectionString(options)),
-            _ => new SqliteProjectStore(BuildSqliteConnectionString(options)),
-        };
+        return new PostgresProjectStore(BuildConfiguredPostgresConnectionString(options));
     }
 
     /// <summary>
     /// Creates an <see cref="IWorkspaceBindingStore"/> based on the server options.
     /// </summary>
     /// <param name="options">Server configuration containing store selection and connection details.</param>
-    /// <returns>A workspace binding store implementation for the configured backend.</returns>
+    /// <returns>A Postgres-backed workspace binding store.</returns>
     public static IWorkspaceBindingStore CreateWorkspaceBindingStore(ServerOptions options)
     {
-        return options.Store.ToLowerInvariant() switch
-        {
-            "postgres" => new PostgresWorkspaceBindingStore(BuildPostgresConnectionString(options)),
-            _ => new Sqlite.SqliteWorkspaceBindingStore(BuildSqliteConnectionString(options)),
-        };
+        return new PostgresWorkspaceBindingStore(BuildConfiguredPostgresConnectionString(options));
     }
 
     /// <summary>
     /// Creates an <see cref="IBrainStore"/> based on the server options.
     /// </summary>
     /// <param name="options">Server configuration containing store selection and connection details.</param>
-    /// <returns>A brain store implementation for the configured backend.</returns>
+    /// <returns>A Postgres-backed brain store.</returns>
     public static IBrainStore CreateBrainStore(ServerOptions options)
     {
-        return options.Store.ToLowerInvariant() switch
-        {
-            "postgres" => new PostgresBrainStore(BuildPostgresConnectionString(options)),
-            _ => new Sqlite.SqliteBrainStore(BuildSqliteConnectionString(options)),
-        };
+        return new PostgresBrainStore(BuildConfiguredPostgresConnectionString(options));
     }
 
     /// <summary>
-    /// Runs additive schema initialization for the configured backend.
+    /// Runs additive schema initialization for the supported Postgres backend.
     /// </summary>
     /// <param name="options">Server configuration.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task InitializeSchemaAsync(ServerOptions options, CancellationToken cancellationToken = default)
     {
-        switch (options.Store.ToLowerInvariant())
-        {
-            case "postgres":
-                await PostgresSchemaInitializer.EnsureSchemaAsync(BuildPostgresConnectionString(options), cancellationToken);
-                break;
-            default:
-                await SqliteSchemaInitializer.EnsureSchemaAsync(BuildSqliteConnectionString(options), cancellationToken);
-                break;
-        }
+        await PostgresSchemaInitializer.EnsureSchemaAsync(BuildConfiguredPostgresConnectionString(options), cancellationToken);
     }
 
     /// <summary>
-    /// Builds a SQLite connection string using the default data directory.
+    /// Validates that Postgres is the active store and returns a normalized connection string.
     /// </summary>
-    private static string BuildSqliteConnectionString(ServerOptions options)
+    /// <param name="options">Server configuration.</param>
+    /// <returns>Npgsql-compatible connection string.</returns>
+    private static string BuildConfiguredPostgresConnectionString(ServerOptions options)
     {
-        var dataDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".nebu-ctx");
-        Directory.CreateDirectory(dataDir);
-
-        return $"Data Source={Path.Combine(dataDir, "nebu-ctx.db")}";
+        EnsurePostgresStoreConfigured(options);
+        return BuildPostgresConnectionString(options);
     }
 
     /// <summary>
@@ -92,6 +69,20 @@ public static class StoreFactory
     {
         ArgumentNullException.ThrowIfNull(options);
         return NormalizePostgresConnectionString(options.DatabaseUrl!);
+    }
+
+    /// <summary>
+    /// Ensures the configured store is the only supported Postgres backend.
+    /// </summary>
+    /// <param name="options">Server configuration.</param>
+    private static void EnsurePostgresStoreConfigured(ServerOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        if (!string.Equals(options.Store, "postgres", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Only the 'postgres' store is supported. Received '{options.Store}'.");
+        }
     }
 
     /// <summary>

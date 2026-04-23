@@ -1,6 +1,6 @@
 [package]
 name = "nebu-ctx"
-version = "0.2.6"
+version = "0.2.7"
 edition = "2021"
 description = "Context engineering layer for AI agents with PostgreSQL persistence, brain memory, deployable MCP HTTP serving, and Home Assistant support."
 license = "Apache-2.0"

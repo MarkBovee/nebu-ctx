@@ -1,6 +1,6 @@
 [package]
 name = "nebu-ctx-client"
-version = "0.2.6"
+version = "0.2.7"
 edition = "2021"
 description = "Thin Rust client for the .NET nebu-ctx MCP and dashboard server."
 license = "Apache-2.0"

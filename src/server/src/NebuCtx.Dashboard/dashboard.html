@@ -423,6 +423,12 @@ tr:hover td{background:var(--surface-2)}
 }
 .graph-toolbar button:hover{color:var(--green);border-color:var(--border-light);background:var(--surface-2)}
 .graph-toolbar button.active{color:var(--green);background:var(--green-dim);border-color:var(--green-glow)}
+.graph-toolbar .graph-select-wrap{position:relative;display:flex;align-items:center}
+.graph-toolbar .graph-select-wrap::after{content:'▾';position:absolute;right:10px;font-size:10px;color:var(--muted);pointer-events:none}
+.graph-toolbar .graph-select{min-width:150px;max-width:220px;height:30px;padding:0 28px 0 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-size:11px;outline:none;cursor:pointer;appearance:none}
+.graph-toolbar .graph-select:hover{border-color:var(--border-light)}
+.graph-toolbar button.graph-danger-btn{width:auto;min-width:34px;padding:0 10px;border-color:rgba(248,113,113,0.18);color:var(--red)}
+.graph-toolbar button.graph-danger-btn:hover{background:var(--red-dim);border-color:rgba(248,113,113,0.34);color:#ffb0b0}
 .graph-toolbar .tb-sep{width:1px;background:var(--border);margin:4px 2px}
 .graph-legend{
   position:absolute;bottom:16px;left:16px;z-index:10;display:flex;gap:10px;flex-wrap:wrap;
@@ -1143,8 +1149,15 @@ async function apiFetch(path, opts) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const r = await fetch(resolveDashboardUrl(path), { signal: ctrl.signal, cache: 'no-store' });
+    const r = await fetch(resolveDashboardUrl(path), {
+      signal: ctrl.signal,
+      cache: 'no-store',
+      method: (opts && opts.method) || 'GET',
+      headers: (opts && opts.body) ? { 'Content-Type': 'application/json' } : undefined,
+      body: opts && opts.body ? JSON.stringify(opts.body) : undefined,
+    });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    if (r.status === 204) return null;
     return r.json();
   } catch (e) {
     if (e && e.name === 'AbortError') throw new Error('timeout');
@@ -1840,6 +1853,7 @@ function renderLiveEvents(events, mcp, stats) {
 }
 
 let knowledgeSimulation = null;
+let knowledgeProjects = [];
 async function loadKnowledge() {
   const container = $('view-knowledge');
   if (!container.dataset.built) showLoading(container);
@@ -1848,6 +1862,7 @@ async function loadKnowledge() {
     inFlight.set('knowledge', true);
     const data = await apiFetch('/api/knowledge', { timeoutMs: 4000 });
     const facts = data.facts || [];
+    knowledgeProjects = data.projects || [];
     if (!facts.length) {
       const root = data.root || data.project_root;
       showEmpty(container, 'No knowledge facts stored yet for this project' + (root ? ` (${root})` : '') + '. NebulaCTX builds project knowledge automatically as you work.');
@@ -1888,19 +1903,72 @@ function renderKnowledgeGraph(facts) {
     'E2E': '#6366f1', 'SECURITY': '#f87171', 'API': '#60a5fa', 'DATABASE': '#c084fc',
   };
 
-  const nodes = facts.map((f, i) => {
+  const nodes = [];
+  const links = [];
+  const projectIndex = new Map();
+  const categoryIndex = new Map();
+
+  facts.forEach((f, i) => {
     const cat = (f.category || '').split(':')[0].toUpperCase();
-    return { id: i, label: f.key || f.category || 'fact-'+i, category: cat, confidence: f.confidence || 0.5, fact: f, color: categoryColors[cat] || '#6b6b88' };
+    const projectName = f.project_name || 'unassigned';
+    const projectId = f.project_id || `project-${projectName}`;
+    const projectNodeId = `project:${projectId}`;
+    const categoryNodeId = `category:${projectName}:${cat}`;
+
+    if (!projectIndex.has(projectNodeId)) {
+      const projectNode = {
+        id: projectNodeId,
+        label: projectName,
+        category: 'PROJECT',
+        confidence: 1,
+        fact: { project_name: projectName, value: `${projectName} knowledge cluster` },
+        color: '#f4d35e',
+        kind: 'project',
+        projectName,
+      };
+      projectIndex.set(projectNodeId, projectNode);
+      nodes.push(projectNode);
+    }
+
+    if (!categoryIndex.has(categoryNodeId)) {
+      const categoryNode = {
+        id: categoryNodeId,
+        label: `${projectName} · ${cat.toLowerCase()}`,
+        category: cat,
+        confidence: 0.9,
+        fact: { project_name: projectName, category: cat, value: `${cat.toLowerCase()} facts for ${projectName}` },
+        color: categoryColors[cat] || '#6b6b88',
+        kind: 'category',
+        projectName,
+      };
+      categoryIndex.set(categoryNodeId, categoryNode);
+      nodes.push(categoryNode);
+      links.push({ source: projectNodeId, target: categoryNodeId, kind: 'project-category' });
+    }
+
+    nodes.push({
+      id: `fact:${i}`,
+      label: f.fact_name || f.key || f.category || 'fact-'+i,
+      category: cat,
+      confidence: f.confidence || 0.5,
+      fact: f,
+      color: categoryColors[cat] || '#6b6b88',
+      kind: 'fact',
+      projectName,
+    });
+    links.push({ source: categoryNodeId, target: `fact:${i}`, kind: 'category-fact' });
   });
 
-  const links = [];
-  const roomMap = {};
-  nodes.forEach(n => { const room = n.category; if (!roomMap[room]) roomMap[room] = []; roomMap[room].push(n); });
-  Object.values(roomMap).forEach(group => { for (let i = 1; i < group.length; i++) links.push({ source: group[0].id, target: group[i].id }); });
-
-  const usedCats = [...new Set(nodes.map(n => n.category))];
-  const legendHtml = usedCats.map(c => `<div class="graph-legend-item"><div class="graph-legend-dot" style="background:${categoryColors[c]||'#6b6b88'}"></div>${c.toLowerCase()}</div>`).join('');
-  graphEl.innerHTML = `<div class="graph-stats"><span>${nodes.length}</span> facts &middot; <span>${links.length}</span> links &middot; <span>${usedCats.length}</span> categories</div><div class="graph-toolbar"><button id="kgValBtn" class="${knowledgeShowValues ? 'active' : ''}" onclick="toggleKnowledgeValues()" title="Toggle values">123</button><div class="tb-sep"></div><button onclick="zoomGraph(knowledgeSimulation,'knowledgeGraph',1.3)" title="Zoom In">+</button><button onclick="zoomGraph(knowledgeSimulation,'knowledgeGraph',0.7)" title="Zoom Out">−</button><button onclick="resetGraph(knowledgeSimulation,'knowledgeGraph')" title="Reset">⟲</button><div class="tb-sep"></div><button class="fs-toggle-btn" onclick="toggleGraphFullscreen('knowledgeGraph')" title="Fullscreen (F)">⛶</button></div><div class="graph-legend">${legendHtml}</div><div class="graph-breadcrumb">Knowledge Graph · <span style="color:var(--green)">Press Esc to exit</span></div><div class="graph-minimap"><canvas></canvas></div>`;
+  const factNodes = nodes.filter(n => n.kind === 'fact');
+  const usedCats = [...new Set(factNodes.map(n => n.category))];
+  const projectCount = projectIndex.size;
+  const projectOptions = knowledgeProjects.length
+    ? knowledgeProjects.map(project => `<option value="${esc(project.project_id)}">${esc(project.project_name)} (${project.fact_count})</option>`).join('')
+    : '<option value="">No project facts</option>';
+  const legendHtml = [`<div class="graph-legend-item"><div class="graph-legend-dot" style="background:#f4d35e"></div>project</div>`]
+    .concat(usedCats.map(c => `<div class="graph-legend-item"><div class="graph-legend-dot" style="background:${categoryColors[c]||'#6b6b88'}"></div>${c.toLowerCase()}</div>`))
+    .join('');
+  graphEl.innerHTML = `<div class="graph-stats"><span>${factNodes.length}</span> facts &middot; <span>${projectCount}</span> projects &middot; <span>${usedCats.length}</span> categories</div><div class="graph-toolbar"><div class="graph-select-wrap"><select id="kgProjectSelect" class="graph-select" title="Choose project facts to clear">${projectOptions}</select></div><button class="graph-danger-btn" onclick="clearSelectedKnowledgeProject()" title="Delete facts for selected project">Del</button><div class="tb-sep"></div><button id="kgValBtn" class="${knowledgeShowValues ? 'active' : ''}" onclick="toggleKnowledgeValues()" title="Toggle values">123</button><div class="tb-sep"></div><button onclick="zoomGraph(knowledgeSimulation,'knowledgeGraph',1.3)" title="Zoom In">+</button><button onclick="zoomGraph(knowledgeSimulation,'knowledgeGraph',0.7)" title="Zoom Out">−</button><button onclick="resetGraph(knowledgeSimulation,'knowledgeGraph')" title="Reset">⟲</button><div class="tb-sep"></div><button class="fs-toggle-btn" onclick="toggleGraphFullscreen('knowledgeGraph')" title="Fullscreen (F)">⛶</button></div><div class="graph-legend">${legendHtml}</div><div class="graph-breadcrumb">Knowledge Graph · grouped by project</div><div class="graph-minimap"><canvas></canvas></div>`;
 
   const svg = d3.select(graphEl).append('svg').attr('class', 'd3-graph').attr('width', width).attr('height', height);
   const defs = svg.append('defs');
@@ -1915,35 +1983,44 @@ function renderKnowledgeGraph(facts) {
   graphEl._zoom = zoom; graphEl._svg = svg;
 
   const simulation = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(links).id(d => d.id).distance(90))
-    .force('charge', d3.forceManyBody().strength(-150))
+    .force('link', d3.forceLink(links).id(d => d.id).distance(d => d.kind === 'project-category' ? 70 : 110).strength(d => d.kind === 'project-category' ? 0.95 : 0.65))
+    .force('charge', d3.forceManyBody().strength(d => d.kind === 'project' ? -700 : d.kind === 'category' ? -360 : -190))
     .force('center', d3.forceCenter(width/2, height/2))
-    .force('collision', d3.forceCollide().radius(d => 10 + d.confidence * 22));
+    .force('collision', d3.forceCollide().radius(d => d.kind === 'project' ? 54 : d.kind === 'category' ? 32 : 10 + d.confidence * 22))
+    .force('x', d3.forceX(d => {
+      const projectNames = [...projectIndex.values()].map(project => project.projectName);
+      const projectPosition = Math.max(0, projectNames.indexOf(d.projectName));
+      const laneWidth = width / Math.max(projectNames.length, 1);
+      return laneWidth * projectPosition + laneWidth / 2;
+    }).strength(d => d.kind === 'project' ? 0.28 : 0.12))
+    .force('y', d3.forceY(d => d.kind === 'project' ? height * 0.26 : d.kind === 'category' ? height * 0.42 : height * 0.62).strength(d => d.kind === 'project' ? 0.35 : 0.16));
 
   const link = g.append('g').selectAll('line').data(links).join('line')
-    .attr('stroke', 'rgba(255,255,255,0.04)').attr('stroke-width', 1);
+    .attr('stroke', d => d.kind === 'project-category' ? 'rgba(244,211,94,0.18)' : 'rgba(255,255,255,0.05)').attr('stroke-width', d => d.kind === 'project-category' ? 1.6 : 1);
 
   const glow = g.append('g').selectAll('circle').data(nodes).join('circle')
-    .attr('r', d => (6 + d.confidence * 16) * 2.5)
-    .attr('fill', d => `url(#glow-${d.category.toLowerCase()})`)
+    .attr('r', d => (d.kind === 'project' ? 18 : 6 + d.confidence * 16) * 2.5)
+    .attr('fill', d => d.kind === 'project' ? 'rgba(244,211,94,0.08)' : `url(#glow-${d.category.toLowerCase()})`)
     .style('pointer-events', 'none');
 
   const node = g.append('g').selectAll('circle').data(nodes).join('circle')
-    .attr('r', d => 5 + d.confidence * 14)
+    .attr('r', d => d.kind === 'project' ? 18 : d.kind === 'category' ? 10 : 5 + d.confidence * 14)
     .attr('fill', d => d.color).attr('fill-opacity', 0.85)
-    .attr('stroke', d => d.color).attr('stroke-width', 1.5).attr('stroke-opacity', 0.4)
+    .attr('stroke', d => d.color).attr('stroke-width', d => d.kind === 'project' ? 2.2 : 1.5).attr('stroke-opacity', 0.4)
     .style('cursor', 'pointer').style('transition', 'r .2s, stroke-opacity .2s')
     .call(d3.drag().on('start', (e,d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
       .on('drag', (e,d) => { d.fx = e.x; d.fy = e.y; })
       .on('end', (e,d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }))
     .on('click', (e, d) => showKnowledgeDetail(d))
     .on('mouseover', function(e, d) {
-      d3.select(this).attr('stroke-opacity', 1).attr('r', (5 + d.confidence * 14) * 1.3);
-      showTooltip(e, `<div class="nt-title">${esc(d.label)}</div><div class="nt-row"><span class="nt-label">Category</span><span class="nt-value">${d.category}</span></div><div class="nt-row"><span class="nt-label">Confidence</span><span class="nt-value">${Math.round(d.confidence*100)}%</span></div>`);
+      const hoverRadius = d.kind === 'project' ? 23 : d.kind === 'category' ? 13 : (5 + d.confidence * 14) * 1.3;
+      d3.select(this).attr('stroke-opacity', 1).attr('r', hoverRadius);
+      showTooltip(e, `<div class="nt-title">${esc(d.label)}</div><div class="nt-row"><span class="nt-label">Project</span><span class="nt-value">${esc(d.projectName || d.fact.project_name || 'unknown')}</span></div><div class="nt-row"><span class="nt-label">Category</span><span class="nt-value">${d.category}</span></div><div class="nt-row"><span class="nt-label">Confidence</span><span class="nt-value">${Math.round(d.confidence*100)}%</span></div>`);
     })
     .on('mousemove', (e) => moveTooltip(e))
     .on('mouseout', function(e, d) {
-      d3.select(this).attr('stroke-opacity', 0.4).attr('r', 5 + d.confidence * 14);
+      const baseRadius = d.kind === 'project' ? 18 : d.kind === 'category' ? 10 : 5 + d.confidence * 14;
+      d3.select(this).attr('stroke-opacity', 0.4).attr('r', baseRadius);
       hideTooltip();
     });
 
@@ -1952,12 +2029,15 @@ function renderKnowledgeGraph(facts) {
     .attr('text-anchor', 'middle')
     .attr('dy', '0.35em')
     .style('display', knowledgeShowValues ? '' : 'none')
-    .text(d => d.confidence >= 0.65 ? (Math.round(d.confidence * 100) + '%') : '');
+    .text(d => d.kind === 'fact' && d.confidence >= 0.65 ? (Math.round(d.confidence * 100) + '%') : '');
 
   const label = g.append('g').selectAll('text').data(nodes).join('text')
-    .text(d => d.label.length > 22 ? d.label.substring(0,20)+'..' : d.label)
-    .attr('font-size', 10).attr('fill', 'rgba(255,255,255,0.5)').attr('text-anchor', 'middle')
-    .attr('dy', d => -(9 + d.confidence * 14) - 5).style('pointer-events', 'none');
+    .text(d => d.label.length > 30 ? d.label.substring(0,28)+'..' : d.label)
+    .attr('font-size', d => d.kind === 'project' ? 12 : d.kind === 'category' ? 10 : 10)
+    .attr('font-weight', d => d.kind === 'project' ? 700 : d.kind === 'category' ? 600 : 400)
+    .attr('fill', d => d.kind === 'project' ? 'rgba(255,244,190,0.95)' : d.kind === 'category' ? 'rgba(255,255,255,0.72)' : 'rgba(255,255,255,0.54)')
+    .attr('text-anchor', 'middle')
+    .attr('dy', d => d.kind === 'project' ? 32 : d.kind === 'category' ? -18 : -(9 + d.confidence * 14) - 5).style('pointer-events', 'none');
 
   let kgTickCount = 0;
   simulation.on('tick', () => {
@@ -1973,12 +2053,38 @@ function renderKnowledgeGraph(facts) {
   applyKnowledgeValuesState();
 }
 
+async function clearSelectedKnowledgeProject() {
+  const select = $('kgProjectSelect');
+  if (!select || !select.value) return;
+
+  const projectId = select.value;
+  const projectLabel = select.options[select.selectedIndex]?.text || projectId;
+  if (!confirm(`Delete stored knowledge facts for ${projectLabel}?`)) return;
+
+  const button = document.querySelector('#knowledgeGraph .graph-danger-btn');
+  if (button) button.disabled = true;
+
+  try {
+    await apiFetch(`/api/knowledge/projects/${encodeURIComponent(projectId)}/clear`, { method: 'POST', timeoutMs: 5000 });
+    closeDetail();
+    const container = $('view-knowledge');
+    if (container) delete container.dataset.built;
+    await loadKnowledge();
+  } catch (e) {
+    alert('Could not clear facts for that project.');
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 function showKnowledgeDetail(d) {
   const f = d.fact;
   $('detailContent').innerHTML = `
     <h3>${esc(d.label)}</h3>
+    <div class="detail-row"><span class="dl">Project</span><span class="dv">${esc(f.project_name || d.projectName || 'unknown')}</span></div>
     <div class="detail-row"><span class="dl">Category</span><span class="dv">${esc(d.category)}</span></div>
     <div class="detail-row"><span class="dl">Confidence</span><span class="dv">${Math.round(d.confidence*100)}%</span></div>
+    ${f.fact_name ? `<div class="detail-row"><span class="dl">Fact Name</span><span class="dv">${esc(f.fact_name)}</span></div>` : ''}
     <div class="detail-row"><span class="dl">Value</span><span class="dv" style="word-break:break-all">${esc(f.value || f.fact || JSON.stringify(f))}</span></div>
     ${f.learned_at ? `<div class="detail-row"><span class="dl">Learned</span><span class="dv">${esc(f.learned_at)}</span></div>` : ''}
     ${f.last_confirmed ? `<div class="detail-row"><span class="dl">Last Confirmed</span><span class="dv">${esc(f.last_confirmed)}</span></div>` : ''}

@@ -4,7 +4,7 @@ using NebuCtx.Contracts.Projects;
 
 /// <summary>
 /// Abstraction for project-scoped persistent storage.
-/// Implementations exist for SQLite and Postgres.
+/// The supported runtime implementation is Postgres-backed.
 /// </summary>
 public interface IProjectStore
 {

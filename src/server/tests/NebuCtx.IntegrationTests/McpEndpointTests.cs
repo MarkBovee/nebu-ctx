@@ -353,8 +353,56 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
 
         var payload = await response.Content.ReadAsStringAsync();
         Assert.Contains("facts", payload, StringComparison.Ordinal);
+        Assert.Contains("project_name", payload, StringComparison.Ordinal);
+        Assert.Contains("fact_name", payload, StringComparison.Ordinal);
+        Assert.Contains("Repository Host", payload, StringComparison.Ordinal);
         Assert.Contains("architecture:language", payload, StringComparison.Ordinal);
         Assert.Contains("rust", payload, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Dashboard knowledge clear endpoint removes persisted facts for a project.
+    /// </summary>
+    [Fact]
+    public async Task DashboardKnowledge_ClearProjectFacts_RemovesFacts()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "stale-project",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/MarkBovee/stale-project.git",
+                Host = "github.com",
+                Owner = "MarkBovee",
+                RepoName = "stale-project",
+                DefaultBranch = "main",
+            },
+            ProjectMetadata = new ProjectMetadataEnvelope
+            {
+                SchemaVersion = 1,
+                Summary = new ProjectMetadataSummary
+                {
+                    TotalFileCount = 6,
+                    SourceFileCount = 3,
+                    Markers = [".git"],
+                    Languages = [new ProjectLanguageStat { Language = "rust", FileCount = 3 }],
+                },
+            },
+        });
+
+        var resolution = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolution?.Project?.ProjectId);
+
+        var beforeResponse = await _client.GetAsync("/api/knowledge");
+        var beforePayload = await beforeResponse.Content.ReadAsStringAsync();
+        Assert.Contains(resolution!.Project!.ProjectId, beforePayload, StringComparison.Ordinal);
+
+        var clearResponse = await _client.PostAsync($"/api/knowledge/projects/{resolution.Project.ProjectId}/clear", content: null);
+        Assert.Equal(HttpStatusCode.OK, clearResponse.StatusCode);
+
+        var response = await _client.GetAsync("/api/knowledge");
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain(resolution.Project.ProjectId, payload, StringComparison.Ordinal);
     }
 
     /// <summary>

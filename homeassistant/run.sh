@@ -19,6 +19,7 @@ PG_PORT="$(jq -r '.postgres_port // 5432' "$OPTIONS_FILE")"
 PG_DB="$(jq -r '.postgres_database // "nebula_ctx"' "$OPTIONS_FILE")"
 PG_USER="$(jq -r '.postgres_username // "postgres"' "$OPTIONS_FILE")"
 PG_PASS="$(jq -r '.postgres_password // ""' "$OPTIONS_FILE")"
+CONFIGURED_AUTH_TOKEN="$(jq -r '.auth_token // ""' "$OPTIONS_FILE")"
 LOG_LEVEL="$(jq -r '.log_level // "info"' "$OPTIONS_FILE")"
 PROJECT_ROOT="$(jq -r '.project_root // "/share"' "$OPTIONS_FILE")"
 
@@ -31,13 +32,18 @@ DATABASE_URL="postgresql://${PG_USER}:${PG_PASS}@${PG_HOST}:${PG_PORT}/${PG_DB}"
 export DATABASE_URL
 export NEBULA_STORE="postgres"
 
-# --- Auth token: auto-generate once and persist for dashboard/MCP use ---
-if [ ! -f "$AUTH_TOKEN_FILE" ] || [ ! -s "$AUTH_TOKEN_FILE" ]; then
-    TOKEN="nctx_$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')"
-    printf '%s' "$TOKEN" > "$AUTH_TOKEN_FILE"
+# --- Auth token: use configured value when provided, otherwise auto-generate and persist ---
+if [ -n "$CONFIGURED_AUTH_TOKEN" ] && [ "$CONFIGURED_AUTH_TOKEN" != "null" ]; then
+    AUTH_TOKEN="$CONFIGURED_AUTH_TOKEN"
+    printf '%s' "$AUTH_TOKEN" > "$AUTH_TOKEN_FILE"
+    log "Using configured auth token"
+elif [ ! -f "$AUTH_TOKEN_FILE" ] || [ ! -s "$AUTH_TOKEN_FILE" ]; then
+    AUTH_TOKEN="nctx_$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')"
+    printf '%s' "$AUTH_TOKEN" > "$AUTH_TOKEN_FILE"
     log "Generated new auth token"
+else
+    AUTH_TOKEN="$(cat "$AUTH_TOKEN_FILE")"
 fi
-AUTH_TOKEN="$(cat "$AUTH_TOKEN_FILE")"
 
 # --- Environment ---
 export NEBU_CTX_DATA_DIR="/data"

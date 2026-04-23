@@ -128,10 +128,10 @@ The add-on under `homeassistant/` is now packaged as a standalone Home Assistant
 Operational guidance:
 
 1. Use `Open Web UI` to access the dashboard through Home Assistant ingress.
-2. Set `store` to `postgres` only when `database_url` is configured.
-3. Set `auth_token` if you need the MCP port reachable from outside the add-on container.
+2. Configure PostgreSQL with the split fields: `postgres_host`, `postgres_port`, `postgres_database`, `postgres_username`, and `postgres_password`.
+3. Set `auth_token` if you want a fixed MCP bearer token; otherwise the add-on generates one and persists it automatically.
 4. Set `project_root` to a mounted path such as `/share` or `/config` so dashboard and MCP relative paths resolve meaningfully.
-5. Expect the add-on to persist or generate an auth token and expose MCP on `4242/tcp` when that port is enabled.
+5. Expect the add-on to expose MCP on `4242/tcp` only when that port is enabled in Home Assistant network settings.
 
 Connection model:
 

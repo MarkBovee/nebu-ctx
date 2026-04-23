@@ -1,47 +1,25 @@
 namespace NebuCtx.ProjectIdentityTests;
 
+using System.Collections.Concurrent;
 using NebuCtx.Contracts.Projects;
 using NebuCtx.Projects;
 using NebuCtx.Storage;
-using NebuCtx.Storage.Sqlite;
 
 /// <summary>
 /// Tests that the project identity model resolves correctly across different local roots.
 /// </summary>
-public class ProjectResolutionTests : IAsyncLifetime
+public class ProjectResolutionTests
 {
-    private string _testDbPath = null!;
-    private string _connectionString = null!;
     private ProjectRegistry _registry = null!;
 
     /// <summary>
-    /// Sets up a fresh SQLite database and registry for each test.
+    /// Sets up a fresh in-memory registry for each test.
     /// </summary>
-    public async Task InitializeAsync()
+    public ProjectResolutionTests()
     {
-        _testDbPath = $"test_proj_{Guid.NewGuid():N}.db";
-
-        _connectionString = $"Data Source={_testDbPath}";
-        await SqliteSchemaInitializer.EnsureSchemaAsync(_connectionString);
-
-        var projectStore = new SqliteProjectStore(_connectionString);
-        var bindingStore = new SqliteWorkspaceBindingStore(_connectionString);
+        var projectStore = new InMemoryProjectStore();
+        var bindingStore = new InMemoryWorkspaceBindingStore();
         _registry = new ProjectRegistry(projectStore, bindingStore);
-    }
-
-    /// <summary>
-    /// Cleans up the test database.
-    /// </summary>
-    public Task DisposeAsync()
-    {
-        // SQLite connections are pooled; clear pool before deleting
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-
-        if (File.Exists(_testDbPath))
-        {
-            File.Delete(_testDbPath);
-        }
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -174,5 +152,98 @@ public class ProjectResolutionTests : IAsyncLifetime
         Assert.NotNull(reloaded);
         Assert.NotNull(reloaded!.ProjectMetadata);
         Assert.Equal("rust", reloaded.ProjectMetadata!.Summary.Languages[0].Language);
+    }
+
+    /// <summary>
+    /// In-memory project store used to keep the test independent from runtime database providers.
+    /// </summary>
+    private sealed class InMemoryProjectStore : IProjectStore
+    {
+        private readonly ConcurrentDictionary<string, ProjectRecord> _projects = new();
+
+        /// <inheritdoc />
+        public Task<ProjectRecord?> GetProjectAsync(string projectId, CancellationToken cancellationToken = default)
+        {
+            _projects.TryGetValue(projectId, out var project);
+            return Task.FromResult(project);
+        }
+
+        /// <inheritdoc />
+        public Task<ProjectRecord?> FindByFingerprintAsync(RepositoryFingerprint fingerprint, CancellationToken cancellationToken = default)
+        {
+            var project = _projects.Values.FirstOrDefault(project => FingerprintsMatch(project.Fingerprint, fingerprint));
+            return Task.FromResult(project);
+        }
+
+        /// <inheritdoc />
+        public Task CreateProjectAsync(ProjectRecord project, CancellationToken cancellationToken = default)
+        {
+            _projects[project.ProjectId] = project;
+            return Task.CompletedTask;
+        }
+
+        /// <inheritdoc />
+        public Task UpdateProjectAsync(ProjectRecord project, CancellationToken cancellationToken = default)
+        {
+            _projects[project.ProjectId] = project;
+            return Task.CompletedTask;
+        }
+
+        /// <inheritdoc />
+        public Task<IReadOnlyList<ProjectRecord>> ListProjectsAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<ProjectRecord>>(_projects.Values.ToList());
+        }
+
+        /// <summary>
+        /// Matches two repository fingerprints using the fields the registry depends on for identity.
+        /// </summary>
+        /// <param name="left">Stored fingerprint.</param>
+        /// <param name="right">Requested fingerprint.</param>
+        /// <returns>True when the fingerprints identify the same repository.</returns>
+        private static bool FingerprintsMatch(RepositoryFingerprint left, RepositoryFingerprint right)
+        {
+            return string.Equals(left.RemoteUrl, right.RemoteUrl, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(left.Host, right.Host, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(left.Owner, right.Owner, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(left.RepoName, right.RepoName, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(left.DefaultBranch, right.DefaultBranch, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    /// <summary>
+    /// In-memory workspace binding store used by the registry tests.
+    /// </summary>
+    private sealed class InMemoryWorkspaceBindingStore : IWorkspaceBindingStore
+    {
+        private readonly ConcurrentDictionary<string, List<WorkspaceBinding>> _bindingsByProject = new();
+
+        /// <inheritdoc />
+        public Task UpsertBindingAsync(WorkspaceBinding binding, CancellationToken cancellationToken = default)
+        {
+            var bindings = _bindingsByProject.GetOrAdd(binding.ProjectId, _ => []);
+            var existingIndex = bindings.FindIndex(existing => string.Equals(existing.LocalRoot, binding.LocalRoot, StringComparison.OrdinalIgnoreCase));
+
+            if (existingIndex >= 0)
+            {
+                bindings[existingIndex] = binding;
+            }
+            else
+            {
+                bindings.Add(binding);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        /// <inheritdoc />
+        public Task<IReadOnlyList<WorkspaceBinding>> GetBindingsAsync(string projectId, CancellationToken cancellationToken = default)
+        {
+            var bindings = _bindingsByProject.TryGetValue(projectId, out var storedBindings)
+                ? storedBindings.ToList()
+                : [];
+
+            return Task.FromResult<IReadOnlyList<WorkspaceBinding>>(bindings);
+        }
     }
 }

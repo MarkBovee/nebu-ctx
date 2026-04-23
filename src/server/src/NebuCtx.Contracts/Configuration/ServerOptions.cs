@@ -33,9 +33,9 @@ public sealed class ServerOptions
     public string? AuthToken { get; set; }
 
     /// <summary>
-    /// Store backend selector: "sqlite" or "postgres". Env: NEBULA_STORE. Default: sqlite.
+    /// Store backend selector. Only "postgres" is supported. Env: NEBULA_STORE. Default: postgres.
     /// </summary>
-    public string Store { get; set; } = "sqlite";
+    public string Store { get; set; } = "postgres";
 
     /// <summary>
     /// Postgres connection string. Env: DATABASE_URL.

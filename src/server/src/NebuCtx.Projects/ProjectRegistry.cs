@@ -110,6 +110,26 @@ public sealed class ProjectRegistry
     }
 
     /// <summary>
+    /// Clears the persisted project metadata for a single project.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True when the project exists and was updated.</returns>
+    public async Task<bool> ClearProjectMetadataAsync(string projectId, CancellationToken cancellationToken = default)
+    {
+        var project = await _projectStore.GetProjectAsync(projectId, cancellationToken);
+        if (project is null)
+        {
+            return false;
+        }
+
+        project.ProjectMetadata = null;
+        project.UpdatedAt = DateTimeOffset.UtcNow;
+        await _projectStore.UpdateProjectAsync(project, cancellationToken);
+        return true;
+    }
+
+    /// <summary>
     /// Binds a workspace (local checkout) to a project.
     /// </summary>
     /// <param name="binding">The workspace binding to persist.</param>

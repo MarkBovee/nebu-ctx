@@ -44,6 +44,7 @@ That split is intentional:
 | `postgres_database` | PostgreSQL database name | default `nebula_ctx` |
 | `postgres_username` | PostgreSQL user | default `postgres` |
 | `postgres_password` | PostgreSQL password | required for most deployments |
+| `auth_token` | Optional fixed MCP bearer token | leave empty to auto-generate and persist |
 | `log_level` | Sets `RUST_LOG` | typical values: `debug`, `info`, `warn`, `error` |
 | `project_root` | Default path root for MCP and dashboard actions | recommended: `/share` or `/config` |
 
@@ -66,6 +67,8 @@ To use it from external clients:
 1. Open the dashboard and copy the generated MCP token.
 2. Expose `4242/tcp` in the Home Assistant network settings.
 3. Connect to the Home Assistant host on port `4242` with `Authorization: Bearer <token>`.
+
+If you want a stable token across reinstalls or restores, set `auth_token` explicitly in the add-on options. When it is left empty, the add-on generates one on first start and persists it in `/data/auth_token`.
 
 Example endpoints:
 

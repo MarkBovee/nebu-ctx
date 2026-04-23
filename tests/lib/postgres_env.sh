@@ -43,7 +43,7 @@ load_repo_postgres_env() {
     . <(tr -d '\r' < "$env_file")
     set +a
 
-    if [ "${NEBULA_STORE:-sqlite}" != "postgres" ]; then
+    if [ -n "${NEBULA_STORE:-}" ] && [ "${NEBULA_STORE}" != "postgres" ]; then
         fail_msg "Expected NEBULA_STORE=postgres in $env_file"
         return 1
     fi
