@@ -5,7 +5,7 @@ Status: Authoritative
 Audience: implementation sessions working in this repository
 
 This document is the authoritative redesign plan for NebuCtx product realignment.
-It supersedes `docs/server-migration-plan.md` for product-surface decisions.
+It is the only active redesign plan for NebuCtx product realignment.
 
 The goal is explicit:
 
@@ -22,8 +22,7 @@ This plan is based on these inputs, in this priority order:
 
 1. The original lean-ctx surface in `reference/`.
 2. The cloud and architecture notes in `reference/PROJECT.md` and `reference/README.md`.
-3. The current migration constraints in `docs/server-migration-plan.md`.
-4. The current NebuCtx implementation under `client/` and `server/`.
+3. The current NebuCtx implementation under `client/` and `server/`.
 
 If a future implementation detail is ambiguous, resolve it as follows:
 
@@ -451,6 +450,18 @@ Operational constraints that remain unchanged during realignment:
 
 ## 10. Implementation Work Packages
 
+### Execution rule
+
+The work packages below are not optional branches.
+
+Execution policy:
+
+- implement WP0 through WP7 in order
+- do not stop after WP1 just because the CLI naming is in place
+- do not treat individual WPs as independent side quests
+- each WP unlocks the next one and the expectation is continuous forward execution until the realignment is complete
+- if a WP exposes a blocker, resolve that blocker and then continue with the next WP rather than reopening the product-definition discussion
+
 ### WP0: Freeze the target surface
 
 Deliverables:
@@ -700,6 +711,7 @@ The next implementation session must start in this order.
 
 Do not start by renaming folders or doing large namespace churn. That work is intentionally deferred.
 Do not start by building a second cloud/server runtime. The existing .NET host is the cloud runtime.
+Do not stop after step 1. The required behavior is to continue through the list until the realignment workstream is actually advanced across all WPs.
 
 ## 14. Definition Of Done
 
