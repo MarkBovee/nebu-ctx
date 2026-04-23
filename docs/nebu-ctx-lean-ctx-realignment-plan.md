@@ -4,6 +4,22 @@ Updated: 2026-04-23
 Status: Authoritative
 Audience: implementation sessions working in this repository
 
+## WP Status Tracker
+
+Read this first. Each session must verify the status column before starting work.
+
+| WP | Title | Status | Notes |
+|----|-------|--------|-------|
+| WP0 | Freeze target surface | ✅ Done | Plan frozen, `reference/` is read-only |
+| WP1 | Re-establish Rust client from lean-ctx baseline | 🔄 Source complete, build unverified | All lean-ctx modules present; compile on Linux not yet confirmed |
+| WP2 | Cloud-first UX | 🔄 ~75% done | `cloud connect/bind/disconnect/status` + `server` alias work; `sync` still returns error |
+| WP3 | workspace → checkout rename | 🔄 ~40% done | Rust client done; server-side `IWorkspaceBindingStore`, SQL table `workspace_bindings`, and DI not yet renamed |
+| WP4 | Audit and complete local tool surface | 🔄 ~40% done | Analytics boundary enforced; dead code (`cloud_server/`, `local_dashboard/`, `heatmap.rs`) + `dispatch.rs` match arms not yet removed |
+| WP5 | Cloud-owned shared-state in .NET | ❌ ~5% done | Only `ctx_brain` and `ctx_routes` registered; none of the 11 canonical cloud tools implemented server-side |
+| WP6 | Hybrid sync pipeline | ❌ 0% | Not started |
+| WP7 | Dashboard parity with project-scoped data | ❌ 0% | Not started |
+| WP8 | Packaging and add-on stabilization | 🔄 ~50% done | `server/dist/linux/` committed; not validated on Linux |
+
 This document is the authoritative redesign plan for NebuCtx product realignment.
 It is the only active redesign plan for NebuCtx product realignment.
 
@@ -793,47 +809,119 @@ Required checks:
 - token file behavior unchanged
 - container and add-on flows both work
 
-### 12.7 End-Of-Day Status: 2026-04-23
+### 12.7 Session Log: 2026-04-23 (Windows)
 
-Completed today:
+Completed:
 
 - setup/bootstrap/rules/home-path regressions were fixed so the active client again behaves like the intended local Rust edge
 - `cargo test --manifest-path client/Cargo.toml --test setup_ci_smoke -- --nocapture` is green and remains the current baseline validation for this realignment stream
-- the client now enforces the cloud-only analytics boundary in the user-facing paths that mattered most for architectural correctness
-- this enforcement slice was committed as `51bdb9a` with message `refactor: enforce cloud-only analytics boundary`
+- the client now enforces the cloud-only analytics boundary in the user-facing paths that mattered most for architectural correctness — committed as `51bdb9a` (`refactor: enforce cloud-only analytics boundary`)
+- the full lean-ctx runtime source tree was merged into `client/src/` via `738eb60` (`[WIP] refactor client`)
+- dist refreshed and committed
 
-Current implementation reality:
+Known remaining debt at end of this session:
 
-- local dashboard and local canonical analytics are no longer exposed as first-class product behavior through the client CLI, MCP dispatch, help text, and tool handlers
-- NebuCtx Cloud remains the only canonical owner for dashboard, shared analytics, wrapped metrics, gain, cost, and heatmap style rollups
-- the local client may still keep temporary local telemetry/spool state only as a delivery or retry mechanism; it is not a product dashboard and not a canonical analytics store
+- `client/src/cloud_server/` directory exists but has zero references — safe to delete
+- `client/src/local_dashboard/` and `client/src/heatmap.rs` remain present; still exported in `lib.rs`; still have unreachable match arms in `dispatch.rs` (lines ~215 and ~589) that must be removed before the module deletes will compile
+- `client/src/lib.rs` still exports `local_dashboard` and `heatmap` modules
+- `IWorkspaceBindingStore`, the SQL table `workspace_bindings`, and the DI registration in `Program.cs` still use workspace terminology — WP3 server-side is not complete
+- WP5 cloud tools (ctx_session, ctx_knowledge, etc.) not yet implemented server-side
+- build on Linux not yet verified
 
-Known remaining debt after today:
+## 13. Current Session Guide
 
-- dead or now-unreachable local analytics code still exists in the client and must be removed in a cleanup slice
-- `client/src/local_dashboard/` and `client/src/heatmap.rs` are still present and should be treated as removal candidates, not as valid target architecture
-- `client/src/lib.rs` still exports local dashboard and heatmap modules and should be cleaned once the dead-code removal slice is executed
-- cloud-backed implementations for `ctx_cost`, `ctx_gain`, and `ctx_heatmap` still need to be completed on the existing `.NET` cloud runtime
-- a broader shell-hook test failure outside this finished slice may still need follow-up, but it is not a blocker for closing today because the completed architectural boundary work was already validated with the smoke baseline above
+This section replaces the previous "next session" framing. Each session begins here, checks the WP Status Tracker (top of document), then executes the steps below in order. Do not skip steps or reorder them.
 
-## 13. Order Of Execution For The Next Session
+### Execution constraints
 
-The next implementation session must start in this order.
+- Do not start by renaming folders or doing large namespace churn.
+- Do not start by building a second cloud/server runtime. The existing .NET host is the cloud runtime.
+- Do not start from `client/src-old/`. It is a donor, not the base.
+- Do not stop after any one step. The required behavior is to continue through the guide until the session goal is complete or a real blocker is hit.
 
-1. Remove dead local dashboard and local analytics code paths that are now architecturally invalid but still present in the client source tree.
-2. Clean `client/src/lib.rs` and any remaining registrations/exports so the removed local dashboard and heatmap modules are not part of the active client surface anymore.
-3. Re-run the smoke baseline immediately after that cleanup and only continue if the same validation still passes.
-4. Resume the broader lean-ctx runtime parity work in `client/src/` from the lean-ctx baseline, not from `client/src-old/`.
-5. Continue restoring the intended public UX shape: `cloud` as canonical remote vocabulary, `server` as compatibility alias only.
-6. Continue the terminology migration from `workspace` to `checkout` without breaking persisted or server-facing compatibility.
-7. Add cloud DTOs and handlers for `ctx_session` and `ctx_knowledge` on the existing `.NET` host before expanding further analytics surfaces.
-8. Add telemetry ingest and then complete cloud-backed implementations for `ctx_cost`, `ctx_gain`, and `ctx_heatmap` so the blocked client surfaces can later point to real cloud data instead of local placeholders.
-9. Finish dashboard parity last, once the project-scoped data pipeline is real end-to-end in the existing cloud runtime.
+### Step 0 — Environment bootstrap (Linux)
 
-Do not start by renaming folders or doing large namespace churn. That work is intentionally deferred.
-Do not start by building a second cloud/server runtime. The existing .NET host is the cloud runtime.
-Do not start from `client/src-old/`. It is a donor, not the base.
-Do not stop after step 1. The required behavior is to continue through the list until the realignment workstream is actually advanced across all WPs.
+See **Section 16** for the full Linux bootstrap procedure. Do not skip this on a fresh machine. Verify both toolchains before touching any source.
+
+### Step 1 — Establish the build baseline
+
+Run the smoke test before any code changes:
+
+```bash
+cargo test --manifest-path client/Cargo.toml --test setup_ci_smoke -- --nocapture
+```
+
+Do not proceed if this fails. Diagnose and fix compile errors first. A green baseline must exist before any cleanup work starts.
+
+### Step 2 — WP4: Remove dead client code (one commit)
+
+Execute in this exact order to avoid compile breakage:
+
+1. Remove the `"dashboard"` match arm and its `local_dashboard::start()` call from `client/src/cli/dispatch.rs` (~line 215 area).
+2. Remove the `"heatmap"` match arm and its `heatmap::cmd_heatmap()` call from `client/src/cli/dispatch.rs` (~line 589 area).
+3. Remove `heatmap` and `local_dashboard` from the `use` block at the top of `dispatch.rs`.
+4. Remove `pub mod local_dashboard` and `pub mod heatmap` from `client/src/lib.rs`.
+5. Delete `client/src/local_dashboard/` directory and `client/src/heatmap.rs`.
+6. Delete `client/src/cloud_server/` directory (it has zero references — safe to delete).
+
+Commit: `refactor: remove dead local dashboard, heatmap, and cloud_server from client`
+
+### Step 3 — Re-run baseline after cleanup
+
+```bash
+cargo test --manifest-path client/Cargo.toml --test setup_ci_smoke -- --nocapture
+```
+
+Must stay green. If it breaks, diagnose before continuing.
+
+### Step 4 — WP3 server-side: rename workspace → checkout in .NET
+
+This is a focused rename, not a large refactor. Change these in one commit:
+
+- `IWorkspaceBindingStore` → `ICheckoutBindingStore` (interface name in `NebuCtx.Storage`)
+- All implementing classes renamed accordingly (Sqlite and Postgres stores)
+- SQL table/schema init: `workspace_bindings` → `checkout_bindings`
+- DI registration in `server/src/NebuCtx.Server.Host/Program.cs`
+- Any dashboard copy, log messages, and variable names using `workspace_binding` in the server tree
+
+Accept `workspace_binding` as an inbound JSON alias but never produce it as output.
+
+Commit: `refactor: rename workspace_binding to checkout_binding in server storage`
+
+Run `dotnet test server/NebuCtx.slnx` and verify green before continuing.
+
+### Step 5 — WP5: First cloud tool — `ctx_knowledge`
+
+Add `KnowledgeToolHandler` in `server/src/NebuCtx.Tools/Knowledge/KnowledgeToolHandler.cs`:
+- Behavioral spec: the lean-ctx local implementation at `client/src/tools/ctx_knowledge.rs` and `client/src/core/knowledge.rs`
+- State must be keyed by `project_id`, never by local path
+- Register it in `ToolRegistration.cs`
+
+Run `dotnet test server/NebuCtx.slnx` and verify green.
+
+### Step 6 — WP5: Second cloud tool — `ctx_session`
+
+Add `SessionToolHandler` in `server/src/NebuCtx.Tools/Session/SessionToolHandler.cs`:
+- Behavioral spec: the lean-ctx local implementation at `client/src/tools/ctx_session.rs` and `client/src/core/session.rs`
+- State keyed by `project_id`
+- Register in `ToolRegistration.cs`
+
+### Step 7 — WP2: Implement real `sync` command
+
+`cmd_sync()` in `client/src/cli/cloud.rs` currently calls `removed_cloud_command("sync")`. Implement real sync behavior:
+- Emit Rule A telemetry to the configured cloud endpoint
+- The minimum viable sync is a POST to the cloud with the current checkout binding and a session heartbeat
+
+### Step 8 — Continue WP5 remaining cloud tools
+
+After `ctx_knowledge` and `ctx_session` are working, continue with:
+`ctx_agent`, `ctx_task`, `ctx_workflow`, `ctx_metrics`, `ctx_wrapped`, `ctx_cost`, `ctx_gain`, `ctx_feedback`, `ctx_heatmap`
+
+Each follows the same pattern: handler class → behavioral spec from lean-ctx local tool → state keyed by `project_id` → register in `ToolRegistration.cs` → tests green.
+
+### Step 9 — WP6, WP7, WP8
+
+Do not start these until Steps 1–8 are green. See the corresponding WP sections for details.
 
 ## 14. Definition Of Done
 
@@ -866,3 +954,75 @@ The following work is deferred until the realignment is complete:
 - feature invention that does not exist in lean-ctx or in this plan
 
 This plan is intended to be executable without reopening the product definition debate.
+
+## 16. Linux Environment Bootstrap
+
+This section is required on any fresh Linux (Arch-based) machine before any build or test work.
+
+### Install Rust
+
+```bash
+sudo pacman -S rustup
+rustup default stable
+rustc --version   # verify
+cargo --version   # verify
+```
+
+Do not use `sudo pacman -S rust` — it installs the system Rust which lags behind stable and cannot be managed with rustup.
+
+### Install .NET 10
+
+The server solution targets `net10.0`. Verify the correct version:
+
+```bash
+sudo pacman -S dotnet-sdk-10.0
+dotnet --version   # must print 10.x.x
+```
+
+If `dotnet-sdk-10.0` is not available in the main repos, install from the AUR:
+
+```bash
+# with yay or paru:
+yay -S dotnet-sdk-10.0
+```
+
+Or use the Microsoft feed script:
+
+```bash
+curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0
+```
+
+Then add to your shell profile:
+```bash
+export DOTNET_ROOT="$HOME/.dotnet"
+export PATH="$PATH:$HOME/.dotnet:$HOME/.dotnet/tools"
+```
+
+### Verify baseline build
+
+```bash
+# Rust client smoke test — must be green before any work starts
+cargo test --manifest-path client/Cargo.toml --test setup_ci_smoke -- --nocapture
+
+# .NET server tests
+dotnet test server/NebuCtx.slnx
+```
+
+If the Rust smoke test fails: check compile errors before continuing. The lean-ctx runtime in `client/src/` was merged as a WIP commit (`738eb60`) and the Linux build has not been verified yet. Fix any compile errors, do not skip past them.
+
+### Optional: PostgreSQL for local server testing
+
+The server's primary storage is PostgreSQL. For local connected-flow testing:
+
+```bash
+sudo pacman -S postgresql
+sudo systemctl enable --now postgresql
+# or use docker/podman:
+podman run -d --name nebu-pg -e POSTGRES_PASSWORD=dev -p 5432:5432 postgres:16
+```
+
+Set env vars:
+```bash
+export NEBULA_STORE=postgres
+export DATABASE_URL=postgres://postgres:dev@localhost:5432/nebu_ctx
+```
