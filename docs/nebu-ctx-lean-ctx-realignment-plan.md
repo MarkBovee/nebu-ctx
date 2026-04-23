@@ -829,43 +829,66 @@ Known remaining debt at end of this session:
 - WP5 cloud tools (ctx_session, ctx_knowledge, etc.) not yet implemented server-side
 - build on Linux not yet verified
 
+### 12.8 Session Log: 2026-04-23 (Linux — fresh Arch machine)
+
+Completed:
+
+- Installed Rust + .NET 10 + aspnet-runtime-10.0 via `sudo pacman` on fresh Arch Linux machine
+- WP1 verified: `cargo test --manifest-path client/Cargo.toml --test setup_ci_smoke` green (4/4)
+- **WP4 complete**: removed `cloud_server/`, `local_dashboard/`, `tui/`, top-level `heatmap.rs`; cleaned dead match arms from both `main.rs` and `dispatch.rs`; removed `ratatui`, `crossterm`; removed `embeddings` from default features — smoke still 4/4
+- Fixed Cargo target dir: `.cargo/config.toml` keeps `target-dir = "client/target"`, `.gitignore` correctly excludes `/client/target/`
+- **WP3 complete**: renamed `WorkspaceBinding` → `CheckoutBinding` and `IWorkspaceBindingStore` → `ICheckoutBindingStore` across full .NET server (contracts, storage, Postgres store, schema, StoreFactory, ProjectRegistry, ProjectApiEndpoints, McpContracts, ProjectResolutionContracts, Program.cs); renamed file `PostgresWorkspaceBindingStore.cs` → `PostgresCheckoutBindingStore.cs`; added idempotent Postgres migration (`ALTER TABLE workspace_bindings RENAME TO checkout_bindings`); deleted entire `Sqlite/` storage directory; removed SQLite exclusion from csproj; updated all tests
+- Documented PostgreSQL-only rule as decision #25 in Section 3
+- **WP5 complete**: implemented `ctx_knowledge` (remember/recall/status/remove/categories) and `ctx_session` (task/finding/decision/save/load/reset/list/cleanup) as full .NET tool handlers with Postgres storage (`knowledge_entries` and `session_state` tables), application services, store interfaces and Postgres implementations — 18/18 .NET tests passing
+- **WP2 complete**: implemented real `sync` command in `client/src/cli/cloud.rs` — discovers git context, calls `/v1/projects/resolve`, updates checkout binding on cloud, outputs JSON summary; added `sync` to `cmd_cloud` dispatcher and help text
+
+Commits this session: `830992d`, `9e8385a`, `e390ccc`, `34a3ab9`, `b34d750`, `21b1f1f`, `d8982bf`
+
+Remaining at end of session:
+
+- WP6: hybrid sync pipeline (client telemetry buffer → server ingestion) — not started
+- WP7: dashboard parity with project-scoped knowledge/session/brain data — not started
+- WP8: validate add-on container on Linux (`scripts/server/refresh-dist.sh` + `podman build` + `tests/local-addon-test.sh`)
+
 ## 13. Current Session Guide
 
-This section replaces the previous "next session" framing. Each session begins here, checks the WP Status Tracker (top of document), then executes the steps below in order. Do not skip steps or reorder them.
+This section reflects the state after the 2026-04-23 Linux session. WP0–WP5 are complete. Next sessions should begin with WP8 (easiest), then WP6/WP7.
 
 ### Execution constraints
 
 - Do not start by renaming folders or doing large namespace churn.
 - Do not start by building a second cloud/server runtime. The existing .NET host is the cloud runtime.
 - Do not start from `client/src-old/`. It is a donor, not the base.
-- Do not stop after any one step. The required behavior is to continue through the guide until the session goal is complete or a real blocker is hit.
+- PostgreSQL is the only supported store. Do not add SQLite back.
 
 ### Step 0 — Environment bootstrap (Linux)
 
-See **Section 16** for the full Linux bootstrap procedure. Do not skip this on a fresh machine. Verify both toolchains before touching any source.
-
-### Step 1 — Establish the build baseline
-
-Run the smoke test before any code changes:
+See **Section 16** for the full Linux bootstrap procedure. Verify both toolchains:
 
 ```bash
 cargo test --manifest-path client/Cargo.toml --test setup_ci_smoke -- --nocapture
+dotnet vstest server/tests/*/bin/Debug/net10.0/*.dll --logger:"console;verbosity=detailed"
 ```
 
-Do not proceed if this fails. Diagnose and fix compile errors first. A green baseline must exist before any cleanup work starts.
+Both must be green before any code changes.
 
-### Step 2 — WP4: Remove dead client code (one commit)
+### Step 1 — WP8: Validate add-on container on Linux
 
-Execute in this exact order to avoid compile breakage:
+```bash
+bash scripts/server/refresh-dist.sh
+podman build -t nebu-ctx-addon-dev -f homeassistant/Dockerfile .
+bash tests/local-addon-test.sh
+```
 
-1. Remove the `"dashboard"` match arm and its `local_dashboard::start()` call from `client/src/cli/dispatch.rs` (~line 215 area).
-2. Remove the `"heatmap"` match arm and its `heatmap::cmd_heatmap()` call from `client/src/cli/dispatch.rs` (~line 589 area).
-3. Remove `heatmap` and `local_dashboard` from the `use` block at the top of `dispatch.rs`.
-4. Remove `pub mod local_dashboard` and `pub mod heatmap` from `client/src/lib.rs`.
-5. Delete `client/src/local_dashboard/` directory and `client/src/heatmap.rs`.
-6. Delete `client/src/cloud_server/` directory (it has zero references — safe to delete).
+Fix any failures before moving to WP6/WP7.
 
-Commit: `refactor: remove dead local dashboard, heatmap, and cloud_server from client`
+### Step 2 — WP6: Hybrid sync pipeline
+
+Design and implement client-side telemetry buffering and server-side ingestion endpoint. Refer to the non-negotiable decisions in Section 3 (decisions 17–24) for scope constraints.
+
+### Step 3 — WP7: Dashboard parity
+
+Route project-scoped `ctx_knowledge`, `ctx_session`, and `ctx_brain` data into the dashboard views served by the .NET host.
 
 ### Step 3 — Re-run baseline after cleanup
 
