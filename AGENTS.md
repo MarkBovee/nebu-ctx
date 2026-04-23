@@ -2,31 +2,38 @@
 
 ## Purpose
 
-`nebu-ctx` is a Rust MCP server and dashboard stack with three main runtime shapes:
+`nebu-ctx` is now organized around a thin Rust client plus a .NET MCP host and dashboard stack.
 
-- stdio MCP via the main `nebu-ctx` binary
-- HTTP MCP via `nebu-ctx serve`
-- dashboard HTTP UI via `nebu-ctx dashboard`
+- Rust thin client installed from `client/`
+- .NET MCP HTTP host under `server/src/NebuCtx.Server.Host/`
+- dashboard HTTP UI served by that same .NET host on its dashboard port
 
-There is also a separate legacy cloud API surface in `src/cloud_server_main.rs`. Do not treat that as the same runtime as the main MCP HTTP server.
+There is older Rust runtime code in the repository, but the cleaned product layout and packaging contract now center on the top-level `client/` and `server/` trees.
 
 ## Main Surfaces
 
-- `src/main.rs`: primary CLI and MCP entrypoint
-- `src/http_server/`: main authenticated MCP-over-HTTP server
-- `src/dashboard/`: dashboard UI and handlers
-- `src/tools/`: MCP tool definitions and dispatch
-- `src/core/`: storage, cache, memory, graph, embeddings, and shared runtime state
-- `src/cloud_server/`: legacy cloud API, auth, sync, and stats service
+- `client/src/main.rs`: thin-client CLI entrypoint
+- `client/tests/`: client-owned tests
+- `server/src/`: .NET host, dashboard, contracts, storage, project registry, and tool handlers
+- `server/tests/`: .NET contract, integration, and project identity tests
+- `server/dist/linux/`: committed publish payload used by Docker and the add-on
+- `scripts/server/`: refresh/build/publish scripts for the .NET host
+- `tests/`: cross-stack smoke, add-on, and release validation
 - `homeassistant/`: Home Assistant add-on packaging and runtime wrapper
-- `Dockerfile` and `docker-entrypoint.sh`: standalone container packaging for the MCP HTTP server
+- `homeassistant/Dockerfile` and `docker-entrypoint.sh`: standalone and add-on container packaging for the .NET host
+
+## Layout Rules
+
+- Treat `client/target/` as normal Cargo output.
+- Treat `server/dist/linux/` as the canonical publish payload.
+- Keep cross-stack and repo-level tests in top-level `tests/` only.
+- Prefer updating docs and scripts to the cleaned top-level layout instead of preserving old path aliases.
 
 ## Storage Model
 
-- Default local mode uses SQLite.
-- Postgres mode is selected with `NEBULA_STORE=postgres` and `DATABASE_URL`.
+- The main supported server path is PostgreSQL via `NEBULA_STORE=postgres` and `DATABASE_URL`.
 - The most validated Postgres-backed MCP path today is `ctx_brain`.
-- The store abstraction still has async/sync technical debt; avoid broad store refactors unless the task requires them.
+- For live review sessions, run the .NET host locally against the same PostgreSQL database you want to inspect in the dashboard.
 
 ## Product Naming
 
@@ -41,34 +48,35 @@ The add-on runs two processes in one container:
 - dashboard on port `3333`
 - MCP HTTP server on port `4242`
 
-The add-on wrapper is `homeassistant/run.sh`. Keep these files aligned whenever you change add-on behavior:
+The add-on container behavior is driven by `docker-entrypoint.sh` and `homeassistant/Dockerfile`. Keep these files aligned whenever you change add-on behavior:
 
-- `homeassistant/run.sh`
+- `docker-entrypoint.sh`
+- `homeassistant/Dockerfile`
 - `homeassistant/config.yaml`
 - `homeassistant/README.md`
 - `tests/local-addon-test.sh`
 
 Current add-on behavior:
 
-- supports `store=sqlite|postgres`
-- accepts `database_url` or builds one from `postgres_*` fields
-- accepts `auth_token`, or generates and persists a token in `/data/auth_token`
+- PostgreSQL only
+- builds `DATABASE_URL` from `postgres_*` fields
+- generates and persists the MCP token in `/data/auth_token`
 - logs the active token at startup for local and HA setup flows
 
 ## Release Flow
 
-- `homeassistant/config.yaml` version and `Cargo.toml` version should stay in sync.
+- `homeassistant/config.yaml` version and `client/Cargo.toml` version should stay in sync.
 - `auto-release.yml` tags main when the version changes and no matching tag exists.
 - `release.yml` builds tagged binaries and publishes release assets.
-- The published Home Assistant Dockerfile builds from tagged source, not release-asset downloads.
+- The Home Assistant container builds from committed `server/dist/linux`, not release-asset downloads.
 
 If you change package, binary, or image names, update all of these together:
 
 - `Cargo.toml`
+- `client/Cargo.toml`
 - `.github/workflows/release.yml`
 - `.github/workflows/auto-release.yml`
-- `Dockerfile`
-- `homeassistant/Dockerfile*`
+- `homeassistant/Dockerfile`
 - local smoke scripts under `tests/`
 
 ## Build And Validation
@@ -76,28 +84,29 @@ If you change package, binary, or image names, update all of these together:
 Use these commands as the default validation baseline:
 
 ```bash
-cargo fmt --check
-cargo test --release --features cloud-server
-cargo build --release --features cloud-server --bin nebu-ctx
+cargo test --manifest-path client/Cargo.toml
+dotnet test server/NebuCtx.slnx
+bash tests/local-server-cli-test.sh
 ```
 
 For add-on validation:
 
 ```bash
-podman build -t nebu-ctx-addon-dev -f homeassistant/Dockerfile.dev .
+bash scripts/server/refresh-dist.sh
+podman build -t nebu-ctx-addon-dev -f homeassistant/Dockerfile .
 bash tests/local-addon-test.sh
 ```
 
 For the standalone container:
 
 ```bash
-podman build -t nebu-ctx-server -f Dockerfile .
+bash scripts/server/refresh-dist.sh
+podman build -t nebu-ctx-server -f homeassistant/Dockerfile .
 ```
 
 ## Practical Guidance
 
 - Prefer fixing runtime wrappers and release wiring at the root instead of adding more fallback docs.
-- Do not conflate the main HTTP MCP server with the separate cloud API binary.
-- When changing branding, prioritize user-facing surfaces first: docs, workflows, image names, package metadata, CLI/help text, and add-on metadata.
+- Prefer the cleaned top-level `client/` and `server/` structure in all docs and scripts.
 - When changing shell scripts on Windows checkouts, preserve LF line endings. `.gitattributes` exists for this; container builds also normalize shell scripts defensively.
 - If a task touches Postgres-backed behavior, validate `ctx_brain` over HTTP before claiming the server path is healthy.

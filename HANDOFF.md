@@ -1,106 +1,79 @@
 # Handoff
 
-Updated: 2026-04-22
+Updated: 2026-04-23
 Repo: nebu-ctx
-Status: stopped for today
+Status: cleaned structure documented, local live-review session pending
 
 ## Current State
 
-- The .NET host, MCP surface, dashboard wiring, and Rust thin client migration work are in progress and the repo has uncommitted changes.
-- Dashboard asset ownership was corrected: `dashboard.html` now lives under the .NET dashboard project and is published with the server output.
-- A first packaging simplification pass was applied earlier, but it is not the final direction anymore.
-- The latest requested direction is:
-  - commit the current state first
-  - then replace the Docker setup with one simple new root Dockerfile
-  - keep `dist/` in the repo root as the publish output
-  - use a .NET 10 Alpine runtime image
-  - keep runtime startup simple and avoid extra injected runtime behavior
+- The top-level layout is now canonically split into `client/`, `server/`, `scripts/`, and repo-level `tests/`.
+- The installable product is the Rust thin client in `client/`.
+- The deployable server is the .NET host in `server/src/`.
+- Docker and Home Assistant packaging consume the committed publish payload in `server/dist/linux/`.
+- The empty root `dist/` directory is no longer the intended publish contract.
 
-## Important User Intent
+## Current Product Contract
 
-- "maak eerst een HANDOFF.md document dan kunnen we morgen verder"
-- Before that, the active packaging request was:
-  - one Dockerfile if possible
-  - dist-first publish flow
-  - KISS runtime image
-  - no SDK in the runtime image
-  - test locally after the redesign
+- `client/target/` is disposable Cargo output.
+- `server/dist/linux/` is curated publish output and part of the packaging flow.
+- `homeassistant/Dockerfile` is the single dist-first container build path.
+- `tests/` should stay focused on cross-stack, add-on, smoke, and release checks.
 
-## What Was Already Validated
+## What Was Updated In Documentation
 
-- The .NET dashboard project now publishes `dashboard.html` from its own project directory.
-- Dist-first publish support exists via `tests/lib/dotnet_dist.sh`.
-- The current root Dockerfile consumes published output from `dist/server/linux/`.
+- README now describes the canonical top-level layout.
+- A new `docs/getting-started.md` documents the preferred same-database local loop.
+- `docs/server-setup.md` now points to the .NET host instead of the old Rust server runtime.
+- `DEPLOYMENT.md` now documents the dist-first server path.
+- `AGENTS.md` and `docs/technical-architecture.md` now describe the cleaned client/server split.
 
-## What Is Not Finished
+## Next Live Session Goal
 
-- No checkpoint commit has been created yet.
-- The requested Docker reset has not started yet.
-- Local end-to-end validation for the latest Docker changes was not completed.
-- Dashboard parity versus the legacy Rust implementation still needs a final visual/behavior check.
+When returning, use one local loop against the same PostgreSQL database we want to inspect:
 
-## Working Tree Notes
+1. start the .NET host locally with the target `DATABASE_URL`
+2. connect the installed Rust client to `http://127.0.0.1:4242`
+3. verify `server bind`, `tools list`, and a `ctx_brain` store/recall roundtrip
+4. open the dashboard on `http://127.0.0.1:3333/`
+5. review the screens one by one against live data
 
-The working tree currently includes changes in these areas:
+## Recommended Commands For Next Session
 
-- Docker and runtime scripts
-  - `.dockerignore`
-  - `Dockerfile`
-  - `docker-entrypoint.sh`
-  - `homeassistant/Dockerfile`
-  - `homeassistant/Dockerfile.source`
-  - `homeassistant/README.md`
-  - `homeassistant/run.sh`
-  - `tests/local-addon-test.sh`
-  - `tests/local-server-cli-test.sh`
-  - `tests/pre_release_check.sh`
-  - `tests/lib/dotnet_dist.sh`
-- Dashboard and server telemetry work
-  - `src/server/src/NebuCtx.Dashboard/*`
-  - `src/server/src/NebuCtx.Application/*`
-  - `src/server/src/NebuCtx.Application/Routing/*`
-  - `src/server/src/NebuCtx.Contracts/*`
-  - `src/server/src/NebuCtx.Projects/*`
-  - `src/server/src/NebuCtx.Storage/*`
-  - `src/server/src/NebuCtx.Tools/*`
-  - `src/server/tests/*`
-- Rust thin client / hybrid local-tool work
-  - `src/client/Cargo.toml`
-  - `src/client/src/cli.rs`
-  - `src/client/src/git_context.rs`
-  - `src/client/src/lib.rs`
-  - `src/client/src/models.rs`
-  - `src/client/src/server_client.rs`
-  - `src/client/src/local_symbols.rs`
-  - `src/client/src/local_tools.rs`
-  - `src/client/src/project_metadata.rs`
-  - `Cargo.lock`
-- Misc
-  - `.github/workflows/release.yml`
-  - `docs/plans/dotnet-10-server-migration-plan.md`
-  - `tests/tmp-local-addon-summary.sh`
+PowerShell server start:
 
-## Suggested First Steps Tomorrow
+```powershell
+$env:NEBULA_STORE = 'postgres'
+$env:DATABASE_URL = 'postgres://user:pass@host:5432/db'
+$env:NEBULA_CTX_HOST = '127.0.0.1'
+$env:NEBULA_CTX_HTTP_PORT = '4242'
+$env:NEBULA_CTX_PORT = '3333'
+$env:NEBULA_CTX_HTTP_TOKEN = 'nctx_local_dev'
+$env:NEBULA_CTX_DASHBOARD_DISABLE_AUTH = '1'
+dotnet run --project server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj
+```
 
-1. Run `git status` and review the current working tree before changing anything.
-2. Create the checkpoint commit the user asked for.
-3. Remove the old multi-Docker setup and replace it with one clean root Dockerfile.
-4. Keep the publish flow external and output to root `dist/`.
-5. Re-run focused local validation after the first Docker redesign edit.
-6. Open the dashboard locally and verify the remaining parity concerns.
+Client install and connect:
 
-## Known Risks / Caveats
+```bash
+cargo install --path client --bin nebu-ctx --force
+nebu-ctx server connect --endpoint http://127.0.0.1:4242 --token nctx_local_dev
+nebu-ctx server status
+nebu-ctx tools list
+nebu-ctx server bind
+nebu-ctx ctx_brain action=store key=local-review-marker value=ok
+nebu-ctx ctx_brain action=recall query=local-review-marker
+```
 
-- The current root Dockerfile still uses `mcr.microsoft.com/dotnet/aspnet:10.0`, not Alpine.
-- The current entrypoint still contains standalone vs Home Assistant mode switching logic; that may be more than the user wants in the final KISS design.
-- Some dashboard endpoints exist but still have simplified payloads, especially around heatmap/call-graph richness.
-- There is no completed smoke-test result for the latest packaging edits because the earlier add-on validation attempt was canceled.
+## Risks / Caveats
+
+- The working tree is still dirty; do not assume packaging-only changes.
+- There are substantial in-progress .NET files under `server/src/` and `server/tests/`.
+- The local live-review session should validate real data flow before making UI judgments.
 
 ## Resume Point
 
 Resume in `e:\Projects\Personal\nebu-ctx`.
 
-Immediate next action for tomorrow:
+Immediate next action when returning:
 
-- create the requested checkpoint commit
-- then start the Docker simplification from a clean, explicit root design
+- run the same-database local review loop and inspect the dashboard screen by screen

@@ -11,8 +11,8 @@ on:
 
 env:
   CARGO_BUILD_JOBS: 2
-  CLIENT_MANIFEST_PATH: src/client/Cargo.toml
-  CLIENT_BINARY_NAME: nebu-ctx-client
+  CLIENT_MANIFEST_PATH: client/Cargo.toml
+  CLIENT_BINARY_NAME: nebu-ctx
 
 jobs:
   build:
@@ -58,7 +58,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: nebu-ctx-${{ matrix.arch }}
-          path: ${{ matrix.container != '' && format('src/client/target/release/{0}', env.CLIENT_BINARY_NAME) || format('src/client/target/{0}/release/{1}', matrix.target, env.CLIENT_BINARY_NAME) }}
+          path: ${{ matrix.container != '' && format('client/target/release/{0}', env.CLIENT_BINARY_NAME) || format('client/target/{0}/release/{1}', matrix.target, env.CLIENT_BINARY_NAME) }}
 
   release:
     needs: build

@@ -4,19 +4,16 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=tests/lib/postgres_env.sh
 source "$PROJECT_ROOT/tests/lib/postgres_env.sh"
-# shellcheck source=tests/lib/dotnet_dist.sh
-source "$PROJECT_ROOT/tests/lib/dotnet_dist.sh"
 
 load_repo_postgres_env "$PROJECT_ROOT"
 eval "$(parse_database_url_exports "$DATABASE_URL")"
 
 CONTAINER_TOOL="$(detect_container_tool)"
 IMAGE_NAME="${IMAGE_NAME:-nebu-ctx-addon-smoke:local}"
-ADDON_DOCKERFILE="${ADDON_DOCKERFILE:-Dockerfile}"
+ADDON_DOCKERFILE="${ADDON_DOCKERFILE:-homeassistant/Dockerfile}"
 HOST_DASHBOARD_PORT="${HOST_DASHBOARD_PORT:-3333}"
 HOST_MCP_PORT="${HOST_MCP_PORT:-4242}"
 CONTAINER_NAME="${CONTAINER_NAME:-nebu-ctx-addon-smoke}"
-BUILD_ARGS=()
 BUILD_CONTEXT="$PROJECT_ROOT"
 PROJECT_ROOT_PATH="${ADDON_PROJECT_ROOT:-/share}"
 SMOKE_MARKER="addon-smoke-$(date +%s)"
@@ -51,23 +48,10 @@ assert_json() {
 printf 'Using database %s\n' "$(mask_database_url "$DATABASE_URL")"
 cd "$PROJECT_ROOT"
 
-if [ "$ADDON_DOCKERFILE" = "Dockerfile" ]; then
-    if command -v dotnet >/dev/null 2>&1; then
-        publish_dotnet_server_dist "$PROJECT_ROOT"
-    else
-        printf 'dotnet not found; falling back to %s\n' 'homeassistant/Dockerfile.source'
-        ADDON_DOCKERFILE="homeassistant/Dockerfile.source"
-        BUILD_ARGS+=(--build-arg BUILD_VERSION=local-smoke)
-    fi
-fi
-
-if [ "$ADDON_DOCKERFILE" = "homeassistant/Dockerfile.source" ]; then
-    BUILD_ARGS+=(--build-arg BUILD_VERSION=local-smoke)
-fi
+bash "$PROJECT_ROOT/scripts/server/refresh-dist.sh"
 
 printf '\n=== Building Home Assistant image (%s) ===\n' "$ADDON_DOCKERFILE"
 "$CONTAINER_TOOL" build \
-    "${BUILD_ARGS[@]}" \
     -t "$IMAGE_NAME" \
     -f "$PROJECT_ROOT/$ADDON_DOCKERFILE" \
     "$BUILD_CONTEXT"

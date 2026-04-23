@@ -30,9 +30,30 @@ It combines the original context-reduction model with earlier Nebula work around
 
 If you want the current deployable stack with persistent memory and Home Assistant packaging, this repository is `nebu-ctx`.
 
+## Canonical Layout
+
+The repository is intentionally split by ownership and artifact lifecycle:
+
+| Path | Purpose |
+|------|---------|
+| `client/` | installable Rust thin client package |
+| `client/src/` | client source |
+| `client/tests/` | client-owned tests |
+| `client/target/` | Cargo build output, disposable |
+| `server/src/` | .NET host, dashboard, contracts, storage, and tools |
+| `server/tests/` | .NET tests |
+| `server/dist/linux/` | committed publish payload used by Docker and Home Assistant |
+| `scripts/server/` | publish and image scripts for the .NET server |
+| `tests/` | cross-stack smoke, add-on, release, and repo-level validation |
+
+Artifact rule:
+
+- `client/target/` stays a normal tool-managed build folder
+- `server/dist/linux/` stays the curated publish folder consumed by packaging
+
 ## Get Started In 3 Steps
 
-The main local install flow is now: install the client, connect it to a running server, then verify live MCP calls.
+The main local install flow is now: install the client, start the .NET server against PostgreSQL, then verify live MCP calls and the dashboard against the same database.
 
 ### 1. Install `nebu-ctx`
 
@@ -45,19 +66,29 @@ cargo install --git https://github.com/MarkBovee/nebu-ctx --bin nebu-ctx
 # Or install from a local clone
 git clone https://github.com/MarkBovee/nebu-ctx.git
 cd nebu-ctx
-cargo install --path . --bin nebu-ctx
+cargo install --path client --bin nebu-ctx --force
 ```
 
-### 2. Connect to a running server
+### 2. Start or use a running server
+
+For the preferred local review flow, run the .NET server directly against the PostgreSQL database you want to inspect:
+
+```powershell
+$env:NEBULA_STORE = 'postgres'
+$env:DATABASE_URL = 'postgres://user:pass@host:5432/db'
+$env:NEBULA_CTX_HOST = '127.0.0.1'
+$env:NEBULA_CTX_HTTP_PORT = '4242'
+$env:NEBULA_CTX_PORT = '3333'
+$env:NEBULA_CTX_HTTP_TOKEN = 'nctx_local_dev'
+$env:NEBULA_CTX_DASHBOARD_DISABLE_AUTH = '1'
+dotnet run --project server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj
+```
+
+Then connect the client:
 
 ```bash
-nebu-ctx server connect
+nebu-ctx server connect --endpoint http://127.0.0.1:4242 --token nctx_local_dev
 ```
-
-On first run the client prompts for:
-
-- server URL, for example `http://192.168.1.135:4242`
-- MCP auth token
 
 The client normalizes a trailing `/mcp` automatically, but the current .NET server contract is rooted at `/health`, `/v1/manifest`, `/v1/tools`, and `/v1/tools/call`.
 
@@ -68,10 +99,11 @@ Verify the saved connection and make a real MCP call.
 ```bash
 nebu-ctx server status
 nebu-ctx tools list
+nebu-ctx server bind
 nebu-ctx ctx_brain action=recall query=status
 ```
 
-Detailed server-side setup is in [docs/server-setup.md](docs/server-setup.md). The local client/server smoke script is [tests/local-server-cli-test.sh](tests/local-server-cli-test.sh).
+Detailed setup is in [docs/getting-started.md](docs/getting-started.md) and [docs/server-setup.md](docs/server-setup.md). The local client/server smoke script is [tests/local-server-cli-test.sh](tests/local-server-cli-test.sh).
 
 ## Additional Install Paths
 
@@ -109,94 +141,59 @@ bash tests/local-server-cli-test.sh
 bash tests/local-addon-test.sh
 ```
 
-Both scripts load PostgreSQL settings from `.env`. The standalone server smoke defaults to a fast local-source container image; set `SERVER_DOCKERFILE=Dockerfile` if you want it to exercise the full production Dockerfile. Set `ADDON_DOCKERFILE=homeassistant/Dockerfile` when you want the add-on smoke test to exercise the published fast-install image instead of the local-source image.
+Both scripts load PostgreSQL settings from `.env`. The single server Dockerfile is dist-first, so the normal local flow is: publish the .NET host into `server/dist/linux`, then build the image from that output.
 
-## Quick start
-
-### 1. Build with PostgreSQL support
+Manual server publish + image build:
 
 ```bash
-cargo build --release --features cloud-server
+bash scripts/server/build-image.sh
 ```
 
-### 2. Load environment variables
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\server\build-image.ps1
+```
 
-If your `.env` file came from Windows, remove CRLF on source:
+Manual server image publish:
 
 ```bash
-set -a
-source <(tr -d '\r' < .env)
-set +a
+IMAGE_REPOSITORY=ghcr.io/your-org/nebu-ctx IMAGE_TAG=v0.2.7 bash scripts/server/publish-image.sh
 ```
 
-### 3. Verify the database path
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\server\publish-image.ps1 -ImageRepository ghcr.io/your-org/nebu-ctx -ImageTag v0.2.7
+```
+
+Refresh the dist-first server payload without building an image:
 
 ```bash
-./target/release/nebu-ctx db status
-./target/release/nebu-ctx db init
-./target/release/nebu-ctx db test
+bash scripts/server/refresh-dist.sh
 ```
 
-### 4. Start the HTTP MCP server
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\server\refresh-dist.ps1
+```
+
+Install the repo pre-push hook that refreshes `server/dist/linux` and blocks the push when the generated files are dirty:
 
 ```bash
-./target/release/nebu-ctx serve \
-  --host 127.0.0.1 \
-  --port 4242 \
-  --auth-token local-test-token
+bash scripts/git/install-pre-push-dist.sh
 ```
 
-### 5. Smoke test the server
-
-```bash
-curl -H 'Authorization: Bearer local-test-token' \
-  http://127.0.0.1:4242/health
-
-curl -H 'Authorization: Bearer local-test-token' \
-  http://127.0.0.1:4242/v1/tools
-
-curl -X POST \
-  -H 'Authorization: Bearer local-test-token' \
-  -H 'Content-Type: application/json' \
-  http://127.0.0.1:4242/v1/tools/call \
-  -d '{
-    "name": "ctx_brain",
-    "arguments": {
-      "action": "status",
-      "brain_id": "default"
-    }
-  }'
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\git\install-pre-push-dist.ps1
 ```
 
-### 6. Start the dashboard
+## Local Review Flow
 
-```bash
-./target/release/nebu-ctx dashboard
-```
+When we want to review live data and walk the screens one by one, use the same-database local flow:
 
-By default the dashboard serves on `http://127.0.0.1:3333`.
+1. point `DATABASE_URL` at the PostgreSQL database you want to inspect
+2. run `dotnet run --project server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj`
+3. connect the installed client with `nebu-ctx server connect --endpoint http://127.0.0.1:4242 --token ...`
+4. verify with `nebu-ctx tools list`, `nebu-ctx server bind`, and `nebu-ctx ctx_brain ...`
+5. review the dashboard on `http://127.0.0.1:3333/`
 
-## Common commands
-
-```bash
-# Default stdio MCP mode
-./target/release/nebu-ctx
-
-# Guided client setup
-./target/release/nebu-ctx setup
-
-# Postgres lifecycle
-./target/release/nebu-ctx db connect
-./target/release/nebu-ctx db status
-./target/release/nebu-ctx db init
-./target/release/nebu-ctx db test
-
-# HTTP MCP mode
-./target/release/nebu-ctx serve --host 127.0.0.1 --port 4242 --auth-token local-test-token
-
-# Dashboard
-./target/release/nebu-ctx dashboard
-```
+The detailed checklist lives in [docs/getting-started.md](docs/getting-started.md).
 
 ## Feature overview
 
@@ -213,10 +210,10 @@ By default the dashboard serves on `http://127.0.0.1:3333`.
 
 | Surface | Command or location | Purpose |
 |---------|---------------------|---------|
-| Local CLI | `nebu-ctx` | stdio MCP for editor and agent integration |
-| HTTP MCP server | `nebu-ctx serve --port 4242` | remote MCP access and long-running service mode |
-| Dashboard | `nebu-ctx dashboard` | local dashboard on port `3333` by default |
-| Docker | `Dockerfile` and `docker-entrypoint.sh` | containerized HTTP deployment |
+| Local CLI | `nebu-ctx` | thin Rust client installed from `client/` |
+| HTTP MCP server | `dotnet run --project server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj` | local or deployed .NET MCP host |
+| Dashboard | same .NET host on port `3333` | dashboard backed by the same PostgreSQL state |
+| Docker | `homeassistant/Dockerfile` and `docker-entrypoint.sh` | unified standalone and Home Assistant container packaging |
 | Home Assistant add-on | `homeassistant/` | ingress dashboard plus optional `4242/tcp` MCP exposure |
 | Legacy cloud API | `nebu-ctx-cloud-api` | separate legacy surface, not the main MCP HTTP server |
 

@@ -21,7 +21,7 @@ This add-on packages the current `nebu-ctx` MCP server, dashboard, and persisten
 4. Start the add-on.
 5. Use `Open Web UI` to open the dashboard through ingress.
 
-The published add-on install path is optimized for normal Home Assistant use: it downloads the tagged `nebu-ctx` release binary for the target architecture instead of compiling Rust inside the add-on image build.
+The published add-on install path is optimized for normal Home Assistant use: it downloads the tagged `nebu-ctx` source archive and publishes the .NET host inside the image build.
 
 ## Runtime model
 
@@ -84,10 +84,11 @@ If you want to validate the add-on container yourself outside Home Assistant, us
 This build uses your current checkout and is the recommended packaging pre-check:
 
 ```bash
-podman build -t nebu-ctx-addon-local -f Dockerfile .
+bash scripts/server/refresh-dist.sh
+podman build -t nebu-ctx-addon-local -f homeassistant/Dockerfile .
 ```
 
-This is the build path used by `tests/pre_release_check.sh`.
+This is the build path used by `tests/pre_release_check.sh` and both local smoke scripts.
 
 For a full local smoke test, run `tests/local-addon-test.sh`. It loads PostgreSQL settings from the repo `.env`, starts the add-on, reads the generated token from `/data/auth_token`, and verifies both the dashboard and the MCP HTTP endpoint.
 
@@ -96,17 +97,18 @@ For a full local smoke test, run `tests/local-addon-test.sh`. It loads PostgreSQ
 The shipped add-on Dockerfile can also be built directly:
 
 ```bash
-podman build -t nebu-ctx-addon -f homeassistant/Dockerfile homeassistant
+bash scripts/server/refresh-dist.sh
+podman build -t nebu-ctx-addon -f homeassistant/Dockerfile .
 ```
 
-That build uses the version from `homeassistant/build.yaml` and downloads the matching GitHub release binary, so it validates the same fast-install path that Home Assistant uses.
+That build uses the committed server payload under `server/dist/linux`, so it validates the same single Dockerfile that the add-on uses.
 
-If you want to test local source changes before a release exists, use the root `Dockerfile` first. Fall back to `homeassistant/Dockerfile.source` only when you explicitly want to validate the source-build path without a local dist publish.
+The repository now uses a single dist-first Dockerfile for add-on packaging.
 
-The smoke test defaults to the local-source add-on image. To validate the published fast-install path directly, run:
+The smoke test refreshes `server/dist/linux` before building the image, so the normal validation path is simply:
 
 ```bash
-ADDON_DOCKERFILE=homeassistant/Dockerfile bash tests/local-addon-test.sh
+bash tests/local-addon-test.sh
 ```
 
 ## Operational notes

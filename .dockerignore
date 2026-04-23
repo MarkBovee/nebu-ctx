@@ -3,9 +3,9 @@ target/**
 !target/release/nebu-ctx
 !target/release/nebu-ctx
 dist/**
-!dist/server/
-!dist/server/linux/
-!dist/server/linux/**
+server/dist/**
+!server/dist/linux/
+!server/dist/linux/**
 node_modules
 .claude
 homeassistant/Dockerfile

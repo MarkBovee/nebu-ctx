@@ -1,0 +1,163 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0/linux-x64",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {},
+    ".NETCoreApp,Version=v10.0/linux-x64": {
+      "NebuCtx.Server.Host/1.0.0": {
+        "dependencies": {
+          "NebuCtx.Application": "1.0.0",
+          "NebuCtx.Contracts": "1.0.0",
+          "NebuCtx.Dashboard": "1.0.0",
+          "NebuCtx.Hosting": "1.0.0",
+          "NebuCtx.Projects": "1.0.0",
+          "NebuCtx.Storage": "1.0.0",
+          "NebuCtx.Tools": "1.0.0"
+        },
+        "runtime": {
+          "NebuCtx.Server.Host.dll": {}
+        }
+      },
+      "Npgsql/9.0.3": {
+        "runtime": {
+          "lib/net8.0/Npgsql.dll": {
+            "assemblyVersion": "9.0.3.0",
+            "fileVersion": "9.0.3.0"
+          }
+        }
+      },
+      "NebuCtx.Application/1.0.0": {
+        "dependencies": {
+          "NebuCtx.Contracts": "1.0.0",
+          "NebuCtx.Projects": "1.0.0",
+          "NebuCtx.Storage": "1.0.0"
+        },
+        "runtime": {
+          "NebuCtx.Application.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "NebuCtx.Contracts/1.0.0": {
+        "runtime": {
+          "NebuCtx.Contracts.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "NebuCtx.Dashboard/1.0.0": {
+        "dependencies": {
+          "NebuCtx.Application": "1.0.0",
+          "NebuCtx.Contracts": "1.0.0"
+        },
+        "runtime": {
+          "NebuCtx.Dashboard.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "NebuCtx.Hosting/1.0.0": {
+        "dependencies": {
+          "NebuCtx.Contracts": "1.0.0"
+        },
+        "runtime": {
+          "NebuCtx.Hosting.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "NebuCtx.Projects/1.0.0": {
+        "dependencies": {
+          "NebuCtx.Contracts": "1.0.0",
+          "NebuCtx.Storage": "1.0.0"
+        },
+        "runtime": {
+          "NebuCtx.Projects.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "NebuCtx.Storage/1.0.0": {
+        "dependencies": {
+          "NebuCtx.Contracts": "1.0.0",
+          "Npgsql": "9.0.3"
+        },
+        "runtime": {
+          "NebuCtx.Storage.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "NebuCtx.Tools/1.0.0": {
+        "dependencies": {
+          "NebuCtx.Application": "1.0.0",
+          "NebuCtx.Contracts": "1.0.0"
+        },
+        "runtime": {
+          "NebuCtx.Tools.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "NebuCtx.Server.Host/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Npgsql/9.0.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-tPvY61CxOAWxNsKLEBg+oR646X4Bc8UmyQ/tJszL/7mEmIXQnnBhVJZrZEEUv0Bstu0mEsHZD5At3EO8zQRAYw==",
+      "path": "npgsql/9.0.3",
+      "hashPath": "npgsql.9.0.3.nupkg.sha512"
+    },
+    "NebuCtx.Application/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "NebuCtx.Contracts/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "NebuCtx.Dashboard/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "NebuCtx.Hosting/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "NebuCtx.Projects/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "NebuCtx.Storage/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "NebuCtx.Tools/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

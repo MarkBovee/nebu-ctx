@@ -1,44 +1,4 @@
-[package]
-name = "nebu-ctx"
-version = "0.2.7"
-edition = "2021"
-description = "Thin Rust client for the .NET nebu-ctx MCP and dashboard server."
-license = "Apache-2.0"
-repository = "https://github.com/MarkBovee/nebu-ctx"
-readme = "README.md"
-keywords = ["mcp", "client", "context", "ai"]
-categories = ["command-line-utilities", "development-tools"]
-exclude = ["examples/", "tests/", "reference/"]
-include = [
-	"Cargo.toml",
-	"Cargo.lock",
-	"README.md",
-	"LICENSE",
-	"build.rs",
-	"src/**",
-]
-
 [workspace]
-members = ["src/client"]
+members = ["client"]
+default-members = ["client"]
 resolver = "2"
-
-[[bin]]
-name = "nebu-ctx"
-path = "src/main.rs"
-
-[[bin]]
-name = "nebula-ctx"
-path = "src/main.rs"
-
-[dependencies]
-anyhow = "1"
-dirs = "5"
-ignore = "0.4"
-regex = "1"
-rpassword = "7.4.0"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-ureq = { version = "3.3.0", default-features = false, features = ["rustls"] }
-
-[dev-dependencies]
-tempfile = "3.27.0"

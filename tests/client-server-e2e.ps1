@@ -99,7 +99,7 @@ try {
     $startInfo.Environment['NEBULA_CTX_HTTP_TOKEN'] = $authToken
     $startInfo.ArgumentList.Add('run')
     $startInfo.ArgumentList.Add('--project')
-    $startInfo.ArgumentList.Add('src/server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj')
+    $startInfo.ArgumentList.Add('server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj')
 
     $serverProcess = [System.Diagnostics.Process]::Start($startInfo)
     Start-Job -ScriptBlock {

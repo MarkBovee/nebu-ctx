@@ -1,242 +1,123 @@
 # nebu-ctx Technical Architecture
 
-This document describes the code as it exists now, not the earlier aspirational design. The main points to keep straight are:
+This document describes the cleaned top-level architecture that the repo is now organized around.
 
-- the primary production path is `nebu-ctx serve`
-- Postgres is selected with `NEBULA_STORE=postgres`
-- the `cloud_server` binary is a separate service surface, not the main MCP HTTP server
-- `ctx_brain` is the most clearly validated Postgres-backed MCP path today
+## Core Model
 
-## Entry Points
+`nebu-ctx` has two product surfaces that intentionally live in the same repository:
 
-### Main Binary
+1. a thin Rust client under `client/`
+2. a .NET MCP host and dashboard under `server/`
 
-`src/main.rs` is the entry point for the `nebu-ctx` binary.
+The client is installable.
 
-Important modes:
+The server is deployable.
 
-- default: stdio MCP server
-- `serve`: HTTP MCP server from `src/http_server/mod.rs`
-- `dashboard`: dashboard HTTP UI
-- `db`: Postgres and SQLite operator commands
-- other CLI commands: setup, shell, proxy, gain, report tools, and utilities
+The server and dashboard share the same PostgreSQL-backed state.
 
-The helper `run_async()` in `src/main.rs` creates a Tokio runtime for async command paths such as `serve` and `dashboard`.
+## Top-Level Layout
 
-### Legacy Cloud API Binary
+| Path | Role |
+|------|------|
+| `client/src/` | Rust CLI entrypoint and client flows |
+| `client/tests/` | client-owned tests |
+| `server/src/` | .NET host, dashboard, contracts, storage, tools, and project identity |
+| `server/tests/` | .NET contract, integration, and project identity tests |
+| `server/dist/linux/` | committed publish payload used by packaging |
+| `scripts/server/` | publish and image build helpers |
+| `tests/` | cross-stack smoke, add-on, and release validation |
 
-`src/cloud_server_main.rs` starts the separate `cloud_server` application.
+## Runtime Shape
 
-That binary serves LeanCTX-style cloud auth and sync endpoints out of `src/cloud_server/`. It is not the same as the main MCP server used by Claude Code or other MCP clients.
+### Thin Client
 
-## High-Level Runtime Shapes
+The Rust client is installed from `client/` and is responsible for:
 
-### Stdio MCP
+- saving server connection details locally
+- binding the current workspace to a server-side project
+- listing and calling remote MCP tools
+- keeping the local install experience lightweight
 
-```text
-client -> stdin/stdout transport -> LeanCtxServer -> tool handlers
-```
+### .NET Host
 
-### HTTP MCP
+The .NET host lives at `server/src/NebuCtx.Server.Host/`.
 
-```text
-client -> src/http_server/mod.rs -> ContextEngine -> LeanCtxServer -> tool handlers
-```
-
-### Cloud API
-
-```text
-browser or sync client -> src/cloud_server/mod.rs -> auth/stats/sync handlers -> Postgres
-```
-
-## Main HTTP MCP Server
-
-`src/http_server/mod.rs` owns the production HTTP MCP surface.
-
-Routes currently exposed:
+It exposes:
 
 - `GET /health`
 - `GET /v1/manifest`
 - `GET /v1/tools`
 - `POST /v1/tools/call`
+- `GET /api/*` dashboard endpoints on the dashboard port
 
-There is also a streamable HTTP fallback service from `rmcp` for MCP transport compatibility.
+The .NET host also owns:
 
-### Request Flow
+- bearer auth
+- request timeout, rate limit, and concurrency middleware
+- project resolution and workspace binding
+- server-side telemetry used by the dashboard
 
-```text
-HTTP request
-  -> auth middleware
-  -> rate limit middleware
-  -> concurrency middleware
-  -> route handler
-  -> ContextEngine
-  -> LeanCtxServer
-  -> tool implementation
-```
+## Server Projects
 
-### Important Behavior
+The main .NET solution is split into focused projects under `server/src/`:
 
-- non-loopback binds require auth
-- `NEBULA_CTX_HTTP_TOKEN` is used only as a convenience source for `serve` if `--auth-token` is not passed
-- the actual port is controlled by the `serve --port` flag
+| Project | Responsibility |
+|---------|----------------|
+| `NebuCtx.Server.Host` | ASP.NET Core host and route mapping |
+| `NebuCtx.Dashboard` | dashboard HTML and dashboard endpoint payloads |
+| `NebuCtx.Application` | tool dispatch, telemetry, and application services |
+| `NebuCtx.Contracts` | request and response contracts |
+| `NebuCtx.Projects` | canonical project identity and workspace binding |
+| `NebuCtx.Storage` | PostgreSQL-backed persistence |
+| `NebuCtx.Tools` | MCP tool handlers such as `ctx_brain` and route inspection |
+| `NebuCtx.Hosting` | environment binding, startup validation, and middleware |
 
-## LeanCtxServer And Tool Dispatch
+## Storage Model
 
-`src/tools/mod.rs` defines `LeanCtxServer`, which holds shared runtime state such as:
+The main supported runtime path is PostgreSQL:
 
-- session cache
-- session state
-- tool call history
-- workflow state
-- ledger and pipeline stats
+- `NEBULA_STORE=postgres`
+- `DATABASE_URL=...`
 
-`src/server/mod.rs` implements the `rmcp` server trait for `LeanCtxServer`.
+The most validated shared-state path is `ctx_brain`.
 
-Tool dispatch still happens by matching the tool name and calling the relevant module under `src/tools/`.
+The dashboard, project registry, and tool handlers are designed around that same server-side store.
 
-There is no hybrid cloud router in the main dispatch path today.
-
-## Core Areas
-
-### Cache And Session State
-
-Key shared state lives under `src/core/` and is usually held behind `Arc<RwLock<T>>`.
-
-Examples:
-
-- `src/core/cache.rs`
-- `src/core/session.rs`
-- `src/core/context_ledger.rs`
-- `src/core/pipeline.rs`
-
-This is the standard Rust pattern used throughout the server for shared mutable async state.
-
-### Compression And Context Reduction
-
-Compression and context-reduction behavior lives across:
-
-- `src/core/compressor.rs`
-- `src/compound_lexer.rs`
-- `src/token_report.rs`
-- various `ctx_*` tools that decide which compression mode or projection to apply
-
-The codebase still carries the lean-ctx focus on token efficiency, but those systems are independent from the Postgres work verified tonight.
-
-## Storage Layer
-
-`src/core/store/mod.rs` defines `ContextStore` and the shared data models for persistent state.
-
-Current implementations:
-
-- `src/core/store/sqlite.rs`
-- `src/core/store/postgres.rs`
-
-Store selection is process-wide:
-
-- unset or `NEBULA_STORE=sqlite` -> SQLite
-- `NEBULA_STORE=postgres` -> Postgres
-
-### Current Design Constraint
-
-`ContextStore` is still synchronous, but `PostgresStore` is naturally async because it uses `deadpool-postgres` and `tokio-postgres`.
-
-That mismatch is the main architectural debt in the persistence layer.
-
-## Brain Memory Path
-
-The brain-memory implementation is split across:
-
-- `src/tools/ctx_brain.rs`
-- `src/core/brain/activation.rs`
-- `src/core/brain/consolidation.rs`
-- `src/core/brain/scoring.rs`
-- `src/core/store/*`
-
-Supported actions today:
-
-- `store`
-- `recall`
-- `consolidate`
-- `activate`
-- `checkpoint`
-- `status`
-
-### Validated Postgres Flow
-
-The validated path from tonight looks like this:
+## Request Flow
 
 ```text
-POST /v1/tools/call
-  -> name=ctx_brain
-  -> ctx_brain::handle()
-  -> open_store()
-  -> PostgresStore
-  -> brain_* tables in Postgres
+Rust client or HTTP caller
+  -> .NET host middleware
+  -> project resolution / auth / limits
+  -> tool registry
+  -> tool handler
+  -> PostgreSQL-backed stores
+  -> dashboard telemetry
 ```
 
-### Runtime Fix Added Tonight
+## Packaging Model
 
-The original HTTP Postgres path crashed because synchronous store access tried to `block_on` inside an active Tokio runtime.
+The packaging contract is dist-first:
 
-`src/tools/ctx_brain.rs` now wraps the brain-store path in a runtime-safe blocking bridge so HTTP calls no longer abort the server on the validated code path.
+- publish .NET output into `server/dist/linux/`
+- build containers from `homeassistant/Dockerfile`
+- keep `server/dist/linux/` committed and current
 
-That fix is good enough for the current deployment target, but it is not the final abstraction we want for broader Postgres coverage.
+This is intentionally different from the client build contract:
 
-### Postgres Timestamp Fix Added Tonight
+- `client/target/` is disposable Cargo output
+- `server/dist/linux/` is curated publish output
 
-The second production bug was in `src/core/store/postgres.rs`: timestamp columns were being read directly into `String` fields.
+## Local Review Flow
 
-That now works by casting time columns to `TEXT` in SQL before deserializing into the existing Rust structs.
+For live inspection work, the preferred loop is:
 
-## Postgres Schema Surfaces In Use
+1. run the .NET host locally against the target PostgreSQL database
+2. connect the installed Rust client to that local host
+3. store and recall a known marker through `ctx_brain`
+4. review the dashboard on the same database and server instance
 
-The current `PostgresStore` initializes and uses at least these tables for validated brain-memory operation:
-
-- `brain_memories`
-- `brain_sessions`
-- `brain_checkpoints`
-- `open_loops`
-- `knowledge`
-- `nodes`
-- `edges`
-
-The separate cloud API binary uses its own schema setup in `src/cloud_server/db.rs` for auth, stats, and sync tables.
-
-## Deployment Wrappers
-
-### Docker
-
-The container build is defined in `Dockerfile`.
-
-Important current behavior:
-
-- release build with `cloud-server` feature enabled
-- runtime image includes `curl` for healthchecks
-- startup goes through `docker-entrypoint.sh`
-- the entrypoint chooses host and port for `serve`
-
-`docker-entrypoint.sh` binds to `0.0.0.0` only when a token is provided, otherwise it stays on `127.0.0.1`.
-
-### Home Assistant Addon
-
-The add-on wrapper lives in:
-
-- `homeassistant/config.yaml`
-- `homeassistant/run.sh`
-
-Tonight's fixes corrected two mismatches:
-
-- `NEBULA_STORE` is now exported correctly
-- `serve` is now started explicitly with `--port 4242`
-
-## Tests That Matter For This Path
-
-The most relevant validated tests for tonight's work are:
-
-- `tests/brain_memory_tests.rs`
-- `tests/http_server_streamable.rs`
-- `tools::ctx_brain::tests::postgres_errors_are_reported_without_runtime_panic`
+That keeps client behavior, server behavior, database writes, and dashboard screens aligned in one loop.
 
 The first two are existing integration tests. The third was added tonight to guard the runtime-panic failure mode.
 

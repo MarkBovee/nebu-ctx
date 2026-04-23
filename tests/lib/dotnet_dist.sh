@@ -25,13 +25,13 @@ publish_dotnet_server_dist() {
     fi
 
     runtime_id="$(resolve_dotnet_dist_rid)"
-    output_dir="${DOTNET_DIST_DIR:-$project_root/dist/server/linux}"
+    output_dir="${DOTNET_DIST_DIR:-$project_root/server/dist/linux}"
 
     printf '=== Publishing local .NET host (%s -> %s) ===\n' "$runtime_id" "$output_dir"
     rm -rf "$output_dir"
     mkdir -p "$output_dir"
 
-    NEBULA_ALLOW_MNT_DOTNET=1 dotnet publish "$project_root/src/server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj" \
+    NEBULA_ALLOW_MNT_DOTNET=1 dotnet publish "$project_root/server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj" \
         -c Release \
         -r "$runtime_id" \
         --self-contained false \

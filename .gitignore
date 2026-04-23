@@ -18,11 +18,14 @@ Thumbs.db
 .env.local
 
 # Build
-dist/
+/dist/
+/server/dist/*
+!/server/dist/linux/
+!/server/dist/linux/**
 /reference/
 build/
-src/server/**/bin/
-src/server/**/obj/
+server/**/bin/
+server/**/obj/
 
 # Database
 *.db

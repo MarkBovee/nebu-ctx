@@ -6,9 +6,6 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-# shellcheck source=tests/lib/dotnet_dist.sh
-source "$ROOT_DIR/tests/lib/dotnet_dist.sh"
-
 PASS=0
 FAIL=0
 CONTAINER_TOOL="${CONTAINER_TOOL:-podman}"
@@ -34,7 +31,6 @@ run_check() {
 
 validate_files() {
     sh -n docker-entrypoint.sh
-    sh -n homeassistant/run.sh
     bash -n tests/local-addon-test.sh
     bash -n tests/local-server-cli-test.sh
     bash -n tests/lib/postgres_env.sh
@@ -42,8 +38,6 @@ validate_files() {
 }
 
 build_images() {
-    local build_arch
-
     if [ "$SKIP_IMAGE_BUILD" = "1" ]; then
         printf "Skipping image builds because SKIP_IMAGE_BUILD=1\n"
         return 0
@@ -54,25 +48,18 @@ build_images() {
         return 1
     fi
 
-    case "$(uname -m)" in
-        x86_64) build_arch="amd64" ;;
-        aarch64|arm64) build_arch="arm64" ;;
-        *) build_arch="amd64" ;;
-    esac
+    bash scripts/server/refresh-dist.sh
 
-    publish_dotnet_server_dist "$ROOT_DIR"
-
-    "$CONTAINER_TOOL" build -t "$MAIN_IMAGE_TAG" -f Dockerfile .
+    "$CONTAINER_TOOL" build \
+        -t "$MAIN_IMAGE_TAG" \
+        -f homeassistant/Dockerfile \
+        .
 
     # The local add-on runtime reuses the same dist-first image as the standalone server.
     "$CONTAINER_TOOL" tag "$MAIN_IMAGE_TAG" "$ADDON_IMAGE_TAG"
 
-    # The published add-on Dockerfile validates the Home Assistant fast-install runtime path.
-    "$CONTAINER_TOOL" build \
-        --build-arg BUILD_ARCH="$build_arch" \
-        -t "$PUBLISHED_ADDON_IMAGE_TAG" \
-        -f homeassistant/Dockerfile \
-        homeassistant
+    # The add-on packaging now uses the same single dist-first Dockerfile.
+    "$CONTAINER_TOOL" tag "$MAIN_IMAGE_TAG" "$PUBLISHED_ADDON_IMAGE_TAG"
 }
 
 run_check "cargo fmt --check" cargo fmt --check

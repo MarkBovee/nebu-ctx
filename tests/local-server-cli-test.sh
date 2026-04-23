@@ -4,15 +4,13 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=tests/lib/postgres_env.sh
 source "$PROJECT_ROOT/tests/lib/postgres_env.sh"
-# shellcheck source=tests/lib/dotnet_dist.sh
-source "$PROJECT_ROOT/tests/lib/dotnet_dist.sh"
 
 load_repo_postgres_env "$PROJECT_ROOT"
 eval "$(parse_database_url_exports "$DATABASE_URL")"
 
 CONTAINER_TOOL="$(detect_container_tool)"
 IMAGE_NAME="${IMAGE_NAME:-nebu-ctx-server-smoke:local}"
-SERVER_DOCKERFILE="${SERVER_DOCKERFILE:-Dockerfile}"
+SERVER_DOCKERFILE="${SERVER_DOCKERFILE:-homeassistant/Dockerfile}"
 CONTAINER_NAME="${CONTAINER_NAME:-nebu-ctx-server-smoke}"
 HOST_HTTP_PORT="${HOST_HTTP_PORT:-4243}"
 SERVER_NETWORK_MODE="${SERVER_NETWORK_MODE:-}"
@@ -83,12 +81,13 @@ fi
 
 printf 'Using database %s\n' "$(mask_database_url "$DATABASE_URL")"
 
-if [ "$SERVER_DOCKERFILE" = "Dockerfile" ]; then
-    publish_dotnet_server_dist "$PROJECT_ROOT"
-fi
+bash "$PROJECT_ROOT/scripts/server/refresh-dist.sh"
 
 printf '=== Building standalone server image (%s) ===\n' "$SERVER_DOCKERFILE"
-"$CONTAINER_TOOL" build -t "$IMAGE_NAME" -f "$PROJECT_ROOT/$SERVER_DOCKERFILE" "$BUILD_CONTEXT"
+"$CONTAINER_TOOL" build \
+    -t "$IMAGE_NAME" \
+    -f "$PROJECT_ROOT/$SERVER_DOCKERFILE" \
+    "$BUILD_CONTEXT"
 
 printf '\n=== Starting standalone server container ===\n'
 "$CONTAINER_TOOL" rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
@@ -153,21 +152,21 @@ printf '%s' "$recall_json" | assert_json
 printf '%s' "$recall_json" | grep -q "$SMOKE_MARKER"
 
 printf '\n=== Installing CLI and connecting to the server ===\n'
-"$CARGO_BIN" install --path "$PROJECT_ROOT/src/client" --bin nebu-ctx-client --root "$CLI_ROOT" --force
+"$CARGO_BIN" install --path "$PROJECT_ROOT/client" --bin nebu-ctx --root "$CLI_ROOT" --force
 
-HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx-client" server connect --endpoint "http://127.0.0.1:${HOST_HTTP_PORT}" --token "$TOKEN" >/dev/null
+HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx" server connect --endpoint "http://127.0.0.1:${HOST_HTTP_PORT}" --token "$TOKEN" >/dev/null
 
-status_output="$(HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx-client" server status)"
+status_output="$(HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx" server status)"
 printf '%s\n' "$status_output"
 printf '%s' "$status_output" | grep -q '"saved": true'
 
-bind_output="$(HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx-client" server bind)"
+bind_output="$(HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx" server bind)"
 printf '%s' "$bind_output" | grep -q '"project"'
 
-client_store_json="$(HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx-client" ctx_brain action=store key="$SMOKE_MARKER" value="$SMOKE_MARKER")"
+client_store_json="$(HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx" ctx_brain action=store key="$SMOKE_MARKER" value="$SMOKE_MARKER")"
 printf '%s' "$client_store_json" | assert_json
 
-client_recall_json="$(HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx-client" ctx_brain action=recall query="$SMOKE_MARKER")"
+client_recall_json="$(HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx" ctx_brain action=recall query="$SMOKE_MARKER")"
 printf '%s' "$client_recall_json" | assert_json
 printf '%s' "$client_recall_json" | grep -q "$SMOKE_MARKER"
 

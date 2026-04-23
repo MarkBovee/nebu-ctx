@@ -310,21 +310,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nebu-ctx-client"
-version = "0.2.7"
-dependencies = [
- "anyhow",
- "dirs",
- "ignore",
- "regex",
- "rpassword",
- "serde",
- "serde_json",
- "tempfile",
- "ureq",
-]
-
-[[package]]
 name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

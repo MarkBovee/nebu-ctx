@@ -5,7 +5,12 @@ on:
     branches: [main]
     paths:
       - "homeassistant/config.yaml"
-      - "src/**"
+      - "server/**"
+      - "client/**"
+      - "server/dist/linux/**"
+      - "docker-entrypoint.sh"
+      - "homeassistant/Dockerfile"
+      - "scripts/server/**"
       - "Cargo.toml"
       - "Cargo.lock"
 
@@ -20,12 +25,26 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Verify committed server dist is current
+        run: |
+          bash scripts/server/refresh-dist.sh
+          if ! git diff --quiet -- server/dist/linux; then
+            echo "server/dist/linux is stale. Refresh and commit the generated server payload before pushing." >&2
+            git status --short -- server/dist/linux >&2
+            exit 1
+          fi
+
       - name: Verify version sync
         run: |
-          CARGO_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          CARGO_VERSION=$(grep '^version = ' client/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           ADDON_VERSION=$(grep '^version:' homeassistant/config.yaml | head -1 | sed 's/version: *"\(.*\)"/\1/')
           if [ "$CARGO_VERSION" != "$ADDON_VERSION" ]; then
-            echo "Cargo.toml version ($CARGO_VERSION) does not match homeassistant/config.yaml ($ADDON_VERSION)" >&2
+            echo "client/Cargo.toml version ($CARGO_VERSION) does not match homeassistant/config.yaml ($ADDON_VERSION)" >&2
             exit 1
           fi
 

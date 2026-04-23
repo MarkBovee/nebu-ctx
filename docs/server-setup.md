@@ -1,37 +1,43 @@
 # Server Setup Guide
 
-`nebu-ctx` currently supports three operator modes:
+The current canonical server runtime is the .NET host under `server/src/NebuCtx.Server.Host/`.
 
-| Mode | Transport | Primary use |
-|------|-----------|-------------|
-| Local CLI | stdio | IDE integration and single-machine use |
-| HTTP MCP server | HTTP | Remote MCP access and production service mode |
-| Home Assistant addon | HTTP | Add-on packaging around the same `serve` command |
+Use this guide for:
 
-## Build
+- local server runs against PostgreSQL
+- same-database client and dashboard review
+- Docker and add-on packaging prerequisites
 
-For PostgreSQL-backed operation, build with the cloud feature enabled:
+## Canonical Server Surfaces
 
-```bash
-cargo build --release --features cloud-server
-```
+| Surface | Location | Notes |
+|------|-----------|-------|
+| .NET host source | `server/src/NebuCtx.Server.Host/` | authoritative HTTP MCP and dashboard runtime |
+| .NET tests | `server/tests/` | contract and integration coverage |
+| publish payload | `server/dist/linux/` | committed output used by Docker and Home Assistant |
+| image scripts | `scripts/server/` | refresh/build/publish helpers |
 
 ## Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `NEBULA_STORE` | `sqlite` or `postgres` |
-| `DATABASE_URL` | PostgreSQL connection string when `NEBULA_STORE=postgres` |
-| `NEBULA_CTX_DATA_DIR` | Data directory for SQLite state and local files |
-| `NEBULA_CTX_HTTP_TOKEN` | Bearer token used by `serve` when you do not pass `--auth-token` |
-| `RUST_LOG` | Log level for the binary |
+| `NEBULA_STORE` | must be `postgres` for the main supported server path |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `NEBULA_CTX_HOST` | MCP and dashboard bind host, usually `127.0.0.1` locally |
+| `NEBULA_CTX_HTTP_PORT` | MCP HTTP port, default `4242` |
+| `NEBULA_CTX_PORT` | dashboard port, default `3333` |
+| `NEBULA_CTX_HTTP_TOKEN` | MCP bearer token |
+| `NEBULA_CTX_DASHBOARD_DISABLE_AUTH` | set to `1` for a local no-auth dashboard review |
+| `NEBU_CTX_TOKEN_FILE` / `NEBULA_CTX_TOKEN_FILE` | optional token file path |
+| `LOG_LEVEL` | server log level |
 
 Notes:
 
-- The storage env var is `NEBULA_STORE`, not `NEBULA_CTX_STORE`.
-- The HTTP port is controlled by the CLI flag `--port`; there is no runtime port env var in the binary today.
+- The supported production-oriented path is PostgreSQL.
+- Non-loopback MCP binds require `NEBULA_CTX_HTTP_TOKEN`.
+- The dashboard can stay auth-free locally when `NEBULA_CTX_DASHBOARD_DISABLE_AUTH=1` and you bind it on its own port.
 
-## Local Postgres Workflow
+## Local Same-Database Workflow
 
 If your repo `.env` file uses Windows line endings, source it on Linux like this:
 
@@ -41,48 +47,69 @@ source <(tr -d '\r' < .env)
 set +a
 ```
 
-Then verify the database path:
+Then start the server directly from the .NET host project.
 
-```bash
-./target/release/nebu-ctx db status
-./target/release/nebu-ctx db init
-./target/release/nebu-ctx db test
+PowerShell:
+
+```powershell
+$env:NEBULA_STORE = 'postgres'
+$env:DATABASE_URL = 'postgres://user:pass@host:5432/db'
+$env:NEBULA_CTX_HOST = '127.0.0.1'
+$env:NEBULA_CTX_HTTP_PORT = '4242'
+$env:NEBULA_CTX_PORT = '3333'
+$env:NEBULA_CTX_HTTP_TOKEN = 'nctx_local_dev'
+$env:NEBULA_CTX_DASHBOARD_DISABLE_AUTH = '1'
+dotnet run --project server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj
 ```
 
-## Start the HTTP MCP Server
+Bash:
 
 ```bash
-./target/release/nebu-ctx serve \
-  --host 127.0.0.1 \
-  --port 4242 \
-  --auth-token my-secret-token
+export NEBULA_STORE=postgres
+export DATABASE_URL='postgres://user:pass@host:5432/db'
+export NEBULA_CTX_HOST=127.0.0.1
+export NEBULA_CTX_HTTP_PORT=4242
+export NEBULA_CTX_PORT=3333
+export NEBULA_CTX_HTTP_TOKEN=nctx_local_dev
+export NEBULA_CTX_DASHBOARD_DISABLE_AUTH=1
+dotnet run --project server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj
 ```
 
-For non-loopback binds, pass an auth token. The server refuses unsafe `0.0.0.0` binds without authentication.
+This is the preferred flow when you want to inspect the exact same PostgreSQL data through both the MCP API and the dashboard.
 
 ## Smoke Test
 
 ```bash
-curl -H 'Authorization: Bearer my-secret-token' \
+curl -H 'Authorization: Bearer nctx_local_dev' \
   http://127.0.0.1:4242/health
 
-curl -H 'Authorization: Bearer my-secret-token' \
+curl -H 'Authorization: Bearer nctx_local_dev' \
   http://127.0.0.1:4242/v1/tools
 
 curl -X POST \
-  -H 'Authorization: Bearer my-secret-token' \
+  -H 'Authorization: Bearer nctx_local_dev' \
   -H 'Content-Type: application/json' \
   http://127.0.0.1:4242/v1/tools/call \
   -d '{
     "name": "ctx_brain",
     "arguments": {
-      "action": "status",
-      "brain_id": "default"
+      "action": "status"
     }
   }'
 ```
 
-The `/v1/tools/call` payload must include `name` and `arguments`.
+Then connect the installed client:
+
+```bash
+nebu-ctx server connect --endpoint http://127.0.0.1:4242 --token nctx_local_dev
+nebu-ctx server status
+nebu-ctx tools list
+nebu-ctx server bind
+nebu-ctx ctx_brain action=store key=local-review-marker value=ok
+nebu-ctx ctx_brain action=recall query=local-review-marker
+```
+
+Open the dashboard on `http://127.0.0.1:3333/` and review the screens against the same live data.
 
 ## Remote MCP Client Registration
 
@@ -91,7 +118,7 @@ The `/v1/tools/call` payload must include `name` and `arguments`.
   "mcpServers": {
     "nebu-ctx": {
       "type": "http",
-      "url": "http://your-server:4242/v1/tools/call",
+      "url": "http://your-server:4242",
       "headers": {
         "Authorization": "Bearer my-secret-token"
       }
@@ -102,10 +129,18 @@ The `/v1/tools/call` payload must include `name` and `arguments`.
 
 ## Docker
 
-Build:
+The repository uses one dist-first Dockerfile under `homeassistant/Dockerfile`.
+
+Refresh the committed publish payload:
 
 ```bash
-docker build -t nebu-ctx .
+bash scripts/server/refresh-dist.sh
+```
+
+Build the image:
+
+```bash
+bash scripts/server/build-image.sh
 ```
 
 Run with PostgreSQL:
@@ -113,13 +148,15 @@ Run with PostgreSQL:
 ```bash
 docker run --rm \
   -p 4242:4242 \
+  -p 3333:3333 \
   -e NEBULA_STORE=postgres \
   -e DATABASE_URL='postgres://user:pass@db:5432/nebula' \
+  -e NEBULA_CTX_HOST='0.0.0.0' \
+  -e NEBULA_CTX_PORT='3333' \
   -e NEBULA_CTX_HTTP_TOKEN='my-secret-token' \
-  nebu-ctx
+  -e NEBULA_CTX_DASHBOARD_DISABLE_AUTH='1' \
+  nebu-ctx-server:local
 ```
-
-The container entrypoint now starts `nebu-ctx serve --port 4242` automatically. It binds to `0.0.0.0` only when `NEBULA_CTX_HTTP_TOKEN` is set.
 
 ## Home Assistant Addon
 

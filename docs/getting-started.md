@@ -1,110 +1,134 @@
 # Getting Started
 
-Install `nebu-ctx`, run setup once, then verify that the shell hook and MCP wiring are active.
+This repository now has one canonical local flow:
 
-## Get Started In 3 Steps
+1. install the Rust client from `client/`
+2. run the .NET server from `server/src/` against PostgreSQL
+3. verify the dashboard and MCP calls against the same database
 
-### 1. Install the binary
+## Canonical Repo Layout
 
-Pick one supported install path:
+| Path | Role |
+|------|------|
+| `client/` | installable Rust thin client package |
+| `client/src/` | client source |
+| `client/tests/` | client-owned tests |
+| `client/target/` | Cargo-managed build output, disposable |
+| `server/src/` | .NET host, dashboard, contracts, storage, tools |
+| `server/tests/` | .NET contract, integration, and project identity tests |
+| `server/dist/linux/` | committed publish payload used by Docker and the add-on |
+| `scripts/server/` | publish and image scripts for the .NET server |
+| `scripts/git/` | repo hooks such as stale-dist enforcement |
+| `tests/` | cross-stack smoke, e2e, add-on, and release validation |
 
-```bash
-# Install from GitHub with Cargo
-cargo install --git https://github.com/MarkBovee/nebu-ctx --bin nebu-ctx
+Artifact rule:
 
-# Or build from source
-git clone https://github.com/MarkBovee/nebu-ctx.git
-cd nebu-ctx
-cargo build --release
-```
+- `client/target/` is a normal tool-managed build folder and is not part of the product contract
+- `server/dist/linux/` is a curated publish output and is part of the packaging contract
 
-If you built from source, use `./target/release/nebu-ctx` or add that directory to your `PATH`.
+## 1. Install The Client
 
-### 2. Run setup
-
-```bash
-nebu-ctx setup
-```
-
-This is the preferred path when you want shell hooks plus automatic editor detection.
-
-Manual fallback:
-
-```bash
-nebu-ctx init --global
-```
-
-Agent rules fallback for a specific client:
+From a local checkout:
 
 ```bash
-nebu-ctx init --agent cursor
-nebu-ctx init --agent claude
-nebu-ctx init --agent copilot
+cargo install --path client --bin nebu-ctx --force
 ```
 
-### 3. Restart and verify
-
-Restart your shell, then restart your editor completely.
+Or install into an isolated root while testing:
 
 ```bash
-nebu-ctx --version
-nebu-ctx doctor
+cargo install --path client --bin nebu-ctx --root .tmp/nebu-ctx-cli --force
 ```
 
-Expected verification path:
+## 2. Start The Server Locally
 
-- `nebu-ctx --version` prints the installed version
-- `nebu-ctx doctor` checks PATH, config, shell hook, MCP, and dashboard state
-- your editor should show the `nebu-ctx` MCP server after restart
+The local review flow should point to the same PostgreSQL database you want to inspect in the dashboard.
 
-## Shell Restart Notes
+PowerShell:
 
-- Zsh: `source ~/.zshrc`
-- Bash: `source ~/.bashrc`
-- Fish: `source ~/.config/fish/config.fish`
-- PowerShell: close and reopen PowerShell
+```powershell
+$env:NEBULA_STORE = 'postgres'
+$env:DATABASE_URL = 'postgres://user:pass@host:5432/db'
+$env:NEBULA_CTX_HOST = '127.0.0.1'
+$env:NEBULA_CTX_HTTP_PORT = '4242'
+$env:NEBULA_CTX_PORT = '3333'
+$env:NEBULA_CTX_HTTP_TOKEN = 'nctx_local_dev'
+$env:NEBULA_CTX_DASHBOARD_DISABLE_AUTH = '1'
+dotnet run --project server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj
+```
 
-## Local HTTP Server Quick Check
-
-If you want to verify the HTTP MCP surface locally:
+Bash:
 
 ```bash
-nebu-ctx serve --host 127.0.0.1 --port 4242 --auth-token local-test-token
+export NEBULA_STORE=postgres
+export DATABASE_URL='postgres://user:pass@host:5432/db'
+export NEBULA_CTX_HOST=127.0.0.1
+export NEBULA_CTX_HTTP_PORT=4242
+export NEBULA_CTX_PORT=3333
+export NEBULA_CTX_HTTP_TOKEN=nctx_local_dev
+export NEBULA_CTX_DASHBOARD_DISABLE_AUTH=1
+dotnet run --project server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj
 ```
 
-Then in a second terminal:
+Expected local endpoints:
+
+- dashboard: `http://127.0.0.1:3333/`
+- MCP health: `http://127.0.0.1:4242/health`
+- MCP tools: `http://127.0.0.1:4242/v1/tools`
+
+## 3. Connect The Client
 
 ```bash
-curl -H 'Authorization: Bearer local-test-token' http://127.0.0.1:4242/health
-curl -H 'Authorization: Bearer local-test-token' http://127.0.0.1:4242/v1/tools
+nebu-ctx server connect --endpoint http://127.0.0.1:4242 --token nctx_local_dev
+nebu-ctx server status
+nebu-ctx tools list
+nebu-ctx server bind
 ```
 
-## Home Assistant Add-on
+## 4. Verify Shared Data Flow
 
-Home Assistant uses a separate add-on packaging path under `homeassistant/`.
+Store and recall one marker through the same live server:
 
-Published add-on behavior:
+```bash
+nebu-ctx ctx_brain action=store key=local-review-marker value=ok
+nebu-ctx ctx_brain action=recall query=local-review-marker
+```
 
-- downloads the tagged `nebu-ctx` release binary for the target architecture
-- starts the dashboard on `3333`
-- starts the authenticated MCP HTTP server on `4242`
-- uses PostgreSQL as the add-on backing store
-- persists or generates the token in `/data/auth_token`
+This is the minimum proof that:
 
-For Home Assistant-specific setup and local smoke testing, see [homeassistant/README.md](../homeassistant/README.md).
+- the client is connected to the correct server
+- the server is writing to the intended PostgreSQL database
+- the dashboard can be reviewed against live data instead of fixture data
 
-## Troubleshooting
+## 5. Review The Dashboard Screen By Screen
 
-### `nebu-ctx` not found
+Use the dashboard on `http://127.0.0.1:3333/` and walk the UI in this order:
 
-Make sure the binary directory is on your `PATH`, or use the full path to the built binary.
+1. overview
+2. live observatory
+3. routes
+4. knowledge graph
+5. search and symbols
+6. token and auth surface
 
-### MCP tools do not appear in the editor
+For the next live session, prefer this same-database local flow over Docker unless you are validating packaging specifically.
 
-- run `nebu-ctx doctor`
-- run `nebu-ctx init --agent <name>` if editor auto-detection missed your client
-- fully restart the editor, not just the active window
+## Packaging Commands
 
-### Home Assistant add-on installs slowly
+Refresh the committed server payload:
 
-The published add-on should download a release binary, not compile Rust. If you still see a full Cargo build during install, verify that the add-on version in `homeassistant/build.yaml` points at a published tag with release assets.
+```bash
+bash scripts/server/refresh-dist.sh
+```
+
+Build the server image from the committed payload:
+
+```bash
+bash scripts/server/build-image.sh
+```
+
+Run the cross-stack smoke check:
+
+```bash
+bash tests/local-server-cli-test.sh
+```
