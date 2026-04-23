@@ -99,5 +99,30 @@ public static class PostgresSchemaInitializer
 
         CREATE INDEX IF NOT EXISTS idx_brain_entries_project
             ON brain_entries (project_id);
+
+        CREATE TABLE IF NOT EXISTS knowledge_entries (
+            project_id  TEXT NOT NULL,
+            category    TEXT NOT NULL,
+            key         TEXT NOT NULL,
+            value       TEXT NOT NULL,
+            confidence  REAL NOT NULL DEFAULT 1.0,
+            updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (project_id, category, key)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_knowledge_entries_project
+            ON knowledge_entries (project_id);
+
+        CREATE TABLE IF NOT EXISTS session_state (
+            project_id  TEXT NOT NULL,
+            session_id  TEXT NOT NULL,
+            state_json  JSONB NOT NULL,
+            created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (project_id, session_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_session_state_project
+            ON session_state (project_id, updated_at DESC);
         """;
 }

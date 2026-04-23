@@ -40,6 +40,26 @@ public static class StoreFactory
     }
 
     /// <summary>
+    /// Creates an <see cref="IKnowledgeStore"/> backed by Postgres.
+    /// </summary>
+    /// <param name="options">Server configuration containing store selection and connection details.</param>
+    /// <returns>A Postgres-backed knowledge store.</returns>
+    public static IKnowledgeStore CreateKnowledgeStore(ServerOptions options)
+    {
+        return new PostgresKnowledgeStore(BuildConfiguredPostgresConnectionString(options));
+    }
+
+    /// <summary>
+    /// Creates an <see cref="ISessionStore"/> backed by Postgres.
+    /// </summary>
+    /// <param name="options">Server configuration containing store selection and connection details.</param>
+    /// <returns>A Postgres-backed session store.</returns>
+    public static ISessionStore CreateSessionStore(ServerOptions options)
+    {
+        return new PostgresSessionStore(BuildConfiguredPostgresConnectionString(options));
+    }
+
+    /// <summary>
     /// Runs additive schema initialization for the supported Postgres backend.
     /// </summary>
     /// <param name="options">Server configuration.</param>

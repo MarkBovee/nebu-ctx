@@ -52,12 +52,16 @@ builder.Services.AddSingleton(serverOptions);
 builder.Services.AddSingleton<IProjectStore>(sp => StoreFactory.CreateProjectStore(sp.GetRequiredService<ServerOptions>()));
 builder.Services.AddSingleton<ICheckoutBindingStore>(sp => StoreFactory.CreateCheckoutBindingStore(sp.GetRequiredService<ServerOptions>()));
 builder.Services.AddSingleton<IBrainStore>(sp => StoreFactory.CreateBrainStore(sp.GetRequiredService<ServerOptions>()));
+builder.Services.AddSingleton<IKnowledgeStore>(sp => StoreFactory.CreateKnowledgeStore(sp.GetRequiredService<ServerOptions>()));
+builder.Services.AddSingleton<ISessionStore>(sp => StoreFactory.CreateSessionStore(sp.GetRequiredService<ServerOptions>()));
 
 // Projects
 builder.Services.AddSingleton<ProjectRegistry>();
 
 // Application services
 builder.Services.AddSingleton<BrainService>();
+builder.Services.AddSingleton<KnowledgeService>();
+builder.Services.AddSingleton<SessionService>();
 builder.Services.AddSingleton<TelemetryStore>();
 builder.Services.AddSingleton<ToolRegistry>();
 
