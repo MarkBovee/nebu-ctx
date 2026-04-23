@@ -11,11 +11,11 @@ Read this first. Each session must verify the status column before starting work
 | WP | Title | Status | Notes |
 |----|-------|--------|-------|
 | WP0 | Freeze target surface | ✅ Done | Plan frozen, `reference/` is read-only |
-| WP1 | Re-establish Rust client from lean-ctx baseline | 🔄 Source complete, build unverified | All lean-ctx modules present; compile on Linux not yet confirmed |
-| WP2 | Cloud-first UX | 🔄 ~75% done | `cloud connect/bind/disconnect/status` + `server` alias work; `sync` still returns error |
-| WP3 | workspace → checkout rename | 🔄 ~40% done | Rust client done; server-side `IWorkspaceBindingStore`, SQL table `workspace_bindings`, and DI not yet renamed |
-| WP4 | Audit and complete local tool surface | 🔄 ~40% done | Analytics boundary enforced; dead code (`cloud_server/`, `local_dashboard/`, `heatmap.rs`) + `dispatch.rs` match arms not yet removed |
-| WP5 | Cloud-owned shared-state in .NET | ❌ ~5% done | Only `ctx_brain` and `ctx_routes` registered; none of the 11 canonical cloud tools implemented server-side |
+| WP1 | Re-establish Rust client from lean-ctx baseline | ✅ Done | All lean-ctx modules present; smoke 4/4 green on Linux |
+| WP2 | Cloud-first UX | 🔄 ~75% done | `cloud connect/bind/disconnect/status` + `server` alias work; `sync` still returns error stub |
+| WP3 | workspace → checkout rename | ✅ Done | Rust client + full .NET server renamed; SQLite deleted; SQL migration added; backward-compat alias kept |
+| WP4 | Audit and complete local tool surface | ✅ Done | Dead code removed (`cloud_server/`, `local_dashboard/`, `tui/`, `heatmap.rs`); ratatui/crossterm stripped; embeddings removed from defaults |
+| WP5 | Cloud-owned shared-state in .NET | ❌ ~5% done | Only `ctx_brain` and `ctx_routes` registered; `ctx_knowledge` and `ctx_session` handlers not yet implemented |
 | WP6 | Hybrid sync pipeline | ❌ 0% | Not started |
 | WP7 | Dashboard parity with project-scoped data | ❌ 0% | Not started |
 | WP8 | Packaging and add-on stabilization | 🔄 ~50% done | `server/dist/linux/` committed; not validated on Linux |
