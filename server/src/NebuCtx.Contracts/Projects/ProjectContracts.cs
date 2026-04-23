@@ -82,7 +82,7 @@ public sealed class RepositoryFingerprint
 }
 
 /// <summary>
-/// A workspace binding associates a local checkout with a server-side project.
+/// A checkout binding associates a local checkout with a server-side project.
 /// This is diagnostic/alias data, not the identity source of truth.
 /// </summary>
 public sealed class WorkspaceBinding

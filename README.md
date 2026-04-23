@@ -1,19 +1,19 @@
 # nebu-ctx
 
-Installable Rust client for the `nebu-ctx` .NET MCP server and dashboard stack, plus the server, Docker, and Home Assistant packaging needed to run it.
+Installable Rust runtime client for the `nebu-ctx` cloud-backed MCP and dashboard stack, plus the existing .NET cloud host, Docker, and Home Assistant packaging needed to run it.
 
-> `nebu-ctx` is the current product name for this context-engineering MCP server and dashboard stack. The published Cargo package installs the thin Rust client. The server runtime, dashboard, Docker image, and Home Assistant add-on live in this same repository.
+> `nebu-ctx` is the current product name for this context-engineering MCP stack. The published Cargo package installs the Rust runtime client, based on the original `lean-ctx` runtime surface, while the existing .NET host under `server/` remains the cloud/dashboard runtime.
 
 [Getting started](docs/getting-started.md) | [Server setup](docs/server-setup.md) | [Technical architecture](docs/technical-architecture.md) | [Home Assistant add-on](homeassistant/README.md) | [Roadmap](docs/plans/nebula-server-roadmap.md)
 
 ## Why nebu-ctx
 
-`nebu-ctx` targets the same context-engineering problem space, but with a more persistent and deployable operating model.
+`nebu-ctx` targets the same context-engineering problem space as `lean-ctx`, but keeps the full local runtime surface while adding a persistent cloud-backed operating model.
 
-- published `nebu-ctx` binary is a thin Rust client that talks to the remote .NET MCP server
-- first-run client onboarding prompts for server URL and auth token, then persists the connection locally
-- client keeps local project-aware tools such as reads, tree, search, outline, callers, and callees
-- remote tools such as `ctx_brain` run against the shared PostgreSQL-backed server state
+- published `nebu-ctx` binary is a Rust runtime client built from the `lean-ctx` runtime baseline
+- `nebu-ctx cloud connect` persists the cloud endpoint and bearer token locally
+- local runtime tools still handle file reads, tree/search, shell compression, and the broader lean-ctx workflow surface
+- cloud-owned tools such as `ctx_brain` run against the shared PostgreSQL-backed server state
 - repository still contains the deployable .NET server, dashboard, Docker image, and Home Assistant add-on
 
 ## What this fork adds
@@ -36,7 +36,7 @@ The repository is intentionally split by ownership and artifact lifecycle:
 
 | Path | Purpose |
 |------|---------|
-| `client/` | installable Rust thin client package |
+| `client/` | installable Rust runtime client package |
 | `client/src/` | client source |
 | `client/tests/` | client-owned tests |
 | `client/target/` | Cargo build output, disposable |
@@ -53,7 +53,7 @@ Artifact rule:
 
 ## Get Started In 3 Steps
 
-The main local install flow is now: install the client, start the .NET server against PostgreSQL, then verify live MCP calls and the dashboard against the same database.
+The main local install flow is now: install the runtime client, start the existing .NET cloud host against PostgreSQL, then verify live MCP calls and the dashboard against the same database.
 
 ### 1. Install `nebu-ctx`
 
@@ -87,7 +87,7 @@ dotnet run --project server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj
 Then connect the client:
 
 ```bash
-nebu-ctx server connect --endpoint http://127.0.0.1:4242 --token nctx_local_dev
+nebu-ctx cloud connect --endpoint http://127.0.0.1:4242 --token nctx_local_dev
 ```
 
 The client normalizes a trailing `/mcp` automatically, but the current .NET server contract is rooted at `/health`, `/v1/manifest`, `/v1/tools`, and `/v1/tools/call`.
@@ -97,9 +97,9 @@ The client normalizes a trailing `/mcp` automatically, but the current .NET serv
 Verify the saved connection and make a real MCP call.
 
 ```bash
-nebu-ctx server status
+nebu-ctx cloud status
 nebu-ctx tools list
-nebu-ctx server bind
+nebu-ctx cloud bind
 nebu-ctx ctx_brain action=recall query=status
 ```
 
@@ -158,11 +158,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\server\build-image.ps1
 Manual server image publish:
 
 ```bash
-IMAGE_REPOSITORY=ghcr.io/your-org/nebu-ctx IMAGE_TAG=v0.2.7 bash scripts/server/publish-image.sh
+IMAGE_REPOSITORY=ghcr.io/your-org/nebu-ctx IMAGE_TAG=v0.2.8 bash scripts/server/publish-image.sh
 ```
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\server\publish-image.ps1 -ImageRepository ghcr.io/your-org/nebu-ctx -ImageTag v0.2.7
+powershell -ExecutionPolicy Bypass -File .\scripts\server\publish-image.ps1 -ImageRepository ghcr.io/your-org/nebu-ctx -ImageTag v0.2.8
 ```
 
 Refresh the dist-first server payload without building an image:
@@ -191,8 +191,8 @@ When we want to review live data and walk the screens one by one, use the same-d
 
 1. point `DATABASE_URL` at the PostgreSQL database you want to inspect
 2. run `dotnet run --project server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj`
-3. connect the installed client with `nebu-ctx server connect --endpoint http://127.0.0.1:4242 --token ...`
-4. verify with `nebu-ctx tools list`, `nebu-ctx server bind`, and `nebu-ctx ctx_brain ...`
+3. connect the installed client with `nebu-ctx cloud connect --endpoint http://127.0.0.1:4242 --token ...`
+4. verify with `nebu-ctx tools list`, `nebu-ctx cloud bind`, and `nebu-ctx ctx_brain ...`
 5. review the dashboard on `http://127.0.0.1:3333/`
 
 The detailed checklist lives in [docs/getting-started.md](docs/getting-started.md).
@@ -212,7 +212,7 @@ The detailed checklist lives in [docs/getting-started.md](docs/getting-started.m
 
 | Surface | Command or location | Purpose |
 |---------|---------------------|---------|
-| Local CLI | `nebu-ctx` | thin Rust client installed from `client/` |
+| Local CLI | `nebu-ctx` | lean-ctx-based Rust runtime client installed from `client/` |
 | HTTP MCP server | `dotnet run --project server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj` | local or deployed .NET MCP host |
 | Dashboard | same .NET host on port `3333` | dashboard backed by the same PostgreSQL state |
 | Docker | `homeassistant/Dockerfile` and `docker-entrypoint.sh` | unified standalone and Home Assistant container packaging |
@@ -259,7 +259,7 @@ This fork then layers in selected pieces from earlier Nebula work, especially:
 - server-first deployment paths
 - Home Assistant packaging and ingress integration
 
-The result is a fork with a different operating model: less purely local-first, more persistent and deployable.
+The result is a fork with a different operating model: keep the local lean-ctx runtime, but attach persistent project identity, cloud-backed memory, and deployable dashboard/server surfaces.
 
 ## Current status
 

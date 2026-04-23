@@ -1,41 +1,115 @@
 [package]
 name = "nebu-ctx"
-version = "0.2.7"
+version = "0.2.8"
 edition = "2021"
-description = "Thin Rust client for the .NET nebu-ctx MCP and dashboard server."
+autobins = false
+description = "Lean-ctx runtime adapted for the NebuCtx Cloud-backed product."
 license = "Apache-2.0"
 homepage = "https://nebu-ctx.com"
 repository = "https://github.com/MarkBovee/nebu-ctx"
 documentation = "https://docs.rs/nebu-ctx"
 readme = "README.md"
-keywords = ["mcp", "client", "context", "ai"]
+keywords = ["mcp", "llm", "tokens", "compression", "ai"]
 categories = ["command-line-utilities", "development-tools"]
+exclude = ["examples/", "tests/"]
 
 [[bin]]
 name = "nebu-ctx"
 path = "src/main.rs"
 
-[[bin]]
-name = "nebula-ctx"
-path = "src/bin/nebula-ctx.rs"
-
-[[bin]]
-name = "nebu-ctx-client"
-path = "src/bin/nebu-ctx-client.rs"
-
 [lib]
-name = "nebu_ctx_client"
+name = "lean_ctx"
 path = "src/lib.rs"
 
+[features]
+default = ["tree-sitter", "embeddings", "http-server"]
+neural = ["dep:rten", "dep:rten-tensor"]
+embeddings = ["dep:rten", "dep:rten-tensor"]
+http-server = ["dep:axum", "dep:tower-http", "dep:reqwest"]
+tree-sitter = [
+	"dep:tree-sitter",
+	"dep:tree-sitter-rust",
+	"dep:tree-sitter-typescript",
+	"dep:tree-sitter-javascript",
+	"dep:tree-sitter-python",
+	"dep:tree-sitter-go",
+	"dep:tree-sitter-java",
+	"dep:tree-sitter-c",
+	"dep:tree-sitter-cpp",
+	"dep:tree-sitter-ruby",
+	"dep:tree-sitter-c-sharp",
+	"dep:tree-sitter-kotlin-ng",
+	"dep:tree-sitter-swift",
+	"dep:tree-sitter-php",
+	"dep:tree-sitter-bash",
+	"dep:tree-sitter-dart",
+	"dep:tree-sitter-scala",
+	"dep:tree-sitter-elixir",
+	"dep:tree-sitter-zig",
+]
+
 [dependencies]
-anyhow = "1"
-dirs = "5"
-ignore = "0.4"
-regex = "1"
-rpassword = "7.4.0"
+rmcp = { version = "1", features = ["server", "transport-io", "transport-streamable-http-server"] }
+tiktoken-rs = "0.6"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "io-std", "io-util", "net", "sync", "time", "signal"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-ureq = { version = "3.3.0", default-features = false, features = ["rustls"] }
+md-5 = "0.10"
+anyhow = "1"
+regex = "1"
+walkdir = "2"
+ignore = "0.4"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+thiserror = "2"
+futures = "0.3"
+tokio-util = { version = "0.7", features = ["codec"] }
+dirs = "5"
+chrono = { version = "0.4", features = ["serde"] }
+toml = "0.8"
+similar = "2"
+flate2 = "1"
+rusqlite = { version = "0.39.0", features = ["bundled"] }
+tree-sitter = { version = "0.26", optional = true }
+tree-sitter-rust = { version = "0.24", optional = true }
+tree-sitter-typescript = { version = "0.23", optional = true }
+tree-sitter-javascript = { version = "0.25", optional = true }
+tree-sitter-python = { version = "0.25", optional = true }
+tree-sitter-go = { version = "0.25", optional = true }
+tree-sitter-java = { version = "0.23", optional = true }
+tree-sitter-c = { version = "0.24", optional = true }
+tree-sitter-cpp = { version = "0.23", optional = true }
+tree-sitter-ruby = { version = "0.23", optional = true }
+tree-sitter-c-sharp = { version = "0.23", optional = true }
+tree-sitter-kotlin-ng = { version = "1.1", optional = true }
+tree-sitter-swift = { version = "0.7", optional = true }
+tree-sitter-php = { version = "0.24", optional = true }
+ureq = "3.3.0"
+tar = "0.4.45"
+zip = "8.4.0"
+tree-sitter-bash = { version = "0.25", optional = true }
+tree-sitter-scala = { version = "0.25", optional = true }
+tree-sitter-elixir = { version = "0.3", optional = true }
+tree-sitter-zig = { version = "1.1", optional = true }
+tree-sitter-dart = { version = "0.1", optional = true }
+rten = { version = "0.24", optional = true }
+rten-tensor = { version = "0.24", optional = true }
+axum = { version = "0.8", optional = true }
+tower-http = { version = "0.6", features = ["cors", "auth"], optional = true }
+glob = "0.3.3"
+ratatui = "0.30"
+crossterm = "0.28"
+rpassword = "7.4.0"
+getrandom = "0.3"
+reqwest = { version = "0.13.2", default-features = false, features = ["rustls", "stream", "json"], optional = true }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
 
 [dev-dependencies]
 tempfile = "3.27.0"
+tower = "0.5"

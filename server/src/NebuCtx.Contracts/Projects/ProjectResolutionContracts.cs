@@ -7,6 +7,8 @@ using System.Text.Json.Serialization;
 /// </summary>
 public sealed class ProjectResolutionRequest
 {
+    private WorkspaceBinding? _checkoutBinding;
+
     /// <summary>
     /// Repository fingerprint used for project matching.
     /// </summary>
@@ -20,10 +22,24 @@ public sealed class ProjectResolutionRequest
     public string? SuggestedSlug { get; set; }
 
     /// <summary>
-    /// Optional workspace binding that should be persisted after resolution.
+    /// Optional checkout binding that should be persisted after resolution.
+    /// </summary>
+    [JsonPropertyName("checkout_binding")]
+    public WorkspaceBinding? CheckoutBinding
+    {
+        get => _checkoutBinding;
+        set => _checkoutBinding = value;
+    }
+
+    /// <summary>
+    /// Legacy workspace binding alias kept for older clients.
     /// </summary>
     [JsonPropertyName("workspace_binding")]
-    public WorkspaceBinding? WorkspaceBinding { get; set; }
+    public WorkspaceBinding? WorkspaceBinding
+    {
+        get => _checkoutBinding;
+        set => _checkoutBinding = value;
+    }
 
     /// <summary>
     /// Optional compact client-side project metadata for future hybrid sync flows.
@@ -37,6 +53,8 @@ public sealed class ProjectResolutionRequest
 /// </summary>
 public sealed class ProjectResolutionResponse
 {
+    private bool _checkoutBound;
+
     /// <summary>
     /// The resolved canonical project.
     /// </summary>
@@ -44,8 +62,22 @@ public sealed class ProjectResolutionResponse
     public required ProjectRecord Project { get; set; }
 
     /// <summary>
-    /// Indicates whether the request also persisted a workspace binding.
+    /// Indicates whether the request also persisted a checkout binding.
+    /// </summary>
+    [JsonPropertyName("checkout_bound")]
+    public bool CheckoutBound
+    {
+        get => _checkoutBound;
+        set => _checkoutBound = value;
+    }
+
+    /// <summary>
+    /// Legacy workspace-bound alias kept for older clients.
     /// </summary>
     [JsonPropertyName("workspace_bound")]
-    public bool WorkspaceBound { get; set; }
+    public bool WorkspaceBound
+    {
+        get => _checkoutBound;
+        set => _checkoutBound = value;
+    }
 }

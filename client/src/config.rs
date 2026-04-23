@@ -5,14 +5,12 @@ use std::path::PathBuf;
 
 const CONNECTION_FILE: &str = "server_connection.json";
 
-/// Returns the directory that stores client-side server connection state.
 pub fn config_dir() -> PathBuf {
     let home = preferred_home_dir().unwrap_or_else(|| PathBuf::from("."));
     home.join(".nebu-ctx").join("cloud")
 }
 
-/// Resolves the preferred home directory for client-side config persistence.
-fn preferred_home_dir() -> Option<PathBuf> {
+pub(crate) fn preferred_home_dir() -> Option<PathBuf> {
     for variable_name in ["NEBU_CTX_HOME", "HOME", "USERPROFILE"] {
         if let Ok(value) = std::env::var(variable_name) {
             let trimmed = value.trim();
@@ -25,12 +23,23 @@ fn preferred_home_dir() -> Option<PathBuf> {
     dirs::home_dir()
 }
 
-/// Returns the file path that persists the active server connection.
+pub(crate) fn preferred_os_home_dir() -> Option<PathBuf> {
+    for variable_name in ["HOME", "USERPROFILE"] {
+        if let Ok(value) = std::env::var(variable_name) {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                return Some(PathBuf::from(trimmed));
+            }
+        }
+    }
+
+    dirs::home_dir()
+}
+
 pub fn connection_path() -> PathBuf {
     config_dir().join(CONNECTION_FILE)
 }
 
-/// Normalizes a server endpoint down to the host root used by the REST API.
 pub fn normalize_server_endpoint(endpoint: &str) -> String {
     let trimmed = endpoint.trim().trim_end_matches('/');
     if let Some(prefix) = trimmed.strip_suffix("/mcp") {
@@ -56,7 +65,6 @@ pub fn normalize_server_endpoint(endpoint: &str) -> String {
     trimmed.to_string()
 }
 
-/// Saves the server endpoint and token to disk.
 pub fn save_connection(endpoint: &str, token: &str) -> Result<ServerConnection> {
     let connection = ServerConnection {
         endpoint: normalize_server_endpoint(endpoint),
@@ -69,7 +77,6 @@ pub fn save_connection(endpoint: &str, token: &str) -> Result<ServerConnection> 
     Ok(connection)
 }
 
-/// Loads the persisted server connection if one exists.
 pub fn load_connection() -> Result<Option<ServerConnection>> {
     let path = connection_path();
     if !path.exists() {
@@ -81,7 +88,6 @@ pub fn load_connection() -> Result<Option<ServerConnection>> {
     Ok(Some(connection))
 }
 
-/// Deletes the persisted server connection.
 pub fn clear_connection() -> Result<()> {
     let path = connection_path();
     if path.exists() {

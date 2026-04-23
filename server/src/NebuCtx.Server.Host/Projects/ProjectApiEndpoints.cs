@@ -40,17 +40,17 @@ public static class ProjectApiEndpoints
             return Results.Conflict(new ToolCallErrorResponse { Error = "Project fingerprint is ambiguous. Explicit binding is required." });
         }
 
-        var workspaceBound = false;
-        if (request.WorkspaceBinding is not null)
+        var checkoutBound = false;
+        if (request.CheckoutBinding is not null)
         {
-            await projectRegistry.BindWorkspaceAsync(CloneBinding(request.WorkspaceBinding, project.ProjectId), cancellationToken);
-            workspaceBound = true;
+            await projectRegistry.BindWorkspaceAsync(CloneBinding(request.CheckoutBinding, project.ProjectId), cancellationToken);
+            checkoutBound = true;
         }
 
         return Results.Ok(new ProjectResolutionResponse
         {
             Project = project,
-            WorkspaceBound = workspaceBound,
+            CheckoutBound = checkoutBound,
         });
     }
 
@@ -93,17 +93,17 @@ public static class ProjectApiEndpoints
         if (!string.IsNullOrWhiteSpace(request.ProjectId))
         {
             await projectRegistry.SyncProjectMetadataAsync(request.ProjectId, request.ProjectMetadata, cancellationToken);
-            if (request.WorkspaceBinding is not null)
+            if (request.CheckoutBinding is not null)
             {
-                await projectRegistry.BindWorkspaceAsync(CloneBinding(request.WorkspaceBinding, request.ProjectId), cancellationToken);
+                await projectRegistry.BindWorkspaceAsync(CloneBinding(request.CheckoutBinding, request.ProjectId), cancellationToken);
             }
 
-            return CreateToolExecutionContext(request.ProjectId, request.WorkspaceBinding);
+            return CreateToolExecutionContext(request.ProjectId, request.CheckoutBinding);
         }
 
         if (request.RepositoryFingerprint is null)
         {
-            return CreateToolExecutionContext("default", request.WorkspaceBinding);
+            return CreateToolExecutionContext("default", request.CheckoutBinding);
         }
 
         var suggestedSlug = ResolveSuggestedSlug(request.ProjectSlug, request.RepositoryFingerprint);
@@ -113,12 +113,12 @@ public static class ProjectApiEndpoints
             throw new InvalidOperationException("Project fingerprint is ambiguous. Resolve the project explicitly before calling tools.");
         }
 
-        if (request.WorkspaceBinding is not null)
+        if (request.CheckoutBinding is not null)
         {
-            await projectRegistry.BindWorkspaceAsync(CloneBinding(request.WorkspaceBinding, project.ProjectId), cancellationToken);
+            await projectRegistry.BindWorkspaceAsync(CloneBinding(request.CheckoutBinding, project.ProjectId), cancellationToken);
         }
 
-        return CreateToolExecutionContext(project.ProjectId, request.WorkspaceBinding);
+        return CreateToolExecutionContext(project.ProjectId, request.CheckoutBinding);
     }
 
     /// <summary>

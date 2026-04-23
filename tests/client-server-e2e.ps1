@@ -38,8 +38,10 @@ function Invoke-ClientCommand {
     $startInfo.RedirectStandardError = $true
     $startInfo.UseShellExecute = $false
     $startInfo.ArgumentList.Add('run')
-    $startInfo.ArgumentList.Add('-p')
-    $startInfo.ArgumentList.Add('nebu-ctx-client')
+    $startInfo.ArgumentList.Add('--manifest-path')
+    $startInfo.ArgumentList.Add((Join-Path $projectRoot 'client/Cargo.toml'))
+    $startInfo.ArgumentList.Add('--bin')
+    $startInfo.ArgumentList.Add('nebu-ctx')
     $startInfo.ArgumentList.Add('--quiet')
     $startInfo.ArgumentList.Add('--')
     foreach ($argument in $Arguments) {

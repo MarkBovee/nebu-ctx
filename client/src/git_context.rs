@@ -1,9 +1,8 @@
-use crate::models::{ProjectContext, RepositoryFingerprint, WorkspaceBinding};
+use crate::models::{CheckoutBinding, ProjectContext, RepositoryFingerprint};
 use crate::project_metadata;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Discovers project metadata from the current checkout so tool calls become project-aware.
 pub fn discover_project_context(current_directory: &Path) -> ProjectContext {
     let local_root = git_output(current_directory, ["rev-parse", "--show-toplevel"])
         .map(PathBuf::from)
@@ -28,7 +27,7 @@ pub fn discover_project_context(current_directory: &Path) -> ProjectContext {
         default_branch,
     };
 
-    let workspace_binding = WorkspaceBinding {
+    let checkout_binding = CheckoutBinding {
         project_id: "pending".to_string(),
         local_root: Some(local_root.to_string_lossy().to_string()),
         branch,
@@ -41,17 +40,15 @@ pub fn discover_project_context(current_directory: &Path) -> ProjectContext {
         project_slug,
         project_root: local_root.to_string_lossy().to_string(),
         fingerprint,
-        workspace_binding,
+        checkout_binding,
         project_metadata: project_metadata::build_project_metadata(&local_root).ok(),
     }
 }
 
-/// Backwards-compatible wrapper while call sites move to project-first naming.
 pub fn discover_repository_context(current_directory: &Path) -> ProjectContext {
     discover_project_context(current_directory)
 }
 
-/// Parses a remote URL into host, owner and repository name.
 fn parse_remote_url(remote_url: &str) -> Option<(String, String, String)> {
     let trimmed = remote_url.trim().trim_end_matches('/').trim_end_matches(".git");
     if let Some(rest) = trimmed.strip_prefix("https://") {
@@ -74,13 +71,11 @@ fn parse_remote_url(remote_url: &str) -> Option<(String, String, String)> {
     None
 }
 
-/// Parses a host/path URL fragment into the repo tuple.
 fn parse_host_path(value: &str) -> Option<(String, String, String)> {
     let (host, path) = value.split_once('/')?;
     parse_path_segments(host, path)
 }
 
-/// Parses path segments into host, owner and repository name.
 fn parse_path_segments(host: &str, path: &str) -> Option<(String, String, String)> {
     let mut segments = path.split('/').filter(|segment| !segment.is_empty());
     let owner = segments.next()?.to_string();
@@ -88,7 +83,6 @@ fn parse_path_segments(host: &str, path: &str) -> Option<(String, String, String
     Some((host.to_string(), owner, repo_name))
 }
 
-/// Executes a git command and returns trimmed stdout on success.
 fn git_output<const N: usize>(working_directory: &Path, args: [&str; N]) -> Option<String> {
     let output = Command::new("git")
         .args(args)
@@ -108,7 +102,6 @@ fn git_output<const N: usize>(working_directory: &Path, args: [&str; N]) -> Opti
     Some(trimmed.to_string())
 }
 
-/// Derives a stable client label from common workstation environment variables.
 fn detect_client_label() -> Option<String> {
     std::env::var("COMPUTERNAME")
         .ok()

@@ -10,19 +10,22 @@ It is the only active redesign plan for NebuCtx product realignment.
 The goal is explicit:
 
 - NebuCtx must feel like lean-ctx again.
+- The Rust runtime must be re-established from the lean-ctx runtime under `reference/rust/`, not by extending the reduced Nebu client.
 - The shared remote surface is our NebuCtx cloud service, backed by the existing .NET host under `server/`.
 - The existing .NET host and dashboard stack already exist. Realignment work extends that runtime and renames its product surface to NebuCtx Cloud; it does not create a second cloud implementation.
 - NebuCtx remains project-based, not workspace-based.
-- The Rust binary remains the thin local client and local execution layer.
+- The Rust binary is rebuilt from lean-ctx first and only then adapted into the NebuCtx local client and execution layer.
 - The `reference/` tree is read-only source material and must never be modified.
 
 ## 1. Source Of Truth
 
 This plan is based on these inputs, in this priority order:
 
-1. The original lean-ctx surface in `reference/`.
-2. The cloud and architecture notes in `reference/PROJECT.md` and `reference/README.md`.
-3. The current NebuCtx implementation under `client/` and `server/`.
+1. The original lean-ctx runtime under `reference/rust/`.
+2. The original lean-ctx product surface in `reference/README.md`, `reference/PROJECT.md`, and related docs.
+3. The existing NebuCtx cloud runtime under `server/`.
+4. `client/src-old/` as a donor for Nebu-specific behavior that must survive the inversion.
+5. The remaining current NebuCtx implementation under `client/` only when needed for packaging compatibility.
 
 If a future implementation detail is ambiguous, resolve it as follows:
 
@@ -44,9 +47,16 @@ Observed divergence:
 
 That is the wrong product shape.
 
+The previous implementation direction is also rejected:
+
+- extending the reduced Nebu client outward will keep missing lean-ctx runtime behavior hidden until late
+- restoring parity tool by tool from a reduced surface is slower and less safe than starting from the full lean-ctx runtime
+- the correct default is to keep lean-ctx behavior unless NebuCtx Cloud or project-based identity requires an explicit change
+
 Target product statement:
 
 - NebuCtx is lean-ctx with NebuCtx Cloud instead of LeanCTX Cloud.
+- Lean-ctx runtime behavior is the default implementation baseline unless this plan explicitly overrides it.
 - Local code intelligence and shell execution stay local.
 - Shared state, project identity, dashboard data, and cross-session collaboration live in NebuCtx Cloud.
 - The connected experience is the primary product path.
@@ -61,17 +71,24 @@ These decisions are final for the realignment work.
 4. The .NET host remains the deployed runtime, but it is described in product UX as NebuCtx Cloud.
 5. The existing .NET host under `server/` is already the NebuCtx Cloud baseline and must be adapted, extended, and renamed in UX, not rebuilt from zero.
 6. No second remote runtime is introduced during realignment.
-7. NebuCtx persistent state is keyed by `project_id`, never by absolute workspace path.
-8. The term `workspace` is removed from the product model; the canonical term is `checkout`.
-9. The wire/property name `workspace_binding` becomes `checkout_binding` as the canonical name; the old name is accepted only as a backward-compatible alias.
-10. The lean-ctx tool catalog becomes the canonical tool catalog again.
-11. Nebu-specific tool names are not allowed as new primary surfaces.
-12. `ctx_brain` remains supported only as a compatibility alias and is not a canonical long-term tool name.
-13. NebuCtx Cloud must never attempt to directly read a developer's local checkout or run shell commands on the developer machine.
-14. Hybrid tools are always local-first. The cloud does not initiate reverse RPC into the client in phase 1.
-15. Local file contents and raw shell stdout are never uploaded to NebuCtx Cloud automatically.
-16. Automatic sync only sends telemetry, hashes, relative paths, and derived metadata. Explicitly shared payload tools are the only exception.
-17. `reference/` is read-only and cannot be used as an edit target.
+7. `client/src-old/` is a donor/reference path only and is not the active architectural base.
+8. The first implementation step is to restore a lean-ctx-derived runtime under `client/src/`.
+9. NebuCtx persistent state is keyed by `project_id`, never by absolute workspace path.
+10. The term `workspace` is removed from the product model; the canonical term is `checkout`.
+11. The wire/property name `workspace_binding` becomes `checkout_binding` as the canonical name; the old name is accepted only as a backward-compatible alias.
+12. The lean-ctx tool catalog becomes the canonical tool catalog again.
+13. Nebu-specific tool names are not allowed as new primary surfaces.
+14. `ctx_brain` remains supported only as a compatibility alias and is not a canonical long-term tool name.
+15. NebuCtx Cloud must never attempt to directly read a developer's local checkout or run shell commands on the developer machine.
+16. Hybrid tools are always local-first. The cloud does not initiate reverse RPC into the client in phase 1.
+17. Local file contents and raw shell stdout are never uploaded to NebuCtx Cloud automatically.
+18. Automatic sync only sends telemetry, hashes, relative paths, and derived metadata. Explicitly shared payload tools are the only exception.
+19. `reference/` is read-only and cannot be used as an edit target.
+20. The canonical runtime topology is `agent -> local MCP client (Rust) -> NebuCtx Cloud MCP (.NET) -> cloud dashboard`.
+21. There is no product-local dashboard in the target architecture. Any client-local dashboard runtime, web UI, or local analytics server is compatibility debt to remove or reroute.
+22. Canonical stats, gain, cost, heatmaps, wrapped metrics, and dashboard rollups live in NebuCtx Cloud only.
+23. The Rust client may buffer telemetry locally for retry or offline durability, but local stats files are never the canonical analytics source of truth.
+24. The local Rust MCP runtime is a local execution and sync edge only. It is not a second shared-state server and it does not own shared dashboard views.
 
 ## 4. Naming And UX Contract
 
@@ -147,14 +164,37 @@ Do not start a repo-wide rename from `server/` to `cloud/` in this phase.
 
 The Rust client owns:
 
+- the lean-ctx runtime baseline as the starting implementation
+- the local MCP runtime that agents connect to before requests reach NebuCtx Cloud
 - local checkout discovery
 - project fingerprint generation
 - local tool execution for anything that needs a live working tree
 - shell-hook and agent/editor bootstrap integration
 - local caches and local archive files
+- local retry/spool state for telemetry delivery when needed
 - sync of telemetry and derived metadata to NebuCtx Cloud
 - merged manifest/tool listing that combines local and cloud tools
 - alias routing and backward-compatible CLI UX
+
+The Rust client does not own:
+
+- a persistent dashboard runtime
+- canonical stats, gain, cost, heatmap, or wrapped views
+- project-scoped shared analytics storage
+
+### 5.1.1 Client restart policy
+
+Implementation sessions must assume all of the following:
+
+- `client/src/` is rebuilt from the lean-ctx runtime baseline
+- `client/src-old/` is a donor for Nebu-specific compatibility behavior only
+- missing lean-ctx runtime modules should be restored from the lean-ctx baseline before introducing Nebu-specific rewrites
+
+Implementation sessions must not do any of the following:
+
+- treat `client/src-old/` as the main base to extend
+- rebuild the client by re-adding missing tools one by one to the reduced thin-client architecture
+- drop lean-ctx runtime subsystems just because the current reduced client does not have them yet
 
 ### 5.2 NebuCtx Cloud responsibilities
 
@@ -163,6 +203,7 @@ The existing .NET host under `server/` already owns the runtime baseline and is 
 - auth token validation
 - project registry and project resolution
 - project-scoped persistent state
+- the only product dashboard runtime
 - dashboard and `/api/*` endpoints
 - `/health`, `/v1/manifest`, `/v1/tools`, `/v1/tools/call`
 - cloud-owned tool handlers
@@ -187,6 +228,13 @@ Implementation sessions must not do any of the following:
 
 ### 5.3 Hard boundary
 
+Topology rule:
+
+- agents talk to the local Rust MCP surface
+- the local Rust MCP surface talks to NebuCtx Cloud over the cloud contracts
+- the dashboard is served by NebuCtx Cloud only
+- no client-owned dashboard or client-owned analytics API is part of the target product path
+
 The client is allowed to send:
 
 - repository fingerprint
@@ -203,17 +251,25 @@ The client is not allowed to send automatically:
 - absolute local machine paths
 - hidden local machine identifiers not required for project resolution
 
+The client is not allowed to own canonically:
+
+- dashboard HTTP routes for product analytics views
+- cross-session stats rollups
+- project-scoped gain/cost summaries
+- project-scoped command or performance dashboards
+
 ### 5.4 Primary connected flow
 
 The canonical connected flow is:
 
-1. Client discovers checkout metadata.
-2. Client resolves the checkout to a `project_id` in NebuCtx Cloud.
-3. Client dispatches the requested tool.
-4. Local tools run locally and sync telemetry or derived metadata.
-5. Cloud tools run on NebuCtx Cloud.
-6. Hybrid tools run locally first, then push or pull typed cloud state.
-7. Dashboard and other cloud views aggregate by `project_id`.
+1. Agent connects to the local Rust MCP client.
+2. The local client discovers checkout metadata.
+3. The local client resolves the checkout to a `project_id` in NebuCtx Cloud.
+4. The local client dispatches the requested tool.
+5. Local tools run locally and sync telemetry or derived metadata.
+6. Cloud tools run on NebuCtx Cloud.
+7. Hybrid tools run locally first, then push or pull typed cloud state.
+8. The cloud-hosted dashboard aggregates by `project_id`.
 
 ## 6. Project Identity Model
 
@@ -417,6 +473,13 @@ These tools execute on NebuCtx Cloud and store project-scoped shared state.
 
 The NebuCtx Cloud dashboard must mirror the lean-ctx cloud role, adapted to project-based data.
 
+Canonical ownership rule:
+
+- there is exactly one dashboard in the target product
+- that dashboard is the existing server-hosted dashboard runtime under `server/`
+- the Rust client must not ship or keep a parallel local dashboard as a first-class surface
+- local stats files may exist only as transient transport state, never as the dashboard source of truth
+
 Required views:
 
 - Overview
@@ -443,10 +506,16 @@ Required data sourcing:
 
 Operational constraints that remain unchanged during realignment:
 
-- dashboard on port `3333`
+- server-hosted dashboard on port `3333`
 - MCP HTTP on port `4242`
 - token file persistence at `/data/auth_token`
 - existing env vars remain valid
+
+Prohibited target state:
+
+- no `client/src/local_dashboard/`-style product dashboard remains active
+- no client-local `dashboard`, `gain`, `watch`, or similar analytics UI remains backed by local canonical stats
+- no local analytics API becomes a second source of truth beside NebuCtx Cloud
 
 ## 10. Implementation Work Packages
 
@@ -475,7 +544,22 @@ Exit criteria:
 - No active implementation task uses the old product definition
 - All new work references this document for naming and ownership decisions
 
-### WP1: Restore cloud-first UX without breaking current users
+### WP1: Re-establish the Rust client from the lean-ctx runtime baseline
+
+Client changes:
+
+- replace the reduced `client/src/` implementation with a lean-ctx-derived runtime baseline from `reference/rust/src/`
+- keep `client/src-old/` as a donor/reference only
+- adapt package metadata, binary names, and crate layout so the runtime builds as `nebu-ctx`
+- keep cloud-facing behavior pointed at the existing `.NET` cloud runtime under `server/`
+
+Exit criteria:
+
+- `client/src/` is again a runtime-first client instead of a thin-client skeleton
+- the crate builds from the lean-ctx-derived source tree
+- `client/src-old/` is no longer the active implementation path
+
+### WP2: Restore cloud-first UX without breaking current users
 
 Client changes:
 
@@ -490,7 +574,7 @@ Exit criteria:
 - `server ...` aliases still work
 - help text leads with `cloud`, not `server`
 
-### WP2: Rename workspace binding to checkout binding
+### WP3: Rename workspace binding to checkout binding
 
 Client changes:
 
@@ -508,11 +592,14 @@ Exit criteria:
 - no new code introduces `workspace` as the identity boundary
 - old clients can still resolve projects
 
-### WP3: Restore the full local tool surface in the Rust client
+### WP4: Audit and complete the local tool surface from the lean-ctx baseline
 
 Client work:
 
-- expand the local tool registry from the current 8-tool subset to the full local and hybrid tool catalog defined in section 8
+- **Remove `client/src/cloud_server/` and `client/src/cloud_server_main.rs` entirely.** These are the original lean-ctx cloud backend (axum HTTP server, auth, DB, SMTP, `leanctx.com` routes). Our cloud is the existing `.NET` host under `server/`. There must be exactly one cloud implementation. The Rust cloud server module must not ship in any form — not as a binary, not as dead code, not as a feature flag.
+- remove or reroute any client-local dashboard runtime and local analytics UI surface, including `client/src/local_dashboard/` and CLI/dashboard entry points that present local stats as the primary source
+- audit the restored lean-ctx runtime against the canonical tool catalog in section 8
+- remove or reroute only the pieces that belong in NebuCtx Cloud
 - reimplement local `ctx_routes` to inspect the project, not the cloud host
 - introduce client-side archive namespacing for `ctx_expand`
 - keep client manifest merging behavior so local and cloud tools appear as one catalog
@@ -520,14 +607,17 @@ Client work:
 Implementation guidance:
 
 - follow lean-ctx tool names and argument shapes unless this plan explicitly overrides them
+- default to keeping a lean-ctx runtime feature unless there is a concrete reason to move or remove it
 - keep local execution local; do not shortcut by proxying local tools through cloud
+- if a feature currently renders or serves analytics from local files, move that responsibility to NebuCtx Cloud instead of preserving a second dashboard path
 
 Exit criteria:
 
 - connected manifest shows all canonical local and hybrid tools
 - disconnected local-only mode still works for local tools that do not require cloud state
+- no client-local dashboard remains as a first-class product surface
 
-### WP4: Complete the cloud-owned shared-state surface in the existing .NET cloud
+### WP5: Complete the cloud-owned shared-state surface in the existing .NET cloud
 
 Cloud work:
 
@@ -557,7 +647,7 @@ Exit criteria:
 - all cloud-owned tools are callable from `/v1/tools/call`
 - `ctx_brain` alias works without being part of the canonical docs path
 
-### WP5: Complete the hybrid sync pipeline against the existing cloud runtime
+### WP6: Complete the hybrid sync pipeline against the existing cloud runtime
 
 Required sync endpoints or equivalent contracts:
 
@@ -573,6 +663,8 @@ Required client behavior:
 - every local and hybrid tool emits Rule A telemetry
 - Rule B tools emit derived metadata only
 - Rule C tools emit explicit shared payloads only
+- client-local stats persistence, if retained, is only a delivery buffer or retry spool and is never treated as canonical analytics state
+- client analytics commands are either removed or rerouted to cloud-backed data
 
 Privacy constraint:
 
@@ -583,8 +675,9 @@ Exit criteria:
 - dashboard metrics update from client activity
 - cloud-owned tools can use synced project metadata
 - privacy tests are green
+- client no longer presents local telemetry files as the primary dashboard or stats source
 
-### WP6: Bring the existing dashboard to parity around project-scoped cloud data
+### WP7: Bring the existing dashboard to parity around project-scoped cloud data
 
 Cloud work:
 
@@ -592,13 +685,15 @@ Cloud work:
 - preserve current runtime ports and token handling
 - ensure all dashboard aggregates are keyed by `project_id`
 - support multiple checkouts for one project without duplicating project totals
+- absorb any remaining client-local analytics views into the existing cloud dashboard rather than keeping dual implementations
 
 Exit criteria:
 
 - dashboard shows one project with multiple checkouts correctly
 - commands and performance views combine local and cloud telemetry
+- there is no competing client-local dashboard path left in product UX
 
-### WP7: Packaging and add-on stabilization
+### WP8: Packaging and add-on stabilization
 
 Required invariants:
 
@@ -618,11 +713,13 @@ The next implementation sessions should treat these areas as the primary change 
 
 ### Client-side primary targets
 
+- `reference/rust/src/` as the read-only implementation baseline
 - `client/src/cli.rs`
 - `client/src/models.rs`
 - `client/src/server_client.rs`
 - `client/src/local_tools.rs`
 - `client/src/local_symbols.rs`
+- `client/src-old/` as donor-only input when Nebu-specific compatibility is needed
 - new client modules for missing local and hybrid tools as needed
 
 ### Cloud-side primary targets
@@ -696,21 +793,46 @@ Required checks:
 - token file behavior unchanged
 - container and add-on flows both work
 
+### 12.7 End-Of-Day Status: 2026-04-23
+
+Completed today:
+
+- setup/bootstrap/rules/home-path regressions were fixed so the active client again behaves like the intended local Rust edge
+- `cargo test --manifest-path client/Cargo.toml --test setup_ci_smoke -- --nocapture` is green and remains the current baseline validation for this realignment stream
+- the client now enforces the cloud-only analytics boundary in the user-facing paths that mattered most for architectural correctness
+- this enforcement slice was committed as `51bdb9a` with message `refactor: enforce cloud-only analytics boundary`
+
+Current implementation reality:
+
+- local dashboard and local canonical analytics are no longer exposed as first-class product behavior through the client CLI, MCP dispatch, help text, and tool handlers
+- NebuCtx Cloud remains the only canonical owner for dashboard, shared analytics, wrapped metrics, gain, cost, and heatmap style rollups
+- the local client may still keep temporary local telemetry/spool state only as a delivery or retry mechanism; it is not a product dashboard and not a canonical analytics store
+
+Known remaining debt after today:
+
+- dead or now-unreachable local analytics code still exists in the client and must be removed in a cleanup slice
+- `client/src/local_dashboard/` and `client/src/heatmap.rs` are still present and should be treated as removal candidates, not as valid target architecture
+- `client/src/lib.rs` still exports local dashboard and heatmap modules and should be cleaned once the dead-code removal slice is executed
+- cloud-backed implementations for `ctx_cost`, `ctx_gain`, and `ctx_heatmap` still need to be completed on the existing `.NET` cloud runtime
+- a broader shell-hook test failure outside this finished slice may still need follow-up, but it is not a blocker for closing today because the completed architectural boundary work was already validated with the smoke baseline above
+
 ## 13. Order Of Execution For The Next Session
 
 The next implementation session must start in this order.
 
-1. Implement WP1 in `client/src/cli.rs` so the public UX moves back to `cloud` immediately.
-2. Implement WP2 so project terminology becomes `checkout` instead of `workspace`.
-3. Expand the local tool registry toward section 8.1 and 8.2, starting with the most visibly missing lean-ctx tools.
-4. Add cloud DTOs and handlers for `ctx_session` and `ctx_knowledge` before broader analytics tools.
-5. Replace canonical `ctx_routes` behavior so it analyzes the local project.
-6. Add telemetry ingest so local tool use starts feeding cloud metrics early.
-7. Bring in the remaining cloud-owned analytics and collaboration tools.
-8. Finish dashboard parity last, once the data pipelines are real.
+1. Remove dead local dashboard and local analytics code paths that are now architecturally invalid but still present in the client source tree.
+2. Clean `client/src/lib.rs` and any remaining registrations/exports so the removed local dashboard and heatmap modules are not part of the active client surface anymore.
+3. Re-run the smoke baseline immediately after that cleanup and only continue if the same validation still passes.
+4. Resume the broader lean-ctx runtime parity work in `client/src/` from the lean-ctx baseline, not from `client/src-old/`.
+5. Continue restoring the intended public UX shape: `cloud` as canonical remote vocabulary, `server` as compatibility alias only.
+6. Continue the terminology migration from `workspace` to `checkout` without breaking persisted or server-facing compatibility.
+7. Add cloud DTOs and handlers for `ctx_session` and `ctx_knowledge` on the existing `.NET` host before expanding further analytics surfaces.
+8. Add telemetry ingest and then complete cloud-backed implementations for `ctx_cost`, `ctx_gain`, and `ctx_heatmap` so the blocked client surfaces can later point to real cloud data instead of local placeholders.
+9. Finish dashboard parity last, once the project-scoped data pipeline is real end-to-end in the existing cloud runtime.
 
 Do not start by renaming folders or doing large namespace churn. That work is intentionally deferred.
 Do not start by building a second cloud/server runtime. The existing .NET host is the cloud runtime.
+Do not start from `client/src-old/`. It is a donor, not the base.
 Do not stop after step 1. The required behavior is to continue through the list until the realignment workstream is actually advanced across all WPs.
 
 ## 14. Definition Of Done
@@ -718,6 +840,7 @@ Do not stop after step 1. The required behavior is to continue through the list 
 This realignment is done only when every statement below is true.
 
 - NebuCtx feels like lean-ctx again from the user perspective.
+- The active Rust client is derived from the lean-ctx runtime, not from the old reduced Nebu client.
 - The canonical remote UX is `cloud`, with `server` retained only as compatibility alias or removed later.
 - The connected manifest exposes the canonical lean-ctx tool surface again.
 - Local tools stay local.
@@ -730,6 +853,7 @@ This realignment is done only when every statement below is true.
 - Dashboard and analytics are project-scoped and cloud-backed.
 - Container and add-on packaging still honor the existing runtime contracts.
 - The existing .NET host under `server/` serves as NebuCtx Cloud; no second cloud runtime was introduced.
+- `client/src-old/` remained a donor/reference path and did not become the active implementation base.
 
 ## 15. Explicitly Out Of Scope Until After Realignment
 
@@ -737,8 +861,6 @@ The following work is deferred until the realignment is complete:
 
 - renaming the physical `server/` repository folder
 - large namespace churn in the .NET codebase
-- rebuilding a second cloud/server runtime from scratch
-- a second remote auth model beyond endpoint plus bearer token
 - cloud-initiated reverse RPC into the client
 - automatic upload of full source code to the cloud
 - feature invention that does not exist in lean-ctx or in this plan

@@ -17,7 +17,6 @@ const MARKER_FILES: &[&str] = &[
     "NebulaRAG.slnx",
 ];
 
-/// Builds a compact project metadata envelope for future hybrid sync flows.
 pub fn build_project_metadata(project_root: &Path) -> Result<ProjectMetadataEnvelope> {
     let project_root = project_root
         .canonicalize()
@@ -71,7 +70,6 @@ pub fn build_project_metadata(project_root: &Path) -> Result<ProjectMetadataEnve
     })
 }
 
-/// Infers the dominant language bucket for a source file path.
 fn infer_language(path: &Path) -> Option<&'static str> {
     match path.extension().and_then(|value| value.to_str()).unwrap_or_default() {
         "rs" => Some("rust"),

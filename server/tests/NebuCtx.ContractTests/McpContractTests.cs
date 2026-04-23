@@ -36,7 +36,7 @@ public class McpContractTests
         var manifest = new ManifestResponse
         {
             Name = "nebu-ctx",
-            Version = "0.2.7",
+            Version = "0.2.8",
             Tools =
             [
                 new ToolDefinition

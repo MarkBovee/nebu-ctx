@@ -8,6 +8,8 @@ using System.Text.Json.Serialization;
 /// </summary>
 public sealed class ToolCallRequest
 {
+    private WorkspaceBinding? _checkoutBinding;
+
     /// <summary>
     /// The name of the tool to execute.
     /// </summary>
@@ -39,10 +41,24 @@ public sealed class ToolCallRequest
     public RepositoryFingerprint? RepositoryFingerprint { get; set; }
 
     /// <summary>
-    /// Non-canonical local workspace binding metadata from the client.
+    /// Non-canonical local checkout binding metadata from the client.
+    /// </summary>
+    [JsonPropertyName("checkout_binding")]
+    public WorkspaceBinding? CheckoutBinding
+    {
+        get => _checkoutBinding;
+        set => _checkoutBinding = value;
+    }
+
+    /// <summary>
+    /// Legacy workspace binding alias kept for older clients.
     /// </summary>
     [JsonPropertyName("workspace_binding")]
-    public WorkspaceBinding? WorkspaceBinding { get; set; }
+    public WorkspaceBinding? WorkspaceBinding
+    {
+        get => _checkoutBinding;
+        set => _checkoutBinding = value;
+    }
 
     /// <summary>
     /// Optional compact client-side project metadata for future hybrid sync flows.
