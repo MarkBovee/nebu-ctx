@@ -1,24 +1,10 @@
-use anyhow::Result;
-use lean_ctx::{
-    cli, core, doctor, heatmap, hook_handlers, local_dashboard, mcp_stdio, report, setup, shell,
-    status, tools, tui, uninstall,
+use crate::{
+    core, doctor, heatmap, hook_handlers, local_dashboard, mcp_stdio, report, setup, shell,
+    status, token_report, tools, tui, uninstall,
 };
+use anyhow::Result;
 
-fn main() {
-    std::panic::set_hook(Box::new(|info| {
-        eprintln!("nebu-ctx: unexpected error (your command was not affected)");
-        eprintln!("  Disable temporarily: lean-ctx-off");
-        eprintln!("  Full uninstall:      nebu-ctx uninstall");
-        if let Some(msg) = info.payload().downcast_ref::<&str>() {
-            eprintln!("  Details: {msg}");
-        } else if let Some(msg) = info.payload().downcast_ref::<String>() {
-            eprintln!("  Details: {msg}");
-        }
-        if let Some(loc) = info.location() {
-            eprintln!("  Location: {}:{}", loc.file(), loc.line());
-        }
-    }));
-
+pub fn run() {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() > 1 {
@@ -26,7 +12,7 @@ fn main() {
         let command = args[1].as_str();
 
         if matches!(command, "gain" | "cep" | "dashboard" | "watch" | "heatmap" | "stats") {
-            cli::exit_cloud_analytics_only(command);
+            super::exit_cloud_analytics_only(command);
         }
 
         match command {
@@ -46,8 +32,6 @@ fn main() {
                 if raw {
                     std::env::set_var("LEAN_CTX_RAW", "1");
                 } else {
-                    // `nebu-ctx -c` is explicitly documented as "Execute with compressed output".
-                    // Force buffered compression even when stdout is a TTY (fixes #100).
                     std::env::set_var("LEAN_CTX_COMPRESS", "1");
                 }
                 let code = shell::exec(&command);
@@ -56,17 +40,17 @@ fn main() {
             }
             "-t" | "--track" => {
                 let cmd_args = &args[2..];
-                let code = if cmd_args.len() > 1 {
-                    shell::exec_argv(cmd_args)
+                let command = if cmd_args.len() == 1 {
+                    cmd_args[0].clone()
                 } else {
-                    let command = cmd_args[0].clone();
-                    if std::env::var("LEAN_CTX_ACTIVE").is_ok()
-                        || std::env::var("LEAN_CTX_DISABLED").is_ok()
-                    {
-                        passthrough(&command);
-                    }
-                    shell::exec(&command)
+                    shell::join_command(cmd_args)
                 };
+                if std::env::var("LEAN_CTX_ACTIVE").is_ok()
+                    || std::env::var("LEAN_CTX_DISABLED").is_ok()
+                {
+                    passthrough(&command);
+                }
+                let code = shell::exec(&command);
                 core::stats::flush();
                 std::process::exit(code);
             }
@@ -169,6 +153,24 @@ fn main() {
                             Some(limit)
                         )
                     );
+                } else if rest.iter().any(|a| a == "--pipeline") {
+                    let stats_path = dirs::home_dir()
+                        .unwrap_or_default()
+                        .join(".lean-ctx")
+                        .join("pipeline_stats.json");
+                    if let Ok(data) = std::fs::read_to_string(&stats_path) {
+                        if let Ok(stats) =
+                            serde_json::from_str::<core::pipeline::PipelineStats>(&data)
+                        {
+                            println!("{}", stats.format_summary());
+                        } else {
+                            println!("No pipeline stats available yet (corrupt data).");
+                        }
+                    } else {
+                        println!(
+                            "No pipeline stats available yet. Use MCP tools to generate data."
+                        );
+                    }
                 } else if rest.iter().any(|a| a == "--deep") {
                     println!(
                         "{}\n{}\n{}\n{}\n{}",
@@ -184,7 +186,7 @@ fn main() {
                 return;
             }
             "token-report" | "report-tokens" => {
-                let code = lean_ctx::token_report::run_cli(&rest);
+                let code = token_report::run_cli(&rest);
                 if code != 0 {
                     std::process::exit(code);
                 }
@@ -216,7 +218,7 @@ fn main() {
             "serve" => {
                 #[cfg(feature = "http-server")]
                 {
-                    let mut cfg = lean_ctx::mcp_http::HttpServerConfig::default();
+                    let mut cfg = crate::mcp_http::HttpServerConfig::default();
                     let mut i = 0;
                     while i < rest.len() {
                         match rest[i].as_str() {
@@ -343,7 +345,7 @@ fn main() {
                             }
                             "--help" | "-h" => {
                                 eprintln!(
-                                    "Usage: nebu-ctx serve [--host H] [--port N] [--project-root DIR]\\n\\
+                                                                        "Usage: nebu-ctx serve [--host H] [--port N] [--project-root DIR]\\n\\
                                      \\n\\
                                      Options:\\n\\
                                        --host, -H            Bind host (default: 127.0.0.1)\\n\\
@@ -375,7 +377,7 @@ fn main() {
                         }
                     }
 
-                    if let Err(e) = run_async(lean_ctx::mcp_http::serve(cfg)) {
+                    if let Err(e) = run_async(crate::mcp_http::serve(cfg)) {
                         eprintln!("HTTP server error: {e}");
                         std::process::exit(1);
                     }
@@ -409,10 +411,10 @@ fn main() {
                                 .unwrap_or(4444);
                             let autostart = rest.iter().any(|a| a == "--autostart");
                             if autostart {
-                                lean_ctx::proxy_autostart::install(port, false);
+                                crate::proxy_autostart::install(port, false);
                                 return;
                             }
-                            if let Err(e) = run_async(lean_ctx::llm_proxy::start_proxy(port)) {
+                            if let Err(e) = run_async(crate::llm_proxy::start_proxy(port)) {
                                 eprintln!("Proxy error: {e}");
                                 std::process::exit(1);
                             }
@@ -478,7 +480,7 @@ fn main() {
                 }
             }
             "init" => {
-                cli::cmd_init(&rest);
+                super::cmd_init(&rest);
                 return;
             }
             "setup" => {
@@ -553,35 +555,35 @@ fn main() {
                 return;
             }
             "read" => {
-                cli::cmd_read(&rest);
+                super::cmd_read(&rest);
                 return;
             }
             "diff" => {
-                cli::cmd_diff(&rest);
+                super::cmd_diff(&rest);
                 return;
             }
             "grep" => {
-                cli::cmd_grep(&rest);
+                super::cmd_grep(&rest);
                 return;
             }
             "find" => {
-                cli::cmd_find(&rest);
+                super::cmd_find(&rest);
                 return;
             }
             "ls" => {
-                cli::cmd_ls(&rest);
+                super::cmd_ls(&rest);
                 return;
             }
             "deps" => {
-                cli::cmd_deps(&rest);
+                super::cmd_deps(&rest);
                 return;
             }
             "discover" => {
-                cli::cmd_discover(&rest);
+                super::cmd_discover(&rest);
                 return;
             }
             "filter" => {
-                cli::cmd_filter(&rest);
+                super::cmd_filter(&rest);
                 return;
             }
             "heatmap" => {
@@ -616,53 +618,53 @@ fn main() {
                         );
                     }
                     _ => {
-                        eprintln!("Usage: nebu-ctx graph [build] [path]");
+                        eprintln!("Usage: lean-ctx graph [build] [path]");
                     }
                 }
                 return;
             }
             "session" => {
-                cli::cmd_session();
+                super::cmd_session();
                 return;
             }
             "wrapped" => {
-                cli::cmd_wrapped(&rest);
+                super::cmd_wrapped(&rest);
                 return;
             }
             "sessions" => {
-                cli::cmd_sessions(&rest);
+                super::cmd_sessions(&rest);
                 return;
             }
             "benchmark" => {
-                cli::cmd_benchmark(&rest);
+                super::cmd_benchmark(&rest);
                 return;
             }
             "config" => {
-                cli::cmd_config(&rest);
+                super::cmd_config(&rest);
                 return;
             }
             "stats" => {
-                cli::cmd_stats(&rest);
+                super::cmd_stats(&rest);
                 return;
             }
             "cache" => {
-                cli::cmd_cache(&rest);
+                super::cmd_cache(&rest);
                 return;
             }
             "theme" => {
-                cli::cmd_theme(&rest);
+                super::cmd_theme(&rest);
                 return;
             }
             "tee" => {
-                cli::cmd_tee(&rest);
+                super::cmd_tee(&rest);
                 return;
             }
             "terse" => {
-                cli::cmd_terse(&rest);
+                super::cmd_terse(&rest);
                 return;
             }
             "slow-log" => {
-                cli::cmd_slow_log(&rest);
+                super::cmd_slow_log(&rest);
                 return;
             }
             "update" | "--self-update" => {
@@ -677,11 +679,11 @@ fn main() {
                 return;
             }
             "gotchas" | "bugs" => {
-                cmd_gotchas(&rest);
+                super::cloud::cmd_gotchas(&rest);
                 return;
             }
             "buddy" | "pet" => {
-                cmd_buddy(&rest);
+                super::cloud::cmd_buddy(&rest);
                 return;
             }
             "hook" => {
@@ -694,7 +696,7 @@ fn main() {
                     "codex-session-start" => hook_handlers::handle_codex_session_start(),
                     "rewrite-inline" => hook_handlers::handle_rewrite_inline(),
                     _ => {
-                        eprintln!("Usage: nebu-ctx hook <rewrite|redirect|copilot|codex-pretooluse|codex-session-start|rewrite-inline>");
+                        eprintln!("Usage: lean-ctx hook <rewrite|redirect|copilot|codex-pretooluse|codex-session-start|rewrite-inline>");
                         eprintln!("  Internal commands used by agent hooks (Claude, Cursor, Copilot, etc.)");
                         std::process::exit(1);
                     }
@@ -709,55 +711,36 @@ fn main() {
                 uninstall::run();
                 return;
             }
-            "bypass" => {
-                if rest.is_empty() {
-                    eprintln!("Usage: nebu-ctx bypass \"command\"");
-                    eprintln!("Runs the command with zero compression (raw passthrough).");
-                    std::process::exit(1);
-                }
-                let command = if rest.len() == 1 {
-                    rest[0].clone()
-                } else {
-                    shell::join_command(&args[2..])
-                };
-                std::env::set_var("LEAN_CTX_RAW", "1");
-                let code = shell::exec(&command);
-                std::process::exit(code);
-            }
-            "safety-levels" | "safety" => {
-                println!("{}", core::compression_safety::format_safety_table());
-                return;
-            }
             "cheat" | "cheatsheet" | "cheat-sheet" => {
-                cli::cmd_cheatsheet();
+                super::cmd_cheatsheet();
                 return;
             }
             "login" => {
-                cli::cloud::cmd_login(&rest);
+                super::cloud::cmd_login(&rest);
                 return;
             }
             "register" => {
-                cli::cloud::cmd_register(&rest);
+                super::cloud::cmd_register(&rest);
                 return;
             }
             "forgot-password" => {
-                cli::cloud::cmd_forgot_password(&rest);
+                super::cloud::cmd_forgot_password(&rest);
                 return;
             }
             "sync" => {
-                cli::cloud::cmd_sync();
+                super::cloud::cmd_sync();
                 return;
             }
             "contribute" => {
-                cli::cloud::cmd_contribute();
+                super::cloud::cmd_contribute();
                 return;
             }
             "cloud" | "server" => {
-                cmd_cloud(&rest);
+                super::cloud::cmd_cloud(&rest);
                 return;
             }
             "upgrade" => {
-                cmd_upgrade();
+                super::cloud::cmd_upgrade();
                 return;
             }
             "--version" | "-V" => {
@@ -768,11 +751,9 @@ fn main() {
                 print_help();
                 return;
             }
-            "mcp" => {
-                // fall through to MCP server startup below
-            }
+            "mcp" => {}
             _ => {
-                eprintln!("nebu-ctx: unknown command '{}'\n", args[1]);
+                eprintln!("lean-ctx: unknown command '{}'\n", args[1]);
                 print_help();
                 std::process::exit(1);
             }
@@ -780,7 +761,7 @@ fn main() {
     }
 
     if let Err(e) = run_mcp_server() {
-        eprintln!("nebu-ctx: {e}");
+        eprintln!("lean-ctx: {e}");
         std::process::exit(1);
     }
 }
@@ -848,7 +829,6 @@ USAGE:
     nebu-ctx -c \"command\"          Execute with compressed output (used by AI hooks)
     nebu-ctx -c --raw \"command\"    Execute without compression (full output)
     nebu-ctx exec \"command\"        Same as -c
-    nebu-ctx bypass \"command\"      Run command with zero compression (raw passthrough)
     nebu-ctx shell                 Interactive shell with compression
 
 COMMANDS:
@@ -866,9 +846,7 @@ COMMANDS:
     setup                          One-command setup: shell + editor + verify
     bootstrap                      Non-interactive setup + fix (zero-config)
     status [--json]                Show setup + MCP + rules status
-    init <shell>                   Print shell hook to stdout (eval pattern, like starship)
-                                   Supported: bash, zsh, fish, powershell
-    init --global                  Install shell aliases to rc file (file-based)
+    init [--global]                Install shell aliases (zsh/bash/fish/PowerShell)
     init --agent <name>            Configure MCP for specific editor/agent
     read <file> [-m mode]          Read file with compression
     diff <file1> <file2>           Compressed file diff
@@ -888,8 +866,6 @@ COMMANDS:
     gotchas [list|clear|export|stats] Bug Memory: view/manage auto-detected error patterns
     buddy [show|stats|ascii|json]  Token Guardian: your data-driven coding companion
     doctor [--fix] [--json]        Run diagnostics (and optionally repair)
-    safety-levels                  Show compression safety levels per command
-    bypass \"command\"               Run command with zero compression (raw passthrough)
     uninstall                      Remove shell hook, MCP configs, and data directory
 
 SHELL HOOK PATTERNS (90+):
@@ -945,30 +921,20 @@ EXAMPLES:
         nebu-ctx setup                 One-command setup (shell + editors + verify)
         nebu-ctx bootstrap             Non-interactive setup + fix (zero-config)
         nebu-ctx bootstrap --json      Machine-readable bootstrap report
-        nebu-ctx init --global         Install shell aliases (file-based, includes lean-ctx-on/off)
-
-EVAL INIT (starship/zoxide style — always in sync with binary version):
-    # bash: add to ~/.bashrc
-    eval \"$(nebu-ctx init bash)\"
-    # zsh: add to ~/.zshrc
-    eval \"$(nebu-ctx init zsh)\"
-    # fish: add to ~/.config/fish/config.fish
-    nebu-ctx init fish | source
-    # powershell: add to $PROFILE
-    nebu-ctx init powershell | Invoke-Expression
+        nebu-ctx init --global         Install shell aliases (includes lean-ctx-on/off/mode/status)
     lean-ctx-on                    Enable shell aliases in track mode (full output + stats)
     lean-ctx-off                   Disable all shell aliases
     lean-ctx-mode track            Track mode: full output, stats recorded (default)
     lean-ctx-mode compress         Compress mode: all output compressed (power users)
     lean-ctx-mode off              Same as lean-ctx-off
     lean-ctx-status                Show whether compression is active
-    nebu-ctx init --agent pi       Install Pi Coding Agent extension
-    nebu-ctx doctor                Check PATH, config, MCP, and local edge health
-    nebu-ctx doctor --fix --json   Repair + machine-readable report
-    nebu-ctx status --json         Machine-readable current status
-    nebu-ctx read src/main.rs -m map
-    nebu-ctx grep \"pub fn\" src/
-    nebu-ctx deps .
+    lean-ctx init --agent pi       Install Pi Coding Agent extension
+    lean-ctx doctor                Check PATH, config, MCP, and local edge health
+    lean-ctx doctor --fix --json   Repair + machine-readable report
+    lean-ctx status --json         Machine-readable current status
+    lean-ctx read src/main.rs -m map
+    lean-ctx grep \"pub fn\" src/
+    lean-ctx deps .
 
 CLOUD:
     cloud connect [--endpoint <url>] [--token <token>]  Save and validate a cloud connection
@@ -988,94 +954,4 @@ GITHUB:  https://github.com/MarkBovee/nebu-ctx
 ",
         version = env!("CARGO_PKG_VERSION"),
     );
-}
-
-fn cmd_cloud(args: &[String]) {
-    cli::cloud::cmd_cloud(args);
-}
-
-fn cmd_gotchas(args: &[String]) {
-    let action = args.first().map(|s| s.as_str()).unwrap_or("list");
-    let project_root = std::env::current_dir()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|_| ".".to_string());
-
-    match action {
-        "list" | "ls" => {
-            let store = core::gotcha_tracker::GotchaStore::load(&project_root);
-            println!("{}", store.format_list());
-        }
-        "clear" => {
-            let mut store = core::gotcha_tracker::GotchaStore::load(&project_root);
-            let count = store.gotchas.len();
-            store.clear();
-            let _ = store.save(&project_root);
-            println!("Cleared {count} gotchas.");
-        }
-        "export" => {
-            let store = core::gotcha_tracker::GotchaStore::load(&project_root);
-            match serde_json::to_string_pretty(&store.gotchas) {
-                Ok(json) => println!("{json}"),
-                Err(e) => eprintln!("Export failed: {e}"),
-            }
-        }
-        "stats" => {
-            let store = core::gotcha_tracker::GotchaStore::load(&project_root);
-            println!("Bug Memory Stats:");
-            println!("  Active gotchas:      {}", store.gotchas.len());
-            println!(
-                "  Errors detected:     {}",
-                store.stats.total_errors_detected
-            );
-            println!(
-                "  Fixes correlated:    {}",
-                store.stats.total_fixes_correlated
-            );
-            println!("  Bugs prevented:      {}", store.stats.total_prevented);
-            println!("  Promoted to knowledge: {}", store.stats.gotchas_promoted);
-            println!("  Decayed/archived:    {}", store.stats.gotchas_decayed);
-            println!("  Session logs:        {}", store.error_log.len());
-        }
-        _ => {
-            println!("Usage: nebu-ctx gotchas [list|clear|export|stats]");
-        }
-    }
-}
-
-fn cmd_buddy(args: &[String]) {
-    let cfg = core::config::Config::load();
-    if !cfg.buddy_enabled {
-        println!("Buddy is disabled. Enable with: nebu-ctx config buddy_enabled true");
-        return;
-    }
-
-    let action = args.first().map(|s| s.as_str()).unwrap_or("show");
-    let buddy = core::buddy::BuddyState::compute();
-    let theme = core::theme::load_theme(&cfg.theme);
-
-    match action {
-        "show" | "status" => {
-            println!("{}", core::buddy::format_buddy_full(&buddy, &theme));
-        }
-        "stats" => {
-            println!("{}", core::buddy::format_buddy_full(&buddy, &theme));
-        }
-        "ascii" => {
-            for line in &buddy.ascii_art {
-                println!("  {line}");
-            }
-        }
-        "json" => match serde_json::to_string_pretty(&buddy) {
-            Ok(json) => println!("{json}"),
-            Err(e) => eprintln!("JSON error: {e}"),
-        },
-        _ => {
-            println!("Usage: nebu-ctx buddy [show|stats|ascii|json]");
-        }
-    }
-}
-
-fn cmd_upgrade() {
-    println!("'upgrade' has been renamed to 'update'. Running 'nebu-ctx update' instead.\n");
-    core::updater::run(&[]);
 }
