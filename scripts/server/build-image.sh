@@ -86,16 +86,16 @@ build_image() {
 
 main() {
     local runtime_id
-    local container_tool
+    local container_tool=''
 
     runtime_id="$(resolve_runtime_id)"
-    container_tool="$(resolve_container_tool)"
 
     if [ "$BUILD_ONLY" != "1" ]; then
         publish_dist "$runtime_id"
     fi
 
     if [ "$PUBLISH_ONLY" != "1" ]; then
+        container_tool="$(resolve_container_tool)"
         build_image "$container_tool"
     fi
 
