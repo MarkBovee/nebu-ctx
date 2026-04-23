@@ -175,15 +175,7 @@ bash scripts/server/refresh-dist.sh
 powershell -ExecutionPolicy Bypass -File .\scripts\server\refresh-dist.ps1
 ```
 
-Install the repo pre-push hook that refreshes `server/dist/linux` and blocks the push when the generated files are dirty:
-
-```bash
-bash scripts/git/install-pre-push-dist.sh
-```
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\git\install-pre-push-dist.ps1
-```
+The repo no longer ships a pre-push dist hook. Run the refresh commands above when you need to regenerate `server/dist/linux`, then commit the updated payload normally.
 
 ## Local Review Flow
 
