@@ -12,10 +12,10 @@ Read this first. Each session must verify the status column before starting work
 |----|-------|--------|-------|
 | WP0 | Freeze target surface | ✅ Done | Plan frozen, `reference/` is read-only |
 | WP1 | Re-establish Rust client from lean-ctx baseline | ✅ Done | All lean-ctx modules present; smoke 4/4 green on Linux |
-| WP2 | Cloud-first UX | 🔄 ~75% done | `cloud connect/bind/disconnect/status` + `server` alias work; `sync` still returns error stub |
+| WP2 | Cloud-first UX | ✅ Done | `cloud connect/bind/sync/disconnect/status` all working; `sync` sends current branch+commit to cloud |
 | WP3 | workspace → checkout rename | ✅ Done | Rust client + full .NET server renamed; SQLite deleted; SQL migration added; backward-compat alias kept |
 | WP4 | Audit and complete local tool surface | ✅ Done | Dead code removed (`cloud_server/`, `local_dashboard/`, `tui/`, `heatmap.rs`); ratatui/crossterm stripped; embeddings removed from defaults |
-| WP5 | Cloud-owned shared-state in .NET | ❌ ~5% done | Only `ctx_brain` and `ctx_routes` registered; `ctx_knowledge` and `ctx_session` handlers not yet implemented |
+| WP5 | Cloud-owned shared-state in .NET | ✅ Done | `ctx_knowledge` (remember/recall/status/remove/categories) and `ctx_session` (task/finding/decision/save/load/reset/list/cleanup) implemented with Postgres storage |
 | WP6 | Hybrid sync pipeline | ❌ 0% | Not started |
 | WP7 | Dashboard parity with project-scoped data | ❌ 0% | Not started |
 | WP8 | Packaging and add-on stabilization | 🔄 ~50% done | `server/dist/linux/` committed; not validated on Linux |
