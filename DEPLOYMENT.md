@@ -13,6 +13,12 @@ The repository now deploys around these two artifacts:
 
 ## Quick Start
 
+### Install the client
+
+```bash
+cargo install nebu-ctx
+```
+
 ### Refresh the server payload
 
 ```bash

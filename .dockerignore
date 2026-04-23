@@ -1,7 +1,7 @@
 .git
-target/**
-!target/release/nebu-ctx
-!target/release/nebu-ctx
+client/target/**
+!client/target/release/nebu-ctx
+!client/target/release/nebu-ctx
 dist/**
 server/dist/**
 !server/dist/linux/

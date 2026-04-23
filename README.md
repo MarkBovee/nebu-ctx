@@ -60,10 +60,10 @@ The main local install flow is now: install the client, start the .NET server ag
 Pick one supported path:
 
 ```bash
-# Install directly from GitHub into Cargo's bin directory
-cargo install --git https://github.com/MarkBovee/nebu-ctx --bin nebu-ctx
+# Install from crates.io
+cargo install nebu-ctx
 
-# Or install from a local clone
+# Or install from a local clone while working in this repo
 git clone https://github.com/MarkBovee/nebu-ctx.git
 cd nebu-ctx
 cargo install --path client --bin nebu-ctx --force
@@ -112,14 +112,16 @@ Detailed setup is in [docs/getting-started.md](docs/getting-started.md) and [doc
 Use this when you want a containerized HTTP MCP server.
 
 ```bash
-docker build -t nebu-ctx .
+docker build -t nebu-ctx-local -f homeassistant/Dockerfile .
 
 docker run --rm \
+  -p 3333:3333 \
   -p 4242:4242 \
   -e NEBULA_STORE=postgres \
   -e DATABASE_URL='postgres://user:pass@host:5432/nebula' \
   -e NEBULA_CTX_HTTP_TOKEN='replace-me' \
-  nebu-ctx
+  -e NEBULA_CTX_DASHBOARD_DISABLE_AUTH='1' \
+  nebu-ctx-local
 ```
 
 ### Home Assistant Add-on
@@ -132,7 +134,7 @@ Use this when you want Home Assistant ingress for the dashboard plus an optional
 4. Start the add-on and use `Open Web UI`.
 5. Expose `4242/tcp` only if you want external MCP HTTP access.
 
-The published add-on downloads the prebuilt release binary instead of compiling Rust during install. The MCP token is generated on first boot and shown in the dashboard.
+The shipped add-on path builds the image from the committed `server/dist/linux` payload through the single Dockerfile in `homeassistant/Dockerfile`. The MCP token is generated on first boot and shown in the dashboard.
 
 Local production-shaped smoke checks:
 

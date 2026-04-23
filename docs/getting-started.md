@@ -28,7 +28,13 @@ Artifact rule:
 
 ## 1. Install The Client
 
-From a local checkout:
+Preferred public install:
+
+```bash
+cargo install nebu-ctx
+```
+
+From a local checkout while developing in this repo:
 
 ```bash
 cargo install --path client --bin nebu-ctx --force
