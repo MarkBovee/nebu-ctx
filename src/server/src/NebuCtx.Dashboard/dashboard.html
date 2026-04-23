@@ -1676,7 +1676,7 @@ async function loadLive() {
           <button class="filter-btn" data-filter="cache" onclick="setLiveFilter('cache',this)">Cache</button>
         </div>
         <div id="liveEventFeed" style="display:flex;flex-direction:column;gap:8px"></div>
-        ${howItWorks('Live Event Stream', 'Events are captured in real-time as NebulaCTX processes tool calls. Each event records the <strong>tool name</strong>, <strong>token count</strong> before and after compression, and the <strong>compression mode</strong> used. The feed polls <code>/api/events</code> every 2 seconds.')}`;
+        ${howItWorks('Live Event Stream', 'Events are captured in real-time as Nebu-CTX processes tool calls. Each event records the <strong>tool name</strong>, <strong>token count</strong> before and after compression, and the <strong>compression mode</strong> used. The feed polls <code>/api/events</code> every 2 seconds.')}`;
       container.dataset.built = 'true';
     }
     renderLiveEvents(events, mcp, stats);
@@ -1822,7 +1822,7 @@ function renderLiveEvents(events, mcp, stats) {
   }
   if (!events || !events.length) {
     const feed = $('liveEventFeed');
-    if (feed) feed.innerHTML = '<div class="empty-state" style="padding:40px"><h2>Waiting for events</h2><p>Use NebulaCTX tools in your IDE to see real-time activity here.</p></div>';
+    if (feed) feed.innerHTML = '<div class="empty-state" style="padding:40px"><h2>Waiting for events</h2><p>Use Nebu-CTX tools in your IDE to see real-time activity here.</p></div>';
     return;
   }
   const flat = events.map(flattenEvent).filter(e => {
@@ -1865,7 +1865,7 @@ async function loadKnowledge() {
     knowledgeProjects = data.projects || [];
     if (!facts.length) {
       const root = data.root || data.project_root;
-      showEmpty(container, 'No knowledge facts stored yet for this project' + (root ? ` (${root})` : '') + '. NebulaCTX builds project knowledge automatically as you work.');
+      showEmpty(container, 'No knowledge facts stored yet for this project' + (root ? ` (${root})` : '') + '. Nebu-CTX builds project knowledge automatically as you work.');
       return;
     }
 
@@ -1880,7 +1880,7 @@ async function loadKnowledge() {
         <div class="hc"><div class="hv" style="color:var(--yellow);font-size:24px">${facts.filter(f=>(f.confidence||0)>0.8).length}</div><div class="hl">High Confidence</div></div>
       </div>
       <div class="d3-container" id="knowledgeGraph"></div>
-      ${howItWorks('Knowledge Graph', 'NebulaCTX maintains a project knowledge base where facts are stored with <strong>confidence scores</strong> that decay over time (unused facts lose confidence). Facts are organized by <strong>category</strong> (Architecture, Testing, etc.) and <strong>room</strong>. Each fact has <strong>temporal validity</strong> &mdash; it knows when it was learned and when it was last confirmed. <strong>Contradiction detection</strong> automatically resolves conflicting facts by preferring the most recent with highest confidence.')}`;
+      ${howItWorks('Knowledge Graph', 'Nebu-CTX maintains a project knowledge base where facts are stored with <strong>confidence scores</strong> that decay over time (unused facts lose confidence). Facts are organized by <strong>category</strong> (Architecture, Testing, etc.) and <strong>room</strong>. Each fact has <strong>temporal validity</strong> &mdash; it knows when it was learned and when it was last confirmed. <strong>Contradiction detection</strong> automatically resolves conflicting facts by preferring the most recent with highest confidence.')}`;
     container.dataset.built = 'true';
     renderKnowledgeGraph(facts);
   } catch (e) {
@@ -2107,7 +2107,7 @@ async function loadDeps() {
     resetRetry('deps');
     const files = data.files ? Object.values(data.files) : [];
     const edges = data.edges || [];
-    if (!files.length) { showEmpty(container, 'No dependency data yet. NebulaCTX builds a dependency graph using tree-sitter parsing.'); return; }
+    if (!files.length) { showEmpty(container, 'No dependency data yet. Nebu-CTX builds a dependency graph using tree-sitter parsing.'); return; }
 
     const totalTokens = files.reduce((s,f) => s + (f.token_count||0), 0);
     const langSet = new Set(files.map(f => f.language || f.path.split('.').pop() || ''));
@@ -2119,7 +2119,7 @@ async function loadDeps() {
         <div class="hc"><div class="hv" style="color:var(--yellow);font-size:24px">${langSet.size}</div><div class="hl">Languages</div></div>
       </div>
       <div class="d3-container" id="depsGraph"></div>
-      ${howItWorks('Dependency Map', 'NebulaCTX uses <strong>tree-sitter</strong> to parse source files and extract import/export relationships. Files become nodes sized by their <strong>token count</strong> (larger = more tokens). Edges represent import dependencies. Nodes are colored by <strong>language</strong>. Directory clusters are formed by grouping files in the same folder. The force-directed layout naturally clusters tightly-coupled modules together.')}`;
+      ${howItWorks('Dependency Map', 'Nebu-CTX uses <strong>tree-sitter</strong> to parse source files and extract import/export relationships. Files become nodes sized by their <strong>token count</strong> (larger = more tokens). Edges represent import dependencies. Nodes are colored by <strong>language</strong>. Directory clusters are formed by grouping files in the same folder. The force-directed layout naturally clusters tightly-coupled modules together.')}`;
     container.dataset.built = 'true';
     renderDepsGraph(files, edges);
   } catch (e) {
@@ -2379,7 +2379,7 @@ async function loadAgents() {
         <div class="hc"><div class="hv" style="color:var(--blue);font-size:24px">${data.shared_contexts || 0}</div><div class="hl">Shared Contexts</div></div>
       </div>
       <div id="agentTimeline"></div>
-      ${howItWorks('Multi-Agent Coordination', 'NebulaCTX supports <strong>multi-agent</strong> workflows where multiple AI coding assistants can work concurrently. Agents register themselves and share context through a <strong>scratchpad</strong> mechanism. Each agent has a <strong>type</strong> (parent, child, specialist), a <strong>role</strong> description, and a <strong>status</strong>. The system coordinates context sharing via <code>ctx_share</code> and task handoff via <code>ctx_agent(action=handoff)</code>.')}`;
+      ${howItWorks('Multi-Agent Coordination', 'Nebu-CTX supports <strong>multi-agent</strong> workflows where multiple AI coding assistants can work concurrently. Agents register themselves and share context through a <strong>scratchpad</strong> mechanism. Each agent has a <strong>type</strong> (parent, child, specialist), a <strong>role</strong> description, and a <strong>status</strong>. The system coordinates context sharing via <code>ctx_share</code> and task handoff via <code>ctx_agent(action=handoff)</code>.')}`;
 
     const timeline = $('agentTimeline');
     if (!agents.length) {
@@ -2424,7 +2424,7 @@ async function loadBugs() {
         </table>
         </div>
       </div>
-      ${howItWorks('Bug Memory (Gotcha Tracker)', 'NebulaCTX automatically detects <strong>error patterns</strong> by monitoring compiler/linter output. When the same error is seen multiple times, it becomes a <strong>gotcha</strong> with a trigger pattern and resolution. The system tracks <strong>confidence</strong> based on how often the pattern-fix correlation holds. When a known gotcha is about to recur, NebulaCTX can <strong>prevent</strong> it by injecting the fix into context before the error happens.')}`;
+      ${howItWorks('Bug Memory (Gotcha Tracker)', 'Nebu-CTX automatically detects <strong>error patterns</strong> by monitoring compiler/linter output. When the same error is seen multiple times, it becomes a <strong>gotcha</strong> with a trigger pattern and resolution. The system tracks <strong>confidence</strong> based on how often the pattern-fix correlation holds. When a known gotcha is about to recur, Nebu-CTX can <strong>prevent</strong> it by injecting the fix into context before the error happens.')}`;
 
     const tb = $('bugsTable');
     if (!gotchas.length) { tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">No gotchas detected yet</td></tr>'; return; }
@@ -2553,7 +2553,7 @@ async function loadLearning() {
         <div class="card">
           <h3>Learned Compression Thresholds</h3>
           <div id="learningThresholdsContainer">
-            ${hasThresholds ? '<canvas id="learningThresholdsChart"></canvas>' : '<div class="empty-state" style="padding:30px"><p>No learned thresholds yet. NebulaCTX adapts compression parameters as you use it.</p></div>'}
+            ${hasThresholds ? '<canvas id="learningThresholdsChart"></canvas>' : '<div class="empty-state" style="padding:30px"><p>No learned thresholds yet. Nebu-CTX adapts compression parameters as you use it.</p></div>'}
           </div>
         </div>
         <div class="card">
@@ -2563,7 +2563,7 @@ async function loadLearning() {
           </div>
         </div>
       </div>
-      ${howItWorks('Adaptive Learning', 'NebulaCTX uses an <strong>exponential moving average (EMA)</strong> to adapt compression thresholds per language. After each tool call, the system records whether the compression was successful (agent completed the task) and the compression ratio achieved. Over time, the <strong>entropy threshold</strong> and <strong>Jaccard similarity threshold</strong> are tuned to maximize compression while maintaining task success. Languages with different information densities (e.g., Rust vs. JSON) naturally converge to different optimal thresholds.')}`;
+      ${howItWorks('Adaptive Learning', 'Nebu-CTX uses an <strong>exponential moving average (EMA)</strong> to adapt compression thresholds per language. After each tool call, the system records whether the compression was successful (agent completed the task) and the compression ratio achieved. Over time, the <strong>entropy threshold</strong> and <strong>Jaccard similarity threshold</strong> are tuned to maximize compression while maintaining task success. Languages with different information densities (e.g., Rust vs. JSON) naturally converge to different optimal thresholds.')}`;
 
     if (hasThresholds && $('learningThresholdsChart')) {
       const langs = Object.keys(thresholds);
@@ -2677,12 +2677,12 @@ async function loadCallGraph() {
       const idxSymbols = data?.indexed_symbol_count ?? 0;
       const analyzed = data?.analyzed_file_count ?? 0;
       showGuidedEmpty(container, 'No call graph data yet',
-        'NebulaCTX has not produced any call edges for this project yet.',
+        'Nebu-CTX has not produced any call edges for this project yet.',
         [
           'Indexed files: ' + idxFiles, 'Indexed symbols: ' + idxSymbols,
           'Files analyzed for calls: ' + analyzed,
           idxFiles === 0
-            ? 'Open the project root in NebulaCTX so indexing can discover source files.'
+            ? 'Open the project root in Nebu-CTX so indexing can discover source files.'
             : 'If this project is large, let indexing finish and then refresh.',
         ], 'Refresh', 'loadCallGraph()');
       return;
@@ -2810,13 +2810,13 @@ async function loadRoutes() {
       const idxFiles = data?.indexed_file_count ?? 0;
       const candidates = data?.route_candidate_count ?? 0;
       showGuidedEmpty(container, 'No HTTP routes found',
-        'NebulaCTX did not detect any supported HTTP route declarations in this project.',
+        'Nebu-CTX did not detect any supported HTTP route declarations in this project.',
         [
           'Indexed files: ' + idxFiles,
           'Route candidate files: ' + candidates,
           candidates === 0
             ? 'This project may not contain server route files.'
-            : 'This project may use a routing style not yet recognized by NebulaCTX.',
+            : 'This project may use a routing style not yet recognized by Nebu-CTX.',
         ], 'Refresh', 'loadRoutes()');
       return;
     }

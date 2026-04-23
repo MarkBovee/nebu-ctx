@@ -81,7 +81,6 @@ cat > "$TEST_DATA/options.json" <<EOF
   "postgres_database": "${PG_DATABASE}",
   "postgres_username": "${PG_USER}",
   "postgres_password": "${PG_PASSWORD}",
-    "auth_token": "",
   "log_level": "info",
   "project_root": "${PROJECT_ROOT_PATH}"
 }

@@ -1,8 +1,8 @@
 # nebu-ctx
 
-Rust MCP server and CLI for context engineering, token-efficient file and shell access, brain memory, PostgreSQL-backed persistence, and deployable HTTP runtimes.
+Installable Rust client for the `nebu-ctx` .NET MCP server and dashboard stack, plus the server, Docker, and Home Assistant packaging needed to run it.
 
-> `nebu-ctx` is the current product name for this context-engineering MCP server and dashboard stack. It builds on the earlier upstream context-engineering core and adds PostgreSQL persistence, brain-memory workflows, remote HTTP serving, and Home Assistant deployment.
+> `nebu-ctx` is the current product name for this context-engineering MCP server and dashboard stack. The published Cargo package installs the thin Rust client. The server runtime, dashboard, Docker image, and Home Assistant add-on live in this same repository.
 
 [Getting started](docs/getting-started.md) | [Server setup](docs/server-setup.md) | [Technical architecture](docs/technical-architecture.md) | [Home Assistant add-on](homeassistant/README.md) | [Roadmap](docs/plans/nebula-server-roadmap.md)
 
@@ -10,14 +10,11 @@ Rust MCP server and CLI for context engineering, token-efficient file and shell 
 
 `nebu-ctx` targets the same context-engineering problem space, but with a more persistent and deployable operating model.
 
-- single Rust binary for stdio MCP, HTTP MCP, dashboard, setup, reporting, and operator commands
-- 52 granular MCP tools in the current tool surface
-- cached reads with 10 read modes, including `full`, `map`, `signatures`, `diff`, `task`, and `lines:N-M`
-- compressed shell execution with 90+ command patterns
-- SQLite for local use, PostgreSQL for persistent server-backed memory
-- `ctx_brain` for memory-oriented workflows on top of the store layer
-- HTTP MCP server for remote clients and server deployment
-- Home Assistant add-on packaging with ingress dashboard support
+- published `nebu-ctx` binary is a thin Rust client that talks to the remote .NET MCP server
+- first-run client onboarding prompts for server URL and auth token, then persists the connection locally
+- client keeps local project-aware tools such as reads, tree, search, outline, callers, and callees
+- remote tools such as `ctx_brain` run against the shared PostgreSQL-backed server state
+- repository still contains the deployable .NET server, dashboard, Docker image, and Home Assistant add-on
 
 ## What this fork adds
 
@@ -35,7 +32,7 @@ If you want the current deployable stack with persistent memory and Home Assista
 
 ## Get Started In 3 Steps
 
-The main local install flow now mirrors the upstream pattern: install the binary, run setup, then verify.
+The main local install flow is now: install the client, connect it to a running server, then verify live MCP calls.
 
 ### 1. Install `nebu-ctx`
 
@@ -45,37 +42,36 @@ Pick one supported path:
 # Install directly from GitHub into Cargo's bin directory
 cargo install --git https://github.com/MarkBovee/nebu-ctx --bin nebu-ctx
 
-# Or build from a local clone
+# Or install from a local clone
 git clone https://github.com/MarkBovee/nebu-ctx.git
 cd nebu-ctx
-cargo build --release
+cargo install --path . --bin nebu-ctx
 ```
 
-### 2. Run setup
+### 2. Connect to a running server
 
 ```bash
-nebu-ctx setup
+nebu-ctx server connect
 ```
 
-This configures shell hooks and attempts editor setup automatically.
+On first run the client prompts for:
 
-If you want hook-only setup or need a fallback for a specific client:
+- server URL, for example `http://192.168.1.135:4242`
+- MCP auth token
 
-```bash
-nebu-ctx init --global
-nebu-ctx init --agent cursor
-```
+The client normalizes a trailing `/mcp` automatically, but the current .NET server contract is rooted at `/health`, `/v1/manifest`, `/v1/tools`, and `/v1/tools/call`.
 
 ### 3. Restart and verify
 
-Restart your shell, then restart your editor completely.
+Verify the saved connection and make a real MCP call.
 
 ```bash
-nebu-ctx --version
-nebu-ctx doctor
+nebu-ctx server status
+nebu-ctx tools list
+nebu-ctx ctx_brain action=recall query=status
 ```
 
-Detailed install, fallback, and verification steps are in [docs/getting-started.md](docs/getting-started.md).
+Detailed server-side setup is in [docs/server-setup.md](docs/server-setup.md). The local client/server smoke script is [tests/local-server-cli-test.sh](tests/local-server-cli-test.sh).
 
 ## Additional Install Paths
 

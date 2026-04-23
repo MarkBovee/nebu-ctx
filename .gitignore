@@ -19,6 +19,7 @@ Thumbs.db
 
 # Build
 dist/
+/reference/
 build/
 src/server/**/bin/
 src/server/**/obj/
@@ -34,6 +35,7 @@ src/server/**/obj/
 # Temp and local test artifacts
 /tmp/
 /.tmp/
+/.tmp-home*/
 /test-results/
 /.pytest_cache/
 /.coverage
