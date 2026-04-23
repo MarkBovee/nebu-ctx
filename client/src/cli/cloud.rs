@@ -25,7 +25,33 @@ pub fn cmd_register(_args: &[String]) {
 }
 
 pub fn cmd_sync() {
-    removed_cloud_command("sync");
+    if let Err(error) = sync_current_checkout() {
+        eprintln!("{error}");
+        std::process::exit(1);
+    }
+}
+
+fn sync_current_checkout() -> Result<()> {
+    let client = load_or_prompt_cloud_client()?;
+
+    let cwd = std::env::current_dir().context("failed to read current directory")?;
+    let project_context = git_context::discover_project_context(&cwd);
+
+    let response = client
+        .resolve_project(&project_context)
+        .context("failed to sync with cloud")?;
+
+    let binding = &project_context.checkout_binding;
+    output_json(json!({
+        "synced": true,
+        "project_id": response.project.project_id,
+        "slug": response.project.slug,
+        "checkout_bound": response.checkout_bound,
+        "branch": binding.branch,
+        "commit": binding.last_commit,
+        "local_root": binding.local_root,
+        "endpoint": client.endpoint(),
+    }))
 }
 
 pub fn cmd_contribute() {
@@ -48,6 +74,9 @@ pub fn cmd_cloud(args: &[String]) {
                 std::process::exit(1);
             }
         }
+        "sync" => {
+            cmd_sync();
+        }
         "disconnect" => {
             if let Err(error) = disconnect_cloud() {
                 eprintln!("{error}");
@@ -65,6 +94,7 @@ pub fn cmd_cloud(args: &[String]) {
             println!("  connect     - Save and validate a cloud endpoint + token");
             println!("  status      - Show cloud connection status");
             println!("  bind        - Bind the current checkout to a canonical project");
+            println!("  sync        - Sync current checkout state (branch, commit) to the cloud");
             println!("  disconnect  - Remove the saved cloud connection");
         }
     }
