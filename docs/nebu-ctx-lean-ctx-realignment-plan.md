@@ -11,6 +11,7 @@ The goal is explicit:
 
 - NebuCtx must feel like lean-ctx again.
 - The shared remote surface is our NebuCtx cloud service, backed by the existing .NET host under `server/`.
+- The existing .NET host and dashboard stack already exist. Realignment work extends that runtime and renames its product surface to NebuCtx Cloud; it does not create a second cloud implementation.
 - NebuCtx remains project-based, not workspace-based.
 - The Rust binary remains the thin local client and local execution layer.
 - The `reference/` tree is read-only source material and must never be modified.
@@ -59,17 +60,19 @@ These decisions are final for the realignment work.
 2. The current `server` CLI commands remain only as compatibility aliases during migration.
 3. The physical repository folder `server/` is not renamed during the realignment project.
 4. The .NET host remains the deployed runtime, but it is described in product UX as NebuCtx Cloud.
-5. NebuCtx persistent state is keyed by `project_id`, never by absolute workspace path.
-6. The term `workspace` is removed from the product model; the canonical term is `checkout`.
-7. The wire/property name `workspace_binding` becomes `checkout_binding` as the canonical name; the old name is accepted only as a backward-compatible alias.
-8. The lean-ctx tool catalog becomes the canonical tool catalog again.
-9. Nebu-specific tool names are not allowed as new primary surfaces.
-10. `ctx_brain` remains supported only as a compatibility alias and is not a canonical long-term tool name.
-11. NebuCtx Cloud must never attempt to directly read a developer's local checkout or run shell commands on the developer machine.
-12. Hybrid tools are always local-first. The cloud does not initiate reverse RPC into the client in phase 1.
-13. Local file contents and raw shell stdout are never uploaded to NebuCtx Cloud automatically.
-14. Automatic sync only sends telemetry, hashes, relative paths, and derived metadata. Explicitly shared payload tools are the only exception.
-15. `reference/` is read-only and cannot be used as an edit target.
+5. The existing .NET host under `server/` is already the NebuCtx Cloud baseline and must be adapted, extended, and renamed in UX, not rebuilt from zero.
+6. No second remote runtime is introduced during realignment.
+7. NebuCtx persistent state is keyed by `project_id`, never by absolute workspace path.
+8. The term `workspace` is removed from the product model; the canonical term is `checkout`.
+9. The wire/property name `workspace_binding` becomes `checkout_binding` as the canonical name; the old name is accepted only as a backward-compatible alias.
+10. The lean-ctx tool catalog becomes the canonical tool catalog again.
+11. Nebu-specific tool names are not allowed as new primary surfaces.
+12. `ctx_brain` remains supported only as a compatibility alias and is not a canonical long-term tool name.
+13. NebuCtx Cloud must never attempt to directly read a developer's local checkout or run shell commands on the developer machine.
+14. Hybrid tools are always local-first. The cloud does not initiate reverse RPC into the client in phase 1.
+15. Local file contents and raw shell stdout are never uploaded to NebuCtx Cloud automatically.
+16. Automatic sync only sends telemetry, hashes, relative paths, and derived metadata. Explicitly shared payload tools are the only exception.
+17. `reference/` is read-only and cannot be used as an edit target.
 
 ## 4. Naming And UX Contract
 
@@ -77,7 +80,7 @@ These decisions are final for the realignment work.
 
 Use these terms in CLI help, docs, dashboard copy, and future issues/plans:
 
-- `cloud`: the remote NebuCtx shared service
+- `cloud`: the remote NebuCtx shared service, implemented by the existing .NET host and dashboard stack under `server/`
 - `client`: the local Rust binary installed by the user
 - `project`: the stable server-owned identity
 - `checkout`: one local clone/path of a project on one machine
@@ -129,6 +132,16 @@ Compatibility must be preserved in this order:
 
 Compatibility does not override the canonical naming decision. It only delays breaking changes.
 
+### 4.5 Rename policy
+
+The answer to "do we rename the current server to cloud?" is:
+
+- yes in product terminology, CLI UX, dashboard copy, docs, and future planning
+- no for the physical repository folder and solution layout during realignment
+- no for the runtime baseline; the existing .NET host is the cloud runtime we are adapting
+
+Do not start a repo-wide rename from `server/` to `cloud/` in this phase.
+
 ## 5. Product Architecture Contract
 
 ### 5.1 Rust client responsibilities
@@ -146,7 +159,7 @@ The Rust client owns:
 
 ### 5.2 NebuCtx Cloud responsibilities
 
-The .NET host under `server/` owns:
+The existing .NET host under `server/` already owns the runtime baseline and is the cloud runtime to extend:
 
 - auth token validation
 - project registry and project resolution
@@ -157,6 +170,21 @@ The .NET host under `server/` owns:
 - telemetry aggregation, stats, cost, gain, feedback, heatmaps
 - cross-session memory, knowledge, agent coordination, tasks, workflows
 - shared archives for cloud-owned tool outputs
+
+### 5.2.1 Existing cloud baseline policy
+
+Implementation sessions must assume all of the following:
+
+- the .NET host already exists
+- the dashboard stack already exists
+- the packaging/runtime path already exists
+- the work is to extend, rename in UX, and fill parity gaps in the existing runtime
+
+Implementation sessions must not do any of the following:
+
+- scaffold a second cloud service beside `server/`
+- restart the cloud work from a blank solution
+- treat "move from server to cloud" as a request to replace the existing .NET host
 
 ### 5.3 Hard boundary
 
@@ -488,9 +516,11 @@ Exit criteria:
 - connected manifest shows all canonical local and hybrid tools
 - disconnected local-only mode still works for local tools that do not require cloud state
 
-### WP4: Build the full cloud-owned shared-state surface in .NET
+### WP4: Complete the cloud-owned shared-state surface in the existing .NET cloud
 
 Cloud work:
+
+- extend the existing .NET host and its current handlers, stores, and contracts; do not create a second cloud runtime
 
 - implement `ctx_session`
 - implement `ctx_knowledge`
@@ -516,7 +546,7 @@ Exit criteria:
 - all cloud-owned tools are callable from `/v1/tools/call`
 - `ctx_brain` alias works without being part of the canonical docs path
 
-### WP5: Build the hybrid sync pipeline
+### WP5: Complete the hybrid sync pipeline against the existing cloud runtime
 
 Required sync endpoints or equivalent contracts:
 
@@ -543,11 +573,11 @@ Exit criteria:
 - cloud-owned tools can use synced project metadata
 - privacy tests are green
 
-### WP6: Rebuild dashboard parity around project-scoped cloud data
+### WP6: Bring the existing dashboard to parity around project-scoped cloud data
 
 Cloud work:
 
-- map existing dashboard pages to new cloud-backed project data
+- map existing dashboard pages to the new cloud-backed project data without replacing the dashboard runtime
 - preserve current runtime ports and token handling
 - ensure all dashboard aggregates are keyed by `project_id`
 - support multiple checkouts for one project without duplicating project totals
@@ -669,6 +699,7 @@ The next implementation session must start in this order.
 8. Finish dashboard parity last, once the data pipelines are real.
 
 Do not start by renaming folders or doing large namespace churn. That work is intentionally deferred.
+Do not start by building a second cloud/server runtime. The existing .NET host is the cloud runtime.
 
 ## 14. Definition Of Done
 
@@ -686,6 +717,7 @@ This realignment is done only when every statement below is true.
 - `ctx_brain` is only an alias, not the primary product vocabulary.
 - Dashboard and analytics are project-scoped and cloud-backed.
 - Container and add-on packaging still honor the existing runtime contracts.
+- The existing .NET host under `server/` serves as NebuCtx Cloud; no second cloud runtime was introduced.
 
 ## 15. Explicitly Out Of Scope Until After Realignment
 
@@ -693,6 +725,7 @@ The following work is deferred until the realignment is complete:
 
 - renaming the physical `server/` repository folder
 - large namespace churn in the .NET codebase
+- rebuilding a second cloud/server runtime from scratch
 - a second remote auth model beyond endpoint plus bearer token
 - cloud-initiated reverse RPC into the client
 - automatic upload of full source code to the cloud
