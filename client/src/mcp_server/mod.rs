@@ -12,7 +12,21 @@ use rmcp::ErrorData;
 
 use crate::tools::{CrpMode, LeanCtxServer};
 
-const REMOTE_OWNED_TOOL_NAMES: &[&str] = &["ctx_brain", "ctx_routes"];
+/// Tools that ONLY exist on the cloud server. No local fallback — return an error when offline.
+const CLOUD_ONLY_TOOLS: &[&str] = &["ctx_brain", "ctx_routes"];
+
+/// Tools that prefer cloud routing but fall back to local file storage when not configured.
+const CLOUD_PREFERRED_TOOLS: &[&str] = &["ctx_knowledge", "ctx_session"];
+
+/// Outcome of attempting to route a tool call to the cloud server.
+enum CloudResult {
+    /// Server responded successfully; return this text to the caller.
+    Success(String),
+    /// No cloud connection is configured; caller should fall back to local handling.
+    NotConfigured,
+    /// Connection is configured but the call failed; return this error text to the caller.
+    Error(String),
+}
 
 impl ServerHandler for LeanCtxServer {
     fn get_info(&self) -> ServerInfo {
@@ -157,7 +171,7 @@ impl ServerHandler for LeanCtxServer {
             tools
         };
 
-        let tools = merge_remote_owned_tools(tools).await;
+        let tools = merge_remote_tool_defs(tools).await;
 
         Ok(ListToolsResult {
             tools,
@@ -197,11 +211,32 @@ impl ServerHandler for LeanCtxServer {
         let name = resolved_name.as_str();
         let args = &resolved_args;
 
-        if should_route_to_remote(name) {
-            if let Some(remote_result) = try_call_remote_tool(name, args).await {
-                return Ok(CallToolResult::success(vec![Content::text(remote_result)]));
+        // Route cloud-only and cloud-preferred tools through the cloud server.
+        let cloud_fallback_warning = if CLOUD_ONLY_TOOLS.contains(&name) {
+            match route_to_cloud(name, args).await {
+                CloudResult::Success(s) => return Ok(CallToolResult::success(vec![Content::text(s)])),
+                CloudResult::NotConfigured => {
+                    let msg = format!(
+                        "{name} requires a cloud connection. Run: nebu-ctx cloud connect"
+                    );
+                    return Ok(CallToolResult::success(vec![Content::text(msg)]));
+                }
+                CloudResult::Error(e) => {
+                    return Ok(CallToolResult::success(vec![Content::text(e)]));
+                }
             }
-        }
+        } else if CLOUD_PREFERRED_TOOLS.contains(&name) {
+            match route_to_cloud(name, args).await {
+                CloudResult::Success(s) => return Ok(CallToolResult::success(vec![Content::text(s)])),
+                CloudResult::NotConfigured => Some(
+                    "\n\n⚠ Running locally (no cloud connection). Data stored in .nebu-ctx/ only.\n  To enable cloud persistence: nebu-ctx cloud connect"
+                        .to_string(),
+                ),
+                CloudResult::Error(e) => return Ok(CallToolResult::success(vec![Content::text(e)])),
+            }
+        } else {
+            None
+        };
 
         if name != "ctx_workflow" {
             let active = self.workflow.read().await.clone();
@@ -347,6 +382,10 @@ impl ServerHandler for LeanCtxServer {
 
         if let Some(warning) = throttle_warning {
             result_text = format!("{result_text}\n\n{warning}");
+        }
+
+        if let Some(offline_note) = cloud_fallback_warning {
+            result_text = format!("{result_text}{offline_note}");
         }
 
         if name == "ctx_read" {
@@ -520,8 +559,49 @@ impl ServerHandler for LeanCtxServer {
     }
 }
 
-async fn merge_remote_owned_tools(local_tools: Vec<Tool>) -> Vec<Tool> {
-    let Some(remote_tools) = load_remote_owned_tools().await else {
+/// Routes a tool call to the cloud server, enriching it with the current git context.
+///
+/// Returns [`CloudResult::Success`] when the server responds, [`CloudResult::NotConfigured`] when
+/// no connection is saved, and [`CloudResult::Error`] when the connection exists but the call fails.
+async fn route_to_cloud(name: &str, args: &Option<serde_json::Map<String, serde_json::Value>>) -> CloudResult {
+    let tool_name = name.to_string();
+    let arguments = args.clone().unwrap_or_default();
+
+    let result = tokio::task::spawn_blocking(move || {
+        let client = match crate::cloud_client::ServerClient::load() {
+            Ok(c) => c,
+            Err(_) => return CloudResult::NotConfigured,
+        };
+        let current_directory = match std::env::current_dir() {
+            Ok(d) => d,
+            Err(e) => return CloudResult::Error(format!("Could not determine working directory: {e}")),
+        };
+        let project_context = crate::git_context::discover_project_context(&current_directory);
+        match client.call_tool(&tool_name, arguments, &project_context) {
+            Ok(value) => {
+                let text = match &value {
+                    serde_json::Value::String(s) => s.clone(),
+                    other => serde_json::to_string_pretty(other).unwrap_or_else(|_| other.to_string()),
+                };
+                CloudResult::Success(text)
+            }
+            Err(e) => CloudResult::Error(format!(
+                "Cloud tool {tool_name} failed: {e}\nCheck connection: nebu-ctx cloud status"
+            )),
+        }
+    })
+    .await;
+
+    result.unwrap_or_else(|_| CloudResult::Error("Cloud routing task panicked".to_string()))
+}
+
+/// Merges tool definitions fetched from the cloud server into the local manifest.
+///
+/// Only tool names listed in [`CLOUD_ONLY_TOOLS`] are pulled from the remote manifest, so the
+/// local definitions always win for [`CLOUD_PREFERRED_TOOLS`]. When the server is unreachable the
+/// local manifest is returned unchanged.
+async fn merge_remote_tool_defs(local_tools: Vec<Tool>) -> Vec<Tool> {
+    let Some(remote_tools) = load_cloud_only_tool_defs().await else {
         return local_tools;
     };
 
@@ -529,15 +609,14 @@ async fn merge_remote_owned_tools(local_tools: Vec<Tool>) -> Vec<Tool> {
     for tool in local_tools {
         merged.insert(tool.name.to_string(), tool);
     }
-
     for tool in remote_tools {
         merged.insert(tool.name.to_string(), tool);
     }
-
     merged.into_values().collect()
 }
 
-async fn load_remote_owned_tools() -> Option<Vec<Tool>> {
+/// Fetches tool definitions for [`CLOUD_ONLY_TOOLS`] from the configured cloud server.
+async fn load_cloud_only_tool_defs() -> Option<Vec<Tool>> {
     tokio::task::spawn_blocking(|| {
         let client = crate::cloud_client::ServerClient::load().ok()?;
         let remote = client.list_tools().ok()?;
@@ -545,39 +624,16 @@ async fn load_remote_owned_tools() -> Option<Vec<Tool>> {
             remote
                 .tools
                 .into_iter()
-                .filter(|tool| should_route_to_remote(&tool.name))
-                .map(remote_tool_definition_to_tool)
+                .filter(|tool| CLOUD_ONLY_TOOLS.contains(&tool.name.as_str()))
+                .map(|tool| {
+                    let input_schema = match tool.input_schema {
+                        serde_json::Value::Object(map) => map,
+                        _ => serde_json::Map::new(),
+                    };
+                    Tool::new(tool.name, tool.description, Arc::new(input_schema))
+                })
                 .collect::<Vec<_>>(),
         )
-    })
-    .await
-    .ok()
-    .flatten()
-}
-
-fn remote_tool_definition_to_tool(tool: crate::models::ToolDefinition) -> Tool {
-    let input_schema = match tool.input_schema {
-        serde_json::Value::Object(map) => map,
-        _ => serde_json::Map::new(),
-    };
-
-    Tool::new(tool.name, tool.description, Arc::new(input_schema))
-}
-
-fn should_route_to_remote(tool_name: &str) -> bool {
-    REMOTE_OWNED_TOOL_NAMES.contains(&tool_name)
-}
-
-async fn try_call_remote_tool(name: &str, args: &Option<serde_json::Map<String, serde_json::Value>>) -> Option<String> {
-    let tool_name = name.to_string();
-    let arguments = args.clone().unwrap_or_default();
-
-    tokio::task::spawn_blocking(move || {
-        let client = crate::cloud_client::ServerClient::load().ok()?;
-        let current_directory = std::env::current_dir().ok()?;
-        let project_context = crate::git_context::discover_project_context(&current_directory);
-        let result = client.call_tool(&tool_name, arguments, &project_context).ok()?;
-        serde_json::to_string_pretty(&result).ok()
     })
     .await
     .ok()
@@ -755,5 +811,64 @@ mod tests {
             .filter(|t| !disabled.iter().any(|d| t.name.as_ref() == d.as_str()))
             .collect();
         assert_eq!(filtered.len(), total);
+    }
+
+    #[test]
+    fn cloud_tool_constants_are_disjoint() {
+        for name in CLOUD_ONLY_TOOLS {
+            assert!(
+                !CLOUD_PREFERRED_TOOLS.contains(name),
+                "{name} appears in both CLOUD_ONLY_TOOLS and CLOUD_PREFERRED_TOOLS"
+            );
+        }
+    }
+
+    #[test]
+    fn ctx_brain_is_cloud_only_not_preferred() {
+        assert!(CLOUD_ONLY_TOOLS.contains(&"ctx_brain"));
+        assert!(!CLOUD_PREFERRED_TOOLS.contains(&"ctx_brain"));
+    }
+
+    #[test]
+    fn ctx_knowledge_and_ctx_session_are_cloud_preferred() {
+        assert!(CLOUD_PREFERRED_TOOLS.contains(&"ctx_knowledge"));
+        assert!(CLOUD_PREFERRED_TOOLS.contains(&"ctx_session"));
+        assert!(!CLOUD_ONLY_TOOLS.contains(&"ctx_knowledge"));
+        assert!(!CLOUD_ONLY_TOOLS.contains(&"ctx_session"));
+    }
+
+    #[test]
+    fn ctx_brain_in_granular_tool_defs() {
+        let tools = crate::tool_defs::granular_tool_defs();
+        assert!(
+            tools.iter().any(|t| t.name.as_ref() == "ctx_brain"),
+            "ctx_brain must appear in the local manifest so Claude sees it even when offline"
+        );
+    }
+
+    #[test]
+    fn ctx_brain_stub_has_required_actions() {
+        let tools = crate::tool_defs::granular_tool_defs();
+        let brain = tools.iter().find(|t| t.name.as_ref() == "ctx_brain").unwrap();
+        let schema = serde_json::to_string(&*brain.input_schema).unwrap();
+        assert!(schema.contains("store"), "ctx_brain schema must include 'store' action");
+        assert!(schema.contains("recall"), "ctx_brain schema must include 'recall' action");
+        assert!(schema.contains("forget"), "ctx_brain schema must include 'forget' action");
+    }
+
+    #[test]
+    fn route_to_cloud_returns_not_configured_or_error_when_no_connection() {
+        // Without a saved connection, route_to_cloud must not panic. It should return
+        // NotConfigured or Error (never Success unless CI has a live server).
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let result = rt.block_on(route_to_cloud("ctx_brain", &None));
+        match result {
+            CloudResult::Success(_) => {} // acceptable if CI has a live server
+            CloudResult::NotConfigured => {}
+            CloudResult::Error(_) => {}
+        }
     }
 }

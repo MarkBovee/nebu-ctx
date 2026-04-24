@@ -292,6 +292,35 @@ symbol (lookup definition/usages as file::name), impact (blast radius of changes
             }),
         ),
         tool_def(
+            "ctx_brain",
+            "Cloud-backed long-term knowledge store (Postgres). Survives across machines and sessions. \
+Actions: store (persist a fact with key+value), recall (semantic search by query), forget (delete by key). \
+Requires cloud connection — run: nebu-ctx cloud connect",
+            json!({
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["store", "recall", "forget"],
+                        "description": "Brain operation: store (persist fact), recall (search), forget (delete by key)"
+                    },
+                    "key": {
+                        "type": "string",
+                        "description": "Fact identifier for store/forget actions"
+                    },
+                    "value": {
+                        "type": "string",
+                        "description": "Fact content for store action"
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "Search query for recall action"
+                    }
+                },
+                "required": ["action"]
+            }),
+        ),
+        tool_def(
             "ctx_session",
             "Cross-session memory (CCP). Actions: load (restore previous session ~400 tok), \
 save, status, task (set current task), finding (record discovery), decision (record choice), \
@@ -1000,6 +1029,7 @@ Modes: full|map|signatures|diff|aggressive|entropy|task|reference|lines:N-M. fre
         ("ctx_context", "Session context overview — cached files, seen files, session state.", json!({"type": "object", "properties": {}})),
         ("ctx_graph", "Code dependency graph. Actions: build (index project), related (find files connected to path), \
 symbol (lookup definition/usages as file::name), impact (blast radius of changes to path), status (index stats).", json!({"type": "object", "properties": {"action": {"type": "string"}, "path": {"type": "string"}, "project_root": {"type": "string"}}, "required": ["action"]})),
+        ("ctx_brain", "Cloud-backed long-term knowledge store (Postgres). Actions: store, recall, forget. Requires cloud connection.", json!({"type": "object", "properties": {"action": {"type": "string", "enum": ["store", "recall", "forget"]}, "key": {"type": "string"}, "value": {"type": "string"}, "query": {"type": "string"}}, "required": ["action"]})),
         ("ctx_session", "Cross-session memory (CCP). Actions: load (restore previous session ~400 tok), \
 save, status, task (set current task), finding (record discovery), decision (record choice), \
 reset, list (show sessions), cleanup, snapshot (build compaction snapshot ~2KB), \
