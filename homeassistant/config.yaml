@@ -3,7 +3,7 @@ description: "Context engineering MCP server with ingress dashboard and HTTP MCP
 version: "0.5.4"
 slug: "nebu_ctx"
 url: "https://github.com/MarkBovee/nebu-ctx/tree/main/homeassistant"
-image: "ghcr.io/markbovee/nebu-ctx:{version}"
+image: "ghcr.io/markbovee/nebu-ctx"
 stage: "experimental"
 arch:
   - amd64
