@@ -147,6 +147,45 @@ Check:
 
 ---
 
+## Brain Automation — Why It's Not Fully Automatic
+
+### What exists today
+
+The client has **two auto-consolidation paths**, but both write to **local SQLite only** — not to the PostgreSQL brain:
+
+1. **MCP server autopilot** (`mcp_server/mod.rs`): After every N tool calls (default: 25, cooldown: 120s), `should_auto_consolidate()` fires `consolidate_latest()`. This promotes session decisions + salient findings into the **local** `ProjectKnowledge` store (SQLite at `~/.nebu-ctx/`).
+
+2. **`ctx_knowledge(action="consolidate")`**: Same engine, callable manually via MCP tool.
+
+### Why `ctx_brain` is NOT automated
+
+`ctx_brain` is a **cloud-only tool** (`CLOUD_ONLY_TOOLS` in `mcp_server/mod.rs`). It routes to the PostgreSQL-backed server over HTTP. The consolidation engine (`consolidation_engine.rs`) only calls `ProjectKnowledge::save()` — which is local SQLite. There is **no bridge** between the local consolidation engine and `ctx_brain` / PostgreSQL.
+
+So what we did manually at end-of-session (storing lessons to `ctx_brain` and `ctx_knowledge`) is **not automated**. The system consolidates to local SQLite automatically, but the PostgreSQL brain requires explicit tool calls.
+
+### What needs to be built
+
+To automate end-of-session brain storage:
+
+1. **Session-end hook** — trigger on `ctx_session(action="save")` or on MCP server shutdown. Call `ctx_brain(action="store")` for each promoted fact.
+2. **Consolidation → cloud bridge** — after `consolidate_latest()` runs, POST the promoted facts to the server via `cloud_client.rs`. The telemetry queue pattern already exists — reuse it.
+3. **Auto-save on session task** — when `ctx_session(action="task")` is called, auto-save the previous session summary to brain.
+
+**Suggested implementation path:**
+- Add a `CloudConsolidationSink` trait to `consolidation_engine.rs`
+- Implement it in `cloud_client.rs` using the existing HTTP client
+- Wire it into the autopilot loop in `mcp_server/mod.rs`
+- Gate behind a config flag: `autonomy.auto_brain_sync = true`
+
+Until this is built: **manually run at end of session**:
+```
+ctx_session(action="save")
+ctx_knowledge(action="consolidate")
+ctx_brain(action="store", key="session-YYYY-MM-DD", value="<summary>")
+```
+
+---
+
 ## What Is Not Done Yet (Pending Work Items)
 
 ### 1. Rust Compiler Warnings (19 warnings in lib)
