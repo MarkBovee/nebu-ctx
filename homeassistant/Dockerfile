@@ -1,5 +1,4 @@
-ARG BUILD_FROM=mcr.microsoft.com/dotnet/aspnet:10.0-alpine
-FROM ${BUILD_FROM}
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
 
 ARG NEBULA_CTX_VERSION=main
 ARG NEBULA_CTX_REPOSITORY=https://github.com/MarkBovee/nebu-ctx.git
