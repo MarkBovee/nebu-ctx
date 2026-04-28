@@ -96,6 +96,7 @@ pub fn auto_approve_tools() -> Vec<&'static str> {
 fn lean_ctx_server_entry(binary: &str, data_dir: &str, include_auto_approve: bool) -> Value {
     let mut entry = serde_json::json!({
         "command": binary,
+        "args": [],
         "env": {
             "NEBU_CTX_DATA_DIR": data_dir
         }
@@ -659,6 +660,7 @@ fn write_amp_config(
         .unwrap_or_default();
     let entry = serde_json::json!({
         "command": binary,
+        "args": [],
         "env": { "NEBU_CTX_DATA_DIR": data_dir }
     });
 
@@ -722,7 +724,7 @@ fn write_crush_config(
     binary: &str,
     opts: WriteOptions,
 ) -> Result<WriteResult, String> {
-    let desired = serde_json::json!({ "type": "stdio", "command": binary });
+    let desired = serde_json::json!({ "type": "stdio", "command": binary, "args": [], "env": {} });
 
     if target.config_path.exists() {
         let content = std::fs::read_to_string(&target.config_path).map_err(|e| e.to_string())?;
@@ -864,6 +866,7 @@ fn write_gemini_settings(
         .unwrap_or_default();
     let entry = serde_json::json!({
         "command": binary,
+        "args": [],
         "env": { "NEBU_CTX_DATA_DIR": data_dir },
         "trust": true,
     });
@@ -931,7 +934,7 @@ fn write_hermes_yaml(
     let data_dir = default_data_dir()?;
 
     let lean_ctx_block = format!(
-        "  nebu-ctx:\n    command: \"{binary}\"\n    env:\n      NEBU_CTX_DATA_DIR: \"{data_dir}\""
+        "  nebu-ctx:\n    command: \"{binary}\"\n    args: []\n    env:\n      NEBU_CTX_DATA_DIR: \"{data_dir}\""
     );
 
     if target.config_path.exists() {
