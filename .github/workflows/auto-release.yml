@@ -25,9 +25,9 @@ jobs:
 
       - name: Verify version sync
         run: |
-          CARGO_VERSION=$(grep '^version = ' client/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
-          ADDON_VERSION=$(grep '^version:' homeassistant/config.yaml | head -1 | sed 's/version: *"\(.*\)"/\1/')
-          TOOL_VERSION=$(grep 'public const string Current = ' server/src/NebuCtx.Application/ToolRegistry.cs | head -1 | sed 's/.*Current = "\(.*\)".*/\1/')
+          CARGO_VERSION=$(grep '^version = ' client/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/' | tr -d '\r')
+          ADDON_VERSION=$(grep '^version:' homeassistant/config.yaml | head -1 | sed 's/version: *"\(.*\)"/\1/' | tr -d '\r')
+          TOOL_VERSION=$(grep 'public const string Current = ' server/src/NebuCtx.Application/ToolRegistry.cs | head -1 | sed 's/.*Current = "\(.*\)".*/\1/' | tr -d '\r')
           if [ "$CARGO_VERSION" != "$ADDON_VERSION" ]; then
             echo "client/Cargo.toml version ($CARGO_VERSION) does not match homeassistant/config.yaml ($ADDON_VERSION)" >&2
             exit 1

@@ -39,6 +39,18 @@ pub fn vscode_mcp_path() -> PathBuf {
     }
 }
 
+pub fn copilot_cli_mcp_path() -> PathBuf {
+    dirs::home_dir()
+        .map(|h| h.join(".copilot/mcp-config.json"))
+        .unwrap_or_else(|| PathBuf::from("/nonexistent"))
+}
+
+pub fn detect_copilot_cli_path() -> PathBuf {
+    dirs::home_dir()
+        .map(|h| h.join(".copilot"))
+        .unwrap_or_else(|| PathBuf::from("/nonexistent"))
+}
+
 #[allow(unreachable_code)]
 pub fn cline_mcp_path() -> PathBuf {
     #[cfg(target_os = "windows")]
