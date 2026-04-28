@@ -651,6 +651,7 @@ tr:hover td{background:var(--surface-2)}
     <section id="view-compression" class="view"></section>
     <section id="view-agents" class="view"></section>
     <section id="view-bugs" class="view"></section>
+    <section id="view-brain" class="view"></section>
     <section id="view-search" class="view"></section>
     <section id="view-learning" class="view"></section>
     <section id="view-symbols" class="view"></section>
@@ -718,6 +719,7 @@ const VIEWS = [
   { id:'compression', label:'Compression Lab', icon:'<rect x="4" y="4" width="16" height="16" rx="2"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="10" y1="4" x2="10" y2="20"/>' },
   { id:'agents',      label:'Agent World',     icon:'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>' },
   { id:'bugs',        label:'Bug Memory',      icon:'<path d="M12 2a3 3 0 00-3 3v1H6a2 2 0 00-2 2v1h16V8a2 2 0 00-2-2h-3V5a3 3 0 00-3-3z"/><rect x="4" y="9" width="16" height="12" rx="2"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/>' },
+  { id:'brain',       label:'Brain Memory',    icon:'<path d="M9.5 2C7 2 5 4 5 6.5c0 .8.2 1.5.5 2.1C4 9.4 3 10.9 3 12.5 3 15.5 5.5 18 8.5 18H9v2a1 1 0 002 0v-2h2v2a1 1 0 002 0v-2h.5c3 0 5.5-2.5 5.5-5.5 0-1.6-1-3.1-2.5-3.9.3-.6.5-1.3.5-2.1C17 4 15 2 12.5 2c-1.2 0-2.3.5-3 1.3C8.8 2.5 7.7 2 6.5 2"/>' },
   { id:'search',      label:'Search Explorer', icon:'<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>' },
   { id:'learning',    label:'Learning Curves', icon:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>' },
   { id:'symbols',     label:'Symbol Explorer', icon:'<path d="M20 7h-7L10 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/>' },
@@ -795,6 +797,7 @@ function loadCurrentView() {
     compression: loadCompression,
     agents: loadAgents,
     bugs: loadBugs,
+    brain: loadBrain,
     search: loadSearch,
     learning: loadLearning,
     symbols: loadSymbols,
@@ -2442,6 +2445,54 @@ async function loadBugs() {
       </tr>`;
     }).join('');
   } catch (e) { showError(container, 'Could not load bug memory data.'); }
+}
+
+async function loadBrain() {
+  const container = $('view-brain');
+  try {
+    const data = await apiFetch('/api/brain');
+    const entries = data.entries || [];
+    const total = data.total_count || entries.length;
+
+    // Group entries by project
+    const byProject = {};
+    for (const e of entries) {
+      const name = e.project_name || e.project_id || 'unknown';
+      if (!byProject[name]) byProject[name] = [];
+      byProject[name].push(e);
+    }
+    const projectNames = Object.keys(byProject).sort();
+
+    container.innerHTML = `
+      <div class="row r3" style="margin-bottom:16px">
+        <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${total}</div><div class="hl">Total Memories</div></div>
+        <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${projectNames.length}</div><div class="hl">Projects</div></div>
+        <div class="hc"><div class="hv" style="color:var(--blue);font-size:24px">${entries.length > 0 ? new Date(entries[0].created_at).toLocaleDateString() : '—'}</div><div class="hl">Latest Entry</div></div>
+      </div>
+      ${projectNames.length === 0 ? '<div class="card"><div class="empty-state" style="padding:40px"><h2>No memories stored</h2><p>Use <code>ctx_brain(action="store", key="...", value="...")</code> to persist long-term memories.</p></div></div>' : ''}
+      ${projectNames.map(proj => {
+        const rows = byProject[proj];
+        return `<div class="card" style="margin-bottom:16px">
+          <h3>${esc(proj)} <span class="tag tg" style="margin-left:6px">${rows.length} memories</span></h3>
+          <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>Key</th><th>Value</th><th class="r">Stored</th></tr></thead>
+            <tbody>${rows.map(e => {
+              const d = new Date(e.created_at);
+              const ago = Math.round((Date.now() - d.getTime()) / 86400000);
+              const dateStr = ago === 0 ? 'today' : ago === 1 ? 'yesterday' : ago + 'd ago';
+              return `<tr>
+                <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(e.key)}</td>
+                <td style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.value)}">${esc(e.value)}</td>
+                <td class="r" style="font-size:11px;color:var(--muted)" title="${esc(e.created_at)}">${dateStr}</td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table>
+          </div>
+        </div>`;
+      }).join('')}
+      ${howItWorks('Brain Memory', '<strong>ctx_brain</strong> is a persistent long-term memory store backed by Postgres. Each memory is scoped to a <strong>project</strong> and stored as a key/value pair. Use <code>ctx_brain(action="store", key="...", value="...")</code> to save facts and <code>ctx_brain(action="recall", query="...")</code> to retrieve them by semantic search. Memories survive context resets and are available across all sessions.')}`;
+  } catch (e) { showError(container, 'Could not load brain memory data.'); }
 }
 
 async function loadSearch() {
