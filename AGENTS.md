@@ -73,6 +73,9 @@ Current add-on behavior:
   After bumping all three, run `bash scripts/server/refresh-dist.sh` to rebuild `server/dist/linux/` with the new version, then commit all four changes together.
 - `auto-release.yml` tags main when the version changes and no matching tag exists.
 - `release.yml` builds tagged binaries and publishes release assets.
+- The tag push triggers `auto-release.yml` which verifies all three version locations are in sync (Cargo.toml, config.yaml, AND ToolRegistry.cs), then tags main and triggers `release.yml`.
+- `release.yml` builds amd64+arm64 binaries, creates the GitHub release, and then publishes the crate to crates.io via the `publish-crate` job.
+- **Required secret:** `CARGO_REGISTRY_TOKEN` must be set in GitHub repo Settings → Secrets → Actions. Generate a token at https://crates.io/settings/tokens with "Publish new crates" and "Publish updates" scopes.
 - The Home Assistant container builds from committed `server/dist/linux`, not release-asset downloads.
 
 If you change package, binary, or image names, update all of these together:

@@ -172,6 +172,17 @@ These are tracked in the session SQL database and in `docs/nebu-ctx-lean-ctx-rea
 
 ## Build & Validation Commands
 
+### crates.io Publish Token
+
+The `publish-crate` job in `release.yml` requires a `CARGO_REGISTRY_TOKEN` GitHub Actions secret.
+
+1. Go to https://crates.io/settings/tokens and create a token with **Publish new crates** and **Publish updates** scopes.
+2. In GitHub: Settings → Secrets and variables → Actions → New repository secret.
+   - Name: `CARGO_REGISTRY_TOKEN`
+   - Value: the token from step 1.
+
+Without this secret, the publish step will fail (the build and release steps will still succeed).
+
 ```bash
 # Rust client
 cargo test --manifest-path client/Cargo.toml --lib
