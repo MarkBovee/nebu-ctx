@@ -151,33 +151,51 @@ Check:
 
 ### What exists today
 
-The client has **two auto-consolidation paths**, but both write to **local SQLite only** — not to the PostgreSQL brain:
+The client has **two auto-consolidation paths**, but both write to **local JSON files only** — not to the PostgreSQL brain:
 
-1. **MCP server autopilot** (`mcp_server/mod.rs`): After every N tool calls (default: 25, cooldown: 120s), `should_auto_consolidate()` fires `consolidate_latest()`. This promotes session decisions + salient findings into the **local** `ProjectKnowledge` store (SQLite at `~/.nebu-ctx/`).
+1. **MCP server autopilot** (`mcp_server/mod.rs`): After every N tool calls (default: 25, cooldown: 120s), `should_auto_consolidate()` fires `consolidate_latest()`. This promotes session decisions + salient findings into the **local** `ProjectKnowledge` store (`~/.nebu-ctx/<project>/knowledge.json`).
 
 2. **`ctx_knowledge(action="consolidate")`**: Same engine, callable manually via MCP tool.
 
 ### Why `ctx_brain` is NOT automated
 
-`ctx_brain` is a **cloud-only tool** (`CLOUD_ONLY_TOOLS` in `mcp_server/mod.rs`). It routes to the PostgreSQL-backed server over HTTP. The consolidation engine (`consolidation_engine.rs`) only calls `ProjectKnowledge::save()` — which is local SQLite. There is **no bridge** between the local consolidation engine and `ctx_brain` / PostgreSQL.
+`ctx_brain` is a **cloud-only tool** (`CLOUD_ONLY_TOOLS` in `mcp_server/mod.rs`). It routes to the PostgreSQL-backed server over HTTP. The consolidation engine (`consolidation_engine.rs`) only calls `ProjectKnowledge::save()` — which writes to a local JSON file (`knowledge.json`). There is **no bridge** between the local consolidation engine and `ctx_brain` / PostgreSQL.
 
-So what we did manually at end-of-session (storing lessons to `ctx_brain` and `ctx_knowledge`) is **not automated**. The system consolidates to local SQLite automatically, but the PostgreSQL brain requires explicit tool calls.
+So what we did manually at end-of-session (storing lessons to `ctx_brain` and `ctx_knowledge`) is **not automated**. The system consolidates to local JSON automatically, but the PostgreSQL brain requires explicit tool calls.
 
-### What needs to be built
+### Also: ctx_knowledge falls back to local JSON when cloud is available
 
-To automate end-of-session brain storage:
+`ctx_knowledge` is in `CLOUD_PREFERRED_TOOLS` (not `CLOUD_ONLY_TOOLS`). When the cloud server is reachable it routes to PostgreSQL, but when the cloud call fails it **silently falls back to local `knowledge.json`** with a warning appended to the output. This means knowledge facts can end up split across local files and PostgreSQL depending on connectivity at the time of the call. The warning text is:
 
-1. **Session-end hook** — trigger on `ctx_session(action="save")` or on MCP server shutdown. Call `ctx_brain(action="store")` for each promoted fact.
-2. **Consolidation → cloud bridge** — after `consolidate_latest()` runs, POST the promoted facts to the server via `cloud_client.rs`. The telemetry queue pattern already exists — reuse it.
-3. **Auto-save on session task** — when `ctx_session(action="task")` is called, auto-save the previous session summary to brain.
+> ⚠ Running locally (no cloud connection). Data stored in .nebu-ctx/ only.
 
-**Suggested implementation path:**
-- Add a `CloudConsolidationSink` trait to `consolidation_engine.rs`
-- Implement it in `cloud_client.rs` using the existing HTTP client
-- Wire it into the autopilot loop in `mcp_server/mod.rs`
-- Gate behind a config flag: `autonomy.auto_brain_sync = true`
+**This must change.** In our setup the cloud server is always the source of truth. Local fallback creates hidden divergence.
 
-Until this is built: **manually run at end of session**:
+### What needs to be built (tomorrow)
+
+**Task A — Eliminate local fallback for ctx_knowledge when cloud is configured**
+
+In `mcp_server/mod.rs`, the `CLOUD_PREFERRED_TOOLS` path (`route_to_cloud` → fallback on failure) should be split:
+- If `ServerClient::load()` succeeds (cloud is configured), treat `ctx_knowledge` like a cloud-only tool — fail hard instead of silently writing local.
+- Only use local fallback when no cloud server is configured at all.
+
+File to change: `client/src/mcp_server/mod.rs` — `call_tool` routing block (~line 233).
+
+**Task B — Consolidation → PostgreSQL bridge**
+
+The autopilot consolidation loop (`mcp_server/mod.rs` ~line 499) fires `consolidate_latest()` which writes `knowledge.json` locally. After it runs, promoted facts should be forwarded to the cloud:
+
+1. Add a `post_consolidation_to_cloud(outcome, project_root)` async fn in `cloud_client.rs` — iterates the just-promoted facts and calls `ctx_knowledge(action="remember")` for each via `route_to_cloud`.
+2. Call it in the autopilot `tokio::task::spawn_blocking` block after `consolidate_latest()` succeeds.
+3. Also call it from `ctx_knowledge(action="consolidate")` handler in `tools/ctx_knowledge.rs`.
+4. Gate behind `autonomy.auto_brain_sync = true` (add to `AutonomyConfig` with default `true`).
+
+**Task C — Session-end brain snapshot**
+
+When `ctx_session(action="save")` is called, auto-post a summary to `ctx_brain`. In `tools/ctx_session.rs`, after the save completes, call `route_to_cloud("ctx_brain", {action:"store", key:"session-{id}", value:"{summary}"})`.
+
+### Until tasks A/B/C are done: manual end-of-session ritual
+
 ```
 ctx_session(action="save")
 ctx_knowledge(action="consolidate")
@@ -186,7 +204,85 @@ ctx_brain(action="store", key="session-YYYY-MM-DD", value="<summary>")
 
 ---
 
-## What Is Not Done Yet (Pending Work Items)
+## IDE Hook Expansion
+
+### Current state (per IDE)
+
+| IDE / Agent | Hook events wired | What they do |
+|-------------|-------------------|--------------|
+| **Claude Code** | `PreToolUse: Bash` → `hook rewrite`; `PreToolUse: Read/Grep/View/ListFiles` → `hook redirect` | Rewrites shell commands to route through nebu-ctx; redirects native file reads to MCP |
+| **Copilot CLI** | `preToolUse` → `hook rewrite` + `hook redirect` | Same as Claude Code; written to `~/.github/hooks/hooks.json` |
+| **Cursor** | `PreToolUse: Bash` → `hook rewrite` | Shell command rewriting only |
+| **Gemini** | `PreToolUse: Bash` → `hook rewrite`; `PreToolUse: Read/Grep/...` → `hook redirect` | Full rewrite + redirect |
+| **Codex** | `SessionStart` → `hook codex-session-start`; `PreToolUse: Bash` → `hook codex-pretooluse` | Session-start wakeup + command rewriting |
+| **Windsurf / Cline / Roo** | Rules file injection only | No hook events; adds CLAUDE.md-style context |
+| **Amp / JetBrains / Kiro / Crush / OpenCode / Hermes** | MCP server registration only | No hook events wired at all |
+
+### What is missing
+
+**1. `Stop` / session-end hook (Claude Code, Copilot CLI)**
+
+Claude Code fires a `Stop` notification when the session ends. This is the perfect trigger to auto-consolidate to PostgreSQL. Currently **not wired** — the client never receives it because no `Stop` hook is registered.
+
+To add:
+- Claude Code: add `"Stop": [{"hooks": [{"type": "command", "command": "nebu-ctx hook stop"}]}]` to `settings.json` in `install_claude_hook_config()`
+- Copilot CLI: add `"postSession"` entry to `.github/hooks/hooks.json` in `install_copilot_pretooluse_hook()`
+- Add `handle_stop()` in `hook_handlers.rs` — calls `consolidate_latest()` then `post_consolidation_to_cloud()`
+- Wire `"hook stop"` in `main.rs` dispatch
+
+**2. `PostToolUse` hook (all IDEs)**
+
+After every tool call, a `PostToolUse` event fires. Useful for:
+- Emitting per-call telemetry (token counts, tool name) — currently only done via `fire_sync` in `-c`/`-t` paths
+- Triggering incremental cloud sync of newly stored knowledge
+
+Currently only wired in Codex tests — not in any production hook install.
+
+**3. Missing agents have no hooks at all**
+
+Amp, JetBrains, Kiro, Crush, OpenCode, Hermes — they register the MCP server but install **zero hook events**. This means:
+- Shell command interception doesn't work
+- File read redirection doesn't work
+- Session-end consolidation won't work even after Task A/B/C above
+
+Each needs at minimum `PreToolUse: Bash → hook rewrite` wired into their respective config format.
+
+### Implementation plan (tomorrow)
+
+**Step 1 — Add `Stop` hook to Claude Code and Copilot CLI**
+
+Files: `client/src/hooks/agents.rs` (`install_claude_hook_config`, `install_copilot_pretooluse_hook`), `client/src/hook_handlers.rs`, `client/src/main.rs`
+
+```rust
+// hook_handlers.rs — new function
+pub fn handle_stop() {
+    // consolidate local session → knowledge.json
+    // then POST promoted facts to cloud via route_to_cloud
+}
+```
+
+```json
+// Claude Code settings.json addition
+"Stop": [{ "hooks": [{ "type": "command", "command": "nebu-ctx hook stop" }] }]
+```
+
+**Step 2 — Wire `PostToolUse` for telemetry in Claude Code and Copilot CLI**
+
+Add `"PostToolUse": [{ "matcher": ".*", "hooks": [{ "type": "command", "command": "nebu-ctx hook post-tool-use" }] }]` and a `handle_post_tool_use()` in `hook_handlers.rs` that reads stdin JSON, extracts tool name + output length, and fires telemetry.
+
+**Step 3 — Add `PreToolUse: Bash` hooks to Amp, Kiro, OpenCode, Hermes, Crush**
+
+Each agent has its own config format — check the install functions in `hooks/agents.rs` and add the `hook rewrite` call to each.
+
+**Step 4 — Run `nebu-ctx hooks install --all` after each change to re-deploy**
+
+```bash
+nebu-ctx hooks install claude --global
+nebu-ctx hooks install copilot --global
+# etc.
+```
+
+---
 
 ### 1. Rust Compiler Warnings (19 warnings in lib)
 
