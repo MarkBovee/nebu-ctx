@@ -66,7 +66,11 @@ Current add-on behavior:
 
 ## Release Flow
 
-- `homeassistant/config.yaml` version and `client/Cargo.toml` version should stay in sync.
+- All three version locations **must be kept in sync** on every version bump:
+  1. `client/Cargo.toml` — Rust client version (e.g. `version = "0.5.1"`)
+  2. `homeassistant/config.yaml` — HA addon version (e.g. `version: "0.5.1"`)
+  3. `server/src/NebuCtx.Application/ToolRegistry.cs` — `ServerVersion.Current` constant (e.g. `"0.5.1"`)
+  After bumping all three, run `bash scripts/server/refresh-dist.sh` to rebuild `server/dist/linux/` with the new version, then commit all four changes together.
 - `auto-release.yml` tags main when the version changes and no matching tag exists.
 - `release.yml` builds tagged binaries and publishes release assets.
 - The Home Assistant container builds from committed `server/dist/linux`, not release-asset downloads.
