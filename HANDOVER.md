@@ -1,6 +1,6 @@
 # nebu-ctx — Handover & Continuation Guide
 
-> Last updated: 2026-04-28 · Version: 0.5.2
+> Last updated: 2026-04-28 · Version: 0.5.3
 
 This document captures the current state of the project and what to do next. Read this when picking up after a break.
 
@@ -27,9 +27,9 @@ The .NET host serves:
 ### Version Sync — Three Places Must Always Match
 
 ```
-client/Cargo.toml                             version = "0.5.2"
-homeassistant/config.yaml                     version: "0.5.2"
-server/src/NebuCtx.Application/ToolRegistry.cs  Current = "0.5.2"
+client/Cargo.toml                             version = "0.5.3"
+homeassistant/config.yaml                     version: "0.5.3"
+server/src/NebuCtx.Application/ToolRegistry.cs  Current = "0.5.3"
 ```
 
 When bumping the version, update all three in one commit.
@@ -38,7 +38,7 @@ When bumping the version, update all three in one commit.
 
 | Item | Location | Status |
 |------|----------|--------|
-| Rust client binary | `~/.cargo/bin/nebu-ctx` | ✅ installed v0.5.2 |
+| Rust client binary | `~/.cargo/bin/nebu-ctx` | ✅ installed v0.5.3 |
 | Fish shell hook | `~/.nebu-ctx/shell-hook.fish` | ✅ active (`nebu-ctx: ON`) |
 | Copilot CLI MCP config | `~/.copilot/mcp-config.json` | ✅ wired, all tools auto-approved |
 | VS Code MCP config | `~/.config/Code/User/mcp.json` | ✅ wired |
@@ -181,7 +181,7 @@ The `publish-crate` job in `release.yml` requires a `CARGO_REGISTRY_TOKEN` GitHu
    - Name: `CARGO_REGISTRY_TOKEN`
    - Value: the token from step 1.
 
-Without this secret, the publish step will fail (the build and release steps will still succeed).
+Without this secret, or if the version is already published, the `publish-crate` job will fail and the overall workflow run will show as failed. The GitHub release assets (binaries) are published by the `release` job before `publish-crate` runs, so binaries will still be available.
 
 ```bash
 # Rust client

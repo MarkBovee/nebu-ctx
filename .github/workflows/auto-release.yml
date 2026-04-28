@@ -18,7 +18,6 @@ jobs:
   auto-release:
     runs-on: ubuntu-latest
     permissions:
-      actions: write
       contents: write
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +42,7 @@ jobs:
         run: |
           CARGO_VERSION=$(grep '^version = ' client/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           ADDON_VERSION=$(grep '^version:' homeassistant/config.yaml | head -1 | sed 's/version: *"\(.*\)"/\1/')
-          TOOL_VERSION=$(grep 'Current = ' server/src/NebuCtx.Application/ToolRegistry.cs | head -1 | sed 's/.*Current = "\(.*\)".*/\1/')
+          TOOL_VERSION=$(grep 'public const string Current = ' server/src/NebuCtx.Application/ToolRegistry.cs | head -1 | sed 's/.*Current = "\(.*\)".*/\1/')
           if [ "$CARGO_VERSION" != "$ADDON_VERSION" ]; then
             echo "client/Cargo.toml version ($CARGO_VERSION) does not match homeassistant/config.yaml ($ADDON_VERSION)" >&2
             exit 1
@@ -75,13 +74,6 @@ jobs:
         run: |
           git tag "${{ steps.version.outputs.tag }}"
           git push origin "${{ steps.version.outputs.tag }}"
-
-      - name: Trigger release build
-        if: steps.check.outputs.exists == 'false'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh workflow run release.yml --repo MarkBovee/nebu-ctx -f version="${{ steps.version.outputs.tag }}"
 
       - name: Cleanup old releases
         if: steps.check.outputs.exists == 'false'
