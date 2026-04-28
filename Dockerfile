@@ -1,5 +1,6 @@
-# Local development Dockerfile — builds from the committed server/dist/linux payload.
-# Use homeassistant/Dockerfile for HA addon builds (self-contained, fetches dist via git).
+# Local development Dockerfile — fast build using committed server/dist/linux payload (COPY).
+# For production/HA smoke tests use: ADDON_DOCKERFILE=homeassistant/Dockerfile bash tests/local-addon-test.sh
+# homeassistant/Dockerfile is self-contained (git sparse-checkout) and is what HA Supervisor builds.
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
 
 RUN apk add --no-cache \

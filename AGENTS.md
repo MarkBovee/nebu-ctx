@@ -94,14 +94,21 @@ dotnet test server/NebuCtx.slnx
 bash tests/local-server-cli-test.sh
 ```
 
-For add-on validation:
+For add-on validation (tests the actual HA Dockerfile — requires latest changes pushed to main):
 
 ```bash
 bash scripts/server/refresh-dist.sh
 bash tests/local-addon-test.sh
 ```
 
-For the standalone container (local dev):
+For fast local dev smoke (uses COPY from local dist, no push needed):
+
+```bash
+bash scripts/server/refresh-dist.sh
+ADDON_DOCKERFILE=Dockerfile bash tests/local-addon-test.sh
+```
+
+To build the standalone container for local dev:
 
 ```bash
 bash scripts/server/refresh-dist.sh

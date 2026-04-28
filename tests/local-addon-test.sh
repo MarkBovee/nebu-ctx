@@ -10,7 +10,7 @@ eval "$(parse_database_url_exports "$DATABASE_URL")"
 
 CONTAINER_TOOL="$(detect_container_tool)"
 IMAGE_NAME="${IMAGE_NAME:-nebu-ctx-addon-smoke:local}"
-ADDON_DOCKERFILE="${ADDON_DOCKERFILE:-Dockerfile}"
+ADDON_DOCKERFILE="${ADDON_DOCKERFILE:-homeassistant/Dockerfile}"
 HOST_DASHBOARD_PORT="${HOST_DASHBOARD_PORT:-3333}"
 HOST_MCP_PORT="${HOST_MCP_PORT:-4242}"
 CONTAINER_NAME="${CONTAINER_NAME:-nebu-ctx-addon-smoke}"
