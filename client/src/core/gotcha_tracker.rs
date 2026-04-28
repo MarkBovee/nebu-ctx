@@ -966,7 +966,7 @@ pub fn relevance_score(gotcha: &Gotcha, files_touched: &[String]) -> f32 {
 // ---------------------------------------------------------------------------
 
 pub fn load_universal_gotchas() -> Vec<Gotcha> {
-    let dir = match crate::core::data_dir::lean_ctx_data_dir() {
+    let dir = match crate::core::data_dir::nebu_ctx_data_dir() {
         Ok(d) => d,
         Err(_) => return Vec::new(),
     };
@@ -979,7 +979,7 @@ pub fn load_universal_gotchas() -> Vec<Gotcha> {
 }
 
 pub fn save_universal_gotchas(gotchas: &[Gotcha]) -> Result<(), String> {
-    let dir = crate::core::data_dir::lean_ctx_data_dir()?;
+    let dir = crate::core::data_dir::nebu_ctx_data_dir()?;
     let path = dir.join("universal-gotchas.json");
     let tmp = path.with_extension("tmp");
     let json = serde_json::to_string_pretty(gotchas).map_err(|e| e.to_string())?;
@@ -993,7 +993,7 @@ pub fn save_universal_gotchas(gotchas: &[Gotcha]) -> Result<(), String> {
 // ---------------------------------------------------------------------------
 
 fn gotcha_path(project_hash: &str) -> PathBuf {
-    crate::core::data_dir::lean_ctx_data_dir()
+    crate::core::data_dir::nebu_ctx_data_dir()
         .unwrap_or_else(|_| PathBuf::from("."))
         .join("knowledge")
         .join(project_hash)

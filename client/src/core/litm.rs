@@ -30,7 +30,7 @@ impl LitmProfile {
     pub const DEFAULT: Self = Self::GPT;
 
     pub fn from_client_name(client: &str) -> Self {
-        if let Ok(override_val) = std::env::var("LEAN_CTX_LITM_PROFILE") {
+        if let Ok(override_val) = std::env::var("NEBU_CTX_LITM_PROFILE") {
             return Self::from_name(&override_val);
         }
         let lower = client.to_lowercase();

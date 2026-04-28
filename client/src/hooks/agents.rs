@@ -149,7 +149,7 @@ fn install_claude_rules_file(home: &std::path::Path) {
         if existing.contains(crate::rules_inject::RULES_VERSION_STR) {
             continue;
         }
-        if existing.contains("<!-- lean-ctx-rules-") {
+        if existing.contains("<!-- nebu-ctx-rules-") {
             write_file(&rules_path, desired);
         }
     }
@@ -161,12 +161,12 @@ pub(super) fn install_claude_hook_scripts(home: &std::path::Path) {
 
     let binary = resolve_binary_path();
 
-    let rewrite_path = hooks_dir.join("lean-ctx-rewrite.sh");
+    let rewrite_path = hooks_dir.join("nebu-ctx-rewrite.sh");
     let rewrite_script = generate_rewrite_script(&resolve_binary_path_for_bash());
     write_file(&rewrite_path, &rewrite_script);
     make_executable(&rewrite_path);
 
-    let redirect_path = hooks_dir.join("lean-ctx-redirect.sh");
+    let redirect_path = hooks_dir.join("nebu-ctx-redirect.sh");
     write_file(&redirect_path, REDIRECT_SCRIPT_CLAUDE);
     make_executable(&redirect_path);
 
@@ -178,7 +178,7 @@ pub(super) fn install_claude_hook_scripts(home: &std::path::Path) {
         }
     };
 
-    let rewrite_native = hooks_dir.join("lean-ctx-rewrite-native");
+    let rewrite_native = hooks_dir.join("nebu-ctx-rewrite-native");
     write_file(
         &rewrite_native,
         &format!(
@@ -188,7 +188,7 @@ pub(super) fn install_claude_hook_scripts(home: &std::path::Path) {
     );
     make_executable(&rewrite_native);
 
-    let redirect_native = hooks_dir.join("lean-ctx-redirect-native");
+    let redirect_native = hooks_dir.join("nebu-ctx-redirect-native");
     write_file(
         &redirect_native,
         &format!(
@@ -217,8 +217,8 @@ pub(super) fn install_claude_hook_config(home: &std::path::Path) {
 
     let needs_update =
         !settings_content.contains("hook rewrite") || !settings_content.contains("hook redirect");
-    let has_old_hooks = settings_content.contains("lean-ctx-rewrite.sh")
-        || settings_content.contains("lean-ctx-redirect.sh");
+    let has_old_hooks = settings_content.contains("nebu-ctx-rewrite.sh")
+        || settings_content.contains("nebu-ctx-redirect.sh");
 
     if !needs_update && !has_old_hooks {
         return;
@@ -333,11 +333,11 @@ pub fn install_cursor_hook(global: bool) {
     if !skip_project {
         let rules_dir = PathBuf::from(".cursor").join("rules");
         let _ = std::fs::create_dir_all(&rules_dir);
-        let rule_path = rules_dir.join("lean-ctx.mdc");
+        let rule_path = rules_dir.join("nebu-ctx.mdc");
         if !rule_path.exists() {
-            let rule_content = include_str!("../templates/lean-ctx.mdc");
+            let rule_content = include_str!("../templates/nebu-ctx.mdc");
             write_file(&rule_path, rule_content);
-            println!("Created .cursor/rules/lean-ctx.mdc in current project.");
+            println!("Created .cursor/rules/nebu-ctx.mdc in current project.");
         } else {
             println!("Cursor rule already exists.");
         }
@@ -350,17 +350,17 @@ pub fn install_cursor_hook(global: bool) {
 
 pub(super) fn install_cursor_hook_scripts(home: &std::path::Path) {
     let hooks_dir = home.join(".cursor").join("hooks");
-    install_standard_hook_scripts(&hooks_dir, "lean-ctx-rewrite.sh", "lean-ctx-redirect.sh");
+    install_standard_hook_scripts(&hooks_dir, "nebu-ctx-rewrite.sh", "nebu-ctx-redirect.sh");
 
     let native_binary = resolve_binary_path();
-    let rewrite_native = hooks_dir.join("lean-ctx-rewrite-native");
+    let rewrite_native = hooks_dir.join("nebu-ctx-rewrite-native");
     write_file(
         &rewrite_native,
         &format!("#!/bin/sh\nexec {} hook rewrite\n", native_binary),
     );
     make_executable(&rewrite_native);
 
-    let redirect_native = hooks_dir.join("lean-ctx-redirect-native");
+    let redirect_native = hooks_dir.join("nebu-ctx-redirect-native");
     write_file(
         &redirect_native,
         &format!("#!/bin/sh\nexec {} hook redirect\n", native_binary),
@@ -469,8 +469,8 @@ pub(super) fn install_gemini_hook_scripts(home: &std::path::Path) {
     let hooks_dir = home.join(".gemini").join("hooks");
     install_standard_hook_scripts(
         &hooks_dir,
-        "lean-ctx-rewrite-gemini.sh",
-        "lean-ctx-redirect-gemini.sh",
+        "nebu-ctx-rewrite-gemini.sh",
+        "nebu-ctx-redirect-gemini.sh",
     );
 }
 
@@ -605,7 +605,7 @@ fn install_codex_hook_config(home: &std::path::Path) -> bool {
         );
     }
 
-    let rewrite_path = codex_dir.join("hooks").join("lean-ctx-rewrite-codex.sh");
+    let rewrite_path = codex_dir.join("hooks").join("nebu-ctx-rewrite-codex.sh");
     if rewrite_path.exists() && std::fs::remove_file(&rewrite_path).is_ok() {
         changed = true;
     }
@@ -647,7 +647,7 @@ pub(super) fn install_cline_rules(global: bool) {
 
     let binary = resolve_binary_path();
     let rules = format!(
-        r#"# lean-ctx Shell Optimization
+        r#"# nebu-ctx Shell Optimization
 # Prefix all shell commands with `{binary} -c` for 60-90% token savings.
 
 When running shell commands, always prefix them with `{binary} -c` to compress output. For example:
@@ -681,7 +681,7 @@ fn prepare_project_rules_path(global: bool, file_name: &str) -> Option<PathBuf> 
     let rules_path = PathBuf::from(file_name);
     if rules_path.exists() {
         let content = std::fs::read_to_string(&rules_path).unwrap_or_default();
-        if content.contains("lean-ctx") {
+        if content.contains("nebu-ctx") || content.contains("lean-ctx") {
             println!("{file_name} already configured.");
             return None;
         }
@@ -702,16 +702,16 @@ pub(super) fn install_pi_hook(global: bool) {
         println!();
     }
 
-    println!("Installing pi-lean-ctx Pi Package...");
+    println!("Installing pi-nebu-ctx Pi Package...");
     println!();
 
     let install_result = std::process::Command::new("pi")
-        .args(["install", "npm:pi-lean-ctx"])
+        .args(["install", "npm:pi-nebu-ctx"])
         .status();
 
     match install_result {
         Ok(status) if status.success() => {
-            println!("Installed pi-lean-ctx Pi Package.");
+            println!("Installed pi-nebu-ctx Pi Package.");
         }
         _ => {
             println!("Could not auto-install pi-lean-ctx. Install manually:");
@@ -768,7 +768,7 @@ fn write_pi_mcp_config() {
             Ok(c) => c,
             Err(_) => return,
         };
-        if content.contains("lean-ctx") {
+        if content.contains("nebu-ctx") || content.contains("lean-ctx") {
             println!("  \x1b[32m✓\x1b[0m Pi MCP config already contains lean-ctx");
             return;
         }
@@ -907,10 +907,10 @@ fn install_copilot_pretooluse_hook(global: bool) {
 }
 
 fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
-    let data_dir = crate::core::data_dir::lean_ctx_data_dir()
+    let data_dir = crate::core::data_dir::nebu_ctx_data_dir()
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
-    let desired = serde_json::json!({ "type": "stdio", "command": binary, "args": [], "env": { "LEAN_CTX_DATA_DIR": data_dir } });
+    let desired = serde_json::json!({ "type": "stdio", "command": binary, "args": [], "env": { "NEBU_CTX_DATA_DIR": data_dir } });
     if mcp_path.exists() {
         let content = std::fs::read_to_string(mcp_path).unwrap_or_default();
         match serde_json::from_str::<serde_json::Value>(&content) {
@@ -949,7 +949,7 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
         let _ = std::fs::create_dir_all(parent);
     }
 
-    let data_dir = crate::core::data_dir::lean_ctx_data_dir()
+    let data_dir = crate::core::data_dir::nebu_ctx_data_dir()
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let config = serde_json::json!({
@@ -958,7 +958,7 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
                 "type": "stdio",
                 "command": binary,
                 "args": [],
-                "env": { "LEAN_CTX_DATA_DIR": data_dir }
+                "env": { "NEBU_CTX_DATA_DIR": data_dir }
             }
         }
     });
@@ -967,7 +967,7 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
         mcp_path,
         &serde_json::to_string_pretty(&config).unwrap_or_default(),
     );
-    println!("  \x1b[32m✓\x1b[0m Created {label} with lean-ctx MCP server");
+    println!("  \x1b[32m✓\x1b[0m Created {label} with nebu-ctx MCP server");
 }
 
 pub(super) fn install_amp_hook() {
@@ -980,12 +980,12 @@ pub(super) fn install_amp_hook() {
         let _ = std::fs::create_dir_all(parent);
     }
 
-    let data_dir = crate::core::data_dir::lean_ctx_data_dir()
+    let data_dir = crate::core::data_dir::nebu_ctx_data_dir()
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let entry = serde_json::json!({
         "command": binary,
-        "env": { "LEAN_CTX_DATA_DIR": data_dir }
+        "env": { "NEBU_CTX_DATA_DIR": data_dir }
     });
     install_named_json_server("Amp", display_path, &config_path, "amp.mcpServers", entry);
 }
@@ -1001,7 +1001,7 @@ pub(super) fn install_jetbrains_hook() {
         "command": binary,
         "args": [],
         "env": {
-            "LEAN_CTX_DATA_DIR": crate::core::data_dir::lean_ctx_data_dir()
+            "NEBU_CTX_DATA_DIR": crate::core::data_dir::nebu_ctx_data_dir()
                 .map(|d| d.to_string_lossy().to_string())
                 .unwrap_or_default()
         }
@@ -1009,7 +1009,7 @@ pub(super) fn install_jetbrains_hook() {
 
     if config_path.exists() {
         let content = std::fs::read_to_string(&config_path).unwrap_or_default();
-        if content.contains("lean-ctx") {
+        if content.contains("nebu-ctx") || content.contains("lean-ctx") {
             println!("JetBrains MCP already configured at {display_path}");
             return;
         }
@@ -1050,19 +1050,19 @@ pub(super) fn install_opencode_hook() {
         let _ = std::fs::create_dir_all(parent);
     }
 
-    let data_dir = crate::core::data_dir::lean_ctx_data_dir()
+    let data_dir = crate::core::data_dir::nebu_ctx_data_dir()
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let desired = serde_json::json!({
         "type": "local",
         "command": [&binary],
         "enabled": true,
-        "environment": { "LEAN_CTX_DATA_DIR": data_dir }
+        "environment": { "NEBU_CTX_DATA_DIR": data_dir }
     });
 
     if config_path.exists() {
         let content = std::fs::read_to_string(&config_path).unwrap_or_default();
-        if content.contains("lean-ctx") {
+        if content.contains("nebu-ctx") || content.contains("lean-ctx") {
             println!("OpenCode MCP already configured at {display_path}");
         } else if let Ok(mut json) = serde_json::from_str::<serde_json::Value>(&content) {
             if let Some(obj) = json.as_object_mut() {
@@ -1123,7 +1123,7 @@ pub(super) fn install_crush_hook() {
 
     if config_path.exists() {
         let content = std::fs::read_to_string(&config_path).unwrap_or_default();
-        if content.contains("lean-ctx") {
+        if content.contains("nebu-ctx") || content.contains("lean-ctx") {
             println!("Crush MCP already configured at {display_path}");
             return;
         }
@@ -1174,18 +1174,18 @@ pub(super) fn install_kiro_hook() {
 
     let cwd = std::env::current_dir().unwrap_or_default();
     let steering_dir = cwd.join(".kiro").join("steering");
-    let steering_file = steering_dir.join("lean-ctx.md");
+    let steering_file = steering_dir.join("nebu-ctx.md");
 
     if steering_file.exists()
         && std::fs::read_to_string(&steering_file)
             .unwrap_or_default()
             .contains("lean-ctx")
     {
-        println!("  Kiro steering file already exists at .kiro/steering/lean-ctx.md");
+        println!("  Kiro steering file already exists at .kiro/steering/nebu-ctx.md");
     } else {
         let _ = std::fs::create_dir_all(&steering_dir);
         write_file(&steering_file, KIRO_STEERING_TEMPLATE);
-        println!("  \x1b[32m✓\x1b[0m Created .kiro/steering/lean-ctx.md (Kiro will now prefer lean-ctx tools)");
+        println!("  \x1b[32m✓\x1b[0m Created .kiro/steering/nebu-ctx.md (Kiro will now prefer nebu-ctx tools)");
     }
 }
 
@@ -1309,7 +1309,7 @@ fn install_project_hermes_rules() {
 const HERMES_RULES_TEMPLATE: &str = "\
 # lean-ctx — Context Engineering Layer
 
-PREFER lean-ctx MCP tools over native equivalents for token savings:
+PREFER nebu-ctx MCP tools over native equivalents for token savings:
 
 | PREFER | OVER | Why |
 |--------|------|-----|
@@ -1342,7 +1342,7 @@ mod tests {
                         "matcher": "Bash",
                         "hooks": [{
                             "type": "command",
-                            "command": "/opt/homebrew/bin/lean-ctx hook rewrite",
+                            "command": "/opt/homebrew/bin/nebu-ctx hook rewrite",
                             "timeout": 15
                         }]
                     },
@@ -1360,7 +1360,7 @@ mod tests {
                         "matcher": "startup|resume|clear",
                         "hooks": [{
                             "type": "command",
-                            "command": "lean-ctx hook codex-session-start",
+                            "command": "nebu-ctx hook codex-session-start",
                             "timeout": 15
                         }]
                     }
@@ -1380,8 +1380,8 @@ mod tests {
 
         let changed = upsert_lean_ctx_codex_hook_entries(
             &mut input,
-            "lean-ctx hook codex-session-start",
-            "lean-ctx hook codex-pretooluse",
+            "nebu-ctx hook codex-session-start",
+            "nebu-ctx hook codex-pretooluse",
         );
         assert!(changed, "legacy hooks should be migrated");
 
@@ -1395,11 +1395,11 @@ mod tests {
         );
         assert_eq!(
             pre_tool_use[1]["hooks"][0]["command"].as_str(),
-            Some("lean-ctx hook codex-pretooluse")
+            Some("nebu-ctx hook codex-pretooluse")
         );
         assert_eq!(
             input["hooks"]["SessionStart"][0]["hooks"][0]["command"].as_str(),
-            Some("lean-ctx hook codex-session-start")
+            Some("nebu-ctx hook codex-session-start")
         );
         assert_eq!(
             input["hooks"]["PostToolUse"][0]["hooks"][0]["command"].as_str(),
@@ -1429,7 +1429,7 @@ mod tests {
             "matcher": "startup|resume|clear",
             "hooks": [{
                 "type": "command",
-                "command": "/opt/homebrew/bin/lean-ctx hook codex-session-start",
+                "command": "/opt/homebrew/bin/nebu-ctx hook codex-session-start",
                 "timeout": 15
             }]
         });

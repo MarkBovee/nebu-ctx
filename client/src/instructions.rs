@@ -1,7 +1,7 @@
 use crate::tools::CrpMode;
 
 /// Claude Code truncates MCP server instructions at 2048 characters.
-/// Full instructions are installed as `~/.claude/rules/lean-ctx.md` instead.
+/// Full instructions are installed as `~/.claude/rules/nebu-ctx.md` instead.
 const CLAUDE_CODE_INSTRUCTION_CAP: usize = 2048;
 
 pub fn build_instructions(crp_mode: CrpMode) -> String {
@@ -22,7 +22,7 @@ fn is_claude_code_client(client_name: &str) -> bool {
 
 fn build_claude_code_instructions() -> String {
     let instr = "\
-ALWAYS use lean-ctx MCP tools instead of native equivalents.
+ALWAYS use nebu-ctx MCP tools instead of native equivalents.
 
 Tool mapping (MANDATORY):
 • Read/cat/head/tail -> ctx_read(path, mode)
@@ -47,7 +47,7 @@ CEP: 1.ACT FIRST 2.DELTA ONLY 3.STRUCTURED(+/-/~) 4.ONE LINE 5.QUALITY
 Prefer: ctx_read>Read | ctx_shell>Shell | ctx_search>Grep | ctx_tree>ls
 Edit: native Edit/StrReplace preferred, ctx_edit if Edit unavailable.
 Never echo tool output. Never narrate. Show only changed code.
-Full instructions at ~/.claude/CLAUDE.md (imports rules/lean-ctx.md)";
+Full instructions at ~/.claude/CLAUDE.md (imports rules/nebu-ctx.md)";
 
     debug_assert!(
         instr.len() <= CLAUDE_CODE_INSTRUCTION_CAP,
@@ -123,7 +123,7 @@ fn build_full_instructions(crp_mode: CrpMode, client_name: &str) -> String {
     };
 
     let mut base = format!("\
-CRITICAL: ALWAYS use lean-ctx MCP tools instead of native equivalents for token savings.\n\
+CRITICAL: ALWAYS use nebu-ctx MCP tools instead of native equivalents for token savings.\n\
 \n\
 lean-ctx MCP — MANDATORY tool mapping:\n\
 • Read/cat/head/tail -> ctx_read(path, mode)  [NEVER use native Read]\n\
@@ -252,10 +252,10 @@ OUTPUT EFFICIENCY:\n\
 }
 
 fn should_use_unified(client_name: &str) -> bool {
-    if std::env::var("LEAN_CTX_FULL_TOOLS").is_ok() {
+    if std::env::var("NEBU_CTX_FULL_TOOLS").is_ok() {
         return false;
     }
-    if std::env::var("LEAN_CTX_UNIFIED").is_ok() {
+    if std::env::var("NEBU_CTX_UNIFIED").is_ok() {
         return true;
     }
     let _ = client_name;

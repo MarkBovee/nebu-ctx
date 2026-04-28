@@ -24,15 +24,15 @@ pub fn run() {
                 } else {
                     shell::join_command(cmd_args)
                 };
-                if std::env::var("LEAN_CTX_ACTIVE").is_ok()
-                    || std::env::var("LEAN_CTX_DISABLED").is_ok()
+                if std::env::var("NEBU_CTX_ACTIVE").is_ok()
+                    || std::env::var("NEBU_CTX_DISABLED").is_ok()
                 {
                     passthrough(&command);
                 }
                 if raw {
-                    std::env::set_var("LEAN_CTX_RAW", "1");
+                    std::env::set_var("NEBU_CTX_RAW", "1");
                 } else {
-                    std::env::set_var("LEAN_CTX_COMPRESS", "1");
+                    std::env::set_var("NEBU_CTX_COMPRESS", "1");
                 }
                 let code = shell::exec(&command);
                 core::stats::flush();
@@ -45,8 +45,8 @@ pub fn run() {
                 } else {
                     shell::join_command(cmd_args)
                 };
-                if std::env::var("LEAN_CTX_ACTIVE").is_ok()
-                    || std::env::var("LEAN_CTX_DISABLED").is_ok()
+                if std::env::var("NEBU_CTX_ACTIVE").is_ok()
+                    || std::env::var("NEBU_CTX_DISABLED").is_ok()
                 {
                     passthrough(&command);
                 }
@@ -351,7 +351,7 @@ pub fn run() {
                     }
 
                     if cfg.auth_token.is_none() {
-                        if let Ok(v) = std::env::var("LEAN_CTX_HTTP_TOKEN") {
+                        if let Ok(v) = std::env::var("NEBU_CTX_HTTP_TOKEN") {
                             if !v.trim().is_empty() {
                                 cfg.auth_token = Some(v);
                             }
@@ -666,7 +666,7 @@ pub fn run() {
                     "codex-session-start" => hook_handlers::handle_codex_session_start(),
                     "rewrite-inline" => hook_handlers::handle_rewrite_inline(),
                     _ => {
-                        eprintln!("Usage: lean-ctx hook <rewrite|redirect|copilot|codex-pretooluse|codex-session-start|rewrite-inline>");
+                        eprintln!("Usage: nebu-ctx hook <rewrite|redirect|copilot|codex-pretooluse|codex-session-start|rewrite-inline>");
                         eprintln!("  Internal commands used by agent hooks (Claude, Cursor, Copilot, etc.)");
                         std::process::exit(1);
                     }
@@ -723,7 +723,7 @@ pub fn run() {
             }
             "mcp" => {}
             _ => {
-                eprintln!("lean-ctx: unknown command '{}'\n", args[1]);
+                eprintln!("nebu-ctx: unknown command '{}'\n", args[1]);
                 print_help();
                 std::process::exit(1);
             }
@@ -731,7 +731,7 @@ pub fn run() {
     }
 
     if let Err(e) = run_mcp_server() {
-        eprintln!("lean-ctx: {e}");
+        eprintln!("nebu-ctx: {e}");
         std::process::exit(1);
     }
 }
@@ -741,7 +741,7 @@ fn passthrough(command: &str) -> ! {
     let status = std::process::Command::new(&shell)
         .arg(&flag)
         .arg(command)
-        .env("LEAN_CTX_ACTIVE", "1")
+        .env("NEBU_CTX_ACTIVE", "1")
         .status()
         .map(|s| s.code().unwrap_or(1))
         .unwrap_or(127);
@@ -758,7 +758,7 @@ fn run_mcp_server() -> Result<()> {
     use rmcp::ServiceExt;
     use tracing_subscriber::EnvFilter;
 
-    std::env::set_var("LEAN_CTX_MCP_SERVER", "1");
+    std::env::set_var("NEBU_CTX_MCP_SERVER", "1");
 
     let rt = tokio::runtime::Runtime::new()?;
     rt.block_on(async {
@@ -827,7 +827,7 @@ COMMANDS:
     discover                       Find uncompressed commands in shell history
     filter [list|validate|init]    Manage custom compression filters (~/.lean-ctx/filters/)
     session                        Show adoption statistics
-    config                         Show/edit configuration (~/.lean-ctx/config.toml)
+    config                         Show/edit configuration (~/.nebu-ctx/config.toml)
     theme [list|set|export|import] Customize terminal colors and themes
     tee [list|clear|show <file>|last] Manage output tee files (~/.lean-ctx/tee/)
     terse [off|lite|full|ultra]    Set agent output verbosity (saves 25-65% output tokens)
@@ -868,11 +868,11 @@ READ MODES:
     lines:N-M                      Specific line ranges (e.g. lines:10-50,80)
 
 ENVIRONMENT:
-    LEAN_CTX_DISABLED=1            Bypass ALL compression + prevent shell hook from loading
-    LEAN_CTX_ENABLED=0             Prevent shell hook auto-start (lean-ctx-on still works)
-    LEAN_CTX_RAW=1                 Same as --raw for current command
-    LEAN_CTX_AUTONOMY=false        Disable autonomous features
-    LEAN_CTX_COMPRESS=1            Force compression (even for excluded commands)
+    NEBU_CTX_DISABLED=1            Bypass ALL compression + prevent shell hook from loading
+    NEBU_CTX_ENABLED=0             Prevent shell hook auto-start (nebu-ctx-on still works)
+    NEBU_CTX_RAW=1                 Same as --raw for current command
+    NEBU_CTX_AUTONOMY=false        Disable autonomous features
+    NEBU_CTX_COMPRESS=1            Force compression (even for excluded commands)
 
 OPTIONS:
     --version, -V                  Show version
@@ -891,17 +891,17 @@ EXAMPLES:
         nebu-ctx setup                 One-command setup (shell + editors + verify)
         nebu-ctx bootstrap             Non-interactive setup + fix (zero-config)
         nebu-ctx bootstrap --json      Machine-readable bootstrap report
-        nebu-ctx init --global         Install shell aliases (includes lean-ctx-on/off/mode/status)
-    lean-ctx-on                    Enable shell aliases in track mode (full output + stats)
-    lean-ctx-off                   Disable all shell aliases
+        nebu-ctx init --global         Install shell aliases (includes nebu-ctx-on/off/mode/status)
+    nebu-ctx-on                    Enable shell aliases in track mode (full output + stats)
+    nebu-ctx-off                   Disable all shell aliases
     lean-ctx-mode track            Track mode: full output, stats recorded (default)
     lean-ctx-mode compress         Compress mode: all output compressed (power users)
-    lean-ctx-mode off              Same as lean-ctx-off
-    lean-ctx-status                Show whether compression is active
+    lean-ctx-mode off              Same as nebu-ctx-off
+    nebu-ctx-status                Show whether compression is active
     lean-ctx init --agent pi       Install Pi Coding Agent extension
-    lean-ctx doctor                Check PATH, config, MCP, and local edge health
-    lean-ctx doctor --fix --json   Repair + machine-readable report
-    lean-ctx status --json         Machine-readable current status
+    nebu-ctx doctor                Check PATH, config, MCP, and local edge health
+    nebu-ctx doctor --fix --json   Repair + machine-readable report
+    nebu-ctx status --json         Machine-readable current status
     lean-ctx read src/main.rs -m map
     lean-ctx grep \"pub fn\" src/
     lean-ctx deps .
@@ -913,9 +913,9 @@ CLOUD:
     cloud disconnect               Remove the saved cloud connection
 
 TROUBLESHOOTING:
-    Commands broken?     lean-ctx-off             (fixes current session)
+    Commands broken?     nebu-ctx-off             (fixes current session)
     Permanent fix?       nebu-ctx uninstall       (removes all hooks)
-    Manual fix?          Edit ~/.zshrc, remove the \"lean-ctx shell hook\" block
+    Manual fix?          Edit ~/.zshrc, remove the \"nebu-ctx shell hook\" block
     Binary missing?      Aliases auto-fallback to original commands (safe)
     Preview init?        nebu-ctx init --global --dry-run
 

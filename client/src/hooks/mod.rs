@@ -9,8 +9,8 @@ use support::{
 };
 
 fn mcp_server_quiet_mode() -> bool {
-    std::env::var_os("LEAN_CTX_MCP_SERVER").is_some()
-        || matches!(std::env::var("LEAN_CTX_QUIET"), Ok(value) if value.trim() == "1")
+    std::env::var_os("NEBU_CTX_MCP_SERVER").is_some()
+        || matches!(std::env::var("NEBU_CTX_QUIET"), Ok(value) if value.trim() == "1")
 }
 
 /// Silently refresh all hook scripts for agents that are already configured.
@@ -22,40 +22,40 @@ pub fn refresh_installed_hooks() {
     };
 
     let claude_dir = crate::setup::claude_config_dir(&home);
-    let claude_hooks = claude_dir.join("hooks/lean-ctx-rewrite.sh").exists()
+    let claude_hooks = claude_dir.join("hooks/nebu-ctx-rewrite.sh").exists()
         || claude_dir.join("settings.json").exists()
             && std::fs::read_to_string(claude_dir.join("settings.json"))
                 .unwrap_or_default()
-                .contains("lean-ctx");
+                .contains("nebu-ctx");
 
     if claude_hooks {
         install_claude_hook_scripts(&home);
         install_claude_hook_config(&home);
     }
 
-    let cursor_hooks = home.join(".cursor/hooks/lean-ctx-rewrite.sh").exists()
+    let cursor_hooks = home.join(".cursor/hooks/nebu-ctx-rewrite.sh").exists()
         || home.join(".cursor/hooks.json").exists()
             && std::fs::read_to_string(home.join(".cursor/hooks.json"))
                 .unwrap_or_default()
-                .contains("lean-ctx");
+                .contains("nebu-ctx");
 
     if cursor_hooks {
         install_cursor_hook_scripts(&home);
         install_cursor_hook_config(&home);
     }
 
-    let gemini_rewrite = home.join(".gemini/hooks/lean-ctx-rewrite-gemini.sh");
-    let gemini_legacy = home.join(".gemini/hooks/lean-ctx-hook-gemini.sh");
+    let gemini_rewrite = home.join(".gemini/hooks/nebu-ctx-rewrite-gemini.sh");
+    let gemini_legacy = home.join(".gemini/hooks/nebu-ctx-hook-gemini.sh");
     if gemini_rewrite.exists() || gemini_legacy.exists() {
         install_gemini_hook_scripts(&home);
         install_gemini_hook_config(&home);
     }
 
-    let codex_hooks = home.join(".codex/hooks/lean-ctx-rewrite-codex.sh").exists()
+    let codex_hooks = home.join(".codex/hooks/nebu-ctx-rewrite-codex.sh").exists()
         || home.join(".codex/hooks.json").exists()
             && std::fs::read_to_string(home.join(".codex/hooks.json"))
                 .unwrap_or_default()
-                .contains("lean-ctx");
+                .contains("nebu-ctx");
 
     if codex_hooks {
         install_codex_hook();
@@ -64,7 +64,7 @@ pub fn refresh_installed_hooks() {
 
 fn resolve_binary_path() -> String {
     if is_lean_ctx_in_path() {
-        return "lean-ctx".to_string();
+        return "nebu-ctx".to_string();
     }
     crate::core::portable_binary::resolve_portable_binary()
 }
@@ -72,7 +72,7 @@ fn resolve_binary_path() -> String {
 fn is_lean_ctx_in_path() -> bool {
     let which_cmd = if cfg!(windows) { "where" } else { "which" };
     std::process::Command::new(which_cmd)
-        .arg("lean-ctx")
+        .arg("nebu-ctx")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .status()
@@ -136,10 +136,10 @@ pub fn generate_rewrite_script(binary: &str) -> String {
     let case_pattern = crate::rewrite_registry::bash_case_pattern();
     format!(
         r#"#!/usr/bin/env bash
-# lean-ctx PreToolUse hook — rewrites bash commands to lean-ctx equivalents
+# nebu-ctx PreToolUse hook — rewrites bash commands to nebu-ctx equivalents
 set -euo pipefail
 
-LEAN_CTX_BIN="{binary}"
+NEBU_CTX_BIN="{binary}"
 
 INPUT=$(cat)
 TOOL=$(echo "$INPUT" | grep -oE '"tool_name":"([^"\\]|\\.)*"' | head -1 | sed 's/^"tool_name":"//;s/"$//' | sed 's/\\"/"/g;s/\\\\/\\/g')
@@ -150,7 +150,7 @@ fi
 
 CMD=$(echo "$INPUT" | grep -oE '"command":"([^"\\]|\\.)*"' | head -1 | sed 's/^"command":"//;s/"$//' | sed 's/\\"/"/g;s/\\\\/\\/g')
 
-if [ -z "$CMD" ] || echo "$CMD" | grep -qE "^(lean-ctx |$LEAN_CTX_BIN )"; then
+if [ -z "$CMD" ] || echo "$CMD" | grep -qE "^(nebu-ctx |$NEBU_CTX_BIN )"; then
   exit 0
 fi
 
@@ -158,7 +158,7 @@ case "$CMD" in
   {case_pattern})
     # Shell-escape then JSON-escape (two passes)
     SHELL_ESC=$(printf '%s' "$CMD" | sed 's/\\/\\\\/g;s/"/\\"/g')
-    REWRITE="$LEAN_CTX_BIN -c \"$SHELL_ESC\""
+    REWRITE="$NEBU_CTX_BIN -c \"$SHELL_ESC\""
     JSON_CMD=$(printf '%s' "$REWRITE" | sed 's/\\/\\\\/g;s/"/\\"/g')
     printf '{{"hookSpecificOutput":{{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":{{"command":"%s"}}}}}}' "$JSON_CMD"
     ;;
@@ -172,16 +172,16 @@ pub fn generate_compact_rewrite_script(binary: &str) -> String {
     let case_pattern = crate::rewrite_registry::bash_case_pattern();
     format!(
         r#"#!/usr/bin/env bash
-# lean-ctx hook — rewrites shell commands
+# nebu-ctx hook — rewrites shell commands
 set -euo pipefail
-LEAN_CTX_BIN="{binary}"
+NEBU_CTX_BIN="{binary}"
 INPUT=$(cat)
 CMD=$(echo "$INPUT" | grep -oE '"command":"([^"\\]|\\.)*"' | head -1 | sed 's/^"command":"//;s/"$//' | sed 's/\\"/"/g;s/\\\\/\\/g' 2>/dev/null || echo "")
-if [ -z "$CMD" ] || echo "$CMD" | grep -qE "^(lean-ctx |$LEAN_CTX_BIN )"; then exit 0; fi
+if [ -z "$CMD" ] || echo "$CMD" | grep -qE "^(nebu-ctx |$NEBU_CTX_BIN )"; then exit 0; fi
 case "$CMD" in
   {case_pattern})
     SHELL_ESC=$(printf '%s' "$CMD" | sed 's/\\/\\\\/g;s/"/\\"/g')
-    REWRITE="$LEAN_CTX_BIN -c \"$SHELL_ESC\""
+    REWRITE="$NEBU_CTX_BIN -c \"$SHELL_ESC\""
     JSON_CMD=$(printf '%s' "$REWRITE" | sed 's/\\/\\\\/g;s/"/\\"/g')
     printf '{{"hookSpecificOutput":{{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":{{"command":"%s"}}}}}}' "$JSON_CMD" ;;
   *) exit 0 ;;
@@ -191,14 +191,14 @@ esac
 }
 
 const REDIRECT_SCRIPT_CLAUDE: &str = r#"#!/usr/bin/env bash
-# lean-ctx PreToolUse hook — all native tools pass through
+# nebu-ctx PreToolUse hook — all native tools pass through
 # Read/Grep/ListFiles are allowed so Edit (which requires native Read) works.
 # The MCP instructions guide the AI to prefer ctx_read/ctx_search/ctx_tree.
 exit 0
 "#;
 
 const REDIRECT_SCRIPT_GENERIC: &str = r#"#!/usr/bin/env bash
-# lean-ctx hook — all native tools pass through
+# nebu-ctx hook — all native tools pass through
 exit 0
 "#;
 
@@ -234,7 +234,7 @@ pub fn install_project_rules() {
     if !cursorrules.exists()
         || !std::fs::read_to_string(&cursorrules)
             .unwrap_or_default()
-            .contains("lean-ctx")
+            .contains("nebu-ctx")
     {
         let content = CURSORRULES_TEMPLATE;
         if cursorrules.exists() {
@@ -252,7 +252,7 @@ pub fn install_project_rules() {
     }
 
     let claude_rules_dir = cwd.join(".claude").join("rules");
-    let claude_rules_file = claude_rules_dir.join("lean-ctx.md");
+    let claude_rules_file = claude_rules_dir.join("nebu-ctx.md");
     if !claude_rules_file.exists()
         || !std::fs::read_to_string(&claude_rules_file)
             .unwrap_or_default()
@@ -263,7 +263,7 @@ pub fn install_project_rules() {
             &claude_rules_file,
             crate::rules_inject::rules_dedicated_markdown(),
         );
-        println!("Created .claude/rules/lean-ctx.md (Claude Code project rules).");
+        println!("Created .claude/rules/nebu-ctx.md (Claude Code project rules).");
     }
 
     install_claude_project_hooks(&cwd);
@@ -271,29 +271,29 @@ pub fn install_project_rules() {
     let kiro_dir = cwd.join(".kiro");
     if kiro_dir.exists() {
         let steering_dir = kiro_dir.join("steering");
-        let steering_file = steering_dir.join("lean-ctx.md");
+        let steering_file = steering_dir.join("nebu-ctx.md");
         if !steering_file.exists()
             || !std::fs::read_to_string(&steering_file)
                 .unwrap_or_default()
-                .contains("lean-ctx")
+                .contains("nebu-ctx")
         {
             let _ = std::fs::create_dir_all(&steering_dir);
             write_file(&steering_file, KIRO_STEERING_TEMPLATE);
-            println!("Created .kiro/steering/lean-ctx.md (Kiro steering).");
+            println!("Created .kiro/steering/nebu-ctx.md (Kiro steering).");
         }
     }
 }
 
-const PROJECT_LEAN_CTX_MD_MARKER: &str = "<!-- lean-ctx-owned: PROJECT-LEAN-CTX.md v1 -->";
-const PROJECT_LEAN_CTX_MD: &str = "LEAN-CTX.md";
+const PROJECT_NEBU_CTX_MD_MARKER: &str = "<!-- nebu-ctx-owned: PROJECT-NEBU-CTX.md v1 -->";
+const PROJECT_NEBU_CTX_MD: &str = "LEAN-CTX.md";
 const PROJECT_AGENTS_MD: &str = "AGENTS.md";
 const AGENTS_BLOCK_START: &str = "<!-- nebu-ctx -->";
 const AGENTS_BLOCK_END: &str = "<!-- /nebu-ctx -->";
 
 fn ensure_project_agents_integration(cwd: &std::path::Path) {
-    let lean_ctx_md = cwd.join(PROJECT_LEAN_CTX_MD);
+    let lean_ctx_md = cwd.join(PROJECT_NEBU_CTX_MD);
     let desired = format!(
-        "{PROJECT_LEAN_CTX_MD_MARKER}\n{}\n",
+        "{PROJECT_NEBU_CTX_MD_MARKER}\n{}\n",
         crate::rules_inject::rules_dedicated_markdown()
     );
 
@@ -301,7 +301,7 @@ fn ensure_project_agents_integration(cwd: &std::path::Path) {
         write_file(&lean_ctx_md, &desired);
     } else if std::fs::read_to_string(&lean_ctx_md)
         .unwrap_or_default()
-        .contains(PROJECT_LEAN_CTX_MD_MARKER)
+        .contains(PROJECT_NEBU_CTX_MD_MARKER)
     {
         let current = std::fs::read_to_string(&lean_ctx_md).unwrap_or_default();
         if !current.contains(crate::rules_inject::RULES_VERSION_STR) {
@@ -313,7 +313,7 @@ fn ensure_project_agents_integration(cwd: &std::path::Path) {
         "{AGENTS_BLOCK_START}\n\
 ## nebu-ctx\n\n\
 Prefer nebu-ctx MCP tools over native equivalents for token savings.\n\
-Full rules: @{PROJECT_LEAN_CTX_MD}\n\
+Full rules: @{PROJECT_NEBU_CTX_MD}\n\
 {AGENTS_BLOCK_END}\n"
     );
 
@@ -321,7 +321,7 @@ Full rules: @{PROJECT_LEAN_CTX_MD}\n\
     if !agents_md.exists() {
         let content = format!("# Agent Instructions\n\n{block}");
         write_file(&agents_md, &content);
-        println!("Created AGENTS.md in project root (lean-ctx reference only).");
+        println!("Created AGENTS.md in project root (nebu-ctx reference only).");
         return;
     }
 
@@ -334,7 +334,7 @@ Full rules: @{PROJECT_LEAN_CTX_MD}\n\
         return;
     }
 
-    if existing.contains("nebu-ctx") && existing.contains(PROJECT_LEAN_CTX_MD) {
+    if existing.contains("nebu-ctx") && existing.contains(PROJECT_NEBU_CTX_MD) {
         return;
     }
 
@@ -345,7 +345,7 @@ Full rules: @{PROJECT_LEAN_CTX_MD}\n\
     out.push('\n');
     out.push_str(&block);
     write_file(&agents_md, &out);
-    println!("Updated AGENTS.md (added lean-ctx reference block).");
+    println!("Updated AGENTS.md (added nebu-ctx reference block).");
 }
 
 fn replace_marked_block(content: &str, start: &str, end: &str, replacement: &str) -> String {
@@ -370,9 +370,9 @@ fn replace_marked_block(content: &str, start: &str, end: &str, replacement: &str
 }
 
 const CURSORRULES_TEMPLATE: &str = "\
-# lean-ctx — Context Engineering Layer
+# nebu-ctx — Context Engineering Layer
 
-PREFER lean-ctx MCP tools over native equivalents for token savings:
+PREFER nebu-ctx MCP tools over native equivalents for token savings:
 
 | PREFER | OVER | Why |
 |--------|------|-----|
@@ -391,9 +391,9 @@ pub const KIRO_STEERING_TEMPLATE: &str = "\
 inclusion: always
 ---
 
-# lean-ctx — Context Engineering Layer
+# nebu-ctx — Context Engineering Layer
 
-The workspace has the `lean-ctx` MCP server installed. You MUST prefer lean-ctx tools over native equivalents for token efficiency and caching.
+The workspace has the `nebu-ctx` MCP server installed. You MUST prefer nebu-ctx tools over native equivalents for token efficiency and caching.
 
 ## Mandatory Tool Preferences
 
@@ -407,7 +407,7 @@ The workspace has the `lean-ctx` MCP server installed. You MUST prefer lean-ctx 
 
 ## When to use native Kiro tools instead
 
-- `fsWrite` / `fsAppend` — always use native (lean-ctx doesn't write files)
+- `fsWrite` / `fsAppend` — always use native (nebu-ctx doesn't write files)
 - `strReplace` — always use native (precise string replacement)
 - `semanticRename` / `smartRelocate` — always use native (IDE integration)
 - `getDiagnostics` — always use native (language server diagnostics)
@@ -509,13 +509,13 @@ fn make_executable(path: &PathBuf) {
 fn make_executable(_path: &PathBuf) {}
 
 fn full_server_entry(binary: &str) -> serde_json::Value {
-    let data_dir = crate::core::data_dir::lean_ctx_data_dir()
+    let data_dir = crate::core::data_dir::nebu_ctx_data_dir()
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let auto_approve = crate::core::editor_registry::auto_approve_tools();
     serde_json::json!({
         "command": binary,
-        "env": { "LEAN_CTX_DATA_DIR": data_dir },
+        "env": { "NEBU_CTX_DATA_DIR": data_dir },
         "autoApprove": auto_approve
     })
 }
@@ -533,46 +533,46 @@ mod tests {
     #[test]
     fn bash_path_unix_unchanged() {
         assert_eq!(
-            to_bash_compatible_path("/usr/local/bin/lean-ctx"),
-            "/usr/local/bin/lean-ctx"
+            to_bash_compatible_path("/usr/local/bin/nebu-ctx"),
+            "/usr/local/bin/nebu-ctx"
         );
     }
 
     #[test]
     fn bash_path_home_unchanged() {
         assert_eq!(
-            to_bash_compatible_path("/home/user/.cargo/bin/lean-ctx"),
-            "/home/user/.cargo/bin/lean-ctx"
+            to_bash_compatible_path("/home/user/.cargo/bin/nebu-ctx"),
+            "/home/user/.cargo/bin/nebu-ctx"
         );
     }
 
     #[test]
     fn bash_path_windows_drive_converted() {
         assert_eq!(
-            to_bash_compatible_path("C:\\Users\\Fraser\\bin\\lean-ctx.exe"),
-            "/c/Users/Fraser/bin/lean-ctx.exe"
+            to_bash_compatible_path("C:\\Users\\Fraser\\bin\\nebu-ctx.exe"),
+            "/c/Users/Fraser/bin/nebu-ctx.exe"
         );
     }
 
     #[test]
     fn bash_path_windows_lowercase_drive() {
         assert_eq!(
-            to_bash_compatible_path("D:\\tools\\lean-ctx.exe"),
-            "/d/tools/lean-ctx.exe"
+            to_bash_compatible_path("D:\\tools\\nebu-ctx.exe"),
+            "/d/tools/nebu-ctx.exe"
         );
     }
 
     #[test]
     fn bash_path_windows_forward_slashes() {
         assert_eq!(
-            to_bash_compatible_path("C:/Users/Fraser/bin/lean-ctx.exe"),
-            "/c/Users/Fraser/bin/lean-ctx.exe"
+            to_bash_compatible_path("C:/Users/Fraser/bin/nebu-ctx.exe"),
+            "/c/Users/Fraser/bin/nebu-ctx.exe"
         );
     }
 
     #[test]
     fn bash_path_bare_name_unchanged() {
-        assert_eq!(to_bash_compatible_path("lean-ctx"), "lean-ctx");
+        assert_eq!(to_bash_compatible_path("nebu-ctx"), "nebu-ctx");
     }
 
     #[test]
@@ -667,11 +667,11 @@ mod tests {
                 "preToolUse": [
                     {
                         "matcher": "terminal_command",
-                        "command": "lean-ctx hook rewrite"
+                        "command": "nebu-ctx hook rewrite"
                     },
                     {
                         "matcher": "read_file|grep|search|list_files|list_directory",
-                        "command": "lean-ctx hook redirect"
+                        "command": "nebu-ctx hook redirect"
                     }
                 ]
             }
@@ -692,7 +692,7 @@ mod tests {
 
     #[test]
     fn cursor_hook_detects_old_format_needs_migration() {
-        let old_format = r#"{"hooks":[{"event":"preToolUse","command":"lean-ctx hook rewrite"}]}"#;
+        let old_format = r#"{"hooks":[{"event":"preToolUse","command":"nebu-ctx hook rewrite"}]}"#;
         let has_correct =
             old_format.contains("\"version\"") && old_format.contains("\"preToolUse\"");
         assert!(
@@ -703,7 +703,7 @@ mod tests {
 
     #[test]
     fn gemini_hook_config_has_type_command() {
-        let binary = "lean-ctx";
+        let binary = "nebu-ctx";
         let rewrite_cmd = format!("{binary} hook rewrite");
         let redirect_cmd = format!("{binary} hook redirect");
 
@@ -732,16 +732,16 @@ mod tests {
 
         let first_hook = &before_tool[0]["hooks"][0];
         assert_eq!(first_hook["type"], "command");
-        assert_eq!(first_hook["command"], "lean-ctx hook rewrite");
+        assert_eq!(first_hook["command"], "nebu-ctx hook rewrite");
 
         let second_hook = &before_tool[1]["hooks"][0];
         assert_eq!(second_hook["type"], "command");
-        assert_eq!(second_hook["command"], "lean-ctx hook redirect");
+        assert_eq!(second_hook["command"], "nebu-ctx hook redirect");
     }
 
     #[test]
     fn gemini_hook_old_format_detected() {
-        let old_format = r#"{"hooks":{"BeforeTool":[{"command":"lean-ctx hook rewrite"}]}}"#;
+        let old_format = r#"{"hooks":{"BeforeTool":[{"command":"nebu-ctx hook rewrite"}]}}"#;
         let has_new = old_format.contains("hook rewrite")
             && old_format.contains("hook redirect")
             && old_format.contains("\"type\"");
@@ -750,7 +750,7 @@ mod tests {
 
     #[test]
     fn rewrite_script_uses_registry_pattern() {
-        let script = generate_rewrite_script("/usr/bin/lean-ctx");
+        let script = generate_rewrite_script("/usr/bin/nebu-ctx");
         assert!(script.contains(r"git\ *"), "script missing git pattern");
         assert!(script.contains(r"cargo\ *"), "script missing cargo pattern");
         assert!(script.contains(r"npm\ *"), "script missing npm pattern");
@@ -759,14 +759,14 @@ mod tests {
             "script should not contain rg pattern"
         );
         assert!(
-            script.contains("LEAN_CTX_BIN=\"/usr/bin/lean-ctx\""),
+            script.contains("NEBU_CTX_BIN=\"/usr/bin/nebu-ctx\""),
             "script missing binary path"
         );
     }
 
     #[test]
     fn compact_rewrite_script_uses_registry_pattern() {
-        let script = generate_compact_rewrite_script("/usr/bin/lean-ctx");
+        let script = generate_compact_rewrite_script("/usr/bin/nebu-ctx");
         assert!(script.contains(r"git\ *"), "compact script missing git");
         assert!(script.contains(r"cargo\ *"), "compact script missing cargo");
         assert!(
@@ -777,8 +777,8 @@ mod tests {
 
     #[test]
     fn rewrite_scripts_contain_all_registry_commands() {
-        let script = generate_rewrite_script("lean-ctx");
-        let compact = generate_compact_rewrite_script("lean-ctx");
+        let script = generate_rewrite_script("nebu-ctx");
+        let compact = generate_compact_rewrite_script("nebu-ctx");
         for entry in crate::rewrite_registry::REWRITE_COMMANDS {
             if entry.category == crate::rewrite_registry::Category::Search {
                 continue;

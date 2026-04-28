@@ -1,6 +1,6 @@
 # lean-ctx — Token Optimization
 
-lean-ctx is configured as an MCP server. Always use lean-ctx MCP tools instead of built-in tools:
+lean-ctx is configured as an MCP server. Always use nebu-ctx MCP tools instead of built-in tools:
 
 - Read files → `ctx_read(path, mode)` instead of built-in Read
 - Shell commands → `ctx_shell(command)` instead of built-in Shell
@@ -16,4 +16,4 @@ Fallback only if MCP is unavailable: prefix with `lean-ctx -c`:
 - `lean-ctx -c cargo test`
 - `lean-ctx -c npm install`
 
-Write, StrReplace, Delete have no lean-ctx equivalent — use them normally.
+Write, StrReplace, Delete have no nebu-ctx equivalent — use them normally.

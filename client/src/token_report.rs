@@ -108,7 +108,7 @@ fn build_report(project_root_override: Option<&str>) -> Result<(TokenReport, Pat
     let generated_at = Utc::now();
     let version = env!("CARGO_PKG_VERSION").to_string();
 
-    let data_dir = crate::core::data_dir::lean_ctx_data_dir()?;
+    let data_dir = crate::core::data_dir::nebu_ctx_data_dir()?;
 
     let cwd = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())

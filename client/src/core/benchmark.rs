@@ -559,7 +559,7 @@ pub fn format_terminal(b: &ProjectBenchmark) -> String {
     };
     out.push(format!(
         "  {:<24} {:>10} {:>10} {:>9.1}%",
-        "lean-ctx (no CCP)",
+        "nebu-ctx (no CCP)",
         format_num(s.lean_tokens),
         format!("${:.3}", s.lean_cost),
         lean_pct,
@@ -572,7 +572,7 @@ pub fn format_terminal(b: &ProjectBenchmark) -> String {
     };
     out.push(format!(
         "  {:<24} {:>10} {:>10} {:>9.1}%",
-        "lean-ctx + CCP",
+        "nebu-ctx + CCP",
         format_num(s.lean_ccp_tokens),
         format!("${:.3}", s.ccp_cost),
         ccp_pct,
@@ -655,7 +655,7 @@ pub fn format_markdown(b: &ProjectBenchmark) -> String {
         0.0
     };
     out.push(format!(
-        "| lean-ctx (no CCP) | {} | ${:.3} | {:.1}% |",
+        "| nebu-ctx (no CCP) | {} | ${:.3} | {:.1}% |",
         format_num(s.lean_tokens),
         s.lean_cost,
         lean_pct
@@ -667,7 +667,7 @@ pub fn format_markdown(b: &ProjectBenchmark) -> String {
         0.0
     };
     out.push(format!(
-        "| lean-ctx + CCP | {} | ${:.3} | {:.1}% |",
+        "| nebu-ctx + CCP | {} | ${:.3} | {:.1}% |",
         format_num(s.lean_ccp_tokens),
         s.ccp_cost,
         ccp_pct

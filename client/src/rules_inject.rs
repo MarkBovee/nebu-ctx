@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 const MARKER: &str = "# nebu-ctx — Context Engineering Layer";
+const LEGACY_MARKER: &str = "# lean-ctx — Context Engineering Layer";
 const END_MARKER: &str = "<!-- /lean-ctx -->";
 const RULES_VERSION: &str = "nebu-ctx-rules-v9";
 const LEGACY_RULES_VERSION: &str = "lean-ctx-rules-v9";
@@ -22,7 +23,7 @@ pub fn rules_dedicated_markdown() -> &'static str {
 const RULES_SHARED: &str = r#"# nebu-ctx — Context Engineering Layer
 <!-- nebu-ctx-rules-v9 -->
 
-CRITICAL: ALWAYS use lean-ctx MCP tools instead of native equivalents. This is NOT optional.
+CRITICAL: ALWAYS use nebu-ctx MCP tools instead of native equivalents. This is NOT optional.
 
 | ALWAYS USE | NEVER USE | Why |
 |------------|-----------|-----|
@@ -38,7 +39,7 @@ Write, Delete, Glob → use normally. NEVER loop on Edit failures — switch to 
 
 Preferred workflow control: use `ctx_workflow` to track states + enforce tool gates + evidence.
 
-Fallback only if a lean-ctx tool is unavailable: use native equivalents.
+Fallback only if a nebu-ctx tool is unavailable: use native equivalents.
 <!-- /lean-ctx -->"#;
 
 // ---------------------------------------------------------------------------
@@ -49,7 +50,7 @@ Fallback only if a lean-ctx tool is unavailable: use native equivalents.
 const RULES_DEDICATED: &str = r#"# nebu-ctx — Context Engineering Layer
 <!-- nebu-ctx-rules-v9 -->
 
-PREFER lean-ctx MCP tools over native equivalents for token savings:
+PREFER nebu-ctx MCP tools over native equivalents for token savings:
 
 ## Tool preference:
 | PREFER | OVER | Why |
@@ -94,7 +95,7 @@ alwaysApply: true
 # nebu-ctx — Context Engineering Layer
 <!-- nebu-ctx-rules-v9 -->
 
-PREFER lean-ctx MCP tools over native equivalents for token savings:
+PREFER nebu-ctx MCP tools over native equivalents for token savings:
 
 ## Tool Mapping
 
@@ -125,7 +126,7 @@ PREFER lean-ctx MCP tools over native equivalents for token savings:
 - If Edit requires native Read and Read is unavailable: use `ctx_edit(path, old_string, new_string)` instead.
 - NEVER loop trying to make Edit work. If it fails, switch to ctx_edit immediately.
 - Write, Delete, Glob → use normally.
-- Fallback only if a lean-ctx tool is unavailable: use native equivalents.
+- Fallback only if a nebu-ctx tool is unavailable: use native equivalents.
 <!-- /lean-ctx -->"#;
 
 // ---------------------------------------------------------------------------
@@ -210,7 +211,7 @@ pub fn collect_rules_status(home: &std::path::Path) -> Vec<RulesTargetStatus> {
         } else {
             match std::fs::read_to_string(&target.path) {
                 Ok(content) => {
-                    if content.contains(MARKER) {
+                    if content.contains(MARKER) || content.contains(LEGACY_MARKER) {
                         if content.contains(RULES_VERSION)
                             || content.contains(LEGACY_RULES_VERSION)
                         {
@@ -259,7 +260,7 @@ fn rules_content(format: &RulesFormat) -> &'static str {
 fn inject_rules(target: &RulesTarget) -> Result<RulesResult, String> {
     if target.path.exists() {
         let content = std::fs::read_to_string(&target.path).map_err(|e| e.to_string())?;
-        if content.contains(MARKER) {
+        if content.contains(MARKER) || content.contains(LEGACY_MARKER) {
             if content.contains(RULES_VERSION) || content.contains(LEGACY_RULES_VERSION) {
                 return Ok(RulesResult::AlreadyPresent);
             }
@@ -311,7 +312,7 @@ fn append_to_shared(path: &std::path::Path) -> Result<RulesResult, String> {
 }
 
 fn replace_markdown_section(path: &std::path::Path, content: &str) -> Result<RulesResult, String> {
-    let start = content.find(MARKER);
+    let start = content.find(MARKER).or_else(|| content.find(LEGACY_MARKER));
     let end = content.find(END_MARKER);
 
     let new_content = match (start, end) {
@@ -344,7 +345,7 @@ fn replace_markdown_section(path: &std::path::Path, content: &str) -> Result<Rul
 fn write_dedicated(path: &std::path::Path, content: &'static str) -> Result<RulesResult, String> {
     let is_update = path.exists() && {
         let existing = std::fs::read_to_string(path).unwrap_or_default();
-        existing.contains(MARKER)
+        existing.contains(MARKER) || existing.contains(LEGACY_MARKER)
     };
 
     std::fs::write(path, content).map_err(|e| e.to_string())?;
@@ -490,7 +491,7 @@ fn build_rules_targets(home: &std::path::Path) -> Vec<RulesTarget> {
         // --- Shared config files (append-only) ---
         RulesTarget {
             name: "Claude Code",
-            path: crate::core::editor_registry::claude_rules_dir(home).join("lean-ctx.md"),
+            path: crate::core::editor_registry::claude_rules_dir(home).join("nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
@@ -511,92 +512,92 @@ fn build_rules_targets(home: &std::path::Path) -> Vec<RulesTarget> {
         // --- Dedicated lean-ctx rule files ---
         RulesTarget {
             name: "Cursor",
-            path: home.join(".cursor/rules/lean-ctx.mdc"),
+            path: home.join(".cursor/rules/nebu-ctx.mdc"),
             format: RulesFormat::CursorMdc,
         },
         RulesTarget {
             name: "Windsurf",
-            path: home.join(".codeium/windsurf/rules/lean-ctx.md"),
+            path: home.join(".codeium/windsurf/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Zed",
-            path: home.join(".config/zed/rules/lean-ctx.md"),
+            path: home.join(".config/zed/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Cline",
-            path: home.join(".cline/rules/lean-ctx.md"),
+            path: home.join(".cline/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Roo Code",
-            path: home.join(".roo/rules/lean-ctx.md"),
+            path: home.join(".roo/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "OpenCode",
-            path: home.join(".config/opencode/rules/lean-ctx.md"),
+            path: home.join(".config/opencode/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Continue",
-            path: home.join(".continue/rules/lean-ctx.md"),
+            path: home.join(".continue/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Aider",
-            path: home.join(".aider/rules/lean-ctx.md"),
+            path: home.join(".aider/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Amp",
-            path: home.join(".ampcoder/rules/lean-ctx.md"),
+            path: home.join(".ampcoder/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Qwen Code",
-            path: home.join(".qwen/rules/lean-ctx.md"),
+            path: home.join(".qwen/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Trae",
-            path: home.join(".trae/rules/lean-ctx.md"),
+            path: home.join(".trae/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Amazon Q Developer",
-            path: home.join(".aws/amazonq/rules/lean-ctx.md"),
+            path: home.join(".aws/amazonq/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "JetBrains IDEs",
-            path: home.join(".jb-rules/lean-ctx.md"),
+            path: home.join(".jb-rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Antigravity",
-            path: home.join(".gemini/antigravity/rules/lean-ctx.md"),
+            path: home.join(".gemini/antigravity/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Pi Coding Agent",
-            path: home.join(".pi/rules/lean-ctx.md"),
+            path: home.join(".pi/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "AWS Kiro",
-            path: home.join(".kiro/steering/lean-ctx.md"),
+            path: home.join(".kiro/steering/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Verdent",
-            path: home.join(".verdent/rules/lean-ctx.md"),
+            path: home.join(".verdent/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
         RulesTarget {
             name: "Crush",
-            path: home.join(".config/crush/rules/lean-ctx.md"),
+            path: home.join(".config/crush/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
     ]
@@ -665,7 +666,7 @@ mod tests {
         let lines: Vec<&str> = RULES_SHARED.lines().collect();
         let first_5 = lines[..5.min(lines.len())].join("\n");
         assert!(
-            first_5.contains("PREFER") || first_5.contains("lean-ctx"),
+            first_5.contains("PREFER") || first_5.contains("nebu-ctx") || first_5.contains("lean-ctx"),
             "LITM: preference instruction must be near start"
         );
         let last_5 = lines[lines.len().saturating_sub(5)..].join("\n");
@@ -694,7 +695,7 @@ mod tests {
         let lines: Vec<&str> = RULES_DEDICATED.lines().collect();
         let first_5 = lines[..5.min(lines.len())].join("\n");
         assert!(
-            first_5.contains("PREFER") || first_5.contains("lean-ctx"),
+            first_5.contains("PREFER") || first_5.contains("nebu-ctx") || first_5.contains("lean-ctx"),
             "LITM: preference instruction must be near start"
         );
         let last_5 = lines[lines.len().saturating_sub(5)..].join("\n");

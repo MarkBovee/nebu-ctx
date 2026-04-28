@@ -7,7 +7,7 @@ use lean_ctx::{
 fn main() {
     std::panic::set_hook(Box::new(|info| {
         eprintln!("nebu-ctx: unexpected error (your command was not affected)");
-        eprintln!("  Disable temporarily: lean-ctx-off");
+        eprintln!("  Disable temporarily: nebu-ctx-off");
         eprintln!("  Full uninstall:      nebu-ctx uninstall");
         if let Some(msg) = info.payload().downcast_ref::<&str>() {
             eprintln!("  Details: {msg}");
@@ -38,17 +38,17 @@ fn main() {
                 } else {
                     shell::join_command(cmd_args)
                 };
-                if std::env::var("LEAN_CTX_ACTIVE").is_ok()
-                    || std::env::var("LEAN_CTX_DISABLED").is_ok()
+                if std::env::var("NEBU_CTX_ACTIVE").is_ok()
+                    || std::env::var("NEBU_CTX_DISABLED").is_ok()
                 {
                     passthrough(&command);
                 }
                 if raw {
-                    std::env::set_var("LEAN_CTX_RAW", "1");
+                    std::env::set_var("NEBU_CTX_RAW", "1");
                 } else {
                     // `nebu-ctx -c` is explicitly documented as "Execute with compressed output".
                     // Force buffered compression even when stdout is a TTY (fixes #100).
-                    std::env::set_var("LEAN_CTX_COMPRESS", "1");
+                    std::env::set_var("NEBU_CTX_COMPRESS", "1");
                 }
                 let code = shell::exec(&command);
                 core::stats::flush();
@@ -60,8 +60,8 @@ fn main() {
                     shell::exec_argv(cmd_args)
                 } else {
                     let command = cmd_args[0].clone();
-                    if std::env::var("LEAN_CTX_ACTIVE").is_ok()
-                        || std::env::var("LEAN_CTX_DISABLED").is_ok()
+                    if std::env::var("NEBU_CTX_ACTIVE").is_ok()
+                        || std::env::var("NEBU_CTX_DISABLED").is_ok()
                     {
                         passthrough(&command);
                     }
@@ -349,7 +349,7 @@ fn main() {
                     }
 
                     if cfg.auth_token.is_none() {
-                        if let Ok(v) = std::env::var("LEAN_CTX_HTTP_TOKEN") {
+                        if let Ok(v) = std::env::var("NEBU_CTX_HTTP_TOKEN") {
                             if !v.trim().is_empty() {
                                 cfg.auth_token = Some(v);
                             }
@@ -690,7 +690,7 @@ fn main() {
                 } else {
                     shell::join_command(&args[2..])
                 };
-                std::env::set_var("LEAN_CTX_RAW", "1");
+                std::env::set_var("NEBU_CTX_RAW", "1");
                 let code = shell::exec(&command);
                 std::process::exit(code);
             }
@@ -760,7 +760,7 @@ fn passthrough(command: &str) -> ! {
     let status = std::process::Command::new(&shell)
         .arg(&flag)
         .arg(command)
-        .env("LEAN_CTX_ACTIVE", "1")
+        .env("NEBU_CTX_ACTIVE", "1")
         .status()
         .map(|s| s.code().unwrap_or(1))
         .unwrap_or(127);
@@ -777,7 +777,7 @@ fn run_mcp_server() -> Result<()> {
     use rmcp::ServiceExt;
     use tracing_subscriber::EnvFilter;
 
-    std::env::set_var("LEAN_CTX_MCP_SERVER", "1");
+    std::env::set_var("NEBU_CTX_MCP_SERVER", "1");
 
     let rt = tokio::runtime::Runtime::new()?;
     rt.block_on(async {
@@ -849,7 +849,7 @@ COMMANDS:
     discover                       Find uncompressed commands in shell history
     filter [list|validate|init]    Manage custom compression filters (~/.lean-ctx/filters/)
     session                        Show adoption statistics
-    config                         Show/edit configuration (~/.lean-ctx/config.toml)
+    config                         Show/edit configuration (~/.nebu-ctx/config.toml)
     theme [list|set|export|import] Customize terminal colors and themes
     tee [list|clear|show <file>|last] Manage output tee files (~/.lean-ctx/tee/)
     terse [off|lite|full|ultra]    Set agent output verbosity (saves 25-65% output tokens)
@@ -892,11 +892,11 @@ READ MODES:
     lines:N-M                      Specific line ranges (e.g. lines:10-50,80)
 
 ENVIRONMENT:
-    LEAN_CTX_DISABLED=1            Bypass ALL compression + prevent shell hook from loading
-    LEAN_CTX_ENABLED=0             Prevent shell hook auto-start (lean-ctx-on still works)
-    LEAN_CTX_RAW=1                 Same as --raw for current command
-    LEAN_CTX_AUTONOMY=false        Disable autonomous features
-    LEAN_CTX_COMPRESS=1            Force compression (even for excluded commands)
+    NEBU_CTX_DISABLED=1            Bypass ALL compression + prevent shell hook from loading
+    NEBU_CTX_ENABLED=0             Prevent shell hook auto-start (nebu-ctx-on still works)
+    NEBU_CTX_RAW=1                 Same as --raw for current command
+    NEBU_CTX_AUTONOMY=false        Disable autonomous features
+    NEBU_CTX_COMPRESS=1            Force compression (even for excluded commands)
 
 OPTIONS:
     --version, -V                  Show version
@@ -915,7 +915,7 @@ EXAMPLES:
         nebu-ctx setup                 One-command setup (shell + editors + verify)
         nebu-ctx bootstrap             Non-interactive setup + fix (zero-config)
         nebu-ctx bootstrap --json      Machine-readable bootstrap report
-        nebu-ctx init --global         Install shell aliases (file-based, includes lean-ctx-on/off)
+        nebu-ctx init --global         Install shell aliases (file-based, includes nebu-ctx-on/off)
 
 EVAL INIT (starship/zoxide style — always in sync with binary version):
     # bash: add to ~/.bashrc
@@ -926,12 +926,12 @@ EVAL INIT (starship/zoxide style — always in sync with binary version):
     nebu-ctx init fish | source
     # powershell: add to $PROFILE
     nebu-ctx init powershell | Invoke-Expression
-    lean-ctx-on                    Enable shell aliases in track mode (full output + stats)
-    lean-ctx-off                   Disable all shell aliases
+    nebu-ctx-on                    Enable shell aliases in track mode (full output + stats)
+    nebu-ctx-off                   Disable all shell aliases
     lean-ctx-mode track            Track mode: full output, stats recorded (default)
     lean-ctx-mode compress         Compress mode: all output compressed (power users)
-    lean-ctx-mode off              Same as lean-ctx-off
-    lean-ctx-status                Show whether compression is active
+    lean-ctx-mode off              Same as nebu-ctx-off
+    nebu-ctx-status                Show whether compression is active
     nebu-ctx init --agent pi       Install Pi Coding Agent extension
     nebu-ctx doctor                Check PATH, config, MCP, and local edge health
     nebu-ctx doctor --fix --json   Repair + machine-readable report
@@ -947,9 +947,9 @@ CLOUD:
     cloud disconnect               Remove the saved cloud connection
 
 TROUBLESHOOTING:
-    Commands broken?     lean-ctx-off             (fixes current session)
+    Commands broken?     nebu-ctx-off             (fixes current session)
     Permanent fix?       nebu-ctx uninstall       (removes all hooks)
-    Manual fix?          Edit ~/.zshrc, remove the \"lean-ctx shell hook\" block
+    Manual fix?          Edit ~/.zshrc, remove the \"nebu-ctx shell hook\" block
     Binary missing?      Aliases auto-fallback to original commands (safe)
     Preview init?        nebu-ctx init --global --dry-run
 

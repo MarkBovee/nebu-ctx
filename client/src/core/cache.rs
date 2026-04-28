@@ -9,7 +9,7 @@ fn normalize_key(path: &str) -> String {
 }
 
 fn max_cache_tokens() -> usize {
-    std::env::var("LEAN_CTX_CACHE_MAX_TOKENS")
+    std::env::var("NEBU_CTX_CACHE_MAX_TOKENS")
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(500_000)
@@ -543,7 +543,7 @@ mod tests {
 
     #[test]
     fn evict_if_needed_removes_lowest_score() {
-        std::env::set_var("LEAN_CTX_CACHE_MAX_TOKENS", "50");
+        std::env::set_var("NEBU_CTX_CACHE_MAX_TOKENS", "50");
         let mut cache = SessionCache::new();
         let big_content = "a]".repeat(30); // ~30 tokens
         cache.store("/old.rs", big_content);
@@ -559,6 +559,6 @@ mod tests {
             cache.total_cached_tokens() <= 60,
             "eviction should have kicked in"
         );
-        std::env::remove_var("LEAN_CTX_CACHE_MAX_TOKENS");
+        std::env::remove_var("NEBU_CTX_CACHE_MAX_TOKENS");
     }
 }

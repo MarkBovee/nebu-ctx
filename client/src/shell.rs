@@ -119,7 +119,7 @@ pub fn exec_argv(args: &[String]) -> i32 {
         return 127;
     }
 
-    if std::env::var("LEAN_CTX_DISABLED").is_ok() || std::env::var("LEAN_CTX_ACTIVE").is_ok() {
+    if std::env::var("NEBU_CTX_DISABLED").is_ok() || std::env::var("NEBU_CTX_ACTIVE").is_ok() {
         return exec_direct(args);
     }
 
@@ -138,7 +138,7 @@ pub fn exec_argv(args: &[String]) -> i32 {
 fn exec_direct(args: &[String]) -> i32 {
     let status = Command::new(&args[0])
         .args(&args[1..])
-        .env("LEAN_CTX_ACTIVE", "1")
+        .env("NEBU_CTX_ACTIVE", "1")
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
@@ -158,13 +158,13 @@ pub fn exec(command: &str) -> i32 {
     let command = crate::tools::ctx_shell::normalize_command_for_shell(command);
     let command = command.as_str();
 
-    if std::env::var("LEAN_CTX_DISABLED").is_ok() || std::env::var("LEAN_CTX_ACTIVE").is_ok() {
+    if std::env::var("NEBU_CTX_DISABLED").is_ok() || std::env::var("NEBU_CTX_ACTIVE").is_ok() {
         return exec_inherit(command, &shell, &shell_flag);
     }
 
     let cfg = config::Config::load();
-    let force_compress = std::env::var("LEAN_CTX_COMPRESS").is_ok();
-    let raw_mode = std::env::var("LEAN_CTX_RAW").is_ok();
+    let force_compress = std::env::var("NEBU_CTX_COMPRESS").is_ok();
+    let raw_mode = std::env::var("NEBU_CTX_RAW").is_ok();
 
     if raw_mode || (!force_compress && is_excluded_command(command, &cfg.excluded_commands)) {
         return exec_inherit(command, &shell, &shell_flag);
@@ -184,7 +184,7 @@ fn exec_inherit(command: &str, shell: &str, shell_flag: &str) -> i32 {
     let status = Command::new(shell)
         .arg(shell_flag)
         .arg(command)
-        .env("LEAN_CTX_ACTIVE", "1")
+        .env("NEBU_CTX_ACTIVE", "1")
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
@@ -240,7 +240,7 @@ fn exec_buffered(command: &str, shell: &str, shell_flag: &str, cfg: &config::Con
     cmd.arg(command);
 
     let child = cmd
-        .env("LEAN_CTX_ACTIVE", "1")
+        .env("NEBU_CTX_ACTIVE", "1")
         .env_remove("DISPLAY")
         .env_remove("XAUTHORITY")
         .env_remove("WAYLAND_DISPLAY")
@@ -659,7 +659,7 @@ pub fn interactive() {
     let real_shell = detect_shell();
 
     eprintln!(
-        "lean-ctx shell v{} (wrapping {real_shell})",
+        "nebu-ctx shell v{} (wrapping {real_shell})",
         env!("CARGO_PKG_VERSION")
     );
     eprintln!("All command output is automatically compressed.");
@@ -870,7 +870,7 @@ pub fn shell_and_flag() -> (String, String) {
 }
 
 fn detect_shell() -> String {
-    if let Ok(shell) = std::env::var("LEAN_CTX_SHELL") {
+    if let Ok(shell) = std::env::var("NEBU_CTX_SHELL") {
         return shell;
     }
 
@@ -1631,9 +1631,9 @@ mod passthrough_tests {
 
     #[test]
     fn exec_argv_passes_through_when_disabled() {
-        std::env::set_var("LEAN_CTX_DISABLED", "1");
+        std::env::set_var("NEBU_CTX_DISABLED", "1");
         let code = super::exec_argv(&["true".to_string()]);
-        std::env::remove_var("LEAN_CTX_DISABLED");
+        std::env::remove_var("NEBU_CTX_DISABLED");
         assert_eq!(code, 0);
     }
 

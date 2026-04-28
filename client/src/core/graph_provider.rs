@@ -118,7 +118,7 @@ mod tests {
         let tmp = tempfile::tempdir().expect("tempdir");
         let data = tmp.path().join("data");
         std::fs::create_dir_all(&data).expect("mkdir data");
-        std::env::set_var("LEAN_CTX_DATA_DIR", data.to_string_lossy().to_string());
+        std::env::set_var("NEBU_CTX_DATA_DIR", data.to_string_lossy().to_string());
 
         let project_root = tmp.path().join("proj");
         std::fs::create_dir_all(&project_root).expect("mkdir proj");
@@ -142,7 +142,7 @@ mod tests {
         let open = open_best_effort(&root).expect("open");
         assert_eq!(open.source, GraphProviderSource::GraphIndex);
 
-        std::env::remove_var("LEAN_CTX_DATA_DIR");
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
     }
 
     #[test]
@@ -151,7 +151,7 @@ mod tests {
         let tmp = tempfile::tempdir().expect("tempdir");
         let data = tmp.path().join("data");
         std::fs::create_dir_all(&data).expect("mkdir data");
-        std::env::set_var("LEAN_CTX_DATA_DIR", data.to_string_lossy().to_string());
+        std::env::set_var("NEBU_CTX_DATA_DIR", data.to_string_lossy().to_string());
 
         let project_root = tmp.path().join("proj");
         std::fs::create_dir_all(&project_root).expect("mkdir proj");
@@ -160,6 +160,6 @@ mod tests {
         let open = open_best_effort(&root);
         assert!(open.is_none());
 
-        std::env::remove_var("LEAN_CTX_DATA_DIR");
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
     }
 }

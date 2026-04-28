@@ -125,12 +125,12 @@ impl EmbeddingEngine {
         self.dimensions
     }
 
-    /// Resolve the model directory (respects LEAN_CTX_MODELS_DIR env).
+    /// Resolve the model directory (respects NEBU_CTX_MODELS_DIR env).
     pub fn model_directory() -> PathBuf {
-        if let Ok(dir) = std::env::var("LEAN_CTX_MODELS_DIR") {
+        if let Ok(dir) = std::env::var("NEBU_CTX_MODELS_DIR") {
             return PathBuf::from(dir);
         }
-        if let Ok(d) = crate::core::data_dir::lean_ctx_data_dir() {
+        if let Ok(d) = crate::core::data_dir::nebu_ctx_data_dir() {
             return d.join("models");
         }
         PathBuf::from("models")
@@ -273,10 +273,10 @@ mod tests {
     #[test]
     fn model_directory_env_override_and_availability() {
         let unique = "/tmp/lean_ctx_test_embed_42xyz";
-        std::env::set_var("LEAN_CTX_MODELS_DIR", unique);
+        std::env::set_var("NEBU_CTX_MODELS_DIR", unique);
         let dir = EmbeddingEngine::model_directory();
         assert_eq!(dir.to_string_lossy(), unique);
         assert!(!EmbeddingEngine::is_available());
-        std::env::remove_var("LEAN_CTX_MODELS_DIR");
+        std::env::remove_var("NEBU_CTX_MODELS_DIR");
     }
 }

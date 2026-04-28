@@ -175,7 +175,7 @@ fn bandit_path(project_root: &str) -> std::path::PathBuf {
         project_root.hash(&mut hasher);
         format!("{:x}", hasher.finish())
     };
-    crate::core::data_dir::lean_ctx_data_dir()
+    crate::core::data_dir::nebu_ctx_data_dir()
         .unwrap_or_else(|_| std::path::PathBuf::from("."))
         .join("projects")
         .join(hash)

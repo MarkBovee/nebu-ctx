@@ -20,7 +20,7 @@ const IDE_CONFIG_DIRS: &[&str] = &[
 fn allow_paths_from_env() -> Vec<PathBuf> {
     let mut out = Vec::new();
 
-    if let Ok(data_dir) = crate::core::data_dir::lean_ctx_data_dir() {
+    if let Ok(data_dir) = crate::core::data_dir::nebu_ctx_data_dir() {
         out.push(canonicalize_or_self(&data_dir));
     }
 
@@ -34,7 +34,7 @@ fn allow_paths_from_env() -> Vec<PathBuf> {
     }
 
     let v = std::env::var("LCTX_ALLOW_PATH")
-        .or_else(|_| std::env::var("LEAN_CTX_ALLOW_PATH"))
+        .or_else(|_| std::env::var("NEBU_CTX_ALLOW_PATH"))
         .unwrap_or_default();
     if v.trim().is_empty() {
         return out;

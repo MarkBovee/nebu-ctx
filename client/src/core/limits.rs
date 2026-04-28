@@ -9,14 +9,14 @@ fn env_usize(key: &str) -> Option<usize> {
 
 pub fn max_read_bytes() -> usize {
     env_usize("LCTX_MAX_READ_BYTES")
-        .or_else(|| env_usize("LEAN_CTX_MAX_READ_BYTES"))
+        .or_else(|| env_usize("NEBU_CTX_MAX_READ_BYTES"))
         .unwrap_or(DEFAULT_MAX_READ_BYTES)
         .max(1024)
 }
 
 pub fn max_shell_bytes() -> usize {
     env_usize("LCTX_MAX_SHELL_BYTES")
-        .or_else(|| env_usize("LEAN_CTX_MAX_SHELL_BYTES"))
+        .or_else(|| env_usize("NEBU_CTX_MAX_SHELL_BYTES"))
         .unwrap_or(DEFAULT_MAX_SHELL_BYTES)
         .max(1024)
 }

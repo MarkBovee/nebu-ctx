@@ -1,12 +1,12 @@
 use crate::marked_block;
 
-const MARKER_START: &str = "# >>> lean-ctx shell hook >>>";
-const MARKER_END: &str = "# <<< lean-ctx shell hook <<<";
-const ALIAS_START: &str = "# >>> lean-ctx agent aliases >>>";
-const ALIAS_END: &str = "# <<< lean-ctx agent aliases <<<";
+const MARKER_START: &str = "# >>> nebu-ctx shell hook >>>";
+const MARKER_END: &str = "# <<< nebu-ctx shell hook <<<";
+const ALIAS_START: &str = "# >>> nebu-ctx agent aliases >>>";
+const ALIAS_END: &str = "# <<< nebu-ctx agent aliases <<<";
 
 const KNOWN_AGENT_ENV_VARS: &[&str] = &[
-    "LEAN_CTX_AGENT",
+    "NEBU_CTX_AGENT",
     "CLAUDECODE",
     "CODEX_CLI_SESSION",
     "GEMINI_SESSION",
@@ -74,10 +74,10 @@ fn install_zshenv(home: &std::path::Path, quiet: bool) {
 
     let hook = format!(
         r#"{MARKER_START}
-if [[ -z "$LEAN_CTX_ACTIVE" && -n "$ZSH_EXECUTION_STRING" ]] && command -v lean-ctx &>/dev/null; then
+if [[ -z "$NEBU_CTX_ACTIVE" && -n "$ZSH_EXECUTION_STRING" ]] && command -v nebu-ctx &>/dev/null; then
   if {env_check}; then
-    export LEAN_CTX_ACTIVE=1
-    exec lean-ctx -c "$ZSH_EXECUTION_STRING"
+    export NEBU_CTX_ACTIVE=1
+    exec nebu-ctx -c "$ZSH_EXECUTION_STRING"
   fi
 fi
 {MARKER_END}"#
@@ -99,10 +99,10 @@ fn install_bashenv(home: &std::path::Path, quiet: bool) {
 
     let hook = format!(
         r#"{MARKER_START}
-if [[ -z "$LEAN_CTX_ACTIVE" && -n "$BASH_EXECUTION_STRING" ]] && command -v lean-ctx &>/dev/null; then
+if [[ -z "$NEBU_CTX_ACTIVE" && -n "$BASH_EXECUTION_STRING" ]] && command -v nebu-ctx &>/dev/null; then
   if {env_check}; then
-    export LEAN_CTX_ACTIVE=1
-    exec lean-ctx -c "$BASH_EXECUTION_STRING"
+    export NEBU_CTX_ACTIVE=1
+    exec nebu-ctx -c "$BASH_EXECUTION_STRING"
   fi
 fi
 {MARKER_END}"#
@@ -123,7 +123,7 @@ fn install_aliases(home: &std::path::Path, quiet: bool) {
     lines.push(ALIAS_START.to_string());
     for (alias_name, bin_name) in AGENT_ALIASES {
         lines.push(format!(
-            "alias {alias_name}='LEAN_CTX_AGENT=1 BASH_ENV=\"$HOME/.bashenv\" {bin_name}'"
+            "alias {alias_name}='NEBU_CTX_AGENT=1 BASH_ENV=\"$HOME/.bashenv\" {bin_name}'"
         ));
     }
     lines.push(ALIAS_END.to_string());
@@ -155,7 +155,7 @@ mod tests {
     #[test]
     fn env_check_format() {
         let check = build_env_check();
-        assert!(check.contains("LEAN_CTX_AGENT"));
+        assert!(check.contains("NEBU_CTX_AGENT"));
         assert!(check.contains("CLAUDECODE"));
         assert!(check.contains("||"));
     }

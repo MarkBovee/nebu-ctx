@@ -55,7 +55,7 @@ fn fetch_latest_version() -> Result<String, String> {
 
     let body = agent
         .get(VERSION_URL)
-        .header("User-Agent", &format!("lean-ctx/{CURRENT_VERSION}"))
+        .header("User-Agent", &format!("nebu-ctx/{CURRENT_VERSION}"))
         .call()
         .map_err(|e| e.to_string())?
         .into_body()

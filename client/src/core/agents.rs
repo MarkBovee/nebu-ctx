@@ -415,7 +415,7 @@ impl std::fmt::Display for DiaryEntryType {
 }
 
 fn diary_dir() -> Result<PathBuf, String> {
-    let dir = crate::core::data_dir::lean_ctx_data_dir()?;
+    let dir = crate::core::data_dir::nebu_ctx_data_dir()?;
     Ok(dir.join("agents").join("diaries"))
 }
 
@@ -440,7 +440,7 @@ fn truncate(s: &str, max: usize) -> String {
 }
 
 fn agents_dir() -> Result<PathBuf, String> {
-    let dir = crate::core::data_dir::lean_ctx_data_dir()?;
+    let dir = crate::core::data_dir::nebu_ctx_data_dir()?;
     Ok(dir.join("agents"))
 }
 

@@ -30,7 +30,7 @@ impl WrappedReport {
             ),
         };
 
-        let env_model = std::env::var("LEAN_CTX_MODEL")
+        let env_model = std::env::var("NEBU_CTX_MODEL")
             .or_else(|_| std::env::var("LCTX_MODEL"))
             .ok();
         let pricing = crate::core::gain::model_pricing::ModelPricing::load();

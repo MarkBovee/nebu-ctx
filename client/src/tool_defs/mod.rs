@@ -34,7 +34,7 @@ pub fn lazy_tool_defs() -> Vec<Tool> {
 
     core.push(tool_def(
         "ctx_discover_tools",
-        "Search available lean-ctx tools by keyword. Returns matching tool names + descriptions for on-demand loading.",
+        "Search available nebu-ctx tools by keyword. Returns matching tool names + descriptions for on-demand loading.",
         json!({
             "type": "object",
             "properties": {
@@ -75,5 +75,5 @@ pub fn discover_tools(query: &str) -> String {
 }
 
 pub fn is_lazy_mode() -> bool {
-    std::env::var("LEAN_CTX_LAZY_TOOLS").is_ok()
+    std::env::var("NEBU_CTX_LAZY_TOOLS").is_ok()
 }

@@ -24,7 +24,7 @@ pub enum TerseAgent {
 
 impl TerseAgent {
     pub fn from_env() -> Self {
-        match std::env::var("LEAN_CTX_TERSE_AGENT")
+        match std::env::var("NEBU_CTX_TERSE_AGENT")
             .unwrap_or_default()
             .to_lowercase()
             .as_str()
@@ -38,7 +38,7 @@ impl TerseAgent {
     }
 
     pub fn effective(config_val: &TerseAgent) -> Self {
-        match std::env::var("LEAN_CTX_TERSE_AGENT") {
+        match std::env::var("NEBU_CTX_TERSE_AGENT") {
             Ok(val) if !val.is_empty() => match val.to_lowercase().as_str() {
                 "lite" => Self::Lite,
                 "full" => Self::Full,
@@ -65,7 +65,7 @@ pub enum OutputDensity {
 
 impl OutputDensity {
     pub fn from_env() -> Self {
-        match std::env::var("LEAN_CTX_OUTPUT_DENSITY")
+        match std::env::var("NEBU_CTX_OUTPUT_DENSITY")
             .unwrap_or_default()
             .to_lowercase()
             .as_str()
@@ -117,9 +117,9 @@ pub struct Config {
     pub disabled_tools: Vec<String>,
     #[serde(default)]
     pub loop_detection: LoopDetectionConfig,
-    /// Controls where lean-ctx installs agent rule files.
+    /// Controls where nebu-ctx installs agent rule files.
     /// Values: "both" (default), "global" (home-dir only), "project" (repo-local only).
-    /// Override via LEAN_CTX_RULES_SCOPE env var.
+    /// Override via NEBU_CTX_RULES_SCOPE env var.
     #[serde(default)]
     pub rules_scope: Option<String>,
     /// Extra glob patterns to ignore in graph/overview/preload (repo-local).
@@ -128,7 +128,7 @@ pub struct Config {
     pub extra_ignore_patterns: Vec<String>,
     /// Controls agent output verbosity via instructions injection.
     /// Values: "off" (default), "lite", "full", "ultra".
-    /// Override via LEAN_CTX_TERSE_AGENT env var.
+    /// Override via NEBU_CTX_TERSE_AGENT env var.
     #[serde(default)]
     pub terse_agent: TerseAgent,
     /// Archive configuration for zero-loss compression.
@@ -216,37 +216,37 @@ impl Default for AutonomyConfig {
 impl AutonomyConfig {
     pub fn from_env() -> Self {
         let mut cfg = Self::default();
-        if let Ok(v) = std::env::var("LEAN_CTX_AUTONOMY") {
+        if let Ok(v) = std::env::var("NEBU_CTX_AUTONOMY") {
             if v == "false" || v == "0" {
                 cfg.enabled = false;
             }
         }
-        if let Ok(v) = std::env::var("LEAN_CTX_AUTO_PRELOAD") {
+        if let Ok(v) = std::env::var("NEBU_CTX_AUTO_PRELOAD") {
             cfg.auto_preload = v != "false" && v != "0";
         }
-        if let Ok(v) = std::env::var("LEAN_CTX_AUTO_DEDUP") {
+        if let Ok(v) = std::env::var("NEBU_CTX_AUTO_DEDUP") {
             cfg.auto_dedup = v != "false" && v != "0";
         }
-        if let Ok(v) = std::env::var("LEAN_CTX_AUTO_RELATED") {
+        if let Ok(v) = std::env::var("NEBU_CTX_AUTO_RELATED") {
             cfg.auto_related = v != "false" && v != "0";
         }
-        if let Ok(v) = std::env::var("LEAN_CTX_AUTO_CONSOLIDATE") {
+        if let Ok(v) = std::env::var("NEBU_CTX_AUTO_CONSOLIDATE") {
             cfg.auto_consolidate = v != "false" && v != "0";
         }
-        if let Ok(v) = std::env::var("LEAN_CTX_SILENT_PRELOAD") {
+        if let Ok(v) = std::env::var("NEBU_CTX_SILENT_PRELOAD") {
             cfg.silent_preload = v != "false" && v != "0";
         }
-        if let Ok(v) = std::env::var("LEAN_CTX_DEDUP_THRESHOLD") {
+        if let Ok(v) = std::env::var("NEBU_CTX_DEDUP_THRESHOLD") {
             if let Ok(n) = v.parse() {
                 cfg.dedup_threshold = n;
             }
         }
-        if let Ok(v) = std::env::var("LEAN_CTX_CONSOLIDATE_EVERY_CALLS") {
+        if let Ok(v) = std::env::var("NEBU_CTX_CONSOLIDATE_EVERY_CALLS") {
             if let Ok(n) = v.parse() {
                 cfg.consolidate_every_calls = n;
             }
         }
-        if let Ok(v) = std::env::var("LEAN_CTX_CONSOLIDATE_COOLDOWN_SECS") {
+        if let Ok(v) = std::env::var("NEBU_CTX_CONSOLIDATE_COOLDOWN_SECS") {
             if let Ok(n) = v.parse() {
                 cfg.consolidate_cooldown_secs = n;
             }
@@ -257,24 +257,24 @@ impl AutonomyConfig {
     pub fn load() -> Self {
         let file_cfg = Config::load().autonomy;
         let mut cfg = file_cfg;
-        if let Ok(v) = std::env::var("LEAN_CTX_AUTONOMY") {
+        if let Ok(v) = std::env::var("NEBU_CTX_AUTONOMY") {
             if v == "false" || v == "0" {
                 cfg.enabled = false;
             }
         }
-        if let Ok(v) = std::env::var("LEAN_CTX_AUTO_PRELOAD") {
+        if let Ok(v) = std::env::var("NEBU_CTX_AUTO_PRELOAD") {
             cfg.auto_preload = v != "false" && v != "0";
         }
-        if let Ok(v) = std::env::var("LEAN_CTX_AUTO_DEDUP") {
+        if let Ok(v) = std::env::var("NEBU_CTX_AUTO_DEDUP") {
             cfg.auto_dedup = v != "false" && v != "0";
         }
-        if let Ok(v) = std::env::var("LEAN_CTX_AUTO_RELATED") {
+        if let Ok(v) = std::env::var("NEBU_CTX_AUTO_RELATED") {
             cfg.auto_related = v != "false" && v != "0";
         }
-        if let Ok(v) = std::env::var("LEAN_CTX_SILENT_PRELOAD") {
+        if let Ok(v) = std::env::var("NEBU_CTX_SILENT_PRELOAD") {
             cfg.silent_preload = v != "false" && v != "0";
         }
-        if let Ok(v) = std::env::var("LEAN_CTX_DEDUP_THRESHOLD") {
+        if let Ok(v) = std::env::var("NEBU_CTX_DEDUP_THRESHOLD") {
             if let Ok(n) = v.parse() {
                 cfg.dedup_threshold = n;
             }
@@ -356,7 +356,7 @@ pub enum RulesScope {
 
 impl Config {
     pub fn rules_scope_effective(&self) -> RulesScope {
-        let raw = std::env::var("LEAN_CTX_RULES_SCOPE")
+        let raw = std::env::var("NEBU_CTX_RULES_SCOPE")
             .ok()
             .or_else(|| self.rules_scope.clone())
             .unwrap_or_default();
@@ -375,7 +375,7 @@ impl Config {
     }
 
     pub fn disabled_tools_effective(&self) -> Vec<String> {
-        if let Ok(val) = std::env::var("LEAN_CTX_DISABLED_TOOLS") {
+        if let Ok(val) = std::env::var("NEBU_CTX_DISABLED_TOOLS") {
             Self::parse_disabled_tools_env(&val)
         } else {
             self.disabled_tools.clone()
@@ -395,8 +395,8 @@ mod disabled_tools_tests {
 
     #[test]
     fn effective_returns_config_field_when_no_env_var() {
-        // Only meaningful when LEAN_CTX_DISABLED_TOOLS is unset; skip otherwise.
-        if std::env::var("LEAN_CTX_DISABLED_TOOLS").is_ok() {
+        // Only meaningful when NEBU_CTX_DISABLED_TOOLS is unset; skip otherwise.
+        if std::env::var("NEBU_CTX_DISABLED_TOOLS").is_ok() {
             return;
         }
         let cfg = Config {
@@ -556,13 +556,13 @@ mod loop_detection_config_tests {
 
 impl Config {
     pub fn path() -> Option<PathBuf> {
-        crate::core::data_dir::lean_ctx_data_dir()
+        crate::core::data_dir::nebu_ctx_data_dir()
             .ok()
             .map(|d| d.join("config.toml"))
     }
 
     pub fn local_path(project_root: &str) -> PathBuf {
-        PathBuf::from(project_root).join(".lean-ctx.toml")
+        PathBuf::from(project_root).join(".nebu-ctx.toml")
     }
 
     fn find_project_root() -> Option<String> {
@@ -581,7 +581,7 @@ impl Config {
                 || root_path.join("package.json").exists()
                 || root_path.join("go.mod").exists()
                 || root_path.join("pyproject.toml").exists()
-                || root_path.join(".lean-ctx.toml").exists();
+                || root_path.join(".nebu-ctx.toml").exists();
 
             if cwd_is_under_root || has_marker {
                 return Some(root);
@@ -772,7 +772,7 @@ impl Config {
     pub fn show(&self) -> String {
         let global_path = Self::path()
             .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|| "~/.lean-ctx/config.toml".to_string());
+            .unwrap_or_else(|| "~/.nebu-ctx/config.toml".to_string());
         let content = toml::to_string_pretty(self).unwrap_or_default();
         let mut out = format!("Global config: {global_path}\n\n{content}");
 

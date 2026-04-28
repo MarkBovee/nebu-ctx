@@ -108,7 +108,7 @@ impl LeanCtxServer {
                                 let mut registry =
                                     crate::core::agents::AgentRegistry::load_or_create();
                                 registry.cleanup_stale(24);
-                                let role = std::env::var("LEAN_CTX_AGENT_ROLE").ok();
+                                let role = std::env::var("NEBU_CTX_AGENT_ROLE").ok();
                                 let id = registry.register("mcp", role.as_deref(), &root);
                                 let _ = registry.save();
                                 *current = Some(id);
@@ -283,7 +283,7 @@ impl LeanCtxServer {
                     if current.is_none() {
                         let mut registry = crate::core::agents::AgentRegistry::load_or_create();
                         registry.cleanup_stale(24);
-                        let role = std::env::var("LEAN_CTX_AGENT_ROLE").ok();
+                        let role = std::env::var("NEBU_CTX_AGENT_ROLE").ok();
                         let id = registry.register("mcp", role.as_deref(), root);
                         let _ = registry.save();
                         *current = Some(id);
@@ -291,7 +291,7 @@ impl LeanCtxServer {
                 }
 
                 let raw = get_bool(args, "raw").unwrap_or(false)
-                    || std::env::var("LEAN_CTX_DISABLED").is_ok();
+                    || std::env::var("NEBU_CTX_DISABLED").is_ok();
                 let cmd_clone = command.clone();
                 let cwd_clone = effective_cwd.clone();
                 let crp_mode = self.crp_mode;

@@ -150,7 +150,7 @@ impl ContextLedger {
     }
 
     pub fn save(&self) {
-        if let Ok(dir) = crate::core::data_dir::lean_ctx_data_dir() {
+        if let Ok(dir) = crate::core::data_dir::nebu_ctx_data_dir() {
             let path = dir.join("context_ledger.json");
             if let Ok(json) = serde_json::to_string(self) {
                 let _ = std::fs::write(path, json);
@@ -159,7 +159,7 @@ impl ContextLedger {
     }
 
     pub fn load() -> Self {
-        crate::core::data_dir::lean_ctx_data_dir()
+        crate::core::data_dir::nebu_ctx_data_dir()
             .ok()
             .map(|d| d.join("context_ledger.json"))
             .and_then(|p| std::fs::read_to_string(p).ok())

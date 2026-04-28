@@ -10,7 +10,7 @@ pub fn run() {
         }
     };
 
-    println!("\n  lean-ctx uninstall\n  ──────────────────────────────────\n");
+    println!("\n  nebu-ctx uninstall\n  ──────────────────────────────────\n");
 
     let mut removed_any = false;
 
@@ -26,9 +26,9 @@ pub fn run() {
 
     if removed_any {
         println!("  ──────────────────────────────────");
-        println!("  lean-ctx configuration removed.\n");
+        println!("  nebu-ctx configuration removed.\n");
     } else {
-        println!("  Nothing to remove — lean-ctx was not configured.\n");
+        println!("  Nothing to remove — nebu-ctx was not configured.\n");
     }
 
     print_binary_removal_instructions();
@@ -37,11 +37,11 @@ pub fn run() {
 fn remove_project_agent_files() -> bool {
     let cwd = std::env::current_dir().unwrap_or_default();
     let agents = cwd.join("AGENTS.md");
-    let lean_ctx_md = cwd.join("LEAN-CTX.md");
+    let nebu_ctx_md = cwd.join("NEBU-CTX.md");
 
-    const START: &str = "<!-- lean-ctx -->";
-    const END: &str = "<!-- /lean-ctx -->";
-    const OWNED: &str = "<!-- lean-ctx-owned: PROJECT-LEAN-CTX.md v1 -->";
+    const START: &str = "<!-- nebu-ctx -->";
+    const END: &str = "<!-- /nebu-ctx -->";
+    const OWNED: &str = "<!-- nebu-ctx-owned: PROJECT-NEBU-CTX.md v1 -->";
 
     let mut removed = false;
 
@@ -53,7 +53,7 @@ fn remove_project_agent_files() -> bool {
                     if let Err(e) = fs::write(&agents, cleaned) {
                         eprintln!("  ✗ Failed to update project AGENTS.md: {e}");
                     } else {
-                        println!("  ✓ Project: removed lean-ctx block from AGENTS.md");
+                        println!("  ✓ Project: removed nebu-ctx block from AGENTS.md");
                         removed = true;
                     }
                 }
@@ -61,13 +61,13 @@ fn remove_project_agent_files() -> bool {
         }
     }
 
-    if lean_ctx_md.exists() {
-        if let Ok(content) = fs::read_to_string(&lean_ctx_md) {
+    if nebu_ctx_md.exists() {
+        if let Ok(content) = fs::read_to_string(&nebu_ctx_md) {
             if content.contains(OWNED) {
-                if let Err(e) = fs::remove_file(&lean_ctx_md) {
-                    eprintln!("  ✗ Failed to remove project LEAN-CTX.md: {e}");
+                if let Err(e) = fs::remove_file(&nebu_ctx_md) {
+                    eprintln!("  ✗ Failed to remove project NEBU-CTX.md: {e}");
                 } else {
-                    println!("  ✓ Project: removed LEAN-CTX.md");
+                    println!("  ✓ Project: removed NEBU-CTX.md");
                     removed = true;
                 }
             }
@@ -78,14 +78,14 @@ fn remove_project_agent_files() -> bool {
         ".windsurfrules",
         ".clinerules",
         ".cursorrules",
-        ".kiro/steering/lean-ctx.md",
-        ".cursor/rules/lean-ctx.mdc",
+        ".kiro/steering/nebu-ctx.md",
+        ".cursor/rules/nebu-ctx.mdc",
     ];
     for rel in &project_files {
         let path = cwd.join(rel);
         if path.exists() {
             if let Ok(content) = fs::read_to_string(&path) {
-                if content.contains("lean-ctx") {
+                if content.contains("nebu-ctx") {
                     let _ = fs::remove_file(&path);
                     println!("  ✓ Project: removed {rel}");
                     removed = true;
@@ -140,14 +140,14 @@ fn remove_shell_hook(home: &Path) -> bool {
             Ok(c) => c,
             Err(_) => continue,
         };
-        if !content.contains("lean-ctx") {
+        if !content.contains("nebu-ctx") {
             continue;
         }
 
-        let mut cleaned = remove_lean_ctx_block(&content);
+        let mut cleaned = remove_nebu_ctx_block(&content);
         cleaned = remove_source_lines(&cleaned);
         if cleaned.trim() != content.trim() {
-            let bak = rc.with_extension("lean-ctx.bak");
+            let bak = rc.with_extension("nebu-ctx.bak");
             let _ = fs::copy(rc, &bak);
             if let Err(e) = fs::write(rc, &cleaned) {
                 eprintln!("  ✗ Failed to update {}: {}", rc.display(), e);
@@ -166,12 +166,12 @@ fn remove_shell_hook(home: &Path) -> bool {
         "shell-hook.fish",
         "shell-hook.ps1",
     ];
-    let lc_dir = home.join(".lean-ctx");
+    let lc_dir = home.join(".nebu-ctx");
     for f in &hook_files {
         let path = lc_dir.join(f);
         if path.exists() {
             let _ = fs::remove_file(&path);
-            println!("  ✓ Removed ~/.lean-ctx/{f}");
+            println!("  ✓ Removed ~/.nebu-ctx/{f}");
             removed = true;
         }
     }
@@ -186,7 +186,7 @@ fn remove_shell_hook(home: &Path) -> bool {
 fn remove_source_lines(content: &str) -> String {
     content
         .lines()
-        .filter(|line| !line.contains(".lean-ctx/shell-hook."))
+        .filter(|line| !line.contains(".nebu-ctx/shell-hook."))
         .collect::<Vec<_>>()
         .join("\n")
         + "\n"
@@ -238,7 +238,7 @@ fn remove_mcp_configs(home: &Path) -> bool {
             Ok(c) => c,
             Err(_) => continue,
         };
-        if !content.contains("lean-ctx") {
+        if !content.contains("nebu-ctx") {
             continue;
         }
 
@@ -247,11 +247,11 @@ fn remove_mcp_configs(home: &Path) -> bool {
         let is_toml = ext == "toml";
 
         let cleaned = if is_yaml {
-            Some(remove_lean_ctx_from_yaml(&content))
+            Some(remove_nebu_ctx_from_yaml(&content))
         } else if is_toml {
-            Some(remove_lean_ctx_from_toml(&content))
+            Some(remove_nebu_ctx_from_toml(&content))
         } else {
-            remove_lean_ctx_from_json(&content)
+            remove_nebu_ctx_from_json(&content)
         };
 
         if let Some(cleaned) = cleaned {
@@ -267,9 +267,9 @@ fn remove_mcp_configs(home: &Path) -> bool {
     let zed_path = crate::core::editor_registry::zed_settings_path(home);
     if zed_path.exists() {
         if let Ok(content) = fs::read_to_string(&zed_path) {
-            if content.contains("lean-ctx") {
+            if content.contains("nebu-ctx") {
                 println!(
-                    "  ⚠ Zed: manually remove lean-ctx from {}",
+                    "  ⚠ Zed: manually remove nebu-ctx from {}",
                     shorten(&zed_path, home)
                 );
             }
@@ -279,8 +279,8 @@ fn remove_mcp_configs(home: &Path) -> bool {
     let vscode_path = crate::core::editor_registry::vscode_mcp_path();
     if vscode_path.exists() {
         if let Ok(content) = fs::read_to_string(&vscode_path) {
-            if content.contains("lean-ctx") {
-                if let Some(cleaned) = remove_lean_ctx_from_json(&content) {
+            if content.contains("nebu-ctx") {
+                if let Some(cleaned) = remove_nebu_ctx_from_json(&content) {
                     if let Err(e) = fs::write(&vscode_path, &cleaned) {
                         eprintln!("  ✗ Failed to update VS Code config: {e}");
                     } else {
@@ -299,7 +299,7 @@ fn remove_rules_files(home: &Path) -> bool {
     let rules_files: Vec<(&str, PathBuf)> = vec![
         (
             "Claude Code",
-            crate::core::editor_registry::claude_rules_dir(home).join("lean-ctx.md"),
+            crate::core::editor_registry::claude_rules_dir(home).join("nebu-ctx.md"),
         ),
         // Legacy: shared CLAUDE.md (older releases).
         (
@@ -308,37 +308,37 @@ fn remove_rules_files(home: &Path) -> bool {
         ),
         // Legacy: hardcoded home path (very old releases).
         ("Claude Code (legacy home)", home.join(".claude/CLAUDE.md")),
-        ("Cursor", home.join(".cursor/rules/lean-ctx.mdc")),
+        ("Cursor", home.join(".cursor/rules/nebu-ctx.mdc")),
         ("Gemini CLI", home.join(".gemini/GEMINI.md")),
         (
             "Gemini CLI (legacy)",
-            home.join(".gemini/rules/lean-ctx.md"),
+            home.join(".gemini/rules/nebu-ctx.md"),
         ),
-        ("Codex CLI", home.join(".codex/LEAN-CTX.md")),
+        ("Codex CLI", home.join(".codex/NEBU-CTX.md")),
         ("Codex CLI", home.join(".codex/instructions.md")),
-        ("Windsurf", home.join(".codeium/windsurf/rules/lean-ctx.md")),
-        ("Zed", home.join(".config/zed/rules/lean-ctx.md")),
-        ("Cline", home.join(".cline/rules/lean-ctx.md")),
-        ("Roo Code", home.join(".roo/rules/lean-ctx.md")),
-        ("OpenCode", home.join(".config/opencode/rules/lean-ctx.md")),
-        ("Continue", home.join(".continue/rules/lean-ctx.md")),
-        ("Aider", home.join(".aider/rules/lean-ctx.md")),
-        ("Amp", home.join(".ampcoder/rules/lean-ctx.md")),
-        ("Qwen Code", home.join(".qwen/rules/lean-ctx.md")),
-        ("Trae", home.join(".trae/rules/lean-ctx.md")),
+        ("Windsurf", home.join(".codeium/windsurf/rules/nebu-ctx.md")),
+        ("Zed", home.join(".config/zed/rules/nebu-ctx.md")),
+        ("Cline", home.join(".cline/rules/nebu-ctx.md")),
+        ("Roo Code", home.join(".roo/rules/nebu-ctx.md")),
+        ("OpenCode", home.join(".config/opencode/rules/nebu-ctx.md")),
+        ("Continue", home.join(".continue/rules/nebu-ctx.md")),
+        ("Aider", home.join(".aider/rules/nebu-ctx.md")),
+        ("Amp", home.join(".ampcoder/rules/nebu-ctx.md")),
+        ("Qwen Code", home.join(".qwen/rules/nebu-ctx.md")),
+        ("Trae", home.join(".trae/rules/nebu-ctx.md")),
         (
             "Amazon Q Developer",
-            home.join(".aws/amazonq/rules/lean-ctx.md"),
+            home.join(".aws/amazonq/rules/nebu-ctx.md"),
         ),
-        ("JetBrains IDEs", home.join(".jb-rules/lean-ctx.md")),
+        ("JetBrains IDEs", home.join(".jb-rules/nebu-ctx.md")),
         (
             "Antigravity",
-            home.join(".gemini/antigravity/rules/lean-ctx.md"),
+            home.join(".gemini/antigravity/rules/nebu-ctx.md"),
         ),
-        ("Pi Coding Agent", home.join(".pi/rules/lean-ctx.md")),
-        ("AWS Kiro", home.join(".kiro/steering/lean-ctx.md")),
-        ("Verdent", home.join(".verdent/rules/lean-ctx.md")),
-        ("Crush", home.join(".config/crush/rules/lean-ctx.md")),
+        ("Pi Coding Agent", home.join(".pi/rules/nebu-ctx.md")),
+        ("AWS Kiro", home.join(".kiro/steering/nebu-ctx.md")),
+        ("Verdent", home.join(".verdent/rules/nebu-ctx.md")),
+        ("Crush", home.join(".config/crush/rules/nebu-ctx.md")),
     ];
 
     let mut removed = false;
@@ -347,7 +347,7 @@ fn remove_rules_files(home: &Path) -> bool {
             continue;
         }
         if let Ok(content) = fs::read_to_string(path) {
-            if content.contains("lean-ctx") {
+            if content.contains("nebu-ctx") {
                 if let Err(e) = fs::remove_file(path) {
                     eprintln!("  ✗ Failed to remove {name} rules: {e}");
                 } else {
@@ -361,8 +361,8 @@ fn remove_rules_files(home: &Path) -> bool {
     let hermes_md = home.join(".hermes/HERMES.md");
     if hermes_md.exists() {
         if let Ok(content) = fs::read_to_string(&hermes_md) {
-            if content.contains("lean-ctx") {
-                let cleaned = remove_lean_ctx_block_from_md(&content);
+            if content.contains("nebu-ctx") {
+                let cleaned = remove_nebu_ctx_block_from_md(&content);
                 if cleaned.trim().is_empty() {
                     let _ = fs::remove_file(&hermes_md);
                 } else {
@@ -378,8 +378,8 @@ fn remove_rules_files(home: &Path) -> bool {
         let project_hermes = cwd.join(".hermes.md");
         if project_hermes.exists() {
             if let Ok(content) = fs::read_to_string(&project_hermes) {
-                if content.contains("lean-ctx") {
-                    let cleaned = remove_lean_ctx_block_from_md(&content);
+                if content.contains("nebu-ctx") {
+                    let cleaned = remove_nebu_ctx_block_from_md(&content);
                     if cleaned.trim().is_empty() {
                         let _ = fs::remove_file(&project_hermes);
                     } else {
@@ -398,17 +398,17 @@ fn remove_rules_files(home: &Path) -> bool {
     removed
 }
 
-fn remove_lean_ctx_block_from_md(content: &str) -> String {
+fn remove_nebu_ctx_block_from_md(content: &str) -> String {
     let mut out = String::with_capacity(content.len());
     let mut in_block = false;
 
     for line in content.lines() {
-        if !in_block && line.contains("lean-ctx") && line.starts_with('#') {
+        if !in_block && line.contains("nebu-ctx") && line.starts_with('#') {
             in_block = true;
             continue;
         }
         if in_block {
-            if line.starts_with('#') && !line.contains("lean-ctx") {
+            if line.starts_with('#') && !line.contains("nebu-ctx") {
                 in_block = false;
                 out.push_str(line);
                 out.push('\n');
@@ -431,18 +431,18 @@ fn remove_lean_ctx_block_from_md(content: &str) -> String {
 fn remove_hook_files(home: &Path) -> bool {
     let claude_hooks_dir = crate::core::editor_registry::claude_state_dir(home).join("hooks");
     let hook_files: Vec<PathBuf> = vec![
-        claude_hooks_dir.join("lean-ctx-rewrite.sh"),
-        claude_hooks_dir.join("lean-ctx-redirect.sh"),
-        claude_hooks_dir.join("lean-ctx-rewrite-native"),
-        claude_hooks_dir.join("lean-ctx-redirect-native"),
-        home.join(".cursor/hooks/lean-ctx-rewrite.sh"),
-        home.join(".cursor/hooks/lean-ctx-redirect.sh"),
-        home.join(".cursor/hooks/lean-ctx-rewrite-native"),
-        home.join(".cursor/hooks/lean-ctx-redirect-native"),
-        home.join(".gemini/hooks/lean-ctx-rewrite-gemini.sh"),
-        home.join(".gemini/hooks/lean-ctx-redirect-gemini.sh"),
-        home.join(".gemini/hooks/lean-ctx-hook-gemini.sh"),
-        home.join(".codex/hooks/lean-ctx-rewrite-codex.sh"),
+        claude_hooks_dir.join("nebu-ctx-rewrite.sh"),
+        claude_hooks_dir.join("nebu-ctx-redirect.sh"),
+        claude_hooks_dir.join("nebu-ctx-rewrite-native"),
+        claude_hooks_dir.join("nebu-ctx-redirect-native"),
+        home.join(".cursor/hooks/nebu-ctx-rewrite.sh"),
+        home.join(".cursor/hooks/nebu-ctx-redirect.sh"),
+        home.join(".cursor/hooks/nebu-ctx-rewrite-native"),
+        home.join(".cursor/hooks/nebu-ctx-redirect-native"),
+        home.join(".gemini/hooks/nebu-ctx-rewrite-gemini.sh"),
+        home.join(".gemini/hooks/nebu-ctx-redirect-gemini.sh"),
+        home.join(".gemini/hooks/nebu-ctx-hook-gemini.sh"),
+        home.join(".codex/hooks/nebu-ctx-rewrite-codex.sh"),
     ];
 
     let mut removed = false;
@@ -466,7 +466,7 @@ fn remove_hook_files(home: &Path) -> bool {
     ] {
         if hj_path.exists() {
             if let Ok(content) = fs::read_to_string(&hj_path) {
-                if content.contains("lean-ctx") {
+                if content.contains("nebu-ctx") {
                     if let Err(e) = fs::remove_file(&hj_path) {
                         eprintln!("  ✗ Failed to remove {label} hooks.json: {e}");
                     } else {
@@ -482,7 +482,7 @@ fn remove_hook_files(home: &Path) -> bool {
 }
 
 fn remove_data_dir(home: &Path) -> bool {
-    let data_dir = home.join(".lean-ctx");
+    let data_dir = home.join(".nebu-ctx");
     if !data_dir.exists() {
         println!("  · No data directory found");
         return false;
@@ -490,11 +490,11 @@ fn remove_data_dir(home: &Path) -> bool {
 
     match fs::remove_dir_all(&data_dir) {
         Ok(_) => {
-            println!("  ✓ Data directory removed (~/.lean-ctx/)");
+            println!("  ✓ Data directory removed (~/.nebu-ctx/)");
             true
         }
         Err(e) => {
-            eprintln!("  ✗ Failed to remove ~/.lean-ctx/: {e}");
+            eprintln!("  ✗ Failed to remove ~/.nebu-ctx/: {e}");
             false
         }
     }
@@ -503,14 +503,14 @@ fn remove_data_dir(home: &Path) -> bool {
 fn print_binary_removal_instructions() {
     let binary_path = std::env::current_exe()
         .map(|p| p.display().to_string())
-        .unwrap_or_else(|_| "lean-ctx".to_string());
+        .unwrap_or_else(|_| "nebu-ctx".to_string());
 
     println!("  To complete uninstallation, remove the binary:\n");
 
     if binary_path.contains(".cargo") {
-        println!("    cargo uninstall lean-ctx\n");
+        println!("    cargo uninstall nebu-ctx\n");
     } else if binary_path.contains("homebrew") || binary_path.contains("Cellar") {
-        println!("    brew uninstall lean-ctx\n");
+        println!("    brew uninstall nebu-ctx\n");
     } else {
         println!("    rm {binary_path}\n");
     }
@@ -518,24 +518,24 @@ fn print_binary_removal_instructions() {
     println!("  Then restart your shell.\n");
 }
 
-fn remove_lean_ctx_block(content: &str) -> String {
-    if content.contains("# lean-ctx shell hook — end") {
-        return remove_lean_ctx_block_by_marker(content);
+fn remove_nebu_ctx_block(content: &str) -> String {
+    if content.contains("# nebu-ctx shell hook — end") {
+        return remove_nebu_ctx_block_by_marker(content);
     }
-    remove_lean_ctx_block_legacy(content)
+    remove_nebu_ctx_block_legacy(content)
 }
 
-fn remove_lean_ctx_block_by_marker(content: &str) -> String {
+fn remove_nebu_ctx_block_by_marker(content: &str) -> String {
     let mut result = String::new();
     let mut in_block = false;
 
     for line in content.lines() {
-        if !in_block && line.contains("lean-ctx shell hook") && !line.contains("end") {
+        if !in_block && line.contains("nebu-ctx shell hook") && !line.contains("end") {
             in_block = true;
             continue;
         }
         if in_block {
-            if line.trim() == "# lean-ctx shell hook — end" {
+            if line.trim() == "# nebu-ctx shell hook — end" {
                 in_block = false;
             }
             continue;
@@ -546,12 +546,12 @@ fn remove_lean_ctx_block_by_marker(content: &str) -> String {
     result
 }
 
-fn remove_lean_ctx_block_legacy(content: &str) -> String {
+fn remove_nebu_ctx_block_legacy(content: &str) -> String {
     let mut result = String::new();
     let mut in_block = false;
 
     for line in content.lines() {
-        if line.contains("lean-ctx shell hook") {
+        if line.contains("nebu-ctx shell hook") {
             in_block = true;
             continue;
         }
@@ -575,33 +575,33 @@ fn remove_lean_ctx_block_legacy(content: &str) -> String {
     result
 }
 
-fn remove_lean_ctx_from_json(content: &str) -> Option<String> {
+fn remove_nebu_ctx_from_json(content: &str) -> Option<String> {
     let mut parsed: serde_json::Value = serde_json::from_str(content).ok()?;
     let mut modified = false;
 
     if let Some(servers) = parsed.get_mut("mcpServers").and_then(|s| s.as_object_mut()) {
-        modified |= servers.remove("lean-ctx").is_some();
+        modified |= servers.remove("nebu-ctx").is_some();
     }
 
     if let Some(servers) = parsed.get_mut("servers").and_then(|s| s.as_object_mut()) {
-        modified |= servers.remove("lean-ctx").is_some();
+        modified |= servers.remove("nebu-ctx").is_some();
     }
 
     if let Some(servers) = parsed.get_mut("servers").and_then(|s| s.as_array_mut()) {
         let before = servers.len();
-        servers.retain(|entry| entry.get("name").and_then(|n| n.as_str()) != Some("lean-ctx"));
+        servers.retain(|entry| entry.get("name").and_then(|n| n.as_str()) != Some("nebu-ctx"));
         modified |= servers.len() < before;
     }
 
     if let Some(mcp) = parsed.get_mut("mcp").and_then(|s| s.as_object_mut()) {
-        modified |= mcp.remove("lean-ctx").is_some();
+        modified |= mcp.remove("nebu-ctx").is_some();
     }
 
     if let Some(amp) = parsed
         .get_mut("amp.mcpServers")
         .and_then(|s| s.as_object_mut())
     {
-        modified |= amp.remove("lean-ctx").is_some();
+        modified |= amp.remove("nebu-ctx").is_some();
     }
 
     if modified {
@@ -611,7 +611,7 @@ fn remove_lean_ctx_from_json(content: &str) -> Option<String> {
     }
 }
 
-fn remove_lean_ctx_from_yaml(content: &str) -> String {
+fn remove_nebu_ctx_from_yaml(content: &str) -> String {
     let mut out = String::with_capacity(content.len());
     let mut skip_depth: Option<usize> = None;
 
@@ -625,7 +625,7 @@ fn remove_lean_ctx_from_yaml(content: &str) -> String {
         }
 
         let trimmed = line.trim();
-        if trimmed == "lean-ctx:" || trimmed.starts_with("lean-ctx:") {
+        if trimmed == "nebu-ctx:" || trimmed.starts_with("nebu-ctx:") {
             let indent = line.len() - line.trim_start().len();
             skip_depth = Some(indent);
             continue;
@@ -638,7 +638,7 @@ fn remove_lean_ctx_from_yaml(content: &str) -> String {
     out
 }
 
-fn remove_lean_ctx_from_toml(content: &str) -> String {
+fn remove_nebu_ctx_from_toml(content: &str) -> String {
     let mut out = String::with_capacity(content.len());
     let mut skip = false;
 
@@ -647,10 +647,10 @@ fn remove_lean_ctx_from_toml(content: &str) -> String {
 
         if trimmed.starts_with('[') && trimmed.ends_with(']') {
             let section = trimmed.trim_start_matches('[').trim_end_matches(']').trim();
-            if section == "mcp_servers.lean-ctx"
-                || section == "mcp_servers.\"lean-ctx\""
-                || section.starts_with("mcp_servers.lean-ctx.")
-                || section.starts_with("mcp_servers.\"lean-ctx\".")
+            if section == "mcp_servers.nebu-ctx"
+                || section == "mcp_servers.\"nebu-ctx\""
+                || section.starts_with("mcp_servers.nebu-ctx.")
+                || section.starts_with("mcp_servers.\"nebu-ctx\".")
             {
                 skip = true;
                 continue;
@@ -703,17 +703,17 @@ mod tests {
 [features]
 codex_hooks = true
 
-[mcp_servers.lean-ctx]
-command = \"/usr/local/bin/lean-ctx\"
+[mcp_servers.nebu-ctx]
+command = \"/usr/local/bin/nebu-ctx\"
 args = []
 
 [mcp_servers.other-tool]
 command = \"/usr/bin/other\"
 ";
-        let result = remove_lean_ctx_from_toml(input);
+        let result = remove_nebu_ctx_from_toml(input);
         assert!(
-            !result.contains("lean-ctx"),
-            "lean-ctx section should be removed"
+            !result.contains("nebu-ctx"),
+            "nebu-ctx section should be removed"
         );
         assert!(
             result.contains("[mcp_servers.other-tool]"),
@@ -726,12 +726,12 @@ command = \"/usr/bin/other\"
     }
 
     #[test]
-    fn remove_toml_only_lean_ctx() {
+    fn remove_toml_only_nebu_ctx() {
         let input = "\
-[mcp_servers.lean-ctx]
-command = \"lean-ctx\"
+[mcp_servers.nebu-ctx]
+command = \"nebu-ctx\"
 ";
-        let result = remove_lean_ctx_from_toml(input);
+        let result = remove_nebu_ctx_from_toml(input);
         assert!(
             result.trim().is_empty(),
             "should produce empty output: {result}"
@@ -739,12 +739,12 @@ command = \"lean-ctx\"
     }
 
     #[test]
-    fn remove_toml_no_lean_ctx() {
+    fn remove_toml_no_nebu_ctx() {
         let input = "\
 [mcp_servers.other]
 command = \"other\"
 ";
-        let result = remove_lean_ctx_from_toml(input);
+        let result = remove_nebu_ctx_from_toml(input);
         assert!(
             result.contains("[mcp_servers.other]"),
             "other content should be preserved"

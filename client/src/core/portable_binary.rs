@@ -1,7 +1,7 @@
 pub fn resolve_portable_binary() -> String {
     let which_cmd = if cfg!(windows) { "where" } else { "which" };
     if let Ok(output) = std::process::Command::new(which_cmd)
-        .arg("lean-ctx")
+        .arg("nebu-ctx")
         .stderr(std::process::Stdio::null())
         .output()
     {
@@ -14,7 +14,7 @@ pub fn resolve_portable_binary() -> String {
     }
     let path = std::env::current_exe()
         .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|_| "lean-ctx".to_string());
+        .unwrap_or_else(|_| "nebu-ctx".to_string());
     sanitize_exe_path(path)
 }
 

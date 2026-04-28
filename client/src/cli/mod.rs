@@ -576,7 +576,7 @@ pub fn cmd_config(args: &[String]) {
                 Ok(()) => {
                     let path = config::Config::path()
                         .map(|p| p.to_string_lossy().to_string())
-                        .unwrap_or_else(|| "~/.lean-ctx/config.toml".to_string());
+                        .unwrap_or_else(|| "~/.nebu-ctx/config.toml".to_string());
                     println!("Created default config at {path}");
                 }
                 Err(e) => eprintln!("Error: {e}"),
@@ -749,8 +749,8 @@ pub fn cmd_terse(args: &[String]) {
             println!("  full  — Dense: diff-only, 1-sentence max");
             println!("  ultra — Expert: minimal narration, code speaks");
             println!();
-            println!("Override per session: LEAN_CTX_TERSE_AGENT=full");
-            println!("Override per project: terse_agent = \"full\" in .lean-ctx.toml");
+            println!("Override per session: NEBU_CTX_TERSE_AGENT=full");
+            println!("Override per project: terse_agent = \"full\" in .nebu-ctx.toml");
         }
     }
 }
@@ -771,7 +771,7 @@ pub fn cmd_slow_log(args: &[String]) {
 
 pub fn cmd_tee(args: &[String]) {
     let tee_dir = match dirs::home_dir() {
-        Some(h) => h.join(".lean-ctx").join("tee"),
+        Some(h) => h.join(".nebu-ctx").join("tee"),
         None => {
             eprintln!("Cannot determine home directory");
             std::process::exit(1);
@@ -782,7 +782,7 @@ pub fn cmd_tee(args: &[String]) {
     match action {
         "list" | "ls" => {
             if !tee_dir.exists() {
-                println!("No tee logs found (~/.lean-ctx/tee/ does not exist)");
+                println!("No tee logs found (~/.nebu-ctx/tee/ does not exist)");
                 return;
             }
             let mut entries: Vec<_> = std::fs::read_dir(&tee_dir)
@@ -931,7 +931,7 @@ pub fn cmd_filter(args: &[String]) {
 }
 
 fn quiet_enabled() -> bool {
-    matches!(std::env::var("LEAN_CTX_QUIET"), Ok(v) if v.trim() == "1")
+    matches!(std::env::var("NEBU_CTX_QUIET"), Ok(v) if v.trim() == "1")
 }
 
 pub fn cloud_analytics_only_message(surface: &str) -> String {
@@ -1006,11 +1006,11 @@ pub fn cmd_init(args: &[String]) {
         };
         qprintln!("\nnebu-ctx init --dry-run\n");
         qprintln!("  Would modify:  {rc}");
-        qprintln!("  Would backup:  {rc}.lean-ctx.bak");
+        qprintln!("  Would backup:  {rc}.nebu-ctx.bak");
         qprintln!("  Would alias:   git npm pnpm yarn cargo docker docker-compose kubectl");
         qprintln!("                 gh pip pip3 ruff go golangci-lint eslint prettier tsc");
         qprintln!("                 curl wget php composer (24 commands + k)");
-        qprintln!("  Would create:  ~/.lean-ctx/");
+        qprintln!("  Would create:  ~/.nebu-ctx/");
         qprintln!("  Binary:        {binary}");
         qprintln!("\n  Safety: aliases auto-fallback to original command if nebu-ctx is removed.");
         qprintln!("\n  Run without --dry-run to apply.");
@@ -1028,7 +1028,7 @@ pub fn cmd_init(args: &[String]) {
         }
     }
 
-    let lean_dir = dirs::home_dir().map(|h| h.join(".lean-ctx"));
+    let lean_dir = dirs::home_dir().map(|h| h.join(".nebu-ctx"));
     if let Some(dir) = lean_dir {
         if !dir.exists() {
             let _ = std::fs::create_dir_all(&dir);
@@ -1048,9 +1048,9 @@ pub fn cmd_init(args: &[String]) {
 
     qprintln!("\nnebu-ctx init complete (24 aliases installed)");
     qprintln!();
-    qprintln!("  Disable temporarily:  lean-ctx-off");
-    qprintln!("  Re-enable:            lean-ctx-on");
-    qprintln!("  Check status:         lean-ctx-status");
+    qprintln!("  Disable temporarily:  nebu-ctx-off");
+    qprintln!("  Re-enable:            nebu-ctx-on");
+    qprintln!("  Check status:         nebu-ctx-status");
     qprintln!("  Full uninstall:       nebu-ctx uninstall");
     qprintln!("  Diagnose issues:      nebu-ctx doctor");
     qprintln!("  Preview changes:      nebu-ctx init --global --dry-run");
@@ -1068,13 +1068,13 @@ pub fn cmd_init(args: &[String]) {
 }
 
 pub fn cmd_init_quiet(args: &[String]) {
-    let previous = std::env::var_os("LEAN_CTX_QUIET");
-    std::env::set_var("LEAN_CTX_QUIET", "1");
+    let previous = std::env::var_os("NEBU_CTX_QUIET");
+    std::env::set_var("NEBU_CTX_QUIET", "1");
     cmd_init(args);
     if let Some(previous) = previous {
-        std::env::set_var("LEAN_CTX_QUIET", previous);
+        std::env::set_var("NEBU_CTX_QUIET", previous);
     } else {
-        std::env::remove_var("LEAN_CTX_QUIET");
+        std::env::remove_var("NEBU_CTX_QUIET");
     }
 }
 
@@ -1227,7 +1227,7 @@ pub fn cmd_theme(args: &[String]) {
                             cfg.theme = "custom".to_string();
                             let _ = cfg.save();
                             println!(
-                                "  {sc}✓{r} Imported theme '{name}' → ~/.lean-ctx/theme.toml",
+                                "  {sc}✓{r} Imported theme '{name}' → ~/.nebu-ctx/theme.toml",
                                 sc = imported.success.fg(),
                                 name = imported.name,
                             );
@@ -1300,20 +1300,20 @@ mod tests {
     use tempfile;
 
     #[test]
-    fn test_remove_lean_ctx_block_posix() {
+    fn test_remove_nebu_ctx_block_posix() {
         let input = r#"# existing config
 export PATH="$HOME/bin:$PATH"
 
-# lean-ctx shell hook — transparent CLI compression (90+ patterns)
-if [ -z "$LEAN_CTX_ACTIVE" ]; then
-alias git='lean-ctx -c git'
-alias npm='lean-ctx -c npm'
+# nebu-ctx shell hook — transparent CLI compression (90+ patterns)
+if [ -z "$NEBU_CTX_ACTIVE" ]; then
+alias git='nebu-ctx -c git'
+alias npm='nebu-ctx -c npm'
 fi
 
 # other stuff
 export EDITOR=vim
 "#;
-        let result = remove_lean_ctx_block(input);
+        let result = remove_nebu_ctx_block(input);
         assert!(!result.contains("lean-ctx"), "block should be removed");
         assert!(result.contains("export PATH"), "other content preserved");
         assert!(
@@ -1323,20 +1323,20 @@ export EDITOR=vim
     }
 
     #[test]
-    fn test_remove_lean_ctx_block_fish() {
-        let input = "# other fish config\nset -x FOO bar\n\n# lean-ctx shell hook — transparent CLI compression (90+ patterns)\nif not set -q LEAN_CTX_ACTIVE\n\talias git 'lean-ctx -c git'\n\talias npm 'lean-ctx -c npm'\nend\n\n# more config\nset -x BAZ qux\n";
-        let result = remove_lean_ctx_block(input);
+    fn test_remove_nebu_ctx_block_fish() {
+        let input = "# other fish config\nset -x FOO bar\n\n# nebu-ctx shell hook — transparent CLI compression (90+ patterns)\nif not set -q NEBU_CTX_ACTIVE\n\talias git 'nebu-ctx -c git'\n\talias npm 'nebu-ctx -c npm'\nend\n\n# more config\nset -x BAZ qux\n";
+        let result = remove_nebu_ctx_block(input);
         assert!(!result.contains("lean-ctx"), "block should be removed");
         assert!(result.contains("set -x FOO"), "other content preserved");
         assert!(result.contains("set -x BAZ"), "trailing content preserved");
     }
 
     #[test]
-    fn test_remove_lean_ctx_block_ps() {
-        let input = "# PowerShell profile\n$env:FOO = 'bar'\n\n# lean-ctx shell hook — transparent CLI compression (90+ patterns)\nif (-not $env:LEAN_CTX_ACTIVE) {\n  $LeanCtxBin = \"C:\\\\bin\\\\lean-ctx.exe\"\n  function git { & $LeanCtxBin -c \"git $($args -join ' ')\" }\n}\n\n# other stuff\n$env:EDITOR = 'vim'\n";
-        let result = remove_lean_ctx_block_ps(input);
+    fn test_remove_nebu_ctx_block_ps() {
+        let input = "# PowerShell profile\n$env:FOO = 'bar'\n\n# nebu-ctx shell hook — transparent CLI compression (90+ patterns)\nif (-not $env:NEBU_CTX_ACTIVE) {\n  $LeanCtxBin = \"C:\\\\bin\\\\nebu-ctx.exe\"\n  function git { & $LeanCtxBin -c \"git $($args -join ' ')\" }\n}\n\n# other stuff\n$env:EDITOR = 'vim'\n";
+        let result = remove_nebu_ctx_block_ps(input);
         assert!(
-            !result.contains("lean-ctx shell hook"),
+            !result.contains("nebu-ctx shell hook"),
             "block should be removed"
         );
         assert!(result.contains("$env:FOO"), "other content preserved");
@@ -1344,11 +1344,11 @@ export EDITOR=vim
     }
 
     #[test]
-    fn test_remove_lean_ctx_block_ps_nested() {
-        let input = "# PowerShell profile\n$env:FOO = 'bar'\n\n# lean-ctx shell hook — transparent CLI compression (90+ patterns)\nif (-not $env:LEAN_CTX_ACTIVE) {\n  $LeanCtxBin = \"lean-ctx\"\n  function _lc {\n    & $LeanCtxBin -c \"$($args -join ' ')\"\n  }\n  if (Get-Command lean-ctx -ErrorAction SilentlyContinue) {\n    function git { _lc git @args }\n    foreach ($c in @('npm','pnpm')) {\n      if ($a) {\n        Set-Variable -Name \"_lc_$c\" -Value $a.Source -Scope Script\n      }\n    }\n  }\n}\n\n# other stuff\n$env:EDITOR = 'vim'\n";
-        let result = remove_lean_ctx_block_ps(input);
+    fn test_remove_nebu_ctx_block_ps_nested() {
+        let input = "# PowerShell profile\n$env:FOO = 'bar'\n\n# nebu-ctx shell hook — transparent CLI compression (90+ patterns)\nif (-not $env:NEBU_CTX_ACTIVE) {\n  $LeanCtxBin = \"lean-ctx\"\n  function _lc {\n    & $LeanCtxBin -c \"$($args -join ' ')\"\n  }\n  if (Get-Command lean-ctx -ErrorAction SilentlyContinue) {\n    function git { _lc git @args }\n    foreach ($c in @('npm','pnpm')) {\n      if ($a) {\n        Set-Variable -Name \"_lc_$c\" -Value $a.Source -Scope Script\n      }\n    }\n  }\n}\n\n# other stuff\n$env:EDITOR = 'vim'\n";
+        let result = remove_nebu_ctx_block_ps(input);
         assert!(
-            !result.contains("lean-ctx shell hook"),
+            !result.contains("nebu-ctx shell hook"),
             "block should be removed"
         );
         assert!(!result.contains("_lc"), "function should be removed");
@@ -1357,18 +1357,18 @@ export EDITOR=vim
     }
 
     #[test]
-    fn test_remove_block_no_lean_ctx() {
+    fn test_remove_block_no_nebu_ctx() {
         let input = "# normal bashrc\nexport PATH=\"$HOME/bin:$PATH\"\n";
-        let result = remove_lean_ctx_block(input);
+        let result = remove_nebu_ctx_block(input);
         assert!(result.contains("export PATH"), "content unchanged");
     }
 
     #[test]
     fn test_bash_hook_contains_pipe_guard() {
-        let binary = "/usr/local/bin/lean-ctx";
+        let binary = "/usr/local/bin/nebu-ctx";
         let hook = format!(
             r#"_lc() {{
-    if [ -n "${{LEAN_CTX_DISABLED:-}}" ] || [ ! -t 1 ]; then
+    if [ -n "${{NEBU_CTX_DISABLED:-}}" ] || [ ! -t 1 ]; then
         command "$@"
         return
     fi
@@ -1380,14 +1380,14 @@ export EDITOR=vim
             "bash/zsh hook must contain pipe guard [ ! -t 1 ]"
         );
         assert!(
-            hook.contains("LEAN_CTX_DISABLED") && hook.contains("! -t 1"),
-            "pipe guard must be in the same conditional as LEAN_CTX_DISABLED"
+            hook.contains("NEBU_CTX_DISABLED") && hook.contains("! -t 1"),
+            "pipe guard must be in the same conditional as NEBU_CTX_DISABLED"
         );
     }
 
     #[test]
     fn test_lc_uses_track_mode_by_default() {
-        let binary = "/usr/local/bin/lean-ctx";
+        let binary = "/usr/local/bin/nebu-ctx";
         let alias_list = crate::rewrite_registry::shell_alias_list();
         let aliases = format!(
             r#"_lc() {{
@@ -1409,10 +1409,10 @@ _lc_compress() {{
     }
 
     #[test]
-    fn test_posix_shell_has_lean_ctx_mode() {
+    fn test_posix_shell_has_nebu_ctx_mode() {
         let alias_list = crate::rewrite_registry::shell_alias_list();
         let aliases = r#"
-lean-ctx-mode() {{
+nebu-ctx-mode() {{
     case "${{1:-}}" in
         compress) echo compress ;;
         track) echo track ;;
@@ -1422,8 +1422,8 @@ lean-ctx-mode() {{
 "#
         .to_string();
         assert!(
-            aliases.contains("lean-ctx-mode()"),
-            "lean-ctx-mode function must exist"
+            aliases.contains("nebu-ctx-mode()"),
+            "nebu-ctx-mode function must exist"
         );
         assert!(
             aliases.contains("compress"),
@@ -1435,7 +1435,7 @@ lean-ctx-mode() {{
 
     #[test]
     fn test_fish_hook_contains_pipe_guard() {
-        let hook = "function _lc\n\tif set -q LEAN_CTX_DISABLED; or not isatty stdout\n\t\tcommand $argv\n\t\treturn\n\tend\nend";
+        let hook = "function _lc\n\tif set -q NEBU_CTX_DISABLED; or not isatty stdout\n\t\tcommand $argv\n\t\treturn\n\tend\nend";
         assert!(
             hook.contains("isatty stdout"),
             "fish hook must contain pipe guard (isatty stdout)"
@@ -1444,7 +1444,7 @@ lean-ctx-mode() {{
 
     #[test]
     fn test_powershell_hook_contains_pipe_guard() {
-        let hook = "function _lc { if ($env:LEAN_CTX_DISABLED -or [Console]::IsOutputRedirected) { & @args; return } }";
+        let hook = "function _lc { if ($env:NEBU_CTX_DISABLED -or [Console]::IsOutputRedirected) { & @args; return } }";
         assert!(
             hook.contains("IsOutputRedirected"),
             "PowerShell hook must contain pipe guard ([Console]::IsOutputRedirected)"
@@ -1452,37 +1452,37 @@ lean-ctx-mode() {{
     }
 
     #[test]
-    fn test_remove_lean_ctx_block_new_format_with_end_marker() {
+    fn test_remove_nebu_ctx_block_new_format_with_end_marker() {
         let input = r#"# existing config
 export PATH="$HOME/bin:$PATH"
 
-# lean-ctx shell hook — transparent CLI compression (90+ patterns)
-_lean_ctx_cmds=(git npm pnpm)
+# nebu-ctx shell hook — transparent CLI compression (90+ patterns)
+_nebu_ctx_cmds=(git npm pnpm)
 
-lean-ctx-on() {
-    for _lc_cmd in "${_lean_ctx_cmds[@]}"; do
-        alias "$_lc_cmd"='lean-ctx -c '"$_lc_cmd"
+nebu-ctx-on() {
+    for _lc_cmd in "${_nebu_ctx_cmds[@]}"; do
+        alias "$_lc_cmd"='nebu-ctx -c '"$_lc_cmd"
     done
-    export LEAN_CTX_ENABLED=1
-    [ -t 1 ] && echo "lean-ctx: ON"
+    export NEBU_CTX_ENABLED=1
+    [ -t 1 ] && echo "nebu-ctx: ON"
 }
 
-lean-ctx-off() {
-    unset LEAN_CTX_ENABLED
-    [ -t 1 ] && echo "lean-ctx: OFF"
+nebu-ctx-off() {
+    unset NEBU_CTX_ENABLED
+    [ -t 1 ] && echo "nebu-ctx: OFF"
 }
 
-if [ -z "${LEAN_CTX_ACTIVE:-}" ] && [ "${LEAN_CTX_ENABLED:-1}" != "0" ]; then
-    lean-ctx-on
+if [ -z "${NEBU_CTX_ACTIVE:-}" ] && [ "${NEBU_CTX_ENABLED:-1}" != "0" ]; then
+    nebu-ctx-on
 fi
-# lean-ctx shell hook — end
+# nebu-ctx shell hook — end
 
 # other stuff
 export EDITOR=vim
 "#;
-        let result = remove_lean_ctx_block(input);
-        assert!(!result.contains("lean-ctx-on"), "block should be removed");
-        assert!(!result.contains("lean-ctx shell hook"), "marker removed");
+        let result = remove_nebu_ctx_block(input);
+        assert!(!result.contains("nebu-ctx-on"), "block should be removed");
+        assert!(!result.contains("nebu-ctx shell hook"), "marker removed");
         assert!(result.contains("export PATH"), "other content preserved");
         assert!(
             result.contains("export EDITOR"),
@@ -1496,15 +1496,15 @@ export EDITOR=vim
         let tmp = tempfile::tempdir().expect("tempdir");
         let data_dir = tmp.path().join("data");
         std::fs::create_dir_all(&data_dir).expect("mkdir data");
-        std::env::set_var("LEAN_CTX_DATA_DIR", &data_dir);
+        std::env::set_var("NEBU_CTX_DATA_DIR", &data_dir);
 
-        write_env_sh_for_containers("alias git='lean-ctx -c git'\n");
+        write_env_sh_for_containers("alias git='nebu-ctx -c git'\n");
         let env_sh = data_dir.join("env.sh");
         let content = std::fs::read_to_string(&env_sh).expect("env.sh exists");
-        assert!(content.contains("lean-ctx docker self-heal"));
+        assert!(content.contains("nebu-ctx docker self-heal"));
         assert!(content.contains("claude mcp list"));
-        assert!(content.contains("lean-ctx init --agent claude"));
+        assert!(content.contains("nebu-ctx init --agent claude"));
 
-        std::env::remove_var("LEAN_CTX_DATA_DIR");
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
     }
 }

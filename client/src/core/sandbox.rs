@@ -191,7 +191,7 @@ fn execute_with_stdin(
         cmd.env(k, v);
     }
 
-    cmd.env("LEAN_CTX_SANDBOX", "1");
+    cmd.env("NEBU_CTX_SANDBOX", "1");
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
 
@@ -212,7 +212,7 @@ fn execute_with_file(
     code: &str,
     timeout: u64,
 ) -> Result<(String, String, i32), String> {
-    let tmp_dir = std::env::temp_dir().join("lean-ctx-sandbox");
+    let tmp_dir = std::env::temp_dir().join("nebu-ctx-sandbox");
     let _ = std::fs::create_dir_all(&tmp_dir);
 
     let file_name = format!(
@@ -238,7 +238,7 @@ fn execute_with_file(
         for (k, v) in &runtime.env {
             cmd.env(k, v);
         }
-        cmd.env("LEAN_CTX_SANDBOX", "1");
+        cmd.env("NEBU_CTX_SANDBOX", "1");
         cmd.stdout(std::process::Stdio::piped());
         cmd.stderr(std::process::Stdio::piped());
 
@@ -277,7 +277,7 @@ fn execute_rust(
     }
 
     let child = Command::new(&binary_path)
-        .env("LEAN_CTX_SANDBOX", "1")
+        .env("NEBU_CTX_SANDBOX", "1")
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
@@ -466,7 +466,7 @@ mod tests {
     fn sandbox_env_is_set() {
         let result = execute(
             "python",
-            "import os; print(os.environ.get('LEAN_CTX_SANDBOX', 'missing'))",
+            "import os; print(os.environ.get('NEBU_CTX_SANDBOX', 'missing'))",
             None,
         );
         assert_eq!(result.exit_code, 0);

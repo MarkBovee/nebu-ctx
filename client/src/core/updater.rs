@@ -7,7 +7,7 @@ pub fn run(args: &[String]) {
     let check_only = args.iter().any(|a| a == "--check");
 
     println!();
-    println!("  \x1b[1m◆ lean-ctx updater\x1b[0m  \x1b[2mv{CURRENT_VERSION}\x1b[0m");
+    println!("  \x1b[1m◆ nebu-ctx updater\x1b[0m  \x1b[2mv{CURRENT_VERSION}\x1b[0m");
     println!("  \x1b[2mChecking github.com/yvgude/lean-ctx …\x1b[0m");
 
     let release = match fetch_latest_release() {
@@ -115,7 +115,7 @@ fn post_update_rewire() {
 
 fn fetch_latest_release() -> Result<serde_json::Value, String> {
     let response = ureq::get(GITHUB_API_RELEASES)
-        .header("User-Agent", &format!("lean-ctx/{CURRENT_VERSION}"))
+        .header("User-Agent", &format!("nebu-ctx/{CURRENT_VERSION}"))
         .header("Accept", "application/vnd.github.v3+json")
         .call()
         .map_err(|e| e.to_string())?;
@@ -138,7 +138,7 @@ fn find_asset_url(release: &serde_json::Value, asset_name: &str) -> Option<Strin
 
 fn download_bytes(url: &str) -> Result<Vec<u8>, String> {
     let response = ureq::get(url)
-        .header("User-Agent", &format!("lean-ctx/{CURRENT_VERSION}"))
+        .header("User-Agent", &format!("nebu-ctx/{CURRENT_VERSION}"))
         .call()
         .map_err(|e| e.to_string())?;
 
@@ -230,7 +230,7 @@ fn deferred_windows_update(
     staged_path: &std::path::Path,
     target_exe: &std::path::Path,
 ) -> Result<(), String> {
-    let pending_path = target_exe.with_file_name("lean-ctx-pending.exe");
+    let pending_path = target_exe.with_file_name("nebu-ctx-pending.exe");
     std::fs::rename(staged_path, &pending_path).map_err(|e| {
         let _ = std::fs::remove_file(staged_path);
         format!("Cannot stage update: {e}")
@@ -263,7 +263,7 @@ del "%~f0" >nul 2>&1
         old = old_str,
     );
 
-    let script_path = target_exe.with_file_name("lean-ctx-update.bat");
+    let script_path = target_exe.with_file_name("nebu-ctx-update.bat");
     std::fs::write(&script_path, &script)
         .map_err(|e| format!("Cannot write update script: {e}"))?;
 
@@ -292,13 +292,13 @@ fn extract_from_tar_gz(data: &[u8]) -> Result<Vec<u8>, String> {
         let path = entry.path().map_err(|e| e.to_string())?;
         let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
-        if name == "lean-ctx" || name == "lean-ctx.exe" {
+        if name == "nebu-ctx" || name == "nebu-ctx.exe" {
             let mut bytes = Vec::new();
             entry.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
             return Ok(bytes);
         }
     }
-    Err("lean-ctx binary not found inside archive".to_string())
+    Err("nebu-ctx binary not found inside archive".to_string())
 }
 
 fn extract_from_zip(data: &[u8]) -> Result<Vec<u8>, String> {
@@ -310,13 +310,13 @@ fn extract_from_zip(data: &[u8]) -> Result<Vec<u8>, String> {
     for i in 0..zip.len() {
         let mut file = zip.by_index(i).map_err(|e| e.to_string())?;
         let name = file.name().to_string();
-        if name == "lean-ctx.exe" || name == "lean-ctx" {
+        if name == "nebu-ctx.exe" || name == "nebu-ctx" {
             let mut bytes = Vec::new();
             file.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
             return Ok(bytes);
         }
     }
-    Err("lean-ctx binary not found inside zip archive".to_string())
+    Err("nebu-ctx binary not found inside zip archive".to_string())
 }
 
 fn detect_linux_libc() -> &'static str {
@@ -364,8 +364,8 @@ fn platform_asset_name() -> String {
     };
 
     if os == "windows" {
-        format!("lean-ctx-{target}.zip")
+        format!("nebu-ctx-{target}.zip")
     } else {
-        format!("lean-ctx-{target}.tar.gz")
+        format!("nebu-ctx-{target}.tar.gz")
     }
 }

@@ -40,7 +40,7 @@ pub fn generate_agent_card(tools: &[String], version: &str, port: Option<u16>) -
     let url = port.map(|p| format!("http://127.0.0.1:{p}"));
 
     AgentCard {
-        name: "lean-ctx".to_string(),
+        name: "nebu-ctx".to_string(),
         description: "Context Engineering Infrastructure Layer — intelligent compression, \
                        code knowledge graph, structured agent memory, and multi-agent coordination \
                        via MCP"
@@ -149,7 +149,7 @@ fn build_skills() -> Vec<AgentSkill> {
 }
 
 pub fn save_agent_card(card: &AgentCard) -> std::io::Result<()> {
-    let dir = crate::core::data_dir::lean_ctx_data_dir()
+    let dir = crate::core::data_dir::nebu_ctx_data_dir()
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::NotFound, format!("data dir: {e}")))?;
     std::fs::create_dir_all(&dir)?;
 
@@ -162,7 +162,7 @@ pub fn save_agent_card(card: &AgentCard) -> std::io::Result<()> {
 }
 
 pub fn load_agent_card() -> Option<AgentCard> {
-    let path = crate::core::data_dir::lean_ctx_data_dir()
+    let path = crate::core::data_dir::nebu_ctx_data_dir()
         .ok()?
         .join(".well-known")
         .join("agent.json");
@@ -179,7 +179,7 @@ mod tests {
         let tools = vec!["ctx_read".to_string(), "ctx_shell".to_string()];
         let card = generate_agent_card(&tools, "3.0.0", Some(3344));
 
-        assert_eq!(card.name, "lean-ctx");
+        assert_eq!(card.name, "nebu-ctx");
         assert_eq!(card.capabilities.tools.len(), 2);
         assert_eq!(card.skills.len(), 5);
         assert_eq!(card.url, Some("http://127.0.0.1:3344".to_string()));
@@ -189,7 +189,7 @@ mod tests {
     fn card_serializes_to_valid_json() {
         let card = generate_agent_card(&["ctx_read".to_string()], "3.0.0", None);
         let json = serde_json::to_string_pretty(&card).unwrap();
-        assert!(json.contains("lean-ctx"));
+        assert!(json.contains("nebu-ctx"));
         assert!(json.contains("context-compression"));
 
         let parsed: AgentCard = serde_json::from_str(&json).unwrap();

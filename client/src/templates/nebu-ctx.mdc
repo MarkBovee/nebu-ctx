@@ -1,13 +1,13 @@
 ---
-description: "lean-ctx: prefer ctx_read/ctx_shell/ctx_search/ctx_tree over Read/Shell/Grep/ls for token savings"
+description: "nebu-ctx: prefer ctx_read/ctx_shell/ctx_search/ctx_tree over Read/Shell/Grep/ls for token savings"
 globs: **/*
 alwaysApply: true
 ---
 
-# lean-ctx — Context Engineering Layer
+# nebu-ctx — Context Engineering Layer
 <!-- lean-ctx-rules-v9 -->
 
-PREFER lean-ctx MCP tools over native equivalents for token savings:
+PREFER nebu-ctx MCP tools over native equivalents for token savings:
 
 ## Tool Mapping
 
@@ -67,7 +67,7 @@ Use without being asked:
 
 ## Write, Delete, Glob
 
-These have no lean-ctx equivalent — use them normally.
+These have no nebu-ctx equivalent — use them normally.
 
 ## CRP v2 — Compact Response Protocol
 

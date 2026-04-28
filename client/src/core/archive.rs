@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use super::data_dir::lean_ctx_data_dir;
+use super::data_dir::nebu_ctx_data_dir;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArchiveEntry {
@@ -16,7 +16,7 @@ pub struct ArchiveEntry {
 }
 
 fn archive_base_dir() -> PathBuf {
-    lean_ctx_data_dir()
+    nebu_ctx_data_dir()
         .unwrap_or_else(|_| PathBuf::from(".lean-ctx"))
         .join("archives")
 }
@@ -44,14 +44,14 @@ fn compute_id(content: &str) -> String {
 }
 
 pub fn is_enabled() -> bool {
-    if let Ok(v) = std::env::var("LEAN_CTX_ARCHIVE") {
+    if let Ok(v) = std::env::var("NEBU_CTX_ARCHIVE") {
         return !matches!(v.as_str(), "0" | "false" | "off");
     }
     super::config::Config::load().archive.enabled
 }
 
 fn threshold_chars() -> usize {
-    if let Ok(v) = std::env::var("LEAN_CTX_ARCHIVE_THRESHOLD") {
+    if let Ok(v) = std::env::var("NEBU_CTX_ARCHIVE_THRESHOLD") {
         if let Ok(n) = v.parse::<usize>() {
             return n;
         }
@@ -60,7 +60,7 @@ fn threshold_chars() -> usize {
 }
 
 fn max_age_hours() -> u64 {
-    if let Ok(v) = std::env::var("LEAN_CTX_ARCHIVE_TTL") {
+    if let Ok(v) = std::env::var("NEBU_CTX_ARCHIVE_TTL") {
         if let Ok(n) = v.parse::<u64>() {
             return n;
         }

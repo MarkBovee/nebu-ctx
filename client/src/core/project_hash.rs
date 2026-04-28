@@ -80,7 +80,7 @@ pub(crate) fn migrate_if_needed(old_hash: &str, new_hash: &str, project_root: &s
         return;
     }
 
-    let data_dir = match crate::core::data_dir::lean_ctx_data_dir() {
+    let data_dir = match crate::core::data_dir::nebu_ctx_data_dir() {
         Ok(d) => d,
         Err(_) => return,
     };
@@ -97,7 +97,7 @@ pub(crate) fn migrate_if_needed(old_hash: &str, new_hash: &str, project_root: &s
     }
 
     if let Err(e) = copy_dir_contents(&old_dir, &new_dir) {
-        eprintln!("lean-ctx: knowledge migration failed: {e}");
+        eprintln!("nebu-ctx: knowledge migration failed: {e}");
     }
 }
 

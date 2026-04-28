@@ -7,7 +7,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 const HF_BASE: &str = "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main";
-const USER_AGENT: &str = concat!("lean-ctx/", env!("CARGO_PKG_VERSION"));
+const USER_AGENT: &str = concat!("nebu-ctx/", env!("CARGO_PKG_VERSION"));
 
 struct ModelFile {
     relative_url: &'static str,

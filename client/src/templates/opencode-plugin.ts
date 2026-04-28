@@ -17,7 +17,7 @@ export const LeanCtxOpenCodePlugin: Plugin = async ({ $ }) => {
 
       const command = (args as Record<string, unknown>).command
       if (typeof command !== "string" || !command) return
-      if (command.startsWith("lean-ctx ")) return
+      if (command.startsWith("nebu-ctx ")) return
 
       try {
         const result = await $`lean-ctx hook rewrite-inline ${command}`.quiet().nothrow()

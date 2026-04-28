@@ -278,7 +278,7 @@ impl Theme {
 
     pub fn brand_title(&self) -> String {
         if no_color() {
-            return "lean-ctx".to_string();
+            return "nebu-ctx".to_string();
         }
         let p = self.primary.fg();
         let s = self.secondary.fg();
@@ -457,7 +457,7 @@ pub fn from_preset(name: &str) -> Option<Theme> {
 }
 
 pub fn theme_file_path() -> Option<PathBuf> {
-    crate::core::data_dir::lean_ctx_data_dir()
+    crate::core::data_dir::nebu_ctx_data_dir()
         .ok()
         .map(|d| d.join("theme.toml"))
 }

@@ -838,7 +838,7 @@ fn string_similarity(a: &str, b: &str) -> f32 {
 }
 
 fn knowledge_dir(project_hash: &str) -> Result<PathBuf, String> {
-    Ok(crate::core::data_dir::lean_ctx_data_dir()?
+    Ok(crate::core::data_dir::nebu_ctx_data_dir()?
         .join("knowledge")
         .join(project_hash))
 }

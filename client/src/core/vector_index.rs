@@ -226,7 +226,7 @@ fn index_dir(root: &Path) -> PathBuf {
     let mut hasher = Md5::new();
     hasher.update(root.to_string_lossy().as_bytes());
     let hash = format!("{:x}", hasher.finalize());
-    crate::core::data_dir::lean_ctx_data_dir()
+    crate::core::data_dir::nebu_ctx_data_dir()
         .unwrap_or_else(|_| PathBuf::from("."))
         .join("vectors")
         .join(hash)

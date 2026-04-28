@@ -81,7 +81,7 @@ pub enum CrpMode {
 
 impl CrpMode {
     pub fn from_env() -> Self {
-        match std::env::var("LEAN_CTX_CRP_MODE")
+        match std::env::var("NEBU_CTX_CRP_MODE")
             .unwrap_or_default()
             .to_lowercase()
             .as_str()
@@ -148,12 +148,12 @@ impl LeanCtxServer {
     fn new_with_startup(project_root: Option<String>, startup_cwd: Option<PathBuf>) -> Self {
         let config = crate::core::config::Config::load();
 
-        let interval = std::env::var("LEAN_CTX_CHECKPOINT_INTERVAL")
+        let interval = std::env::var("NEBU_CTX_CHECKPOINT_INTERVAL")
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(config.checkpoint_interval as usize);
 
-        let ttl = std::env::var("LEAN_CTX_CACHE_TTL")
+        let ttl = std::env::var("NEBU_CTX_CACHE_TTL")
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(DEFAULT_CACHE_TTL_SECS);
@@ -516,7 +516,7 @@ impl LeanCtxServer {
             .filter(|e| !e.read_by.contains(&my_id) && e.from_agent != my_id)
             .count();
 
-        let shared_dir = crate::core::data_dir::lean_ctx_data_dir()
+        let shared_dir = crate::core::data_dir::nebu_ctx_data_dir()
             .unwrap_or_default()
             .join("agents")
             .join("shared");
@@ -553,7 +553,7 @@ impl LeanCtxServer {
         timestamp: &str,
     ) {
         const MAX_LOG_LINES: usize = 50;
-        if let Ok(dir) = crate::core::data_dir::lean_ctx_data_dir() {
+        if let Ok(dir) = crate::core::data_dir::nebu_ctx_data_dir() {
             let log_path = dir.join("tool-calls.log");
             let mode_str = mode.unwrap_or("-");
             let slow = if duration_ms > 5000 { " **SLOW**" } else { "" };
@@ -650,7 +650,7 @@ impl LeanCtxServer {
             "updated_at": chrono::Local::now().to_rfc3339(),
         });
 
-        if let Ok(dir) = crate::core::data_dir::lean_ctx_data_dir() {
+        if let Ok(dir) = crate::core::data_dir::nebu_ctx_data_dir() {
             let _ = std::fs::write(dir.join("mcp-live.json"), live.to_string());
         }
     }
@@ -899,7 +899,7 @@ mod resolve_path_tests {
 
         let (server, root_b) = {
             let _lock = crate::core::data_dir::test_env_lock();
-            std::env::set_var("LEAN_CTX_DATA_DIR", _data.path());
+            std::env::set_var("NEBU_CTX_DATA_DIR", _data.path());
 
             let repo_a = _tmp.path().join("repo-a");
             let repo_b = _tmp.path().join("repo-b");
@@ -919,7 +919,7 @@ mod resolve_path_tests {
             session_a.save().unwrap();
 
             let server = LeanCtxServer::new_with_startup(None, Some(repo_b.clone()));
-            std::env::remove_var("LEAN_CTX_DATA_DIR");
+            std::env::remove_var("NEBU_CTX_DATA_DIR");
             (server, root_b)
         };
 
@@ -939,7 +939,7 @@ mod resolve_path_tests {
 
         let (server, root_b, repo_b_src_value, old_id) = {
             let _lock = crate::core::data_dir::test_env_lock();
-            std::env::set_var("LEAN_CTX_DATA_DIR", _data.path());
+            std::env::set_var("NEBU_CTX_DATA_DIR", _data.path());
 
             let repo_a = _tmp.path().join("repo-a");
             let repo_b = _tmp.path().join("repo-b");
@@ -957,7 +957,7 @@ mod resolve_path_tests {
             session_a.save().unwrap();
 
             let server = LeanCtxServer::new_with_startup(None, Some(repo_b_src.clone()));
-            std::env::remove_var("LEAN_CTX_DATA_DIR");
+            std::env::remove_var("NEBU_CTX_DATA_DIR");
             (server, root_b, repo_b_src_value, old_id)
         };
 

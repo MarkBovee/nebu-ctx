@@ -394,7 +394,7 @@ mod tests {
 
     #[test]
     fn cargo_build_success() {
-        let output = "   Compiling lean-ctx v2.1.1\n    Finished release profile [optimized] target(s) in 30.5s";
+        let output = "   Compiling nebu-ctx v2.1.1\n    Finished release profile [optimized] target(s) in 30.5s";
         let result = compress("cargo build", output).unwrap();
         assert!(result.contains("compiled"), "should mention compilation");
         assert!(result.contains("30.5s"), "should include build time");
@@ -402,7 +402,7 @@ mod tests {
 
     #[test]
     fn cargo_build_with_errors() {
-        let output = "   Compiling lean-ctx v2.1.1\nerror[E0308]: mismatched types\n --> src/main.rs:10:5\n  |\n10|     1 + \"hello\"\n  |         ^^^^^^^ expected integer, found &str";
+        let output = "   Compiling nebu-ctx v2.1.1\nerror[E0308]: mismatched types\n --> src/main.rs:10:5\n  |\n10|     1 + \"hello\"\n  |         ^^^^^^^ expected integer, found &str";
         let result = compress("cargo build", output).unwrap();
         assert!(result.contains("E0308"), "should contain error code");
     }
@@ -423,14 +423,14 @@ mod tests {
 
     #[test]
     fn cargo_clippy_clean() {
-        let output = "    Checking lean-ctx v2.1.1\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.2s";
+        let output = "    Checking nebu-ctx v2.1.1\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.2s";
         let result = compress("cargo clippy", output).unwrap();
         assert!(result.contains("clean"), "clean clippy should say clean");
     }
 
     #[test]
     fn cargo_check_routes_to_build() {
-        let output = "    Checking lean-ctx v2.1.1\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.1s";
+        let output = "    Checking nebu-ctx v2.1.1\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.1s";
         let result = compress("cargo check", output);
         assert!(
             result.is_some(),
@@ -442,15 +442,15 @@ mod tests {
     fn cargo_metadata_json() {
         let json = r#"{
             "packages": [
-                {"name": "lean-ctx", "version": "3.2.9", "features": {"tree-sitter": ["dep:tree-sitter"]}},
+                {"name": "nebu-ctx", "version": "3.2.9", "features": {"tree-sitter": ["dep:tree-sitter"]}},
                 {"name": "serde", "version": "1.0.200", "features": {"derive": ["serde_derive"]}}
             ],
-            "workspace_members": ["lean-ctx 3.2.9 (path+file:///foo)"],
+            "workspace_members": ["nebu-ctx 3.2.9 (path+file:///foo)"],
             "workspace_root": "/foo",
             "target_directory": "/foo/target",
             "resolve": {
                 "nodes": [
-                    {"id": "lean-ctx", "deps": [{"name": "serde"}]},
+                    {"id": "nebu-ctx", "deps": [{"name": "serde"}]},
                     {"id": "serde", "deps": []}
                 ]
             }

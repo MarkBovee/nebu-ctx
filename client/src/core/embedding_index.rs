@@ -154,7 +154,7 @@ fn index_dir(root: &Path) -> PathBuf {
     let mut hasher = Md5::new();
     hasher.update(root.to_string_lossy().as_bytes());
     let hash = format!("{:x}", hasher.finalize());
-    crate::core::data_dir::lean_ctx_data_dir()
+    crate::core::data_dir::nebu_ctx_data_dir()
         .unwrap_or_else(|_| PathBuf::from("."))
         .join("vectors")
         .join(hash)
@@ -392,7 +392,7 @@ mod tests {
     fn save_and_load_roundtrip() {
         let _lock = crate::core::data_dir::test_env_lock();
         let data_dir = tempfile::tempdir().unwrap();
-        std::env::set_var("LEAN_CTX_DATA_DIR", data_dir.path());
+        std::env::set_var("NEBU_CTX_DATA_DIR", data_dir.path());
 
         let project_dir = tempfile::tempdir().unwrap();
 
@@ -406,6 +406,6 @@ mod tests {
         assert_eq!(loaded.entries.len(), 1);
         assert!((loaded.entries[0].embedding[0] - 1.0).abs() < 1e-6);
 
-        std::env::remove_var("LEAN_CTX_DATA_DIR");
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
     }
 }

@@ -30,11 +30,11 @@ fn print_check(outcome: &Outcome) {
 fn path_in_path_env() -> bool {
     if let Ok(path) = std::env::var("PATH") {
         for dir in std::env::split_paths(&path) {
-            if dir.join("lean-ctx").is_file() {
+            if dir.join("nebu-ctx").is_file() {
                 return true;
             }
             if cfg!(windows)
-                && (dir.join("lean-ctx.exe").is_file() || dir.join("lean-ctx.cmd").is_file())
+                && (dir.join("nebu-ctx.exe").is_file() || dir.join("nebu-ctx.cmd").is_file())
             {
                 return true;
             }
@@ -43,20 +43,20 @@ fn path_in_path_env() -> bool {
     false
 }
 
-fn resolve_lean_ctx_binary() -> Option<PathBuf> {
+fn resolve_nebu_ctx_binary() -> Option<PathBuf> {
     if let Ok(path) = std::env::var("PATH") {
         for dir in std::env::split_paths(&path) {
             if cfg!(windows) {
-                let exe = dir.join("lean-ctx.exe");
+                let exe = dir.join("nebu-ctx.exe");
                 if exe.is_file() {
                     return Some(exe);
                 }
-                let cmd = dir.join("lean-ctx.cmd");
+                let cmd = dir.join("nebu-ctx.cmd");
                 if cmd.is_file() {
                     return Some(cmd);
                 }
             } else {
-                let bin = dir.join("lean-ctx");
+                let bin = dir.join("nebu-ctx");
                 if bin.is_file() {
                     return Some(bin);
                 }
@@ -66,11 +66,11 @@ fn resolve_lean_ctx_binary() -> Option<PathBuf> {
     None
 }
 
-fn lean_ctx_version_from_path() -> Outcome {
-    let resolved = resolve_lean_ctx_binary();
+fn nebu_ctx_version_from_path() -> Outcome {
+    let resolved = resolve_nebu_ctx_binary();
     let bin = resolved
         .clone()
-        .unwrap_or_else(|| std::env::current_exe().unwrap_or_else(|_| "lean-ctx".into()));
+        .unwrap_or_else(|| std::env::current_exe().unwrap_or_else(|_| "nebu-ctx".into()));
 
     let v = env!("CARGO_PKG_VERSION");
     let note = match std::env::current_exe() {
@@ -80,13 +80,13 @@ fn lean_ctx_version_from_path() -> Outcome {
     };
     Outcome {
         ok: true,
-        line: format!("{BOLD}lean-ctx version{RST}  {WHITE}lean-ctx {v}{RST}  {note}"),
+        line: format!("{BOLD}nebu-ctx version{RST}  {WHITE}nebu-ctx {v}{RST}  {note}"),
     }
 }
 
 fn rc_contains_lean_ctx(path: &PathBuf) -> bool {
     match std::fs::read_to_string(path) {
-        Ok(s) => s.contains("lean-ctx"),
+        Ok(s) => s.contains("nebu-ctx") || s.contains("lean-ctx"),
         Err(_) => false,
     }
 }
@@ -103,13 +103,16 @@ fn rc_has_pipe_guard(path: &PathBuf) -> bool {
             if has_pipe_guard_in_content(&s) {
                 return true;
             }
-            if s.contains(".lean-ctx/shell-hook.") {
+            let has_nebu_hook = s.contains(".nebu-ctx/shell-hook.") || s.contains(".nebu-ctx/shell-hook.");
+            if has_nebu_hook {
                 if let Some(home) = dirs::home_dir() {
-                    for ext in &["zsh", "bash", "fish", "ps1"] {
-                        let hook = home.join(format!(".lean-ctx/shell-hook.{ext}"));
-                        if let Ok(h) = std::fs::read_to_string(&hook) {
-                            if has_pipe_guard_in_content(&h) {
-                                return true;
+                    for dir in &[".nebu-ctx", ".lean-ctx"] {
+                        for ext in &["zsh", "bash", "fish", "ps1"] {
+                            let hook = home.join(format!("{dir}/shell-hook.{ext}"));
+                            if let Ok(h) = std::fs::read_to_string(&hook) {
+                                if has_pipe_guard_in_content(&h) {
+                                    return true;
+                                }
                             }
                         }
                     }
@@ -207,7 +210,7 @@ fn shell_aliases_outcome() -> Outcome {
         Outcome {
             ok: false,
             line: format!(
-                "{BOLD}Shell aliases{RST}  {YELLOW}outdated hook in {} — run {BOLD}lean-ctx init --global{RST}{YELLOW} to fix (pipe guard missing){RST}",
+                "{BOLD}Shell aliases{RST}  {YELLOW}outdated hook in {} — run {BOLD}nebu-ctx init --global{RST}{YELLOW} to fix (pipe guard missing){RST}",
                 needs_update.join(", ")
             ),
         }
@@ -462,9 +465,9 @@ fn mcp_config_outcome() -> Outcome {
             String::new()
         };
         let hint = if has_claude {
-            format!("{DIM}(run: lean-ctx doctor --fix OR lean-ctx init --agent claude){RST}")
+            format!("{DIM}(run: nebu-ctx doctor --fix OR nebu-ctx init --agent claude){RST}")
         } else {
-            format!("{DIM}(run: lean-ctx doctor --fix OR lean-ctx setup){RST}")
+            format!("{DIM}(run: nebu-ctx doctor --fix OR nebu-ctx setup){RST}")
         };
         Outcome {
             ok: false,
@@ -477,7 +480,7 @@ fn mcp_config_outcome() -> Outcome {
         Outcome {
             ok: false,
             line: format!(
-                "{BOLD}MCP config{RST}  {YELLOW}no MCP config found{RST}  {DIM}(run: lean-ctx setup){RST}"
+                "{BOLD}MCP config{RST}  {YELLOW}no MCP config found{RST}  {DIM}(run: nebu-ctx setup){RST}"
             ),
         }
     }
@@ -591,7 +594,7 @@ fn docker_env_outcomes() -> Vec<Outcome> {
     if !crate::shell::is_container() {
         return vec![];
     }
-    let env_sh = crate::core::data_dir::lean_ctx_data_dir()
+    let env_sh = crate::core::data_dir::nebu_ctx_data_dir()
         .map(|d| d.join("env.sh").to_string_lossy().to_string())
         .unwrap_or_else(|_| "/root/.lean-ctx/env.sh".to_string());
 
@@ -646,23 +649,23 @@ pub fn run() {
     let mut passed = 0u32;
     let total = 8u32;
 
-    println!("{BOLD}{WHITE}lean-ctx doctor{RST}  {DIM}diagnostics{RST}\n");
+    println!("{BOLD}{WHITE}nebu-ctx doctor{RST}  {DIM}diagnostics{RST}\n");
 
     // 1) Binary on PATH
-    let path_bin = resolve_lean_ctx_binary();
+    let path_bin = resolve_nebu_ctx_binary();
     let also_in_path_dirs = path_in_path_env();
     let bin_ok = path_bin.is_some() || also_in_path_dirs;
     if bin_ok {
         passed += 1;
     }
     let bin_line = if let Some(p) = path_bin {
-        format!("{BOLD}lean-ctx in PATH{RST}  {WHITE}{}{RST}", p.display())
+        format!("{BOLD}nebu-ctx in PATH{RST}  {WHITE}{}{RST}", p.display())
     } else if also_in_path_dirs {
         format!(
-            "{BOLD}lean-ctx in PATH{RST}  {YELLOW}found via PATH walk (not resolved by `command -v`){RST}"
+            "{BOLD}nebu-ctx in PATH{RST}  {YELLOW}found via PATH walk (not resolved by `command -v`){RST}"
         )
     } else {
-        format!("{BOLD}lean-ctx in PATH{RST}  {RED}not found{RST}")
+        format!("{BOLD}nebu-ctx in PATH{RST}  {RED}not found{RST}")
     };
     print_check(&Outcome {
         ok: bin_ok,
@@ -671,11 +674,11 @@ pub fn run() {
 
     // 2) Version from PATH binary
     let ver = if bin_ok {
-        lean_ctx_version_from_path()
+        nebu_ctx_version_from_path()
     } else {
         Outcome {
             ok: false,
-            line: format!("{BOLD}lean-ctx version{RST}  {RED}skipped (binary not in PATH){RST}"),
+            line: format!("{BOLD}nebu-ctx version{RST}  {RED}skipped (binary not in PATH){RST}"),
         }
     };
     if ver.ok {
@@ -683,8 +686,8 @@ pub fn run() {
     }
     print_check(&ver);
 
-    // 3) data directory (respects LEAN_CTX_DATA_DIR)
-    let lean_dir = crate::core::data_dir::lean_ctx_data_dir().ok();
+    // 3) data directory (respects NEBU_CTX_DATA_DIR)
+    let lean_dir = crate::core::data_dir::nebu_ctx_data_dir().ok();
     let dir_outcome = match &lean_dir {
         Some(p) if p.is_dir() => {
             passed += 1;
@@ -905,7 +908,7 @@ fn claude_truncation_outcome() -> Option<Outcome> {
         return None;
     }
 
-    let rules_path = crate::core::editor_registry::claude_rules_dir(&home).join("lean-ctx.md");
+    let rules_path = crate::core::editor_registry::claude_rules_dir(&home).join("nebu-ctx.md");
     let skill_path = home.join(".claude/skills/lean-ctx/SKILL.md");
 
     let has_rules = rules_path.exists();
@@ -929,7 +932,7 @@ fn claude_truncation_outcome() -> Option<Outcome> {
         Some(Outcome {
             ok: false,
             line: format!(
-                "{BOLD}Claude Code instructions{RST}  {YELLOW}MCP instructions truncated at 2048 chars, no rules file found{RST}  {DIM}(run: lean-ctx init --agent claude){RST}"
+                "{BOLD}Claude Code instructions{RST}  {YELLOW}MCP instructions truncated at 2048 chars, no rules file found{RST}  {DIM}(run: nebu-ctx init --agent claude){RST}"
             ),
         })
     }
@@ -947,8 +950,8 @@ pub fn run_cli(args: &[String]) -> i32 {
 
     if help {
         println!("Usage:");
-        println!("  lean-ctx doctor");
-        println!("  lean-ctx doctor --fix [--json]");
+        println!("  nebu-ctx doctor");
+        println!("  nebu-ctx doctor --fix [--json]");
         return 0;
     }
 
@@ -977,7 +980,7 @@ fn run_fix(opts: DoctorFixOptions) -> Result<i32, String> {
 
     let _quiet_guard = opts
         .json
-        .then(|| crate::setup::EnvVarGuard::set("LEAN_CTX_QUIET", "1"));
+        .then(|| crate::setup::EnvVarGuard::set("NEBU_CTX_QUIET", "1"));
     let started_at = Utc::now();
     let home = dirs::home_dir().ok_or_else(|| "Cannot determine home directory".to_string())?;
 
@@ -1181,10 +1184,10 @@ pub fn compact_score() -> (u32, u32) {
     let mut passed = 0u32;
     let total = 5u32;
 
-    if resolve_lean_ctx_binary().is_some() || path_in_path_env() {
+    if resolve_nebu_ctx_binary().is_some() || path_in_path_env() {
         passed += 1;
     }
-    let lean_dir = crate::core::data_dir::lean_ctx_data_dir().ok();
+    let lean_dir = crate::core::data_dir::nebu_ctx_data_dir().ok();
     if lean_dir.as_ref().is_some_and(|p| p.is_dir()) {
         passed += 1;
     }
@@ -1210,7 +1213,7 @@ fn print_compact_status(passed: u32, total: u32) {
     let status = if passed == total {
         format!("{GREEN}✓ All {total} checks passed{RST}")
     } else {
-        format!("{YELLOW}{passed}/{total} passed{RST} — run {BOLD}lean-ctx doctor{RST} for details")
+        format!("{YELLOW}{passed}/{total} passed{RST} — run {BOLD}nebu-ctx doctor{RST} for details")
     };
     println!("  {status}");
 }

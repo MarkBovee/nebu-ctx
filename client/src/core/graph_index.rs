@@ -60,7 +60,7 @@ impl ProjectIndex {
 
     pub fn index_dir(project_root: &str) -> Option<std::path::PathBuf> {
         let hash = short_hash(&normalize_project_root(project_root));
-        crate::core::data_dir::lean_ctx_data_dir()
+        crate::core::data_dir::nebu_ctx_data_dir()
             .ok()
             .map(|d| d.join("graphs").join(hash))
     }

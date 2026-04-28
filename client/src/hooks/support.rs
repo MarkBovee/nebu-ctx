@@ -84,7 +84,7 @@ pub(super) fn install_codex_instruction_docs(codex_dir: &Path) -> bool {
     let lean_ctx_content = codex_instruction_doc_content();
 
     match std::fs::read_to_string(&agents_path) {
-        Ok(content) if content.contains("lean-ctx") || content.contains("LEAN-CTX") => {
+        Ok(content) if content.contains("nebu-ctx") || content.contains("lean-ctx") || content.contains("LEAN-CTX") => {
             if lean_ctx_md.exists() {
                 false
             } else {
@@ -103,7 +103,7 @@ pub(super) fn install_codex_instruction_docs(codex_dir: &Path) -> bool {
 fn codex_instruction_doc_content() -> String {
     let binary = super::resolve_binary_path();
     format!(
-        r#"# lean-ctx — Token Optimization
+        r#"# nebu-ctx — Token Optimization
 
 Prefix all shell commands with `{binary} -c` for compressed output:
 
@@ -395,12 +395,12 @@ pub(super) fn is_lean_ctx_codex_managed_entry(event_name: &str, entry: &serde_js
         match event_name {
             "PreToolUse" => {
                 entry_obj.get("matcher").and_then(|value| value.as_str()) == Some("Bash")
-                    && command.contains("lean-ctx")
+                    && (command.contains("nebu-ctx") || command.contains("lean-ctx"))
                     && (command.contains("hook rewrite")
                         || command.contains("hook codex-pretooluse"))
             }
             "SessionStart" => {
-                command.contains("lean-ctx") && command.contains("hook codex-session-start")
+                (command.contains("nebu-ctx") || command.contains("lean-ctx")) && command.contains("hook codex-session-start")
             }
             _ => false,
         }

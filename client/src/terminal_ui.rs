@@ -165,7 +165,7 @@ pub fn print_command_box() {
         "  {d}│{r}  {cmd}{b}lean-ctx config{r}      {m}Edit settings{r}                   {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}lean-ctx doctor{r}      {m}Verify installation{r}             {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx doctor{r}      {m}Verify installation{r}             {d}│{r}"
     );
     println!(
         "  {d}│{r}  {cmd}{b}lean-ctx update{r}      {m}Self-update to latest{r}           {d}│{r}"
@@ -176,7 +176,7 @@ pub fn print_command_box() {
     );
     println!("  {d}│{r}  {cmd}{b}lean-ctx contribute{r}  {m}Share anonymized compression stats{r}{d}│{r}");
     println!(
-        "  {d}│{r}  {cmd}{b}lean-ctx uninstall{r}   {m}Clean removal{r}                   {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx uninstall{r}   {m}Clean removal{r}                   {d}│{r}"
     );
     println!("  {d}└─────────────────────────────────────────────────────────┘{r}");
     println!("  {ok}Ready!{r} Your next AI command will be automatically optimized.");
@@ -230,7 +230,7 @@ pub fn print_setup_header() {
     println!();
     println!("  {dim}╭──────────────────────────────────────────╮{rst}");
     println!(
-        "  {dim}│{rst}  {green}{bold}◆ lean-ctx setup{rst}                         {dim}│{rst}"
+        "  {dim}│{rst}  {green}{bold}◆ nebu-ctx setup{rst}                         {dim}│{rst}"
     );
     println!("  {dim}│{rst}  {dim}Configuring your development environment{rst} {dim}│{rst}");
     println!("  {dim}╰──────────────────────────────────────────╯{rst}");

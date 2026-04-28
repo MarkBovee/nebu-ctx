@@ -180,7 +180,7 @@ impl ModePredictor {
     }
 
     fn save_to_disk(&self) {
-        let dir = match crate::core::data_dir::lean_ctx_data_dir() {
+        let dir = match crate::core::data_dir::nebu_ctx_data_dir() {
             Ok(d) => d,
             Err(_) => return,
         };
@@ -202,7 +202,7 @@ impl ModePredictor {
     }
 
     fn load_from_disk() -> Option<Self> {
-        let path = crate::core::data_dir::lean_ctx_data_dir()
+        let path = crate::core::data_dir::nebu_ctx_data_dir()
             .ok()?
             .join(STATS_FILE);
         let data = std::fs::read_to_string(path).ok()?;

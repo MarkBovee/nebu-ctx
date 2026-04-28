@@ -1,6 +1,6 @@
-# lean-ctx — Context Engineering Layer
+# nebu-ctx — Context Engineering Layer
 
-PREFER lean-ctx MCP tools over native equivalents for token savings:
+PREFER nebu-ctx MCP tools over native equivalents for token savings:
 
 | PREFER | OVER | Why |
 |--------|------|-----|
@@ -27,6 +27,6 @@ PREFER lean-ctx MCP tools over native equivalents for token savings:
 Use native Edit/StrReplace when available. If Edit requires Read and Read is unavailable,
 use `ctx_edit(path, old_string, new_string)` — it reads, replaces, and writes in one MCP call.
 NEVER loop trying to make Edit work. If it fails, switch to ctx_edit immediately.
-Write, Delete have no lean-ctx equivalent — use them normally.
+Write, Delete have no nebu-ctx equivalent — use them normally.
 
 Prefer `ctx_workflow` for state + evidence + tool gating.

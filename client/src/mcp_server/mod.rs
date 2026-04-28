@@ -84,7 +84,7 @@ impl ServerHandler for LeanCtxServer {
         let agent_root = derived_root.clone().unwrap_or_default();
         let agent_id_handle = self.agent_id.clone();
         tokio::task::spawn_blocking(move || {
-            if std::env::var("LEAN_CTX_HEADLESS").is_ok() {
+            if std::env::var("NEBU_CTX_HEADLESS").is_ok() {
                 return;
             }
             if let Some(home) = dirs::home_dir() {
@@ -103,7 +103,7 @@ impl ServerHandler for LeanCtxServer {
                     n if n.contains("test") => Some("tester"),
                     _ => None,
                 };
-                let env_role = std::env::var("LEAN_CTX_AGENT_ROLE").ok();
+                let env_role = std::env::var("NEBU_CTX_AGENT_ROLE").ok();
                 let effective_role = env_role.as_deref().or(role);
                 let mut registry = crate::core::agents::AgentRegistry::load_or_create();
                 registry.cleanup_stale(24);
@@ -131,8 +131,8 @@ impl ServerHandler for LeanCtxServer {
     ) -> Result<ListToolsResult, ErrorData> {
         let all_tools = if crate::tool_defs::is_lazy_mode() {
             crate::tool_defs::lazy_tool_defs()
-        } else if std::env::var("LEAN_CTX_UNIFIED").is_ok()
-            && std::env::var("LEAN_CTX_FULL_TOOLS").is_err()
+        } else if std::env::var("NEBU_CTX_UNIFIED").is_ok()
+            && std::env::var("NEBU_CTX_FULL_TOOLS").is_err()
         {
             crate::tool_defs::unified_tool_defs()
         } else {

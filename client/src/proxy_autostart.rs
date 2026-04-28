@@ -10,7 +10,7 @@ pub fn install(port: u16, quiet: bool) {
     let binary = find_binary();
     if binary.is_empty() {
         if !quiet {
-            eprintln!("  Cannot find lean-ctx binary for autostart");
+            eprintln!("  Cannot find nebu-ctx binary for autostart");
         }
         return;
     }

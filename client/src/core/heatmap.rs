@@ -112,7 +112,7 @@ impl HeatMap {
     }
 
     fn storage_path() -> PathBuf {
-        crate::core::data_dir::lean_ctx_data_dir()
+        crate::core::data_dir::nebu_ctx_data_dir()
             .unwrap_or_else(|_| PathBuf::from("."))
             .join("heatmap.json")
     }

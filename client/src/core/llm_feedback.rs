@@ -206,7 +206,7 @@ fn summarize_events(events: &[LlmFeedbackEvent]) -> LlmFeedbackSummary {
 }
 
 fn feedback_path() -> PathBuf {
-    crate::core::data_dir::lean_ctx_data_dir()
+    crate::core::data_dir::nebu_ctx_data_dir()
         .unwrap_or_else(|_| PathBuf::from("."))
         .join("feedback")
         .join(LLM_FEEDBACK_FILE)

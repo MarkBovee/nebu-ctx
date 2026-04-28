@@ -62,7 +62,7 @@ pub struct DayStats {
 }
 
 fn stats_dir() -> Option<PathBuf> {
-    crate::core::data_dir::lean_ctx_data_dir().ok()
+    crate::core::data_dir::nebu_ctx_data_dir().ok()
 }
 
 fn stats_path() -> Option<PathBuf> {
@@ -571,7 +571,7 @@ pub struct CostModel {
 
 impl Default for CostModel {
     fn default() -> Self {
-        let env_model = std::env::var("LEAN_CTX_MODEL")
+        let env_model = std::env::var("NEBU_CTX_MODEL")
             .or_else(|_| std::env::var("LCTX_MODEL"))
             .ok();
         let pricing = crate::core::gain::model_pricing::ModelPricing::load();
@@ -651,7 +651,7 @@ fn format_usd(amount: f64) -> String {
 }
 
 fn usd_estimate(tokens: u64) -> String {
-    let env_model = std::env::var("LEAN_CTX_MODEL")
+    let env_model = std::env::var("NEBU_CTX_MODEL")
         .or_else(|_| std::env::var("LCTX_MODEL"))
         .ok();
     let pricing = crate::core::gain::model_pricing::ModelPricing::load();
@@ -931,7 +931,7 @@ pub fn format_cep_report() -> String {
                 "     Run {sec}lean-ctx init{r} to update rules, then restart your AI session."
             ));
             o.push(format!(
-                "     Run {sec}lean-ctx doctor{r} for detailed adoption diagnostics."
+                "     Run {sec}nebu-ctx doctor{r} for detailed adoption diagnostics."
             ));
         } else {
             o.push(format!(
@@ -942,7 +942,7 @@ pub fn format_cep_report() -> String {
                     .to_string(),
             );
             o.push(format!(
-                "     Run {sec}lean-ctx setup{r} to auto-configure your editors."
+                "     Run {sec}nebu-ctx setup{r} to auto-configure your editors."
             ));
         }
         o.push(String::new());

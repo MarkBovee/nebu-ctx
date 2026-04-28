@@ -13,7 +13,7 @@ pub fn execute_command_in(command: &str, cwd: &str) -> (String, i32) {
     let mut cmd = std::process::Command::new(&shell);
     cmd.arg(&flag)
         .arg(&normalized_cmd)
-        .env("LEAN_CTX_ACTIVE", "1")
+        .env("NEBU_CTX_ACTIVE", "1")
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_PAGER", "cat")
         .env("PAGER", "cat")
@@ -129,7 +129,7 @@ pub fn execute_command_in(command: &str, cwd: &str) -> (String, i32) {
 }
 
 fn command_timeout() -> Duration {
-    std::env::var("LEAN_CTX_SHELL_TIMEOUT_MS")
+    std::env::var("NEBU_CTX_SHELL_TIMEOUT_MS")
         .ok()
         .and_then(|value| value.parse::<u64>().ok())
         .filter(|millis| *millis > 0)

@@ -81,7 +81,7 @@ impl NeuralEngine {
     }
 
     fn model_directory() -> PathBuf {
-        if let Ok(dir) = std::env::var("LEAN_CTX_MODELS_DIR") {
+        if let Ok(dir) = std::env::var("NEBU_CTX_MODELS_DIR") {
             return PathBuf::from(dir);
         }
 
