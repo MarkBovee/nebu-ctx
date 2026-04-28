@@ -206,17 +206,15 @@ ctx_brain(action="store", key="session-YYYY-MM-DD", value="<summary>")
 
 ## IDE Hook Expansion
 
-### Current state (per IDE)
+### Current state (target agents)
 
 | IDE / Agent | Hook events wired | What they do |
 |-------------|-------------------|--------------|
-| **Claude Code** | `PreToolUse: Bash` → `hook rewrite`; `PreToolUse: Read/Grep/View/ListFiles` → `hook redirect` | Rewrites shell commands to route through nebu-ctx; redirects native file reads to MCP |
+| **Claude Code** | `PreToolUse: Bash` → `hook rewrite`; `PreToolUse: Read/Grep/View/ListFiles` → `hook redirect` | Rewrites shell commands; redirects native file reads to MCP |
 | **Copilot CLI** | `preToolUse` → `hook rewrite` + `hook redirect` | Same as Claude Code; written to `~/.github/hooks/hooks.json` |
-| **Cursor** | `PreToolUse: Bash` → `hook rewrite` | Shell command rewriting only |
-| **Gemini** | `PreToolUse: Bash` → `hook rewrite`; `PreToolUse: Read/Grep/...` → `hook redirect` | Full rewrite + redirect |
-| **Codex** | `SessionStart` → `hook codex-session-start`; `PreToolUse: Bash` → `hook codex-pretooluse` | Session-start wakeup + command rewriting |
-| **Windsurf / Cline / Roo** | Rules file injection only | No hook events; adds CLAUDE.md-style context |
-| **Amp / JetBrains / Kiro / Crush / OpenCode / Hermes** | MCP server registration only | No hook events wired at all |
+| **OpenCode** | MCP server registration only | No hook events wired — needs `PreToolUse: Bash` at minimum |
+
+Other agents (Cursor, Gemini, Codex, Windsurf, Amp, etc.) are deprioritised for now.
 
 ### What is missing
 
@@ -230,7 +228,7 @@ To add:
 - Add `handle_stop()` in `hook_handlers.rs` — calls `consolidate_latest()` then `post_consolidation_to_cloud()`
 - Wire `"hook stop"` in `main.rs` dispatch
 
-**2. `PostToolUse` hook (all IDEs)**
+**2. `PostToolUse` hook for telemetry (Claude Code, Copilot CLI)**
 
 After every tool call, a `PostToolUse` event fires. Useful for:
 - Emitting per-call telemetry (token counts, tool name) — currently only done via `fire_sync` in `-c`/`-t` paths
@@ -238,14 +236,13 @@ After every tool call, a `PostToolUse` event fires. Useful for:
 
 Currently only wired in Codex tests — not in any production hook install.
 
-**3. Missing agents have no hooks at all**
+**3. OpenCode has no hooks at all**
 
-Amp, JetBrains, Kiro, Crush, OpenCode, Hermes — they register the MCP server but install **zero hook events**. This means:
-- Shell command interception doesn't work
-- File read redirection doesn't work
-- Session-end consolidation won't work even after Task A/B/C above
+OpenCode registers the MCP server but installs **zero hook events**. Shell command interception and session-end consolidation won't work until hooks are wired.
 
-Each needs at minimum `PreToolUse: Bash → hook rewrite` wired into their respective config format.
+Needs at minimum:
+- `PreToolUse: Bash → hook rewrite` in `install_opencode_*()` in `hooks/agents.rs`
+- `Stop` equivalent for session-end sync (check OpenCode's hook event schema)
 
 ### Implementation plan (tomorrow)
 
@@ -270,16 +267,16 @@ pub fn handle_stop() {
 
 Add `"PostToolUse": [{ "matcher": ".*", "hooks": [{ "type": "command", "command": "nebu-ctx hook post-tool-use" }] }]` and a `handle_post_tool_use()` in `hook_handlers.rs` that reads stdin JSON, extracts tool name + output length, and fires telemetry.
 
-**Step 3 — Add `PreToolUse: Bash` hooks to Amp, Kiro, OpenCode, Hermes, Crush**
+**Step 3 — Add hooks to OpenCode**
 
-Each agent has its own config format — check the install functions in `hooks/agents.rs` and add the `hook rewrite` call to each.
+Check `install_opencode_*()` in `hooks/agents.rs` and add `hook rewrite` for `PreToolUse: Bash` plus a `Stop`-equivalent if OpenCode supports it.
 
-**Step 4 — Run `nebu-ctx hooks install --all` after each change to re-deploy**
+**Step 4 — Re-deploy after each change**
 
 ```bash
 nebu-ctx hooks install claude --global
 nebu-ctx hooks install copilot --global
-# etc.
+nebu-ctx hooks install opencode --global
 ```
 
 ---
