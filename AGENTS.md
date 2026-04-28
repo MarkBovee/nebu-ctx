@@ -55,7 +55,7 @@ The add-on container behavior is driven by `docker-entrypoint.sh`. Keep these fi
 - `homeassistant/README.md`
 - `tests/local-addon-test.sh`
 
-The `homeassistant/Dockerfile` is a thin wrapper (`FROM ghcr.io/markbovee/nebu-ctx:{version}`) used for local testing only. Production HA deployments pull the pre-built GHCR image directly via the `image:` field in `config.yaml`.
+There is no `homeassistant/Dockerfile` — when `image:` is set in `config.yaml`, HA Supervisor pulls the pre-built GHCR image directly and ignores any Dockerfile. For local addon smoke testing, `tests/local-addon-test.sh` defaults to building from the root `Dockerfile`.
 
 Current add-on behavior:
 
