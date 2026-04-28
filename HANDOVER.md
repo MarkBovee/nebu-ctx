@@ -96,7 +96,7 @@ podman run -p 3333:3333 -p 4242:4242 \
   nebu-ctx-server
 ```
 
-Then open `http://localhost:3333` for the dashboard and test:
+Then open `http://127.0.0.1:3333` for the dashboard and test:
 - Brain page — shows stored memories
 - Knowledge page — shows project facts
 - Sessions page
@@ -132,8 +132,8 @@ bash tests/local-addon-test.sh
 ```
 
 Check:
-- MCP endpoint responds: `curl http://localhost:4242/health`
-- Dashboard loads: `curl http://localhost:3333`
+- MCP endpoint responds: `curl http://127.0.0.1:4242/health`
+- Dashboard loads: `curl http://127.0.0.1:3333`
 - Auth token is printed to logs on startup
 - Token persists across restarts (`/data/auth_token` inside container)
 

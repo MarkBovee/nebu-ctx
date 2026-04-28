@@ -84,6 +84,7 @@ public static class DashboardPayloadFactory
                 ["project_id"] = e.ProjectId,
                 ["project_name"] = projects.FirstOrDefault(p => p.ProjectId == e.ProjectId)?.Slug ?? e.ProjectId,
                 ["category"] = e.Category,
+                ["fact_name"] = e.Key,
                 ["key"] = e.Key,
                 ["value"] = e.Value,
                 ["confidence"] = (double)e.Confidence,
@@ -638,7 +639,8 @@ public static class DashboardPayloadFactory
 
         return new
         {
-            nodes = Array.Empty<object>(),
+            // nodes mirrors files for API consumers that pre-date the files field.
+            nodes = routeFiles.Values.ToArray(),
             edges,
             files = routeFiles,
             indexed_file_count = routeFiles.Count,
@@ -1104,10 +1106,10 @@ public static class DashboardPayloadFactory
         return facts
             .GroupBy(fact => string.Join(
                 '|',
-                fact["project_id"]?.ToString() ?? string.Empty,
-                fact["category"]?.ToString() ?? string.Empty,
-                fact["fact_name"]?.ToString() ?? string.Empty,
-                fact["value"]?.ToString() ?? string.Empty), StringComparer.OrdinalIgnoreCase)
+                fact.GetValueOrDefault("project_id")?.ToString() ?? string.Empty,
+                fact.GetValueOrDefault("category")?.ToString() ?? string.Empty,
+                fact.GetValueOrDefault("fact_name")?.ToString() ?? string.Empty,
+                fact.GetValueOrDefault("value")?.ToString() ?? string.Empty), StringComparer.OrdinalIgnoreCase)
             .Select(group => group
                 .OrderByDescending(fact => Convert.ToDouble(fact["confidence"], System.Globalization.CultureInfo.InvariantCulture))
                 .First());

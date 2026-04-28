@@ -107,6 +107,22 @@ public static class DashboardEndpoints
             return Results.Ok(DashboardPayloadFactory.BuildGraphPayload(projects));
         });
         app.MapGet("/api/call-graph", (ToolRegistry toolRegistry) => Results.Ok(DashboardPayloadFactory.BuildCallGraphPayload(toolRegistry)));
+
+        // Project management — list all registered projects
+        app.MapGet("/api/projects", async (ProjectRegistry projectRegistry, CancellationToken cancellationToken) =>
+        {
+            var projects = await projectRegistry.ListAsync(cancellationToken);
+            var payload = projects.Select(p => new
+            {
+                project_id = p.ProjectId,
+                slug = p.Slug,
+                languages = p.ProjectMetadata?.Summary.Languages.Select(l => l.Language).ToArray() ?? [],
+                source_file_count = p.ProjectMetadata?.Summary.SourceFileCount ?? 0,
+                total_file_count = p.ProjectMetadata?.Summary.TotalFileCount ?? 0,
+                created_at = p.CreatedAt,
+            }).ToArray();
+            return Results.Ok(new { projects = payload, total = payload.Length });
+        });
         app.MapGet("/api/feedback", async (ProjectRegistry projectRegistry, TelemetryStore telemetryStore, CancellationToken cancellationToken) =>
         {
             var projects = await projectRegistry.ListAsync(cancellationToken);

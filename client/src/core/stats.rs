@@ -385,7 +385,7 @@ pub fn record(command: &str, input_tokens: usize, output_tokens: usize) {
     }
 }
 
-fn normalize_command(command: &str) -> String {
+pub fn normalize_command(command: &str) -> String {
     let parts: Vec<&str> = command.split_whitespace().collect();
     if parts.is_empty() {
         return command.to_string();

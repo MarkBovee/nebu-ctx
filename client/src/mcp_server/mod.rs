@@ -214,7 +214,11 @@ impl ServerHandler for LeanCtxServer {
         // Route cloud-only and cloud-preferred tools through the cloud server.
         let cloud_fallback_warning = if CLOUD_ONLY_TOOLS.contains(&name) {
             match route_to_cloud(name, args).await {
-                CloudResult::Success(s) => return Ok(CallToolResult::success(vec![Content::text(s)])),
+                CloudResult::Success(s) => {
+                    // Record telemetry so dashboard reflects cloud tool usage.
+                    self.record_call(name, 0, 0, None).await;
+                    return Ok(CallToolResult::success(vec![Content::text(s)]));
+                }
                 CloudResult::NotConfigured => {
                     let msg = format!(
                         "{name} requires a cloud connection. Run: nebu-ctx cloud connect"
@@ -227,7 +231,11 @@ impl ServerHandler for LeanCtxServer {
             }
         } else if CLOUD_PREFERRED_TOOLS.contains(&name) {
             match route_to_cloud(name, args).await {
-                CloudResult::Success(s) => return Ok(CallToolResult::success(vec![Content::text(s)])),
+                CloudResult::Success(s) => {
+                    // Record telemetry so dashboard reflects cloud tool usage.
+                    self.record_call(name, 0, 0, None).await;
+                    return Ok(CallToolResult::success(vec![Content::text(s)]));
+                }
                 CloudResult::NotConfigured => Some(
                     "\n\n⚠ Running locally (no cloud connection). Data stored in .nebu-ctx/ only.\n  To enable cloud persistence: nebu-ctx cloud connect"
                         .to_string(),

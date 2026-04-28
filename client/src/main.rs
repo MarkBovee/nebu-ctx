@@ -52,6 +52,16 @@ fn main() {
                 }
                 let code = shell::exec(&command);
                 core::stats::flush();
+                core::telemetry_queue::fire_sync(lean_ctx::models::TelemetryIngestRequest {
+                    tool_name: core::stats::normalize_command(&command),
+                    tokens_original: 0,
+                    tokens_saved: 0,
+                    duration_ms: 0,
+                    mode: Some("shell".to_string()),
+                    repository_fingerprint: None,
+                    checkout_binding: None,
+                    project_slug: None,
+                });
                 std::process::exit(code);
             }
             "-t" | "--track" => {
@@ -68,6 +78,20 @@ fn main() {
                     shell::exec(&command)
                 };
                 core::stats::flush();
+                let tracked_name = cmd_args
+                    .first()
+                    .map(|s| core::stats::normalize_command(s))
+                    .unwrap_or_else(|| "shell".to_string());
+                core::telemetry_queue::fire_sync(lean_ctx::models::TelemetryIngestRequest {
+                    tool_name: tracked_name,
+                    tokens_original: 0,
+                    tokens_saved: 0,
+                    duration_ms: 0,
+                    mode: Some("shell".to_string()),
+                    repository_fingerprint: None,
+                    checkout_binding: None,
+                    project_slug: None,
+                });
                 std::process::exit(code);
             }
             "shell" | "--shell" => {
@@ -792,6 +816,7 @@ fn run_mcp_server() -> Result<()> {
         );
 
         let server = tools::create_server();
+        core::telemetry_queue::start_drain_task();
         let transport =
             mcp_stdio::HybridStdioTransport::new_server(tokio::io::stdin(), tokio::io::stdout());
         let service = server.serve(transport).await?;
