@@ -41,6 +41,17 @@ fn main() {
                 if std::env::var("NEBU_CTX_ACTIVE").is_ok()
                     || std::env::var("NEBU_CTX_DISABLED").is_ok()
                 {
+                    // Fire telemetry before passthrough exits the process.
+                    core::telemetry_queue::fire_sync(lean_ctx::models::TelemetryIngestRequest {
+                        tool_name: core::stats::normalize_command(&command),
+                        tokens_original: 0,
+                        tokens_saved: 0,
+                        duration_ms: 0,
+                        mode: Some("shell".to_string()),
+                        repository_fingerprint: None,
+                        checkout_binding: None,
+                        project_slug: None,
+                    });
                     passthrough(&command);
                 }
                 if raw {
@@ -66,6 +77,10 @@ fn main() {
             }
             "-t" | "--track" => {
                 let cmd_args = &args[2..];
+                let tracked_name = cmd_args
+                    .first()
+                    .map(|s| core::stats::normalize_command(s))
+                    .unwrap_or_else(|| "shell".to_string());
                 let code = if cmd_args.len() > 1 {
                     shell::exec_argv(cmd_args)
                 } else {
@@ -73,6 +88,17 @@ fn main() {
                     if std::env::var("NEBU_CTX_ACTIVE").is_ok()
                         || std::env::var("NEBU_CTX_DISABLED").is_ok()
                     {
+                        // Fire telemetry before passthrough exits the process.
+                        core::telemetry_queue::fire_sync(lean_ctx::models::TelemetryIngestRequest {
+                            tool_name: tracked_name,
+                            tokens_original: 0,
+                            tokens_saved: 0,
+                            duration_ms: 0,
+                            mode: Some("shell".to_string()),
+                            repository_fingerprint: None,
+                            checkout_binding: None,
+                            project_slug: None,
+                        });
                         passthrough(&command);
                     }
                     shell::exec(&command)

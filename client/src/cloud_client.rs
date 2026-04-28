@@ -91,6 +91,7 @@ impl ServerClient {
         let body = serde_json::to_vec(request).context("failed to serialize request")?;
         let response = ureq::post(&self.url(path))
             .header("Authorization", &format!("Bearer {}", self.connection.token.trim()))
+            .header("Content-Type", "application/json")
             .send(body.as_slice())
             .map_err(|error| anyhow!("Request to {} failed: {}", self.url(path), error))?;
         Self::read_json(response)
