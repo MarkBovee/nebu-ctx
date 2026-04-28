@@ -19,9 +19,7 @@ Thumbs.db
 
 # Build
 /dist/
-/server/dist/*
-!/server/dist/linux/
-!/server/dist/linux/**
+/server/dist/
 /reference/
 build/
 server/**/bin/

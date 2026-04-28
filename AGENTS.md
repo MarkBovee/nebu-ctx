@@ -16,17 +16,16 @@ There is older Rust runtime code in the repository, but the cleaned product layo
 - `client/tests/`: client-owned tests
 - `server/src/`: .NET host, dashboard, contracts, storage, project registry, and tool handlers
 - `server/tests/`: .NET contract, integration, and project identity tests
-- `server/dist/linux/`: committed publish payload used by Docker and the add-on
 - `scripts/server/`: refresh/build/publish scripts for the .NET host
 - `tests/`: cross-stack smoke, add-on, and release validation
 - `homeassistant/`: Home Assistant add-on packaging and runtime wrapper
 - `homeassistant/Dockerfile` and `docker-entrypoint.sh`: standalone and add-on container packaging for the .NET host
-- `Dockerfile`: local/dev image build (uses COPY from `server/dist/linux/`); `homeassistant/Dockerfile` is for HA addon builds (self-contained, fetches dist via git sparse-checkout)
+- `Dockerfile`: multi-stage build (SDK → Alpine runtime); produces the GHCR image and is used for local dev builds
 
 ## Layout Rules
 
 - Treat `client/target/` as normal Cargo output.
-- Treat `server/dist/linux/` as the canonical publish payload.
+- `server/dist/` is gitignored — binaries are no longer committed; the server is built in the multi-stage Dockerfile and published to GHCR.
 - Keep cross-stack and repo-level tests in top-level `tests/` only.
 - Prefer updating docs and scripts to the cleaned top-level layout instead of preserving old path aliases.
 
@@ -49,13 +48,14 @@ The add-on runs two processes in one container:
 - dashboard on port `3333`
 - MCP HTTP server on port `4242`
 
-The add-on container behavior is driven by `docker-entrypoint.sh` and `homeassistant/Dockerfile`. Keep these files aligned whenever you change add-on behavior:
+The add-on container behavior is driven by `docker-entrypoint.sh`. Keep these files aligned whenever you change add-on behavior:
 
 - `docker-entrypoint.sh`
-- `homeassistant/Dockerfile`
 - `homeassistant/config.yaml`
 - `homeassistant/README.md`
 - `tests/local-addon-test.sh`
+
+The `homeassistant/Dockerfile` is a thin wrapper (`FROM ghcr.io/markbovee/nebu-ctx:{version}`) used for local testing only. Production HA deployments pull the pre-built GHCR image directly via the `image:` field in `config.yaml`.
 
 Current add-on behavior:
 
@@ -70,13 +70,13 @@ Current add-on behavior:
   1. `client/Cargo.toml` — Rust client version (e.g. `version = "0.5.1"`)
   2. `homeassistant/config.yaml` — HA addon version (e.g. `version: "0.5.1"`)
   3. `server/src/NebuCtx.Application/ToolRegistry.cs` — `ServerVersion.Current` constant (e.g. `"0.5.1"`)
-  After bumping all three, run `bash scripts/server/refresh-dist.sh` to rebuild `server/dist/linux/` with the new version, then commit all four changes together.
+  Commit all three together. No dist rebuild required — binaries are built in CI.
 - `auto-release.yml` tags main when the version changes and no matching tag exists.
-- `release.yml` builds tagged binaries and publishes release assets.
+- `release.yml` builds tagged binaries, publishes release assets, publishes the crate to crates.io, and builds + pushes the server Docker image to `ghcr.io/markbovee/nebu-ctx`.
 - When a version-bumped commit lands on `main`, `auto-release.yml` triggers, verifies all three version locations are in sync (Cargo.toml, config.yaml, AND ToolRegistry.cs), then creates and pushes the tag. The tag push then triggers `release.yml`.
-- `release.yml` builds amd64+arm64 binaries, creates the GitHub release, and then publishes the crate to crates.io via the `publish-crate` job.
+- `release.yml` builds amd64+arm64 client binaries, creates the GitHub release, publishes the crate to crates.io via the `publish-crate` job, and builds + pushes a multi-platform server image to GHCR via the `publish-server-image` job.
 - **Required secret:** `CARGO_REGISTRY_TOKEN` must be set in GitHub repo Settings → Secrets → Actions. Generate a token at https://crates.io/settings/tokens with "Publish new crates" and "Publish updates" scopes.
-- The Home Assistant container builds from committed `server/dist/linux`, not release-asset downloads.
+- The GHCR server image is built from the multi-stage `Dockerfile` at the repo root. The `homeassistant/Dockerfile` pulls from GHCR — no SDK or source needed at add-on install time.
 
 If you change package, binary, or image names, update all of these together:
 
@@ -97,24 +97,15 @@ dotnet test server/NebuCtx.slnx
 bash tests/local-server-cli-test.sh
 ```
 
-For add-on validation (tests the actual HA Dockerfile — requires latest changes pushed to main):
+For add-on validation (builds multi-stage image from source, then smoke-tests it):
 
 ```bash
-bash scripts/server/refresh-dist.sh
-bash tests/local-addon-test.sh
-```
-
-For fast local dev smoke (uses COPY from local dist, no push needed):
-
-```bash
-bash scripts/server/refresh-dist.sh
 ADDON_DOCKERFILE=Dockerfile bash tests/local-addon-test.sh
 ```
 
-To build the standalone container for local dev:
+To build the standalone container for local dev (multi-stage, compiles server from source):
 
 ```bash
-bash scripts/server/refresh-dist.sh
 podman build -t nebu-ctx-server -f Dockerfile .
 ```
 
@@ -124,15 +115,15 @@ To run the local dev container pointing at the shared PostgreSQL database (same 
 podman run -d --name nebu-ctx-eval \
   -p 127.0.0.1:3333:3333 -p 127.0.0.1:4242:4242 \
   --env-file .env \
-  nebu-ctx-server:VERSION
+  nebu-ctx-server
 ```
 
 The `.env` file must include `NEBULA_CTX_HTTP_TOKEN` (not `AUTH_TOKEN`) and `NEBULA_CTX_HOST=0.0.0.0` for the container to bind on all interfaces and accept the token. Use the same `DATABASE_URL` as the HA server so both instances share telemetry and data.
 
-To test the HA addon Dockerfile in isolation (simulates HA builder context):
+To test the HA addon flow locally (pulls from GHCR — requires the image to be published):
 
 ```bash
-podman build -t nebu-ctx-ha-test -f homeassistant/Dockerfile homeassistant/
+NEBU_CTX_VERSION=0.5.4 bash tests/local-addon-test.sh
 ```
 
 ## Practical Guidance
