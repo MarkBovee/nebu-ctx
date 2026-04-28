@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SERVER_PROJECT="${SERVER_PROJECT:-$ROOT_DIR/server/src/NebuCtx.Server.Host/NebuCtx.Server.Host.csproj}"
 DIST_DIR="${DIST_DIR:-$ROOT_DIR/server/dist/linux}"
-DOCKERFILE_PATH="${DOCKERFILE_PATH:-$ROOT_DIR/homeassistant/Dockerfile}"
+DOCKERFILE_PATH="${DOCKERFILE_PATH:-$ROOT_DIR/Dockerfile}"
 IMAGE_NAME="${IMAGE_NAME:-nebu-ctx-server:local}"
 BUILD_CONTEXT="${BUILD_CONTEXT:-$ROOT_DIR}"
 CONFIGURATION="${CONFIGURATION:-Release}"

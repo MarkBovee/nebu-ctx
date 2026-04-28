@@ -21,6 +21,7 @@ There is older Rust runtime code in the repository, but the cleaned product layo
 - `tests/`: cross-stack smoke, add-on, and release validation
 - `homeassistant/`: Home Assistant add-on packaging and runtime wrapper
 - `homeassistant/Dockerfile` and `docker-entrypoint.sh`: standalone and add-on container packaging for the .NET host
+- `Dockerfile`: local/dev image build (uses COPY from `server/dist/linux/`); `homeassistant/Dockerfile` is for HA addon builds (self-contained, fetches dist via git sparse-checkout)
 
 ## Layout Rules
 
@@ -93,15 +94,20 @@ For add-on validation:
 
 ```bash
 bash scripts/server/refresh-dist.sh
-podman build -t nebu-ctx-addon-dev -f homeassistant/Dockerfile .
 bash tests/local-addon-test.sh
 ```
 
-For the standalone container:
+For the standalone container (local dev):
 
 ```bash
 bash scripts/server/refresh-dist.sh
-podman build -t nebu-ctx-server -f homeassistant/Dockerfile .
+podman build -t nebu-ctx-server -f Dockerfile .
+```
+
+To test the HA addon Dockerfile in isolation (simulates HA builder context):
+
+```bash
+podman build -t nebu-ctx-ha-test -f homeassistant/Dockerfile homeassistant/
 ```
 
 ## Practical Guidance

@@ -1,17 +1,31 @@
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
+ARG BUILD_FROM=mcr.microsoft.com/dotnet/aspnet:10.0-alpine
+FROM ${BUILD_FROM}
+
+ARG NEBULA_CTX_VERSION=main
+ARG NEBULA_CTX_REPOSITORY=https://github.com/MarkBovee/nebu-ctx.git
 
 RUN apk add --no-cache \
     ca-certificates \
     curl \
-    jq
+    jq \
+    git
 
-# Create non-root user
-COPY server/dist/linux/ /app/
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+# Fetch only the dist payload and entrypoint from the repository.
+# Sparse checkout avoids pulling the full source tree at build time.
+RUN git clone --depth=1 --filter=blob:none --sparse \
+        --branch "${NEBULA_CTX_VERSION}" \
+        "${NEBULA_CTX_REPOSITORY}" /tmp/nebu-ctx \
+    && git -C /tmp/nebu-ctx sparse-checkout init --no-cone \
+    && git -C /tmp/nebu-ctx sparse-checkout set 'server/dist/linux/**' 'docker-entrypoint.sh' \
+    && git -C /tmp/nebu-ctx checkout \
+    && mkdir -p /app \
+    && cp -r /tmp/nebu-ctx/server/dist/linux/. /app/ \
+    && cp /tmp/nebu-ctx/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh \
+    && rm -rf /tmp/nebu-ctx
 
-# Create data directory
-RUN mkdir -p /data
-RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
+# Create data directory and normalise entrypoint line endings (Windows checkouts)
+RUN mkdir -p /data \
+    && sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
     && chmod +x /usr/local/bin/docker-entrypoint.sh
 
 WORKDIR /data
