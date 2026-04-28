@@ -118,6 +118,17 @@ bash scripts/server/refresh-dist.sh
 podman build -t nebu-ctx-server -f Dockerfile .
 ```
 
+To run the local dev container pointing at the shared PostgreSQL database (same data as HA server):
+
+```bash
+podman run -d --name nebu-ctx-eval \
+  -p 127.0.0.1:3333:3333 -p 127.0.0.1:4242:4242 \
+  --env-file .env \
+  nebu-ctx-server:VERSION
+```
+
+The `.env` file must include `NEBULA_CTX_HTTP_TOKEN` (not `AUTH_TOKEN`) and `NEBULA_CTX_HOST=0.0.0.0` for the container to bind on all interfaces and accept the token. Use the same `DATABASE_URL` as the HA server so both instances share telemetry and data.
+
 To test the HA addon Dockerfile in isolation (simulates HA builder context):
 
 ```bash

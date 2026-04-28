@@ -60,6 +60,16 @@ public static class StoreFactory
     }
 
     /// <summary>
+    /// Creates a <see cref="PostgresTelemetryStore"/> for persisting and hydrating telemetry events.
+    /// </summary>
+    /// <param name="options">Server configuration containing store selection and connection details.</param>
+    /// <returns>A Postgres-backed telemetry store.</returns>
+    public static PostgresTelemetryStore CreateTelemetryStore(ServerOptions options)
+    {
+        return new PostgresTelemetryStore(BuildConfiguredPostgresConnectionString(options));
+    }
+
+    /// <summary>
     /// Runs additive schema initialization for the supported Postgres backend.
     /// </summary>
     /// <param name="options">Server configuration.</param>

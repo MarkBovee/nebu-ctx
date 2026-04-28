@@ -8,8 +8,10 @@ using NebuCtx.Hosting.Configuration;
 using NebuCtx.Hosting.Middleware;
 using NebuCtx.Hosting.Validation;
 using NebuCtx.Projects;
+using NebuCtx.Server.Host;
 using NebuCtx.Server.Host.Projects;
 using NebuCtx.Storage;
+using NebuCtx.Storage.Postgres;
 using NebuCtx.Tools;
 
 // --- Configuration ---
@@ -63,6 +65,9 @@ builder.Services.AddSingleton<BrainService>();
 builder.Services.AddSingleton<KnowledgeService>();
 builder.Services.AddSingleton<SessionService>();
 builder.Services.AddSingleton<TelemetryStore>();
+builder.Services.AddSingleton<PostgresTelemetryStore>(sp =>
+    StoreFactory.CreateTelemetryStore(sp.GetRequiredService<ServerOptions>()));
+builder.Services.AddHostedService<TelemetryHydrationService>();
 builder.Services.AddSingleton<ToolRegistry>();
 
 // Tool handlers

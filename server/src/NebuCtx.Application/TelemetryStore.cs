@@ -1,6 +1,7 @@
 namespace NebuCtx.Application;
 
 using System.Text.Json;
+using NebuCtx.Contracts.Telemetry;
 
 /// <summary>
 /// In-memory telemetry store for dashboard and operator-facing usage statistics.
@@ -19,6 +20,10 @@ public sealed class TelemetryStore
     private long _totalOutputTokens;
     private int _totalToolCalls;
     private int _cacheHits = 0;
+
+    // Set by TelemetryHydrationService after startup hydration completes.
+    // Null until hydration wires persistence, so replayed events are never double-written.
+    private Func<PersistedTelemetryEvent, Task>? _persistCallback;
 
     /// <summary>
     /// Immutable telemetry snapshot used by dashboard payload builders.
@@ -263,6 +268,7 @@ public sealed class TelemetryStore
         var sessionKey = BuildSessionKey(context.ProjectId, actorLabel);
         var dateKey = now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
 
+        TelemetryEventSnapshot newEvent;
         lock (_gate)
         {
             _firstUse ??= now;
@@ -289,7 +295,7 @@ public sealed class TelemetryStore
             sessionEntry.TokensOutput += outputTokens;
             sessionEntry.TokensSaved += tokensSaved;
 
-            _events.Add(new TelemetryEventSnapshot
+            newEvent = new TelemetryEventSnapshot
             {
                 Timestamp = now,
                 Type = "ToolCall",
@@ -301,9 +307,16 @@ public sealed class TelemetryStore
                 TokensOriginal = inputTokens,
                 TokensOutput = outputTokens,
                 TokensSaved = tokensSaved,
-            });
-
+            };
+            _events.Add(newEvent);
             TrimEvents();
+        }
+
+        // Fire-and-forget: persist outside the lock so callers are never blocked.
+        var callback = _persistCallback;
+        if (callback is not null)
+        {
+            _ = Task.Run(() => callback(ToPersistedEvent(newEvent)));
         }
     }
 
@@ -347,6 +360,7 @@ public sealed class TelemetryStore
         var sessionKey = BuildSessionKey(projectId, actorLabel);
         var dateKey = now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
 
+        TelemetryEventSnapshot newEvent;
         lock (_gate)
         {
             _firstUse ??= now;
@@ -372,7 +386,7 @@ public sealed class TelemetryStore
             sessionEntry.TokensOutput += outputTokens;
             sessionEntry.TokensSaved += request.TokensSaved;
 
-            _events.Add(new TelemetryEventSnapshot
+            newEvent = new TelemetryEventSnapshot
             {
                 Timestamp = now,
                 Type = "ClientIngest",
@@ -383,9 +397,16 @@ public sealed class TelemetryStore
                 TokensOriginal = inputTokens,
                 TokensOutput = outputTokens,
                 TokensSaved = request.TokensSaved,
-            });
-
+            };
+            _events.Add(newEvent);
             TrimEvents();
+        }
+
+        // Fire-and-forget: persist outside the lock so callers are never blocked.
+        var callback = _persistCallback;
+        if (callback is not null)
+        {
+            _ = Task.Run(() => callback(ToPersistedEvent(newEvent)));
         }
     }
 
@@ -584,6 +605,110 @@ public sealed class TelemetryStore
             TokensOriginal = entry.TokensOriginal,
             TokensOutput = entry.TokensOutput,
             TokensSaved = entry.TokensSaved,
+        };
+    }
+
+    /// <summary>
+    /// Registers the callback used to persist new telemetry events asynchronously.
+    /// Called once by <c>TelemetryHydrationService</c> after startup hydration completes
+    /// so that replayed historical events are never double-written to the database.
+    /// </summary>
+    /// <param name="callback">Async callback that persists a single event.</param>
+    public void SetPersistCallback(Func<PersistedTelemetryEvent, Task> callback)
+    {
+        _persistCallback = callback;
+    }
+
+    /// <summary>
+    /// Replays persisted telemetry events into the in-memory store on startup.
+    /// Rebuilds all aggregates (commands, daily, sessions, totals) from the event log.
+    /// Must be called before <see cref="SetPersistCallback"/> to avoid double-writes.
+    /// </summary>
+    /// <param name="events">Ordered (oldest-first) list of persisted events.</param>
+    public void Hydrate(IReadOnlyList<PersistedTelemetryEvent> events)
+    {
+        if (events.Count == 0)
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            foreach (var evt in events)
+            {
+                _firstUse ??= evt.OccurredAt;
+                if (_lastUpdated is null || evt.OccurredAt > _lastUpdated)
+                {
+                    _lastUpdated = evt.OccurredAt;
+                }
+
+                _totalInputTokens += evt.TokensOriginal;
+                _totalOutputTokens += evt.TokensOutput;
+                _totalToolCalls++;
+
+                var source = InferSource(evt.ToolName);
+                var commandEntry = GetOrCreateCommand(evt.ToolName, source);
+                commandEntry.Count++;
+                commandEntry.InputTokens += evt.TokensOriginal;
+                commandEntry.OutputTokens += evt.TokensOutput;
+
+                var dateKey = evt.OccurredAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+                var dailyEntry = GetOrCreateDaily(dateKey);
+                dailyEntry.InputTokens += evt.TokensOriginal;
+                dailyEntry.OutputTokens += evt.TokensOutput;
+                dailyEntry.Commands++;
+
+                var sessionKey = BuildSessionKey(evt.ProjectId, evt.ActorLabel);
+                var sessionEntry = GetOrCreateSession(sessionKey, evt.ProjectId, evt.ActorLabel, evt.OccurredAt, evt.Path);
+                if (evt.OccurredAt > sessionEntry.UpdatedAt)
+                {
+                    sessionEntry.UpdatedAt = evt.OccurredAt;
+                }
+                sessionEntry.ToolCalls++;
+                sessionEntry.TokensOriginal += evt.TokensOriginal;
+                sessionEntry.TokensOutput += evt.TokensOutput;
+                sessionEntry.TokensSaved += evt.TokensSaved;
+
+                // Map to in-memory snapshot for the ring buffer.
+                _events.Add(new TelemetryEventSnapshot
+                {
+                    Timestamp = evt.OccurredAt,
+                    Type = evt.EventType,
+                    ToolName = evt.ToolName,
+                    Mode = evt.Mode,
+                    ProjectId = evt.ProjectId,
+                    ActorLabel = evt.ActorLabel,
+                    Path = evt.Path,
+                    TokensOriginal = evt.TokensOriginal,
+                    TokensOutput = evt.TokensOutput,
+                    TokensSaved = evt.TokensSaved,
+                });
+            }
+
+            // After replaying all events keep only the most recent MaxEvents in the ring buffer.
+            TrimEvents();
+        }
+    }
+
+    /// <summary>
+    /// Converts an in-memory <see cref="TelemetryEventSnapshot"/> to a <see cref="PersistedTelemetryEvent"/> for storage.
+    /// </summary>
+    /// <param name="evt">In-memory event snapshot.</param>
+    /// <returns>Persistence-ready event record.</returns>
+    private static PersistedTelemetryEvent ToPersistedEvent(TelemetryEventSnapshot evt)
+    {
+        return new PersistedTelemetryEvent
+        {
+            OccurredAt = evt.Timestamp,
+            EventType = evt.Type,
+            ToolName = evt.ToolName,
+            Mode = evt.Mode,
+            ProjectId = evt.ProjectId,
+            ActorLabel = evt.ActorLabel,
+            Path = evt.Path,
+            TokensOriginal = evt.TokensOriginal,
+            TokensOutput = evt.TokensOutput,
+            TokensSaved = evt.TokensSaved,
         };
     }
 }

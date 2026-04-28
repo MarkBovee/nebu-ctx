@@ -124,5 +124,25 @@ public static class PostgresSchemaInitializer
 
         CREATE INDEX IF NOT EXISTS idx_session_state_project
             ON session_state (project_id, updated_at DESC);
+
+        CREATE TABLE IF NOT EXISTS telemetry_events (
+            id              BIGSERIAL PRIMARY KEY,
+            occurred_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            event_type      TEXT NOT NULL DEFAULT '',
+            tool_name       TEXT NOT NULL DEFAULT '',
+            mode            TEXT NOT NULL DEFAULT '',
+            project_id      TEXT NOT NULL DEFAULT '',
+            actor_label     TEXT NOT NULL DEFAULT 'anonymous',
+            path            TEXT,
+            tokens_original BIGINT NOT NULL DEFAULT 0,
+            tokens_output   BIGINT NOT NULL DEFAULT 0,
+            tokens_saved    BIGINT NOT NULL DEFAULT 0
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_telemetry_events_occurred
+            ON telemetry_events (occurred_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_telemetry_events_project
+            ON telemetry_events (project_id, occurred_at DESC);
         """;
 }
