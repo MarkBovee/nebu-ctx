@@ -106,6 +106,28 @@ public sealed class PostgresKnowledgeStore : IKnowledgeStore
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<KnowledgeEntry>> ListAllForProjectAsync(string projectId, int limit = 500, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        await using var cmd = new NpgsqlCommand(
+            """
+            SELECT project_id, category, key, value, confidence, updated_at
+            FROM knowledge_entries
+            WHERE project_id = @project_id
+            ORDER BY category ASC, key ASC
+            LIMIT @limit
+            """,
+            conn);
+
+        cmd.Parameters.AddWithValue("project_id", projectId);
+        cmd.Parameters.AddWithValue("limit", limit);
+
+        return await ReadEntriesAsync(cmd, cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async Task<bool> RemoveFactAsync(string projectId, string category, string key, CancellationToken cancellationToken = default)
     {
         await using var conn = new NpgsqlConnection(_connectionString);

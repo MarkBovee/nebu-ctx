@@ -332,6 +332,64 @@ public sealed class TelemetryStore
     }
 
     /// <summary>
+    /// Records a tool-call event received from the Rust client via POST /v1/telemetry/ingest.
+    /// Only counts and metadata are accepted — no raw content is ingested.
+    /// </summary>
+    /// <param name="request">Ingest request from the client.</param>
+    /// <param name="projectId">Resolved project identifier (may be empty for unknown projects).</param>
+    public void IngestEvent(Contracts.Mcp.TelemetryIngestRequest request, string projectId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var source = InferSource(request.ToolName);
+        var inputTokens = request.TokensOriginal;
+        var outputTokens = Math.Max(0, request.TokensOriginal - request.TokensSaved);
+        var actorLabel = "rust-client";
+        var sessionKey = BuildSessionKey(projectId, actorLabel);
+        var dateKey = now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+
+        lock (_gate)
+        {
+            _firstUse ??= now;
+            _lastUpdated = now;
+            _totalInputTokens += inputTokens;
+            _totalOutputTokens += outputTokens;
+            _totalToolCalls++;
+
+            var commandEntry = GetOrCreateCommand(request.ToolName, source);
+            commandEntry.Count++;
+            commandEntry.InputTokens += inputTokens;
+            commandEntry.OutputTokens += outputTokens;
+
+            var dailyEntry = GetOrCreateDaily(dateKey);
+            dailyEntry.InputTokens += inputTokens;
+            dailyEntry.OutputTokens += outputTokens;
+            dailyEntry.Commands++;
+
+            var sessionEntry = GetOrCreateSession(sessionKey, projectId, actorLabel, now, null);
+            sessionEntry.UpdatedAt = now;
+            sessionEntry.ToolCalls++;
+            sessionEntry.TokensOriginal += inputTokens;
+            sessionEntry.TokensOutput += outputTokens;
+            sessionEntry.TokensSaved += request.TokensSaved;
+
+            _events.Add(new TelemetryEventSnapshot
+            {
+                Timestamp = now,
+                Type = "ClientIngest",
+                ToolName = request.ToolName,
+                Mode = request.Mode ?? source,
+                ProjectId = projectId,
+                ActorLabel = actorLabel,
+                TokensOriginal = inputTokens,
+                TokensOutput = outputTokens,
+                TokensSaved = request.TokensSaved,
+            });
+
+            TrimEvents();
+        }
+    }
+
+    /// <summary>
     /// Gets or creates a per-command telemetry aggregate.
     /// </summary>
     /// <param name="toolName">Command or tool name.</param>

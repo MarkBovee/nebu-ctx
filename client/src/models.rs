@@ -126,3 +126,20 @@ pub struct ProjectContext {
 
 pub type RepositoryContext = ProjectContext;
 pub type WorkspaceBinding = CheckoutBinding;
+/// Request payload for POST /v1/telemetry/ingest.
+/// Only token counts and metadata — no raw file content or shell output.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TelemetryIngestRequest {
+    pub tool_name: String,
+    pub tokens_original: i64,
+    pub tokens_saved: i64,
+    pub duration_ms: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repository_fingerprint: Option<RepositoryFingerprint>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checkout_binding: Option<CheckoutBinding>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_slug: Option<String>,
+}

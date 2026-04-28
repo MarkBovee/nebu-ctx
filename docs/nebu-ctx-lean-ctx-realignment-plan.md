@@ -1,6 +1,6 @@
 # NebuCtx Lean-ctx Realignment Plan
 
-Updated: 2026-04-23
+Updated: 2026-04-24
 Status: Authoritative
 Audience: implementation sessions working in this repository
 
@@ -16,9 +16,10 @@ Read this first. Each session must verify the status column before starting work
 | WP3 | workspace → checkout rename | ✅ Done | Rust client + full .NET server renamed; SQLite deleted; SQL migration added; backward-compat alias kept |
 | WP4 | Audit and complete local tool surface | ✅ Done | Dead code removed (`cloud_server/`, `local_dashboard/`, `tui/`, `heatmap.rs`); ratatui/crossterm stripped; embeddings removed from defaults |
 | WP5 | Cloud-owned shared-state in .NET | ✅ Done | `ctx_knowledge` (remember/recall/status/remove/categories) and `ctx_session` (task/finding/decision/save/load/reset/list/cleanup) implemented with Postgres storage |
-| WP6 | Hybrid sync pipeline | ❌ 0% | Not started |
-| WP7 | Dashboard parity with project-scoped data | ❌ 0% | Not started |
-| WP8 | Packaging and add-on stabilization | 🔄 ~50% done | `server/dist/linux/` committed; not validated on Linux |
+| WP6 | Hybrid sync pipeline | ✅ Done | `TelemetryIngestRequest` contract + `TelemetryStore.IngestEvent()` + `POST /v1/telemetry/ingest` + Rust fire-and-forget emit in `record_call_with_timing()` |
+| WP7 | Dashboard parity with project-scoped data | ✅ Done | `IKnowledgeStore.ListAllForProjectAsync` + `IBrainStore.ListAllAsync` wired into `/api/knowledge` and new `/api/brain` dashboard endpoints |
+| WP8 | Packaging and add-on stabilization | ✅ Done | `server/dist/linux/` refreshed, image built, add-on smoke passed on Linux |
+| WP9 | Rust client ↔ server MCP gateway | ✅ Done | `CloudResult` enum, `CLOUD_ONLY_TOOLS`/`CLOUD_PREFERRED_TOOLS`, `ctx_brain` stub, cloud-preferred fallback; version bumped to 0.5.0 |
 
 This document is the authoritative redesign plan for NebuCtx product realignment.
 It is the only active redesign plan for NebuCtx product realignment.
@@ -106,6 +107,7 @@ These decisions are final for the realignment work.
 23. The Rust client may buffer telemetry locally for retry or offline durability, but local stats files are never the canonical analytics source of truth.
 24. The local Rust MCP runtime is a local execution and sync edge only. It is not a second shared-state server and it does not own shared dashboard views.
 25. **PostgreSQL is the only supported server storage backend.** SQLite store implementations are removed. Do not add SQLite support back. All server-side persistence uses Postgres only. `NEBULA_STORE=postgres` and `DATABASE_URL` are the only valid configuration path.
+26. **The Rust client is the single MCP gateway.** Claude (and all AI agents) connect to exactly one MCP endpoint — the Rust client via stdio or `nebu-ctx serve`. The client serves local tools natively and proxies cloud tools (`ctx_brain`, `ctx_knowledge`, `ctx_session`) to the .NET server, automatically enriching each call with the current git context. Two-endpoint MCP setups are not a supported configuration.
 
 ## 4. Naming And UX Contract
 
@@ -849,6 +851,20 @@ Remaining at end of session:
 - WP6: hybrid sync pipeline (client telemetry buffer → server ingestion) — not started
 - WP7: dashboard parity with project-scoped knowledge/session/brain data — not started
 - WP8: validate add-on container on Linux (`scripts/server/refresh-dist.sh` + `podman build` + `tests/local-addon-test.sh`)
+
+### 12.9 Session Log: 2026-04-24 (Linux — WP8 validation)
+
+Completed:
+
+- fixed `scripts/server/build-image.sh` so Linux publish passes `-p:AllowMissingPrunePackageData=true`
+- refreshed `server/dist/linux/` successfully
+- built `nebu-ctx-addon-dev` from `homeassistant/Dockerfile`
+- passed `bash tests/local-addon-test.sh` against the new image
+
+Remaining at end of session:
+
+- WP6: hybrid sync pipeline (client telemetry buffer → server ingestion) — not started
+- WP7: dashboard parity with project-scoped knowledge/session/brain data — not started
 
 ## 13. Current Session Guide
 

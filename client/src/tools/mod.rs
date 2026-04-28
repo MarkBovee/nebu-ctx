@@ -376,6 +376,44 @@ impl LeanCtxServer {
         drop(session);
 
         self.write_mcp_live_stats().await;
+
+        // Fire-and-forget: ship this event to the cloud server for dashboard aggregation.
+        // Runs in a detached blocking thread — never blocks the MCP response.
+        let tool_name = tool.to_string();
+        let tokens_original = original as i64;
+        let tokens_saved = saved as i64;
+        let duration = duration_ms as i64;
+        let mode_clone = mode.clone();
+        let session_slug = {
+            let session = self.session.read().await;
+            session.project_root.clone().unwrap_or_default()
+        };
+        tokio::task::spawn_blocking(move || {
+            let Ok(client) = crate::cloud_client::ServerClient::load() else { return; };
+            let project_context = std::env::current_dir()
+                .ok()
+                .map(|d| crate::git_context::discover_project_context(&d));
+            let request = crate::models::TelemetryIngestRequest {
+                tool_name,
+                tokens_original,
+                tokens_saved,
+                duration_ms: duration,
+                mode: mode_clone,
+                repository_fingerprint: project_context.as_ref().map(|c| c.fingerprint.clone()),
+                checkout_binding: project_context.as_ref().map(|c| c.checkout_binding.clone()),
+                project_slug: project_context.as_ref().map(|c| c.project_slug.clone())
+                    .filter(|s| !s.is_empty())
+                    .or_else(|| {
+                        let slug = std::path::Path::new(&session_slug)
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("unknown")
+                            .to_string();
+                        Some(slug)
+                    }),
+            };
+            let _ = client.ingest_telemetry(&request);
+        });
     }
 
     pub async fn is_prompt_cache_stale(&self) -> bool {

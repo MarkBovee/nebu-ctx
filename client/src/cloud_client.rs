@@ -1,5 +1,5 @@
 use crate::config;
-use crate::models::{ProjectContext, ProjectResolutionRequest, ProjectResolutionResponse, ServerConnection, ToolCallRequest, ToolCallResponse, ToolListResponse};
+use crate::models::{ProjectContext, ProjectResolutionRequest, ProjectResolutionResponse, ServerConnection, TelemetryIngestRequest, ToolCallRequest, ToolCallResponse, ToolListResponse};
 use anyhow::{anyhow, Context, Result};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -63,6 +63,13 @@ impl ServerClient {
         )?;
 
         Ok(response.result)
+    }
+
+    /// Posts a single tool-call telemetry event to the server for dashboard aggregation.
+    /// Only token counts and metadata are sent — no raw content.
+    pub fn ingest_telemetry(&self, request: &TelemetryIngestRequest) -> Result<()> {
+        let _: serde_json::Value = self.post_json("/v1/telemetry/ingest", request)?;
+        Ok(())
     }
 
     fn get_json<T>(&self, path: &str) -> Result<T>

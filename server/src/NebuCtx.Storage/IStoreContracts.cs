@@ -99,6 +99,16 @@ public interface IBrainStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>List of matching memory entries as key-value pairs.</returns>
     Task<IReadOnlyList<BrainEntry>> RecallAsync(string projectId, string query, int limit = 10, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists all brain memory entries for a project, ordered by creation date descending.
+    /// Used by the dashboard to display real Postgres-backed brain memory.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="limit">Maximum number of entries to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>All brain entries up to the specified limit.</returns>
+    Task<IReadOnlyList<BrainEntry>> ListAllAsync(string projectId, int limit = 200, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -159,6 +169,16 @@ public interface IKnowledgeStore
     /// <param name="projectId">Project identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<int> GetFactCountAsync(string projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists all knowledge facts for a project, ordered by category then key.
+    /// Used by the dashboard to display real Postgres-backed knowledge.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="limit">Maximum number of entries to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>All knowledge entries up to the specified limit.</returns>
+    Task<IReadOnlyList<KnowledgeEntry>> ListAllForProjectAsync(string projectId, int limit = 500, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Deletes a specific knowledge fact by category and key.

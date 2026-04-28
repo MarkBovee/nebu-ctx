@@ -156,3 +156,43 @@ public sealed class ManifestResponse
     [JsonPropertyName("tools")]
     public required List<ToolDefinition> Tools { get; set; }
 }
+
+/// <summary>
+/// Request payload for POST /v1/telemetry/ingest.
+/// Carries a single tool-call event from the Rust client for server-side dashboard aggregation.
+/// No raw file content or shell output is included — only counts and metadata.
+/// </summary>
+public sealed class TelemetryIngestRequest
+{
+    /// <summary>Tool or command name (e.g. "ctx_read").</summary>
+    [JsonPropertyName("tool_name")]
+    public required string ToolName { get; set; }
+
+    /// <summary>Estimated original token count before compression.</summary>
+    [JsonPropertyName("tokens_original")]
+    public long TokensOriginal { get; set; }
+
+    /// <summary>Estimated tokens saved by compression.</summary>
+    [JsonPropertyName("tokens_saved")]
+    public long TokensSaved { get; set; }
+
+    /// <summary>Wall-clock execution time in milliseconds.</summary>
+    [JsonPropertyName("duration_ms")]
+    public long DurationMs { get; set; }
+
+    /// <summary>Compression mode used (e.g. "signatures", "full", "map").</summary>
+    [JsonPropertyName("mode")]
+    public string? Mode { get; set; }
+
+    /// <summary>Repository fingerprint from the client for project resolution.</summary>
+    [JsonPropertyName("repository_fingerprint")]
+    public RepositoryFingerprint? RepositoryFingerprint { get; set; }
+
+    /// <summary>Checkout binding (branch, commit, local root) from the client.</summary>
+    [JsonPropertyName("checkout_binding")]
+    public CheckoutBinding? CheckoutBinding { get; set; }
+
+    /// <summary>Suggested project slug for new project auto-creation.</summary>
+    [JsonPropertyName("project_slug")]
+    public string? ProjectSlug { get; set; }
+}

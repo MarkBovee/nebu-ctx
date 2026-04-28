@@ -4,6 +4,7 @@ using NebuCtx.Application;
 using NebuCtx.Application.Routing;
 using NebuCtx.Contracts.Projects;
 using NebuCtx.Projects;
+using NebuCtx.Storage;
 
 /// <summary>
 /// Builds dashboard payloads from the current .NET server state.
@@ -74,11 +75,25 @@ public static class DashboardPayloadFactory
     /// </summary>
     /// <param name="projects">Registered projects.</param>
     /// <returns>Knowledge payload compatible with the legacy dashboard UI.</returns>
-    public static object BuildKnowledgePayload(IReadOnlyList<ProjectRecord> projects)
+    public static object BuildKnowledgePayload(IReadOnlyList<ProjectRecord> projects, IReadOnlyList<KnowledgeEntry>? postgresEntries = null)
     {
+        // Merge synthetic project facts with real Postgres-backed facts
+        var pgFacts = postgresEntries?
+            .Select(e => new Dictionary<string, object?>
+            {
+                ["project_id"] = e.ProjectId,
+                ["project_name"] = projects.FirstOrDefault(p => p.ProjectId == e.ProjectId)?.Slug ?? e.ProjectId,
+                ["category"] = e.Category,
+                ["key"] = e.Key,
+                ["value"] = e.Value,
+                ["confidence"] = (double)e.Confidence,
+                ["source"] = "postgres",
+            })
+            ?? Enumerable.Empty<Dictionary<string, object?>>();
+
         var facts = DeduplicateKnowledgeFacts(projects
             .SelectMany(BuildProjectFacts)
-            .Concat(BuildDemoKnowledgeFacts(projects)))
+            .Concat(pgFacts))
             .OrderByDescending(fact => Convert.ToDouble(fact["confidence"], System.Globalization.CultureInfo.InvariantCulture))
             .ThenBy(fact => fact["project_name"]?.ToString(), StringComparer.OrdinalIgnoreCase)
             .ThenBy(fact => fact["category"]?.ToString(), StringComparer.OrdinalIgnoreCase)
@@ -106,6 +121,46 @@ public static class DashboardPayloadFactory
             facts,
             projects = projectSummaries,
             project_count = projects.Count,
+        };
+    }
+
+    /// <summary>
+    /// Builds the brain dashboard payload from real Postgres brain entries.
+    /// Groups entries by project for the dashboard brain view.
+    /// </summary>
+    /// <param name="projects">All registered projects (for name lookup).</param>
+    /// <param name="entries">Brain entries from Postgres keyed by project ID.</param>
+    /// <returns>Brain payload with entries and project summaries.</returns>
+    public static object BuildBrainPayload(IReadOnlyList<ProjectRecord> projects, IReadOnlyDictionary<string, IReadOnlyList<BrainEntry>> entriesByProject)
+    {
+        var allEntries = entriesByProject
+            .SelectMany(kvp => kvp.Value.Select(e => new
+            {
+                project_id = kvp.Key,
+                project_name = projects.FirstOrDefault(p => p.ProjectId == kvp.Key)?.Slug ?? kvp.Key,
+                key = e.Key,
+                value = e.Value,
+                created_at = e.CreatedAt,
+            }))
+            .OrderByDescending(e => e.created_at)
+            .Cast<object>()
+            .ToArray();
+
+        var projectSummaries = entriesByProject
+            .Select(kvp => new
+            {
+                project_id = kvp.Key,
+                project_name = projects.FirstOrDefault(p => p.ProjectId == kvp.Key)?.Slug ?? kvp.Key,
+                entry_count = kvp.Value.Count,
+            })
+            .OrderBy(s => s.project_name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return new
+        {
+            entries = allEntries,
+            projects = projectSummaries,
+            total_count = allEntries.Length,
         };
     }
 

@@ -100,4 +100,38 @@ public sealed class PostgresBrainStore : IBrainStore
 
         return entries;
     }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<BrainEntry>> ListAllAsync(string projectId, int limit = 200, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        await using var cmd = new NpgsqlCommand(
+            """
+            SELECT key, value, created_at FROM brain_entries
+            WHERE project_id = @project_id
+            ORDER BY created_at DESC
+            LIMIT @limit
+            """,
+            conn);
+
+        cmd.Parameters.AddWithValue("project_id", projectId);
+        cmd.Parameters.AddWithValue("limit", limit);
+
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        var entries = new List<BrainEntry>();
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            entries.Add(new BrainEntry
+            {
+                Key = reader.GetString(0),
+                Value = reader.GetString(1),
+                CreatedAt = reader.GetDateTime(2),
+            });
+        }
+
+        return entries;
+    }
 }

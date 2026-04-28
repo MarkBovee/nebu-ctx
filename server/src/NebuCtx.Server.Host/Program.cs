@@ -123,6 +123,24 @@ app.MapPost("/v1/tools/call", async (ToolCallRequest request, CancellationToken 
     }
 });
 
+// POST /v1/telemetry/ingest — accept a single tool-call event from the Rust client.
+// Only token counts and metadata are accepted; no raw content is stored.
+app.MapPost("/v1/telemetry/ingest", async (TelemetryIngestRequest request, TelemetryStore telemetryStore, CancellationToken cancellationToken) =>
+{
+    var projectId = string.Empty;
+    if (request.RepositoryFingerprint is not null)
+    {
+        var project = await projectRegistry.ResolveOrCreateAsync(
+            request.RepositoryFingerprint,
+            request.ProjectSlug ?? "unknown",
+            cancellationToken: cancellationToken);
+        projectId = project?.ProjectId ?? string.Empty;
+    }
+
+    telemetryStore.IngestEvent(request, projectId);
+    return Results.Ok(new { ingested = true });
+});
+
 // --- Dashboard endpoints ---
 app.MapDashboardApi();
 

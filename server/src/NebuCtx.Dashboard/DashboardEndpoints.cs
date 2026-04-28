@@ -3,6 +3,7 @@ namespace NebuCtx.Dashboard;
 using NebuCtx.Application;
 using NebuCtx.Contracts.Dashboard;
 using NebuCtx.Projects;
+using NebuCtx.Storage;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -70,15 +71,27 @@ public static class DashboardEndpoints
             var projects = await projectRegistry.ListAsync(cancellationToken);
             return Results.Ok(DashboardPayloadFactory.BuildAgentsPayload(telemetryStore, projects));
         });
-        app.MapGet("/api/knowledge", async (ProjectRegistry projectRegistry, CancellationToken cancellationToken) =>
+        app.MapGet("/api/knowledge", async (ProjectRegistry projectRegistry, IKnowledgeStore knowledgeStore, CancellationToken cancellationToken) =>
         {
             var projects = await projectRegistry.ListAsync(cancellationToken);
-            return Results.Ok(DashboardPayloadFactory.BuildKnowledgePayload(projects));
+            // Load real Postgres facts for all projects and merge with synthetic project facts
+            var allEntries = new List<KnowledgeEntry>();
+            foreach (var project in projects)
+                allEntries.AddRange(await knowledgeStore.ListAllForProjectAsync(project.ProjectId, cancellationToken: cancellationToken));
+            return Results.Ok(DashboardPayloadFactory.BuildKnowledgePayload(projects, allEntries));
         });
         app.MapPost("/api/knowledge/projects/{projectId}/clear", async (string projectId, ProjectRegistry projectRegistry, CancellationToken cancellationToken) =>
         {
             var cleared = await projectRegistry.ClearProjectMetadataAsync(projectId, cancellationToken);
             return cleared ? Results.Ok(new { cleared = true, project_id = projectId }) : Results.NotFound(new { cleared = false, project_id = projectId });
+        });
+        app.MapGet("/api/brain", async (ProjectRegistry projectRegistry, IBrainStore brainStore, CancellationToken cancellationToken) =>
+        {
+            var projects = await projectRegistry.ListAsync(cancellationToken);
+            var entriesByProject = new Dictionary<string, IReadOnlyList<BrainEntry>>();
+            foreach (var project in projects)
+                entriesByProject[project.ProjectId] = await brainStore.ListAllAsync(project.ProjectId, cancellationToken: cancellationToken);
+            return Results.Ok(DashboardPayloadFactory.BuildBrainPayload(projects, entriesByProject));
         });
         app.MapGet("/api/gotchas", (TelemetryStore telemetryStore) => Results.Ok(DashboardPayloadFactory.BuildGotchasPayload(telemetryStore)));
         app.MapGet("/api/buddy", async (ProjectRegistry projectRegistry, TelemetryStore telemetryStore, CancellationToken cancellationToken) =>

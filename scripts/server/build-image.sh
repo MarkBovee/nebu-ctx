@@ -68,7 +68,8 @@ publish_dist() {
         -r "$runtime_id" \
         --self-contained false \
         -o "$DIST_DIR" \
-        -p:UseAppHost=false
+        -p:UseAppHost=false \
+        -p:AllowMissingPrunePackageData=true
 
     [ -f "$DIST_DIR/NebuCtx.Server.Host.dll" ] || fail "Expected $DIST_DIR/NebuCtx.Server.Host.dll after publish"
 }
