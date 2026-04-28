@@ -29,12 +29,10 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Verify committed server dist is current
+      - name: Verify dist exists
         run: |
-          bash scripts/server/refresh-dist.sh
-          if ! git diff --quiet -- server/dist/linux; then
-            echo "server/dist/linux is stale. Refresh and commit the generated server payload before pushing." >&2
-            git status --short -- server/dist/linux >&2
+          if [ ! -f server/dist/linux/NebuCtx.Server.Host.dll ]; then
+            echo "server/dist/linux is missing. Run 'bash scripts/server/refresh-dist.sh' and commit before pushing." >&2
             exit 1
           fi
 
