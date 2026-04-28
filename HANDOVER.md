@@ -1,6 +1,6 @@
 # nebu-ctx — Handover & Continuation Guide
 
-> Last updated: 2026-04-28 · Version: 0.5.3
+> Last updated: 2026-04-28 · Version: 0.5.5
 
 This document captures the current state of the project and what to do next. Read this when picking up after a break.
 
@@ -12,10 +12,10 @@ This document captures the current state of the project and what to do next. Rea
 
 | Layer | Technology | Location |
 |-------|-----------|----------|
-| CLI client | Rust binary `nebu-ctx` | `client/` |
-| MCP / dashboard host | .NET 10 (ASP.NET) | `server/` |
-| Container packaging | Docker / Podman + Home Assistant add-on | `homeassistant/Dockerfile`, `docker-entrypoint.sh` |
-| Published server payload | Committed binaries | `server/dist/linux/` |
+| CLI client | Rust binary `nebu-ctx` | `client/` · published to crates.io |
+| MCP / dashboard host | .NET 10 (ASP.NET) | `server/` · published to GHCR as `ghcr.io/markbovee/nebu-ctx` |
+| Container packaging | Multi-stage Dockerfile (SDK build → Alpine runtime) | `Dockerfile` (root) |
+| Home Assistant add-on | Pulls GHCR image directly — no local build | `homeassistant/config.yaml` |
 
 The Rust client is thin: it installs shell hooks, writes MCP configs for all supported editors, and proxies MCP tool calls to the .NET host over HTTP.
 
@@ -27,9 +27,9 @@ The .NET host serves:
 ### Version Sync — Three Places Must Always Match
 
 ```
-client/Cargo.toml                             version = "0.5.3"
-homeassistant/config.yaml                     version: "0.5.3"
-server/src/NebuCtx.Application/ToolRegistry.cs  Current = "0.5.3"
+client/Cargo.toml                             version = "0.5.5"
+homeassistant/config.yaml                     version: "0.5.5"
+server/src/NebuCtx.Application/ToolRegistry.cs  Current = "0.5.5"
 ```
 
 When bumping the version, update all three in one commit.
@@ -38,7 +38,7 @@ When bumping the version, update all three in one commit.
 
 | Item | Location | Status |
 |------|----------|--------|
-| Rust client binary | `~/.cargo/bin/nebu-ctx` | ✅ installed v0.5.3 |
+| Rust client binary | `~/.cargo/bin/nebu-ctx` | ✅ installed v0.5.5 |
 | Fish shell hook | `~/.nebu-ctx/shell-hook.fish` | ✅ active (`nebu-ctx: ON`) |
 | Copilot CLI MCP config | `~/.copilot/mcp-config.json` | ✅ wired, all tools auto-approved |
 | VS Code MCP config | `~/.config/Code/User/mcp.json` | ✅ wired |
@@ -87,13 +87,21 @@ The .NET server needs a running PostgreSQL instance. The fastest way to test loc
 
 ```bash
 # Build and run the server container (requires Postgres)
-bash scripts/server/refresh-dist.sh          # rebuild server/dist/linux
-podman build -t nebu-ctx-server -f homeassistant/Dockerfile .
+podman build -t nebu-ctx-server -f Dockerfile .
 podman run -p 3333:3333 -p 4242:4242 \
   -e NEBULA_STORE=postgres \
   -e DATABASE_URL="postgres://user:pass@host/nebula" \
   -e NEBULA_MCP_AUTH_TOKEN=test \
   nebu-ctx-server
+```
+
+Or pull the published image:
+```bash
+podman run -p 3333:3333 -p 4242:4242 \
+  -e NEBULA_STORE=postgres \
+  -e DATABASE_URL="postgres://user:pass@host/nebula" \
+  -e NEBULA_MCP_AUTH_TOKEN=test \
+  ghcr.io/markbovee/nebu-ctx:0.5.5
 ```
 
 Then open `http://127.0.0.1:3333` for the dashboard and test:
@@ -141,32 +149,62 @@ Check:
 
 ## What Is Not Done Yet (Pending Work Items)
 
-These are tracked in the session SQL database and in `docs/nebu-ctx-lean-ctx-realignment-plan.md`.
+### 1. Rust Compiler Warnings (19 warnings in lib)
 
-### WP6 — Telemetry Ingest
+The Rust client build produces 19 warnings, concentrated in `client/src/core/knowledge_embedding.rs`. 13 are auto-fixable:
 
-| Task | Description |
-|------|-------------|
-| `wp6-contract` | `TelemetryIngestRequest` DTO — **in progress** |
-| `wp6-endpoint` | `POST /v1/telemetry/ingest` endpoint |
-| `wp6-store` | `TelemetryStore.IngestEvent()` |
-| `wp6-client` | Client-side telemetry emit |
+```bash
+cargo fix --lib -p nebu-ctx --manifest-path client/Cargo.toml
+```
 
-### WP7 — Dashboard Real Data
+Remaining manual fixes (dead code that needs a decision — keep or delete):
+- `ALPHA_SEMANTIC`, `BETA_CONFIDENCE`, `GAMMA_RECENCY`, `MAX_RECENCY_DAYS` — unused constants
+- `lexical_fallback`, `recency_decay` — unused functions
+- `filter` parameter — unused in one function (prefix with `_` or remove)
 
-| Task | Description |
-|------|-------------|
-| `wp7-knowledge-list` | `IKnowledgeStore.ListAllForProjectAsync()` |
-| `wp7-brain-list` | `IBrainStore.ListAllAsync()` |
-| `wp7-dashboard-knowledge` | Wire `/api/knowledge` to real Postgres facts |
-| `wp7-dashboard-brain` | Add `/api/brain` endpoint |
-| `wp7-dotnet-tests` | Run .NET test suite after WP7 |
+These are clean-up tasks, not bugs. Fix, run `cargo test --manifest-path client/Cargo.toml`, then commit.
 
-### Distribution
+### 2. Home Assistant Add-on Verification
 
-| Task | Description |
-|------|-------------|
-| `wp-dist-rebuild` | Rebuild `server/dist/linux/` and run smoke after WP6/WP7 land |
+The HA add-on now uses `image: "ghcr.io/markbovee/nebu-ctx"` in `config.yaml` (no Dockerfile). After the v0.5.5 GHCR image is published:
+- Test add-on discovery in HA (should appear in the store)
+- Test install — HA should pull `ghcr.io/markbovee/nebu-ctx:0.5.5` automatically
+- Verify dashboard on port 3333 and MCP on port 4242
+
+### 3. End-to-End Testing Pass
+
+See "What Needs Testing" section below — nothing has been fully validated end-to-end since the GHCR migration.
+
+---
+
+## CI/CD Pipeline
+
+### How It Works
+
+Every push to `main` that touches `client/`, `server/`, `homeassistant/`, or workflow files triggers `auto-release.yml`:
+
+1. **Version sync check** — verifies all 3 version locations match (fails fast if not)
+2. **Tag check** — if the tag already exists, stops (no duplicate release)
+3. **Tag + dispatch** — creates the git tag and immediately dispatches `release.yml` via `workflow_dispatch`
+
+`release.yml` then runs in parallel:
+- `build` — compiles Rust client for amd64 + arm64
+- `release` — creates GitHub release with binaries
+- `publish-crate` — publishes to crates.io (requires `CARGO_REGISTRY_TOKEN` secret ✅ set)
+- `publish-server-image` — builds multi-platform Docker image, pushes to GHCR
+
+> **Why `workflow_dispatch` and not the tag push event?**
+> `GITHUB_TOKEN` cannot trigger other workflows via push events (GitHub's loop prevention). We explicitly dispatch `release.yml` with `gh workflow run` after tagging.
+
+### To Release a New Version
+
+1. Bump all 3 version locations in one commit:
+   - `client/Cargo.toml` → `version = "X.Y.Z"`
+   - `homeassistant/config.yaml` → `version: "X.Y.Z"`
+   - `server/src/NebuCtx.Application/ToolRegistry.cs` → `Current = "X.Y.Z"`
+2. Push to `main` — `auto-release.yml` handles the rest automatically.
+
+No `refresh-dist.sh` needed. No manual tag push needed.
 
 ---
 
@@ -174,14 +212,10 @@ These are tracked in the session SQL database and in `docs/nebu-ctx-lean-ctx-rea
 
 ### crates.io Publish Token
 
-The `publish-crate` job in `release.yml` requires a `CARGO_REGISTRY_TOKEN` GitHub Actions secret.
+The `CARGO_REGISTRY_TOKEN` GitHub Actions secret is **already set**. If it ever needs to be rotated:
 
-1. Go to https://crates.io/settings/tokens and create a token with **Publish new crates** and **Publish updates** scopes.
-2. In GitHub: Settings → Secrets and variables → Actions → New repository secret.
-   - Name: `CARGO_REGISTRY_TOKEN`
-   - Value: the token from step 1.
-
-Without this secret, or if the version is already published, the `publish-crate` job will fail and the overall workflow run will show as failed. The GitHub release assets (binaries) are published by the `release` job before `publish-crate` runs, so binaries will still be available.
+1. Go to https://crates.io/settings/tokens → create token with **Publish new crates** + **Publish updates** scopes.
+2. `gh secret set CARGO_REGISTRY_TOKEN --repo MarkBovee/nebu-ctx --body "<token>"`
 
 ```bash
 # Rust client
@@ -193,9 +227,8 @@ cargo install --path client/
 dotnet build server/NebuCtx.slnx -p:AllowMissingPrunePackageData=true
 dotnet vstest server/tests/*/bin/Debug/net10.0/*.dll --logger:"console;verbosity=detailed"
 
-# Container (full stack)
-bash scripts/server/refresh-dist.sh
-podman build -t nebu-ctx-addon-dev -f homeassistant/Dockerfile .
+# Container (local build from source)
+podman build -t nebu-ctx-server -f Dockerfile .
 bash tests/local-addon-test.sh
 ```
 
@@ -222,11 +255,11 @@ server/           .NET MCP host + dashboard
     NebuCtx.Server.Host/     ASP.NET entrypoint
     NebuCtx.Application/     Tool registry, routing, MCP handlers
     NebuCtx.Storage.*/       Postgres-backed stores
-  dist/linux/                Committed publish payload (used by Docker)
   tests/                     .NET contract + integration tests
-homeassistant/    HA add-on packaging (Dockerfile, config.yaml, README)
+homeassistant/    HA add-on packaging (config.yaml, README — no Dockerfile needed)
+Dockerfile        Multi-stage build: SDK → Alpine runtime → GHCR image
 tests/            Cross-stack smoke tests (local-addon-test.sh, etc.)
-scripts/server/   Build/publish scripts for .NET host
+scripts/server/   Build/publish scripts (local dev only — CI builds from source)
 docs/             Design docs and realignment plan
 ```
 
@@ -244,9 +277,9 @@ nebu-ctx setup --non-interactive --yes
 # Check what editors were detected and configured
 nebu-ctx setup --non-interactive --json | python -m json.tool | grep -A3 '"editors"'
 
-# Force-refresh the server dist payload
-bash scripts/server/refresh-dist.sh
-
 # Tail server logs from a running container (replace name as needed)
 podman logs -f nebu-ctx-server
+
+# Pull and run the latest published server image
+podman pull ghcr.io/markbovee/nebu-ctx:latest
 ```
