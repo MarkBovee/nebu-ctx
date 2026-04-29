@@ -4,6 +4,7 @@ using System.Text.Json;
 using NebuCtx.Application;
 using NebuCtx.Tools.Cost;
 using NebuCtx.Tools.Gain;
+using NebuCtx.Tools.Heatmap;
 
 /// <summary>
 /// Integration tests for analytics tool handlers: ctx_gain, ctx_cost, ctx_heatmap, ctx_stats.
@@ -183,20 +184,31 @@ public class AnalyticsToolTests
         Assert.True(doc.RootElement.TryGetProperty("total_tokens", out _));
     }
 
-    /// <summary>Json action with project_id should filter results and include project_id in the response.</summary>
+    /// <summary>Json action with project_id should filter results to only that project's tools and return zero cost for unknown projects.</summary>
     [Fact]
     public async Task CtxCost_FiltersByProjectId_WhenProvided()
     {
         var handler = new CostToolHandler(CreatePopulatedStore());
-        var result = await handler.ExecuteAsync(
+        var resultA = await handler.ExecuteAsync(
             new Dictionary<string, object?> { ["action"] = "json", ["project_id"] = "proj-a" },
             new ToolExecutionContext { ProjectId = "" },
             CancellationToken.None);
 
-        var text = Assert.IsType<string>(result);
-        var doc = JsonDocument.Parse(text);
-        Assert.True(doc.RootElement.TryGetProperty("project_id", out var pid));
-        Assert.Equal("proj-a", pid.GetString());
+        var docA = JsonDocument.Parse(Assert.IsType<string>(resultA));
+        Assert.Equal("proj-a", docA.RootElement.GetProperty("project_id").GetString());
+        // proj-a has only ctx_read (5 calls), proj-b has only ctx_edit — verify filtering
+        var tools = docA.RootElement.GetProperty("tools").EnumerateArray().Select(t => t.GetProperty("name").GetString()).ToList();
+        Assert.Contains("ctx_read", tools);
+        Assert.DoesNotContain("ctx_edit", tools);
+
+        // Unknown project_id must return zero cost, not global stats
+        var resultUnknown = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "json", ["project_id"] = "no-such-project" },
+            new ToolExecutionContext { ProjectId = "" },
+            CancellationToken.None);
+
+        var docUnknown = JsonDocument.Parse(Assert.IsType<string>(resultUnknown));
+        Assert.Equal(0, docUnknown.RootElement.GetProperty("total_tokens").GetInt64());
     }
 
     /// <summary>Status action should return a one-line summary containing the word "token".</summary>
@@ -225,5 +237,82 @@ public class AnalyticsToolTests
 
         var text = Assert.IsType<string>(result);
         Assert.Contains("ctx_read", text);
+    }
+
+    // ── ctx_heatmap ───────────────────────────────────────────────────────────
+
+    /// <summary>Status action should return a summary mentioning tracked files.</summary>
+    [Fact]
+    public async Task CtxHeatmap_Status_ReturnsFileAccessSummary()
+    {
+        var handler = new HeatmapToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "status" },
+            new ToolExecutionContext { ProjectId = "" },
+            CancellationToken.None);
+
+        var text = Assert.IsType<string>(result);
+        Assert.Contains("file", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Json action should return valid JSON with a files array property.</summary>
+    [Fact]
+    public async Task CtxHeatmap_Json_ReturnsDeserializableJsonWithFiles()
+    {
+        var handler = new HeatmapToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "json" },
+            new ToolExecutionContext { ProjectId = "" },
+            CancellationToken.None);
+
+        var text = Assert.IsType<string>(result);
+        var doc = JsonDocument.Parse(text);
+        Assert.True(doc.RootElement.TryGetProperty("files", out _));
+    }
+
+    /// <summary>Directory action should return a markdown heading for hot directories.</summary>
+    [Fact]
+    public async Task CtxHeatmap_Directory_ReturnsTopDirectories()
+    {
+        var handler = new HeatmapToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "directory" },
+            new ToolExecutionContext { ProjectId = "" },
+            CancellationToken.None);
+
+        var text = Assert.IsType<string>(result);
+        Assert.Contains("##", text); // has a heading
+    }
+
+    /// <summary>Json action filtered to proj-a should return exactly 5 files (file0..file4).</summary>
+    [Fact]
+    public async Task CtxHeatmap_FiltersByProjectId_WhenProvided()
+    {
+        var handler = new HeatmapToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "json", ["project_id"] = "proj-a" },
+            new ToolExecutionContext { ProjectId = "" },
+            CancellationToken.None);
+
+        var text = Assert.IsType<string>(result);
+        var doc = JsonDocument.Parse(text);
+        Assert.True(doc.RootElement.TryGetProperty("project_id", out var pid));
+        Assert.Equal("proj-a", pid.GetString());
+        // proj-a has 5 file accesses (file0..file4), proj-b has 3
+        Assert.True(doc.RootElement.TryGetProperty("files", out var files));
+        Assert.Equal(5, files.GetArrayLength());
+    }
+
+    /// <summary>Cold action should return a string result without throwing.</summary>
+    [Fact]
+    public async Task CtxHeatmap_Cold_ReturnsUnaccessed()
+    {
+        var handler = new HeatmapToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "cold" },
+            new ToolExecutionContext { ProjectId = "" },
+            CancellationToken.None);
+
+        Assert.IsType<string>(result);
     }
 }
