@@ -178,6 +178,8 @@ pub fn handle_rewrite_inline() {
 
 /// Session-end handler: consolidate local session facts into `knowledge.json`,
 /// then forward every promoted fact to the cloud via `ctx_knowledge`.
+/// Always snapshots the session summary to `ctx_brain` regardless of whether
+/// any facts were promoted.
 /// Wired to Claude Code `Stop` and Copilot CLI `postSession`.
 pub fn handle_stop() {
     let project_root = std::env::current_dir()
@@ -194,12 +196,17 @@ pub fn handle_stop() {
     );
 
     let promoted = outcome.as_ref().map(|o| o.promoted).unwrap_or(0);
-    if promoted == 0 {
-        return;
+    if promoted > 0 {
+        // Forward promoted facts to the cloud so they land in PostgreSQL.
+        post_promoted_facts_to_cloud(&project_root);
     }
 
-    // Forward promoted facts to the cloud so they land in PostgreSQL.
-    post_promoted_facts_to_cloud(&project_root);
+    // Always snapshot session summary to brain (even if no knowledge facts promoted).
+    if let Some(session) =
+        crate::core::session::SessionState::load_latest_for_project_root(&project_root)
+    {
+        crate::cloud_client::post_session_to_brain(&session);
+    }
 }
 
 /// Forwards the current knowledge facts for the project to the cloud server
