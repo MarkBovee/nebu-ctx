@@ -13,7 +13,14 @@ use rmcp::ErrorData;
 use crate::tools::{CrpMode, LeanCtxServer};
 
 /// Tools that ONLY exist on the cloud server. No local fallback — return an error when offline.
-const CLOUD_ONLY_TOOLS: &[&str] = &["ctx_brain", "ctx_routes"];
+pub const CLOUD_ONLY_TOOLS: &[&str] = &[
+    "ctx_brain",
+    "ctx_routes",
+    "ctx_gain",
+    "ctx_cost",
+    "ctx_heatmap",
+    "ctx_stats",
+];
 
 /// Tools that prefer cloud routing but fall back to local file storage when not configured.
 const CLOUD_PREFERRED_TOOLS: &[&str] = &["ctx_knowledge", "ctx_session"];
@@ -843,6 +850,14 @@ mod tests {
         assert!(CLOUD_PREFERRED_TOOLS.contains(&"ctx_session"));
         assert!(!CLOUD_ONLY_TOOLS.contains(&"ctx_knowledge"));
         assert!(!CLOUD_ONLY_TOOLS.contains(&"ctx_session"));
+    }
+
+    #[test]
+    fn analytics_tools_are_cloud_only() {
+        assert!(CLOUD_ONLY_TOOLS.contains(&"ctx_gain"));
+        assert!(CLOUD_ONLY_TOOLS.contains(&"ctx_cost"));
+        assert!(CLOUD_ONLY_TOOLS.contains(&"ctx_heatmap"));
+        assert!(CLOUD_ONLY_TOOLS.contains(&"ctx_stats"));
     }
 
     #[test]

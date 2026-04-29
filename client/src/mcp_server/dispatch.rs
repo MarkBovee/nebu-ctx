@@ -1267,22 +1267,10 @@ impl LeanCtxServer {
                 self.record_call("ctx_outline", original, saved, kind).await;
                 result
             }
-            "ctx_cost" => {
-                let action = get_str(args, "action").unwrap_or_else(|| "report".to_string());
-                let result = crate::cli::cloud_analytics_only_message(&format!("ctx_cost ({action})"));
-                self.record_call("ctx_cost", 0, 0, Some(action)).await;
-                result
-            }
             "ctx_discover_tools" => {
                 let query = get_str(args, "query").unwrap_or_default();
                 let result = crate::tool_defs::discover_tools(&query);
                 self.record_call("ctx_discover_tools", 0, 0, None).await;
-                result
-            }
-            "ctx_gain" => {
-                let action = get_str(args, "action").unwrap_or_else(|| "status".to_string());
-                let result = crate::cli::cloud_analytics_only_message(&format!("ctx_gain ({action})"));
-                self.record_call("ctx_gain", 0, 0, Some(action)).await;
                 result
             }
             "ctx_feedback" => {
@@ -1569,12 +1557,6 @@ impl LeanCtxServer {
                         result
                     }
                 }
-            }
-            "ctx_heatmap" => {
-                let action = get_str(args, "action").unwrap_or_else(|| "status".to_string());
-                let result = crate::cli::cloud_analytics_only_message(&format!("ctx_heatmap ({action})"));
-                self.record_call("ctx_heatmap", 0, 0, Some(action)).await;
-                result
             }
             "ctx_task" => {
                 let action = get_str(args, "action").unwrap_or_else(|| "list".to_string());
