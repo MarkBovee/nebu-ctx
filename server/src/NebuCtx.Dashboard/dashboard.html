@@ -1912,7 +1912,7 @@ async function loadKnowledge() {
         <div class="hc"><div class="hv" style="color:var(--yellow);font-size:24px">${facts.filter(f=>(f.confidence||0)>0.8).length}</div><div class="hl">High Confidence</div></div>
       </div>
       <div class="d3-container" id="knowledgeGraph"></div>
-      ${howItWorks('Knowledge Graph', 'Nebu-CTX maintains a project knowledge base where facts are stored with <strong>confidence scores</strong> that decay over time (unused facts lose confidence). Facts are organized by <strong>category</strong> (Architecture, Testing, etc.) and <strong>room</strong>. Each fact has <strong>temporal validity</strong> &mdash; it knows when it was learned and when it was last confirmed. <strong>Contradiction detection</strong> automatically resolves conflicting facts by preferring the most recent with highest confidence.')}`;
+      ${howItWorks('Knowledge Graph', 'Nebu-CTX maintains a project knowledge base where facts are stored with <strong>confidence scores</strong> that decay over time (unused facts lose confidence). Facts are organized by <strong>category</strong> (Architecture, Testing, etc.) and <strong>room</strong>. Each fact has <strong>temporal validity</strong> &mdash; it knows when it was learned and when it was last confirmed. <strong>Contradiction detection</strong> automatically resolves conflicting facts by preferring the most recent with highest confidence.<br><br><strong>Auto-hooks:</strong> At session end, the Nebu-CTX shell hook automatically forwards all high-confidence facts (≥0.7) to the server via <code>ctx_knowledge(action="remember")</code>. This means the graph is populated automatically as you work &mdash; no manual action required. You can also store facts explicitly with <code>ctx_knowledge(action="remember", fact_name="...", value="...")</code>.<br><br><strong>Deleting a project</strong> with the Del button clears both knowledge facts <em>and</em> brain memories for that project.')}`;
     container.dataset.built = 'true';
     renderKnowledgeGraph(facts);
   } catch (e) {
@@ -2091,13 +2091,15 @@ async function clearSelectedKnowledgeProject() {
 
   const projectId = select.value;
   const projectLabel = select.options[select.selectedIndex]?.text || projectId;
-  if (!confirm(`Delete stored knowledge facts for ${projectLabel}?`)) return;
+  if (!confirm(`Delete stored knowledge facts AND brain memories for ${projectLabel}?`)) return;
 
   const button = document.querySelector('#knowledgeGraph .graph-danger-btn');
   if (button) button.disabled = true;
 
   try {
+    // Clear knowledge facts first, then cascade to brain memories
     await apiFetch(`/api/knowledge/projects/${encodeURIComponent(projectId)}/clear`, { method: 'POST', timeoutMs: 5000 });
+    await apiFetch(`/api/brain/${encodeURIComponent(projectId)}`, { method: 'DELETE', timeoutMs: 5000 }).catch(() => {});
     closeDetail();
     const container = $('view-knowledge');
     if (container) delete container.dataset.built;
@@ -2574,18 +2576,27 @@ async function loadSearch() {
     resetRetry('search');
 
     container.innerHTML = `
+      <div class="card" style="margin-bottom:12px;border-left:3px solid var(--blue);background:var(--surface-2)">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="font-size:15px;flex-shrink:0">ℹ️</span>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+            <strong style="color:var(--text)">Server registry index</strong> — this panel shows the nebu-ctx server's own <strong>MCP tools</strong> (${data.language_distribution?.tool ?? 0}) and <strong>API routes</strong> (${data.language_distribution?.route ?? 0}).
+            This is not an index of your project's source files. For project source-file search, use <code>ctx_search</code> from the Rust client.
+          </div>
+        </div>
+      </div>
       <div class="row r3" style="margin-bottom:16px">
-        <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${ff(data.chunk_count || 0)}</div><div class="hl">Total Chunks</div></div>
-        <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${ff(data.doc_count || 0)}</div><div class="hl">Documents Indexed</div></div>
-        <div class="hc"><div class="hv" style="color:var(--blue);font-size:24px">${Object.keys(data.language_distribution || {}).length}</div><div class="hl">Languages</div></div>
+        <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${ff(data.chunk_count || 0)}</div><div class="hl">MCP Tools</div></div>
+        <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${ff(data.doc_count || 0)}</div><div class="hl">Total Entries</div></div>
+        <div class="hc"><div class="hv" style="color:var(--blue);font-size:24px">${ff(data.language_distribution?.route ?? 0)}</div><div class="hl">API Routes</div></div>
       </div>
       <div class="row r11">
         <div class="card">
-          <h3>Language Distribution</h3>
+          <h3>Entry Type Distribution</h3>
           <canvas id="searchLangChart" style="max-height:300px"></canvas>
         </div>
         <div class="card">
-          <h3>Top Chunks by Token Count</h3>
+          <h3>MCP Tools by Token Count</h3>
           <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
           <table>
             <thead><tr><th>Symbol</th><th>File</th><th>Kind</th><th class="r">Tokens</th><th class="r">Lines</th></tr></thead>
@@ -2602,7 +2613,7 @@ async function loadSearch() {
         </div>
         <div id="searchPlaygroundResults" style="font-size:12px;color:var(--muted)">Enter a query and press Enter to search.</div>
       </div>
-      ${howItWorks('BM25 Search Index', 'The search index uses the <strong>BM25 (Best Matching 25)</strong> ranking algorithm, a probabilistic retrieval model. Source files are broken into <strong>chunks</strong> by function/class boundaries using tree-sitter. Each chunk is indexed with term frequency (TF) and inverse document frequency (IDF). BM25 uses parameters <code>k1=1.2</code> and <code>b=0.75</code> to balance term saturation and document length normalization.')}`;
+      ${howItWorks('Server Registry Search', 'This panel provides a searchable index of the nebu-ctx server\'s own registered <strong>MCP tools</strong> and <strong>HTTP route handlers</strong>. The Search Playground uses simple substring matching on tool names, descriptions, and route paths. <br><br>For BM25-ranked search over your actual project\'s source code, use <code>ctx_search(pattern, path)</code> from the Rust client. Project-level indexing happens locally using tree-sitter and does not require the server.')}`;
 
     const langDist = data.language_distribution || {};
     const langEntries = Object.entries(langDist).sort((a,b) => b[1] - a[1]);
@@ -2738,6 +2749,14 @@ async function loadSymbols() {
   const container = $('view-symbols');
   if (!container) return;
   container.innerHTML = `
+    <div class="card" style="margin-bottom:12px;border-left:3px solid var(--blue);background:var(--surface-2)">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <span style="font-size:15px;flex-shrink:0">ℹ️</span>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+          <strong style="color:var(--text)">Server registry symbols</strong> — these are the nebu-ctx server's registered <strong>MCP tools</strong> and <strong>API route handlers</strong>, not symbols from your project's source code. Project-level symbol browsing uses <code>ctx_symbols</code> from the Rust client.
+        </div>
+      </div>
+    </div>
     <div style="margin-bottom:16px;display:flex;gap:8px;align-items:center">
       <input id="symSearch" type="text" class="search-input" placeholder="Search symbols…" style="flex:1" oninput="filterSymbols()">
       <select id="symKind" style="padding:12px 16px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:12px;outline:none;cursor:pointer" onchange="filterSymbols()">
@@ -2795,14 +2814,21 @@ async function loadCallGraph() {
       const idxFiles = data?.indexed_file_count ?? 0;
       const idxSymbols = data?.indexed_symbol_count ?? 0;
       const analyzed = data?.analyzed_file_count ?? 0;
-      showGuidedEmpty(container, 'No call graph data yet',
-        'Nebu-CTX has not produced any call edges for this project yet.',
+      container.innerHTML = `
+        <div class="card" style="margin-bottom:12px;border-left:3px solid var(--blue);background:var(--surface-2)">
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <span style="font-size:15px;flex-shrink:0">ℹ️</span>
+            <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+              <strong style="color:var(--text)">Server registry call graph</strong> — this graph is built from the server's own registered MCP tools and API routes. It shows call relationships between server handlers, not project source code. For project-level call analysis, use <code>ctx_callers</code> / <code>ctx_callees</code> from the Rust client.
+            </div>
+          </div>
+        </div>`;
+      showGuidedEmpty(container, 'No call edges yet',
+        'The server has not produced call edge data for its registered routes yet.',
         [
           'Indexed files: ' + idxFiles, 'Indexed symbols: ' + idxSymbols,
-          'Files analyzed for calls: ' + analyzed,
-          idxFiles === 0
-            ? 'Open the project root in Nebu-CTX so indexing can discover source files.'
-            : 'If this project is large, let indexing finish and then refresh.',
+          'Files analyzed: ' + analyzed,
+          'Call edges are generated as the server routes are analyzed.',
         ], 'Refresh', 'loadCallGraph()');
       return;
     }
