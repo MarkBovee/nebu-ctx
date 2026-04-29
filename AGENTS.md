@@ -150,21 +150,6 @@ For HA addon validation (builds from source):
 ADDON_DOCKERFILE=Dockerfile bash tests/local-addon-test.sh
 ```
 
-## Known Fixed Bugs (2026-04-29)
-
-These were confirmed fixed — do not re-investigate:
-
-| Bug | Fix location |
-|-----|-------------|
-| `cloud bind`/`sync` "duplicate field" serde error | `[JsonIgnore]` on `WorkspaceBound` in `ProjectResolutionContracts.cs` |
-| Token tracking always 0 | `hook_handlers.rs` reads `usage.input_tokens`/`usage.output_tokens` |
-| `nebu-ctx on`/`off` "unknown command" | Dispatch arms added with helpful shell-function error messages |
-| Ghost commands (`login`, `register`, `forgot-password`, `contribute`) | Replaced with `removed_cloud_command()` stub |
-| `ctx_knowledge` silently falling back to local | Hard-fail when cloud configured but unreachable |
-| Autopilot loop missing cloud knowledge sync | `post_knowledge_to_cloud()` called after consolidation |
-| `McpEndpointTests` failing (no Postgres in CI) | `NebuCtxTestFactory` + `ASPNETCORE_ENVIRONMENT=Test` skip |
-| `cargo publish --locked` fails in CI | Removed `--locked` from `release.yml` publish step |
-
 ## Session Startup Protocol
 
 At the start of every session, retrieve project state before investigating:
