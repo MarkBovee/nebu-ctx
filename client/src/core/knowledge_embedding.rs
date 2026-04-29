@@ -13,9 +13,13 @@ use super::knowledge::{KnowledgeFact, ProjectKnowledge};
 #[cfg(feature = "embeddings")]
 use super::embeddings::{cosine_similarity, EmbeddingEngine};
 
+#[cfg(feature = "embeddings")]
 const ALPHA_SEMANTIC: f32 = 0.6;
+#[cfg(feature = "embeddings")]
 const BETA_CONFIDENCE: f32 = 0.25;
+#[cfg(feature = "embeddings")]
 const GAMMA_RECENCY: f32 = 0.15;
+#[cfg(feature = "embeddings")]
 const MAX_RECENCY_DAYS: f32 = 90.0;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -246,6 +250,7 @@ pub fn compact_against_knowledge(
     index.entries = kept.into_iter().map(|(e, _)| e).collect();
 }
 
+#[cfg(feature = "embeddings")]
 fn lexical_fallback<'a>(
     knowledge: &'a ProjectKnowledge,
     query: &str,
@@ -265,6 +270,7 @@ fn lexical_fallback<'a>(
         .collect()
 }
 
+#[cfg(feature = "embeddings")]
 fn recency_decay(fact: &KnowledgeFact) -> f32 {
     let days_old = chrono::Utc::now()
         .signed_duration_since(fact.last_confirmed)
@@ -413,6 +419,7 @@ mod tests {
         assert_eq!(idx.entries[0].key, "cache");
     }
 
+    #[cfg(feature = "embeddings")]
     #[test]
     fn recency_decay_recent() {
         let fact = KnowledgeFact {
@@ -437,6 +444,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "embeddings")]
     #[test]
     fn recency_decay_old() {
         let old_date = chrono::Utc::now() - chrono::Duration::days(100);
