@@ -258,7 +258,7 @@ public class AnalyticsToolTests
             CancellationToken.None);
 
         var text = Assert.IsType<string>(result);
-        Assert.Contains("file", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("8 tracked files", text);
     }
 
     /// <summary>Json action should return valid JSON with a files array property.</summary>
@@ -287,7 +287,9 @@ public class AnalyticsToolTests
             CancellationToken.None);
 
         var text = Assert.IsType<string>(result);
-        Assert.Contains("##", text); // has a heading
+        Assert.Contains("## Hot Directories", text);
+        Assert.Contains("/a", text);
+        Assert.Contains("/b", text);
     }
 
     /// <summary>Json action filtered to proj-a should return exactly 5 files (file0..file4).</summary>
@@ -309,9 +311,9 @@ public class AnalyticsToolTests
         Assert.Equal(5, files.GetArrayLength());
     }
 
-    /// <summary>Cold action should return a string result without throwing.</summary>
+    /// <summary>Cold action with all files at equal access count should report no cold files.</summary>
     [Fact]
-    public async Task CtxHeatmap_Cold_ReturnsUnaccessed()
+    public async Task CtxHeatmap_Cold_ReturnsNoColFilesMessage_WhenAllAccessCountsEqual()
     {
         var handler = new HeatmapToolHandler(CreatePopulatedStore());
         var result = await handler.ExecuteAsync(
@@ -319,7 +321,40 @@ public class AnalyticsToolTests
             new ToolExecutionContext { ProjectId = "" },
             CancellationToken.None);
 
-        Assert.IsType<string>(result);
+        var text = Assert.IsType<string>(result);
+        // All 8 files have exactly 1 access → median=1 → cold list is empty
+        Assert.Contains("No cold files detected", text);
+    }
+
+    /// <summary>Json action with an unknown project_id should return an empty heatmap (0 files).</summary>
+    [Fact]
+    public async Task CtxHeatmap_UnknownProjectId_ReturnsEmptyHeatmap()
+    {
+        var handler = new HeatmapToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "json", ["project_id"] = "no-such-project" },
+            new ToolExecutionContext { ProjectId = "" },
+            CancellationToken.None);
+
+        var text = Assert.IsType<string>(result);
+        var doc = JsonDocument.Parse(text);
+        Assert.Equal(0, doc.RootElement.GetProperty("total_files").GetInt32());
+        Assert.Equal(0, doc.RootElement.GetProperty("files").GetArrayLength());
+    }
+
+    /// <summary>Directory action with a path prefix should only include directories under that prefix.</summary>
+    [Fact]
+    public async Task CtxHeatmap_Directory_PathPrefixFiltersResults()
+    {
+        var handler = new HeatmapToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "directory", ["path"] = "/a/" },
+            new ToolExecutionContext { ProjectId = "" },
+            CancellationToken.None);
+
+        var text = Assert.IsType<string>(result);
+        Assert.Contains("/a", text);
+        Assert.DoesNotContain("/b", text);
     }
 
     // ── ctx_stats ─────────────────────────────────────────────────────────────

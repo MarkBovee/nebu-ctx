@@ -41,6 +41,8 @@ public sealed class HeatmapToolHandler(TelemetryStore telemetry) : IToolHandler
         },
     };
 
+    private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
+
     /// <inheritdoc/>
     public Task<object> ExecuteAsync(
         Dictionary<string, object?> arguments,
@@ -178,15 +180,17 @@ public sealed class HeatmapToolHandler(TelemetryStore telemetry) : IToolHandler
                 .Select(f => new { path = f.Key, count = f.Value }),
         };
 
-        return JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
+        return JsonSerializer.Serialize(payload, IndentedJson);
     }
 
     /// <summary>Returns the parent directory path of a file path string.</summary>
     /// <param name="filePath">Absolute or relative file path.</param>
-    /// <returns>Parent directory segment, or the original path if no separator is found.</returns>
+    /// <returns>Parent directory, or "/" for root-level paths, or the path itself if no separator found.</returns>
     private static string GetDirectory(string filePath)
     {
         var lastSep = filePath.LastIndexOfAny(['/', '\\']);
-        return lastSep > 0 ? filePath[..lastSep] : filePath;
+        if (lastSep < 0) return filePath;
+        var dir = filePath[..lastSep];
+        return dir.Length == 0 ? "/" : dir;
     }
 }
