@@ -2,7 +2,7 @@ use crate::config;
 use crate::models::{ProjectContext, ProjectResolutionRequest, ProjectResolutionResponse, ServerConnection, TelemetryIngestRequest, ToolCallRequest, ToolCallResponse, ToolListResponse};
 use anyhow::{anyhow, Context, Result};
 use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 pub struct ServerClient {
@@ -72,6 +72,12 @@ impl ServerClient {
         Ok(())
     }
 
+    /// Syncs the full project code index (files, symbols, call edges) to the server.
+    /// Returns the number of files, symbols, and edges successfully synced.
+    pub fn sync_index(&self, request: &IndexSyncPayload) -> Result<serde_json::Value> {
+        self.post_json("/v1/index/sync", request)
+    }
+
     fn get_json<T>(&self, path: &str) -> Result<T>
     where
         T: DeserializeOwned,
@@ -111,6 +117,46 @@ impl ServerClient {
     fn url(&self, path: &str) -> String {
         format!("{}{}", self.connection.endpoint.trim_end_matches('/'), path)
     }
+}
+
+/// Payload for syncing a project's code index to the server.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct IndexSyncPayload {
+    pub project_id: String,
+    pub files: Vec<IndexSyncFile>,
+    pub symbols: Vec<IndexSyncSymbol>,
+    pub edges: Vec<IndexSyncEdge>,
+}
+
+/// A single file entry in the index sync payload.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct IndexSyncFile {
+    pub path: String,
+    pub hash: String,
+    pub language: String,
+    pub line_count: usize,
+    pub token_count: usize,
+    pub exports: Vec<String>,
+    pub summary: String,
+}
+
+/// A single symbol entry in the index sync payload.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct IndexSyncSymbol {
+    pub file_path: String,
+    pub name: String,
+    pub kind: String,
+    pub start_line: usize,
+    pub end_line: usize,
+    pub is_exported: bool,
+}
+
+/// A single call edge in the index sync payload.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct IndexSyncEdge {
+    pub from_symbol: String,
+    pub to_symbol: String,
+    pub kind: String,
 }
 
 /// Posts every current, high-confidence fact from local `knowledge.json` to the

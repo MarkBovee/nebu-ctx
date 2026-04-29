@@ -70,6 +70,16 @@ public static class StoreFactory
     }
 
     /// <summary>
+    /// Creates an <see cref="ICodeIndexStore"/> for persisting project-level source file indexes.
+    /// </summary>
+    /// <param name="options">Server configuration containing store selection and connection details.</param>
+    /// <returns>A Postgres-backed code index store.</returns>
+    public static ICodeIndexStore CreateCodeIndexStore(ServerOptions options)
+    {
+        return new PostgresCodeIndexStore(BuildConfiguredPostgresConnectionString(options));
+    }
+
+    /// <summary>
     /// Runs additive schema initialization for the supported Postgres backend.
     /// </summary>
     /// <param name="options">Server configuration.</param>

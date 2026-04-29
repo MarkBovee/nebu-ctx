@@ -2565,81 +2565,118 @@ async function loadBrain() {
   } catch (e) { showError(container, 'Could not load brain memory data.'); }
 }
 
+let _cachedProjectList = null;
+async function getProjectList() {
+  if (_cachedProjectList) return _cachedProjectList;
+  try {
+    const data = await apiFetch('/api/projects');
+    _cachedProjectList = (data.projects || []);
+    setTimeout(() => { _cachedProjectList = null; }, 60000); // 1 min cache TTL
+    return _cachedProjectList;
+  } catch { return []; }
+}
+
+function buildProjectSelectorHtml(selected, opts = {}) {
+  const projects = _cachedProjectList || [];
+  if (!projects.length) return `<select style="${opts.style||''}" disabled><option>— no projects —</option></select>`;
+  const options = projects.map(p =>
+    `<option value="${esc(p.project_id)}" ${selected === p.project_id ? 'selected' : ''}>${esc(p.slug)}</option>`
+  ).join('');
+  return `<select id="${opts.id||'projectSelector'}" style="padding:8px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;cursor:pointer;${opts.style||''}" onchange="${opts.onchange||''}">${options}</select>`;
+}
+
 async function loadSearch() {
   const container = $('view-search');
   try {
-    const data = await apiFetch('/api/search-index');
-    if (isBuildingData(data)) {
-      showIndexing(container, 'Search index is building in the background. This view will refresh automatically in a few seconds.', 'search', loadSearch);
-      return;
-    }
-    resetRetry('search');
+    await getProjectList();
+    const projects = _cachedProjectList || [];
+    const hasProjects = projects.length > 0;
+    const defaultProject = hasProjects ? projects[0].project_id : null;
 
-    container.innerHTML = `
-      <div class="card" style="margin-bottom:12px;border-left:3px solid var(--blue);background:var(--surface-2)">
-        <div style="display:flex;align-items:flex-start;gap:10px">
-          <span style="font-size:15px;flex-shrink:0">ℹ️</span>
-          <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
-            <strong style="color:var(--text)">Server registry index</strong> — this panel shows the nebu-ctx server's own <strong>MCP tools</strong> (${data.language_distribution?.tool ?? 0}) and <strong>API routes</strong> (${data.language_distribution?.route ?? 0}).
-            This is not an index of your project's source files. For project source-file search, use <code>ctx_search</code> from the Rust client.
+    const renderSearch = async (projectId) => {
+      const url = projectId ? `/api/search-index?project_id=${encodeURIComponent(projectId)}` : '/api/search-index';
+      const data = await apiFetch(url);
+      if (isBuildingData(data)) {
+        showIndexing(container, 'Search index is building in the background.', 'search', () => renderSearch(projectId));
+        return;
+      }
+      resetRetry('search');
+
+      const isProjectIndex = !!projectId;
+      const langDist = data.language_distribution || {};
+      const langEntries = Object.entries(langDist).sort((a,b) => b[1] - a[1]);
+      const projectSel = hasProjects ? buildProjectSelectorHtml(projectId, { id: 'searchProjectSel', onchange: 'renderSearchForProject(this.value)' }) : '';
+
+      container.innerHTML = `
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+          <div style="font-size:12px;color:var(--muted)">Project:</div>
+          ${projectSel || '<span style="font-size:12px;color:var(--muted)">No projects synced yet — run <code>nebu-ctx cloud bind</code></span>'}
+          ${isProjectIndex && data.last_indexed_at ? `<span style="font-size:11px;color:var(--muted)">Last indexed ${new Date(data.last_indexed_at).toLocaleString()}</span>` : ''}
+        </div>
+        ${!isProjectIndex ? `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--blue);background:var(--surface-2)"><div style="display:flex;align-items:flex-start;gap:10px"><span style="font-size:15px;flex-shrink:0">ℹ️</span><div style="font-size:12px;color:var(--text-muted);line-height:1.6"><strong style="color:var(--text)">Server registry index</strong> — no project selected. Select a project above to see its source file index, or use <code>ctx_search</code> from the Rust client. Showing server MCP tools + routes below.</div></div></div>` : ''}
+        <div class="row r3" style="margin-bottom:16px">
+          <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${ff(isProjectIndex ? data.doc_count : data.chunk_count || 0)}</div><div class="hl">${isProjectIndex ? 'Source Files' : 'MCP Tools'}</div></div>
+          <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${ff(isProjectIndex ? data.chunk_count : data.doc_count || 0)}</div><div class="hl">${isProjectIndex ? 'Symbols' : 'Total Entries'}</div></div>
+          <div class="hc"><div class="hv" style="color:var(--blue);font-size:24px">${ff(langEntries.length)}</div><div class="hl">Languages</div></div>
+        </div>
+        <div class="row r11">
+          <div class="card">
+            <h3>${isProjectIndex ? 'Language Distribution' : 'Entry Type Distribution'}</h3>
+            <canvas id="searchLangChart" style="max-height:300px"></canvas>
+          </div>
+          <div class="card">
+            <h3>${isProjectIndex ? 'Largest Files by Token Count' : 'MCP Tools by Token Count'}</h3>
+            <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
+            <table>
+              <thead><tr><th>${isProjectIndex ? 'File' : 'Symbol'}</th><th>${isProjectIndex ? 'Language' : 'File'}</th><th>Kind</th><th class="r">Tokens</th><th class="r">Lines</th></tr></thead>
+              <tbody id="searchChunksTable"></tbody>
+            </table>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="row r3" style="margin-bottom:16px">
-        <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${ff(data.chunk_count || 0)}</div><div class="hl">MCP Tools</div></div>
-        <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${ff(data.doc_count || 0)}</div><div class="hl">Total Entries</div></div>
-        <div class="hc"><div class="hv" style="color:var(--blue);font-size:24px">${ff(data.language_distribution?.route ?? 0)}</div><div class="hl">API Routes</div></div>
-      </div>
-      <div class="row r11">
-        <div class="card">
-          <h3>Entry Type Distribution</h3>
-          <canvas id="searchLangChart" style="max-height:300px"></canvas>
-        </div>
-        <div class="card">
-          <h3>MCP Tools by Token Count</h3>
-          <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
-          <table>
-            <thead><tr><th>Symbol</th><th>File</th><th>Kind</th><th class="r">Tokens</th><th class="r">Lines</th></tr></thead>
-            <tbody id="searchChunksTable"></tbody>
-          </table>
+        <div class="card" style="margin-top:10px">
+          <h3>Search Playground</h3>
+          <div style="display:flex;gap:8px;margin-bottom:12px">
+            <input id="searchPlaygroundInput" type="text" class="search-input" placeholder="${isProjectIndex ? 'Search project files by path…' : 'Search server tools and routes…'}" onkeydown="if(event.key==='Enter')runSearch()">
+            <button class="btn" onclick="runSearch()" style="white-space:nowrap;padding:8px 20px">Search</button>
           </div>
+          <div id="searchPlaygroundResults" style="font-size:12px;color:var(--muted)">Enter a query and press Enter to search.</div>
         </div>
-      </div>
-      <div class="card" style="margin-top:10px">
-        <h3>Search Playground</h3>
-        <div style="display:flex;gap:8px;margin-bottom:12px">
-          <input id="searchPlaygroundInput" type="text" class="search-input" placeholder="Search your codebase (BM25)…" onkeydown="if(event.key==='Enter')runSearch()">
-          <button class="btn" onclick="runSearch()" style="white-space:nowrap;padding:8px 20px">Search</button>
-        </div>
-        <div id="searchPlaygroundResults" style="font-size:12px;color:var(--muted)">Enter a query and press Enter to search.</div>
-      </div>
-      ${howItWorks('Server Registry Search', 'This panel provides a searchable index of the nebu-ctx server\'s own registered <strong>MCP tools</strong> and <strong>HTTP route handlers</strong>. The Search Playground uses simple substring matching on tool names, descriptions, and route paths. <br><br>For BM25-ranked search over your actual project\'s source code, use <code>ctx_search(pattern, path)</code> from the Rust client. Project-level indexing happens locally using tree-sitter and does not require the server.')}`;
+        ${howItWorks(isProjectIndex ? 'Project Source Index' : 'Server Registry Search', isProjectIndex
+          ? 'The project index is built locally by the Rust client using tree-sitter and synced to the server via <code>nebu-ctx cloud bind</code>. Files are broken into symbols and stored per-project in Postgres. Select a project above to browse its files, symbols, and call graph. For live BM25 search over project source, use <code>ctx_search(pattern, path)</code> from the Rust client.'
+          : 'This panel provides a searchable index of the nebu-ctx server\'s own registered <strong>MCP tools</strong> and <strong>HTTP route handlers</strong>. Select a project above to switch to project source search.')}`;
 
-    const langDist = data.language_distribution || {};
-    const langEntries = Object.entries(langDist).sort((a,b) => b[1] - a[1]);
-    const langColors = { rs:'#f87171', js:'#fbbf24', ts:'#38bdf8', tsx:'#38bdf8', py:'#6366f1', go:'#818cf8', toml:'#f472b6', json:'#6b6b88', md:'#6b6b88', yaml:'#6b6b88' };
+      window._currentSearchProjectId = projectId || null;
 
-    if (langEntries.length && $('searchLangChart')) {
-      if (charts.searchLang) charts.searchLang.destroy();
-      charts.searchLang = new Chart($('searchLangChart'), {
-        type: 'bar',
-        data: {
-          labels: langEntries.map(e => e[0] || 'unknown'),
-          datasets: [{ data: langEntries.map(e => e[1]), backgroundColor: langEntries.map(e => (langColors[e[0]] || '#6b6b88') + '88'), borderRadius: 4, borderSkipped: false }],
-        },
-        options: { ...chartDefaults(), indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ...chartDefaults().scales.x }, y: { ...chartDefaults().scales.y, ticks: { color: '#6b6b88', font: { size: 10, family: 'var(--mono)' } } } } },
-      });
-    }
+      if (langEntries.length && $('searchLangChart')) {
+        if (charts.searchLang) charts.searchLang.destroy();
+        const langColors = { rs:'#f87171', js:'#fbbf24', cs:'#a78bfa', ts:'#38bdf8', tsx:'#38bdf8', py:'#6366f1', go:'#818cf8', toml:'#f472b6', json:'#6b6b88', md:'#6b6b88', yaml:'#6b6b88', route:'#f59e0b', tool:'#6366f1' };
+        charts.searchLang = new Chart($('searchLangChart'), {
+          type: 'bar',
+          data: {
+            labels: langEntries.map(e => e[0] || 'unknown'),
+            datasets: [{ data: langEntries.map(e => e[1]), backgroundColor: langEntries.map(e => (langColors[e[0]] || '#6b6b88') + '88'), borderRadius: 4, borderSkipped: false }],
+          },
+          options: { ...chartDefaults(), indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ...chartDefaults().scales.x }, y: { ...chartDefaults().scales.y, ticks: { color: '#6b6b88', font: { size: 10, family: 'var(--mono)' } } } } },
+        });
+      }
 
-    const tb = $('searchChunksTable');
-    const top = data.top_chunks_by_token_count || [];
-    tb.innerHTML = top.map(c => `<tr>
-      <td style="color:var(--text-bright)">${esc(c.symbol_name || '---')}</td>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.file_path)}</td>
-      <td><span class="tag tp">${esc(c.kind || '')}</span></td>
-      <td class="r">${ff(c.token_count)}</td>
-      <td class="r">${c.start_line}-${c.end_line}</td>
-    </tr>`).join('');
+      const tb = $('searchChunksTable');
+      const top = data.top_chunks_by_token_count || [];
+      tb.innerHTML = top.map(c => `<tr>
+        <td style="color:var(--text-bright);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.symbol_name || c.file_path || '---')}</td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)">${esc(isProjectIndex ? (c.kind || '') : c.file_path)}</td>
+        <td><span class="tag tp">${esc(c.kind || '')}</span></td>
+        <td class="r">${ff(c.token_count)}</td>
+        <td class="r">${c.start_line}-${c.end_line}</td>
+      </tr>`).join('');
+    };
+
+    window.renderSearchForProject = async (projectId) => {
+      await renderSearch(projectId);
+    };
+
+    await renderSearch(defaultProject);
   } catch (e) { showError(container, 'Could not load search index data.'); }
 }
 
@@ -2649,7 +2686,11 @@ async function runSearch() {
   if (!el || !q.trim()) return;
   el.innerHTML = '<div class="loading-state" style="padding:20px">Searching…</div>';
   try {
-    const data = await apiFetch('/api/search?q=' + encodeURIComponent(q.trim()) + '&limit=20', { timeoutMs: 5000 });
+    const projectId = window._currentSearchProjectId;
+    const url = projectId
+      ? `/api/search?q=${encodeURIComponent(q.trim())}&limit=20&project_id=${encodeURIComponent(projectId)}`
+      : `/api/search?q=${encodeURIComponent(q.trim())}&limit=20`;
+    const data = await apiFetch(url, { timeoutMs: 5000 });
     if (isBuildingData(data)) {
       el.innerHTML = '<div style="color:var(--muted);padding:16px">Search index is still building…</div>';
       return;
@@ -2660,11 +2701,11 @@ async function runSearch() {
       return;
     }
     el.innerHTML = '<div style="margin-bottom:8px;font-size:11px;color:var(--muted)">' + results.length + ' result(s) for <strong>' + esc(q) + '</strong></div>'
-      + '<table style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;font-size:11px;color:var(--muted)"><th style="padding:6px">Score</th><th style="padding:6px">Symbol</th><th style="padding:6px">Kind</th><th style="padding:6px">File</th><th style="padding:6px">Lines</th></tr></thead><tbody>'
+      + '<table style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;font-size:11px;color:var(--muted)"><th style="padding:6px">Score</th><th style="padding:6px">Symbol / File</th><th style="padding:6px">Kind</th><th style="padding:6px">Path</th><th style="padding:6px">Lines</th></tr></thead><tbody>'
       + results.map(r => `<tr style="border-top:1px solid var(--border)"><td style="padding:6px;font-family:var(--mono);color:var(--yellow)">${r.score.toFixed(2)}</td><td style="padding:6px;font-family:var(--mono);color:var(--green)">${esc(r.symbol_name || '—')}</td><td style="padding:6px"><span style="background:var(--surface-2);padding:2px 6px;border-radius:4px;font-size:10px">${esc(r.kind)}</span></td><td style="padding:6px;font-size:11px;color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.file_path)}</td><td style="padding:6px;font-size:11px">${r.start_line}-${r.end_line}</td></tr>`)
       .join('')
       + '</tbody></table>'
-      + (results.length > 0 ? '<div style="margin-top:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:6px">Preview: ' + esc(results[0].symbol_name || results[0].file_path) + '</div><pre style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11px;line-height:1.6;max-height:200px;overflow:auto;white-space:pre-wrap;word-break:break-all">' + esc(results[0].snippet || '') + '</pre></div>' : '');
+      + (results.length > 0 && results[0].snippet ? '<div style="margin-top:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:6px">Preview: ' + esc(results[0].symbol_name || results[0].file_path) + '</div><pre style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11px;line-height:1.6;max-height:200px;overflow:auto;white-space:pre-wrap;word-break:break-all">' + esc(results[0].snippet) + '</pre></div>' : '');
   } catch (e) {
     el.innerHTML = '<div style="color:var(--red);padding:16px">Search failed: ' + esc(e.message || 'unknown error') + '</div>';
   }
@@ -2748,15 +2789,22 @@ async function loadLearning() {
 async function loadSymbols() {
   const container = $('view-symbols');
   if (!container) return;
+  await getProjectList();
+  const projects = _cachedProjectList || [];
+  const hasProjects = projects.length > 0;
+  const defaultProject = hasProjects ? projects[0].project_id : null;
+  window._symCurrentProject = defaultProject;
+
+  const projectSel = hasProjects
+    ? buildProjectSelectorHtml(defaultProject, { id: 'symProjectSel', onchange: 'window._symCurrentProject=this.value;filterSymbols()' })
+    : '<span style="font-size:12px;color:var(--muted)">No projects synced — run <code>nebu-ctx cloud bind</code></span>';
+
   container.innerHTML = `
-    <div class="card" style="margin-bottom:12px;border-left:3px solid var(--blue);background:var(--surface-2)">
-      <div style="display:flex;align-items:flex-start;gap:10px">
-        <span style="font-size:15px;flex-shrink:0">ℹ️</span>
-        <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
-          <strong style="color:var(--text)">Server registry symbols</strong> — these are the nebu-ctx server's registered <strong>MCP tools</strong> and <strong>API route handlers</strong>, not symbols from your project's source code. Project-level symbol browsing uses <code>ctx_symbols</code> from the Rust client.
-        </div>
-      </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="font-size:12px;color:var(--muted)">Project:</div>
+      ${projectSel}
     </div>
+    ${!hasProjects ? `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--blue);background:var(--surface-2)"><div style="display:flex;align-items:flex-start;gap:10px"><span style="font-size:15px;flex-shrink:0">ℹ️</span><div style="font-size:12px;color:var(--text-muted);line-height:1.6"><strong style="color:var(--text)">Server registry symbols</strong> — no project index yet. Select a synced project to browse its source symbols.</div></div></div>` : ''}
     <div style="margin-bottom:16px;display:flex;gap:8px;align-items:center">
       <input id="symSearch" type="text" class="search-input" placeholder="Search symbols…" style="flex:1" oninput="filterSymbols()">
       <select id="symKind" style="padding:12px 16px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:12px;outline:none;cursor:pointer" onchange="filterSymbols()">
@@ -2767,6 +2815,8 @@ async function loadSymbols() {
         <option value="method">Methods</option>
         <option value="trait">Traits</option>
         <option value="enum">Enums</option>
+        <option value="route">Routes</option>
+        <option value="tool">MCP Tools</option>
       </select>
     </div>
     <div class="card">
@@ -2778,9 +2828,11 @@ async function loadSymbols() {
 async function filterSymbols() {
   const q = ($('symSearch') || {}).value || '';
   const kind = ($('symKind') || {}).value || '';
+  const projectId = window._symCurrentProject || null;
   const params = new URLSearchParams();
   if (q) params.set('q', q);
   if (kind) params.set('kind', kind);
+  if (projectId) params.set('project_id', projectId);
   try {
     const data = await apiFetch('/api/symbols?' + params.toString());
     const el = $('symResults');
@@ -2791,9 +2843,12 @@ async function filterSymbols() {
       return;
     }
     resetRetry('symbols');
-    if (!data || !data.length) { el.innerHTML = '<div style="color:var(--dim);padding:16px">No symbols found</div>'; return; }
+    if (!data || !data.length) {
+      el.innerHTML = `<div style="color:var(--dim);padding:16px">${projectId ? 'No symbols found for this project. Make sure the index has been synced.' : 'No symbols found'}</div>`;
+      return;
+    }
     el.innerHTML = '<table style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;font-size:11px;color:var(--dim)"><th style="padding:6px">Name</th><th style="padding:6px">Kind</th><th style="padding:6px">File</th><th style="padding:6px">Lines</th><th style="padding:6px">Vis</th></tr></thead><tbody>'
-      + data.map(s => `<tr style="border-top:1px solid var(--border)"><td style="padding:6px;font-family:var(--mono);color:var(--green)">${esc(s.name)}</td><td style="padding:6px"><span style="background:var(--surface-2);padding:2px 6px;border-radius:4px;font-size:11px">${esc(s.kind)}</span></td><td style="padding:6px;font-size:12px;color:var(--dim)">${esc(s.file)}</td><td style="padding:6px;font-size:12px">${s.start_line}-${s.end_line}</td><td style="padding:6px">${s.is_exported ? '⊛' : '−'}</td></tr>`).join('')
+      + data.map(s => `<tr style="border-top:1px solid var(--border)"><td style="padding:6px;font-family:var(--mono);color:var(--green)">${esc(s.name)}</td><td style="padding:6px"><span style="background:var(--surface-2);padding:2px 6px;border-radius:4px;font-size:11px">${esc(s.kind)}</span></td><td style="padding:6px;font-size:12px;color:var(--dim);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.file)}</td><td style="padding:6px;font-size:12px">${s.start_line}-${s.end_line}</td><td style="padding:6px">${s.is_exported ? '⊛' : '−'}</td></tr>`).join('')
       + '</tbody></table>';
   } catch (e) { showError($('symResults'), 'Could not load symbols.'); }
 }
@@ -2801,55 +2856,72 @@ async function filterSymbols() {
 async function loadCallGraph() {
   const container = $('view-callgraph');
   if (!container) return;
-  container.innerHTML = '<div style="color:var(--dim);padding:16px">Loading call graph…</div>';
-  try {
-    const data = await apiFetch('/api/call-graph', { timeoutMs: 15000 });
-    if (isBuildingData(data)) {
-      showIndexing(container, 'Call graph is building in the background. This view will refresh automatically in a few seconds.', 'callgraph', loadCallGraph);
-      return;
-    }
-    resetRetry('callgraph');
-    const edges = Array.isArray(data?.edges) ? data.edges : [];
-    if (!edges.length) {
-      const idxFiles = data?.indexed_file_count ?? 0;
-      const idxSymbols = data?.indexed_symbol_count ?? 0;
-      const analyzed = data?.analyzed_file_count ?? 0;
-      container.innerHTML = `
-        <div class="card" style="margin-bottom:12px;border-left:3px solid var(--blue);background:var(--surface-2)">
-          <div style="display:flex;align-items:flex-start;gap:10px">
-            <span style="font-size:15px;flex-shrink:0">ℹ️</span>
-            <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
-              <strong style="color:var(--text)">Server registry call graph</strong> — this graph is built from the server's own registered MCP tools and API routes. It shows call relationships between server handlers, not project source code. For project-level call analysis, use <code>ctx_callers</code> / <code>ctx_callees</code> from the Rust client.
+  await getProjectList();
+  const projects = _cachedProjectList || [];
+  const hasProjects = projects.length > 0;
+  const defaultProject = hasProjects ? projects[0].project_id : null;
+  window._cgCurrentProject = defaultProject;
+
+  const renderCallGraph = async (projectId) => {
+    container.innerHTML = '<div style="color:var(--dim);padding:16px">Loading call graph…</div>';
+    try {
+      const url = projectId ? `/api/call-graph?project_id=${encodeURIComponent(projectId)}` : '/api/call-graph';
+      const data = await apiFetch(url, { timeoutMs: 15000 });
+
+      const projectSel = hasProjects
+        ? buildProjectSelectorHtml(projectId, { id: 'cgProjectSel', onchange: 'window._cgCurrentProject=this.value;renderCallGraphForProject(this.value)' })
+        : '';
+
+      if (isBuildingData(data)) {
+        showIndexing(container, 'Call graph is building in the background.', 'callgraph', () => renderCallGraph(projectId));
+        return;
+      }
+      resetRetry('callgraph');
+      const edges = Array.isArray(data?.edges) ? data.edges : [];
+
+      if (!edges.length) {
+        const idxFiles = data?.indexed_file_count ?? 0;
+        const idxSymbols = data?.indexed_symbol_count ?? 0;
+        const analyzed = data?.analyzed_file_count ?? 0;
+        const isProject = !!projectId;
+        container.innerHTML = `
+          ${hasProjects ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><div style="font-size:12px;color:var(--muted)">Project:</div>${projectSel}</div>` : ''}
+          <div class="card" style="margin-bottom:12px;border-left:3px solid var(--blue);background:var(--surface-2)">
+            <div style="display:flex;align-items:flex-start;gap:10px">
+              <span style="font-size:15px;flex-shrink:0">ℹ️</span>
+              <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+                ${isProject
+                  ? '<strong style="color:var(--text)">No call edges yet</strong> — the project index has been synced but no call edges were detected. Call edges are extracted from import/use statements and function call patterns.'
+                  : '<strong style="color:var(--text)">No project selected</strong> — select a project above to see its call graph, or sync a project with <code>nebu-ctx cloud bind</code>.'}
+              </div>
             </div>
-          </div>
-        </div>`;
-      showGuidedEmpty(container, 'No call edges yet',
-        'The server has not produced call edge data for its registered routes yet.',
-        [
-          'Indexed files: ' + idxFiles, 'Indexed symbols: ' + idxSymbols,
-          'Files analyzed: ' + analyzed,
-          'Call edges are generated as the server routes are analyzed.',
-        ], 'Refresh', 'loadCallGraph()');
-      return;
-    }
-    const nodes = new Map();
-    edges.forEach(e => {
-      nodes.set(e.caller_symbol, (nodes.get(e.caller_symbol) || 0) + 1);
-      nodes.set(e.callee_name, (nodes.get(e.callee_name) || 0) + 1);
-    });
-    const topNodes = [...nodes.entries()].sort((a,b) => b[1]-a[1]).slice(0, 50).map(n => n[0]);
-    const topSet = new Set(topNodes);
-    const filteredEdges = edges.filter(e => topSet.has(e.caller_symbol) || topSet.has(e.callee_name));
-    const uniqueEdges = new Map();
-    filteredEdges.forEach(e => {
-      const key = e.caller_symbol + '→' + e.callee_name;
-      if (!uniqueEdges.has(key)) uniqueEdges.set(key, { source: e.caller_symbol, target: e.callee_name, count: 1 });
-      else uniqueEdges.get(key).count++;
-    });
-    const graphNodes = [...new Set([...uniqueEdges.values()].flatMap(e => [e.source, e.target]))].map(n => ({ id: n, count: nodes.get(n) || 0 }));
-    const maxCount = Math.max(...graphNodes.map(n => n.count), 1);
+          </div>`;
+        showGuidedEmpty(container, isProject ? 'No call edges for this project' : 'No call edges yet',
+          isProject ? 'Call edges are extracted during index sync.' : 'Select a project above.',
+          [ 'Indexed files: ' + idxFiles, 'Indexed symbols: ' + idxSymbols, 'Files analyzed: ' + analyzed ],
+          'Refresh', `renderCallGraphForProject('${projectId || ''}')`);
+        return;
+      }
+
+      const nodes = new Map();
+      edges.forEach(e => {
+        nodes.set(e.caller_symbol, (nodes.get(e.caller_symbol) || 0) + 1);
+        nodes.set(e.callee_name, (nodes.get(e.callee_name) || 0) + 1);
+      });
+      const topNodes = [...nodes.entries()].sort((a,b) => b[1]-a[1]).slice(0, 50).map(n => n[0]);
+      const topSet = new Set(topNodes);
+      const filteredEdges = edges.filter(e => topSet.has(e.caller_symbol) || topSet.has(e.callee_name));
+      const uniqueEdges = new Map();
+      filteredEdges.forEach(e => {
+        const key = e.caller_symbol + '→' + e.callee_name;
+        if (!uniqueEdges.has(key)) uniqueEdges.set(key, { source: e.caller_symbol, target: e.callee_name, count: 1 });
+        else uniqueEdges.get(key).count++;
+      });
+      const graphNodes = [...new Set([...uniqueEdges.values()].flatMap(e => [e.source, e.target]))].map(n => ({ id: n, count: nodes.get(n) || 0 }));
+      const maxCount = Math.max(...graphNodes.map(n => n.count), 1);
 
     container.innerHTML = `
+      ${hasProjects ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><div style="font-size:12px;color:var(--muted)">Project:</div>${projectSel}</div>` : ''}
       <div class="row r3" style="margin-bottom:16px">
         <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${edges.length}</div><div class="hl">Call Edges</div></div>
         <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${graphNodes.length}</div><div class="hl">Symbols</div></div>
@@ -2936,7 +3008,11 @@ async function loadCallGraph() {
     graphEl._sim = sim;
 
     applyCallGraphValuesState();
-  } catch (e) { showError(container, 'Could not load call graph.'); }
+    } catch (e) { showError(container, 'Could not load call graph.'); }
+  };
+
+  window.renderCallGraphForProject = renderCallGraph;
+  await renderCallGraph(defaultProject);
 }
 
 async function loadRoutes() {

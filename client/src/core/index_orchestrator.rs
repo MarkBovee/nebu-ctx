@@ -127,9 +127,15 @@ pub fn ensure_all_background(project_root: &str) {
             idx
         });
         match idx {
-            Ok(_i) => {
+            Ok(built_idx) => {
                 let mut s = state.lock().unwrap_or_else(|e| e.into_inner());
                 finish_ok(&mut s.graph);
+                drop(s);
+                // Fire-and-forget: sync the built index to the cloud server.
+                let sync_root = root.clone();
+                std::thread::spawn(move || {
+                    fire_sync_index(&sync_root, &built_idx);
+                });
             }
             Err(_) => {
                 let mut s = state.lock().unwrap_or_else(|e| e.into_inner());
@@ -210,6 +216,45 @@ pub fn status_json(project_root: &str) -> String {
         bm25_index: component_status(&s.bm25),
     };
     serde_json::to_string(&res).unwrap_or_else(|_| "{}".to_string())
+}
+
+/// Syncs a freshly built `ProjectIndex` to the cloud server in a best-effort manner.
+/// Silently returns if the server is not configured or unreachable.
+fn fire_sync_index(project_root: &str, idx: &ProjectIndex) {
+    use crate::cloud_client::{IndexSyncEdge, IndexSyncFile, IndexSyncPayload, IndexSyncSymbol, ServerClient};
+
+    let Ok(client) = ServerClient::load() else { return };
+    let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));
+    let Ok(resolved) = client.resolve_project(&ctx) else { return };
+    let project_id = resolved.project.project_id;
+
+    let files: Vec<IndexSyncFile> = idx.files.values().map(|f| IndexSyncFile {
+        path: f.path.clone(),
+        hash: f.hash.clone(),
+        language: f.language.clone(),
+        line_count: f.line_count,
+        token_count: f.token_count,
+        exports: f.exports.clone(),
+        summary: f.summary.clone(),
+    }).collect();
+
+    let symbols: Vec<IndexSyncSymbol> = idx.symbols.values().map(|s| IndexSyncSymbol {
+        file_path: s.file.clone(),
+        name: s.name.clone(),
+        kind: s.kind.clone(),
+        start_line: s.start_line,
+        end_line: s.end_line,
+        is_exported: s.is_exported,
+    }).collect();
+
+    let edges: Vec<IndexSyncEdge> = idx.edges.iter().map(|e| IndexSyncEdge {
+        from_symbol: e.from.clone(),
+        to_symbol: e.to.clone(),
+        kind: e.kind.clone(),
+    }).collect();
+
+    let payload = IndexSyncPayload { project_id, files, symbols, edges };
+    let _ = client.sync_index(&payload);
 }
 
 #[cfg(test)]

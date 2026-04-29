@@ -56,6 +56,7 @@ builder.Services.AddSingleton<ICheckoutBindingStore>(sp => StoreFactory.CreateCh
 builder.Services.AddSingleton<IBrainStore>(sp => StoreFactory.CreateBrainStore(sp.GetRequiredService<ServerOptions>()));
 builder.Services.AddSingleton<IKnowledgeStore>(sp => StoreFactory.CreateKnowledgeStore(sp.GetRequiredService<ServerOptions>()));
 builder.Services.AddSingleton<ISessionStore>(sp => StoreFactory.CreateSessionStore(sp.GetRequiredService<ServerOptions>()));
+builder.Services.AddSingleton<ICodeIndexStore>(sp => StoreFactory.CreateCodeIndexStore(sp.GetRequiredService<ServerOptions>()));
 
 // Projects
 builder.Services.AddSingleton<ProjectRegistry>();
@@ -144,6 +145,54 @@ app.MapPost("/v1/telemetry/ingest", async (TelemetryIngestRequest request, Telem
 
     telemetryStore.IngestEvent(request, projectId);
     return Results.Ok(new { ingested = true });
+});
+
+// POST /v1/index/sync — receive the full project source-code index from the Rust client.
+// Stores file metadata, symbols, and call edges in Postgres so the dashboard can display
+// real project-level data instead of the server's internal tool/route registry.
+app.MapPost("/v1/index/sync", async (IndexSyncRequest request, ICodeIndexStore codeIndexStore, CancellationToken cancellationToken) =>
+{
+    if (string.IsNullOrWhiteSpace(request.ProjectId))
+        return Results.BadRequest(new { error = "project_id is required" });
+
+    var files = (request.Files ?? []).Select(f => new IndexedFile
+    {
+        Path = f.Path,
+        Hash = f.Hash ?? "",
+        Language = f.Language ?? "",
+        LineCount = f.LineCount,
+        TokenCount = f.TokenCount,
+        Exports = f.Exports ?? [],
+        Summary = f.Summary ?? "",
+    }).ToList();
+
+    var symbols = (request.Symbols ?? []).Select(s => new IndexedSymbol
+    {
+        FilePath = s.FilePath,
+        Name = s.Name,
+        Kind = s.Kind ?? "",
+        StartLine = s.StartLine,
+        EndLine = s.EndLine,
+        IsExported = s.IsExported,
+    }).ToList();
+
+    var edges = (request.Edges ?? []).Select(e => new IndexedCallEdge
+    {
+        FromSymbol = e.FromSymbol,
+        ToSymbol = e.ToSymbol,
+        Kind = e.Kind ?? "call",
+    }).ToList();
+
+    await codeIndexStore.SyncIndexAsync(request.ProjectId, files, symbols, edges, cancellationToken);
+
+    return Results.Ok(new
+    {
+        synced = true,
+        project_id = request.ProjectId,
+        files = files.Count,
+        symbols = symbols.Count,
+        edges = edges.Count,
+    });
 });
 
 // --- Dashboard endpoints ---

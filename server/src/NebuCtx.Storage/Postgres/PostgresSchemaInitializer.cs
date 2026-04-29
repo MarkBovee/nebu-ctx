@@ -144,5 +144,51 @@ public static class PostgresSchemaInitializer
 
         CREATE INDEX IF NOT EXISTS idx_telemetry_events_project
             ON telemetry_events (project_id, occurred_at DESC);
+
+        CREATE TABLE IF NOT EXISTS project_files (
+            project_id   TEXT NOT NULL,
+            path         TEXT NOT NULL,
+            hash         TEXT NOT NULL DEFAULT '',
+            language     TEXT NOT NULL DEFAULT '',
+            line_count   INT NOT NULL DEFAULT 0,
+            token_count  INT NOT NULL DEFAULT 0,
+            exports_json JSONB,
+            summary      TEXT NOT NULL DEFAULT '',
+            indexed_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (project_id, path)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_project_files_project
+            ON project_files (project_id);
+
+        CREATE TABLE IF NOT EXISTS project_symbols (
+            project_id   TEXT NOT NULL,
+            file_path    TEXT NOT NULL,
+            name         TEXT NOT NULL,
+            kind         TEXT NOT NULL DEFAULT '',
+            start_line   INT NOT NULL DEFAULT 0,
+            end_line     INT NOT NULL DEFAULT 0,
+            is_exported  BOOLEAN NOT NULL DEFAULT FALSE,
+            indexed_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (project_id, file_path, name)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_project_symbols_project
+            ON project_symbols (project_id);
+
+        CREATE INDEX IF NOT EXISTS idx_project_symbols_name
+            ON project_symbols (project_id, name);
+
+        CREATE TABLE IF NOT EXISTS project_call_edges (
+            project_id   TEXT NOT NULL,
+            from_symbol  TEXT NOT NULL,
+            to_symbol    TEXT NOT NULL,
+            kind         TEXT NOT NULL DEFAULT '',
+            indexed_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (project_id, from_symbol, to_symbol)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_project_call_edges_project
+            ON project_call_edges (project_id);
         """;
 }

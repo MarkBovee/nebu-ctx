@@ -119,7 +119,24 @@ public static class DashboardEndpoints
             var projects = await projectRegistry.ListAsync(cancellationToken);
             return Results.Ok(DashboardPayloadFactory.BuildGraphPayload(projects));
         });
-        app.MapGet("/api/call-graph", (ToolRegistry toolRegistry) => Results.Ok(DashboardPayloadFactory.BuildCallGraphPayload(toolRegistry)));
+        app.MapGet("/api/call-graph", async (string? project_id, ICodeIndexStore codeIndexStore, ToolRegistry toolRegistry, CancellationToken cancellationToken) =>
+        {
+            if (!string.IsNullOrWhiteSpace(project_id))
+            {
+                var edges = await codeIndexStore.GetEdgesAsync(project_id, 5000, cancellationToken);
+                var stats = await codeIndexStore.GetStatsAsync(project_id, cancellationToken);
+                return Results.Ok(new
+                {
+                    edges = edges.Select(e => new { caller_symbol = e.FromSymbol, callee_name = e.ToSymbol, kind = e.Kind }),
+                    indexed_file_count = stats.FileCount,
+                    indexed_symbol_count = stats.SymbolCount,
+                    analyzed_file_count = stats.FileCount,
+                    last_indexed_at = stats.LastIndexedAt,
+                });
+            }
+            // Fall back to server-internal call graph when no project is selected.
+            return Results.Ok(DashboardPayloadFactory.BuildCallGraphPayload(toolRegistry));
+        });
 
         // Project management — list all registered projects
         app.MapGet("/api/projects", async (ProjectRegistry projectRegistry, CancellationToken cancellationToken) =>
@@ -166,19 +183,74 @@ public static class DashboardEndpoints
             var projects = await projectRegistry.ListAsync(cancellationToken);
             return Results.Ok(DashboardPayloadFactory.BuildFeedbackPayload(telemetryStore, projects));
         });
-        app.MapGet("/api/symbols", (string? q, string? kind, ToolRegistry toolRegistry) =>
+        app.MapGet("/api/symbols", async (string? q, string? kind, string? project_id, ICodeIndexStore codeIndexStore, ToolRegistry toolRegistry, CancellationToken cancellationToken) =>
         {
-            var symbols = DashboardPayloadFactory.BuildSymbolsPayload(toolRegistry).AsEnumerable();
-            if (!string.IsNullOrWhiteSpace(q))
+            if (!string.IsNullOrWhiteSpace(project_id))
             {
-                symbols = symbols.Where(symbol => symbol.ToString()?.Contains(q, StringComparison.OrdinalIgnoreCase) == true);
+                var symbols = await codeIndexStore.SearchSymbolsAsync(project_id, q, kind, 500, cancellationToken);
+                return Results.Ok(symbols.Select(s => new
+                {
+                    name = s.Name,
+                    kind = s.Kind,
+                    file = s.FilePath,
+                    start_line = s.StartLine,
+                    end_line = s.EndLine,
+                    is_exported = s.IsExported,
+                }).ToArray());
             }
-
-            return Results.Ok(symbols.ToArray());
+            // Fall back to server-internal symbols when no project selected.
+            var serverSymbols = DashboardPayloadFactory.BuildSymbolsPayload(toolRegistry).AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(q))
+                serverSymbols = serverSymbols.Where(symbol => symbol.ToString()?.Contains(q, StringComparison.OrdinalIgnoreCase) == true);
+            return Results.Ok(serverSymbols.ToArray());
         });
         app.MapGet("/api/routes", () => Results.Ok(DashboardPayloadFactory.BuildRoutesPayload()));
-        app.MapGet("/api/search-index", (ToolRegistry toolRegistry) => Results.Ok(DashboardPayloadFactory.BuildSearchIndexPayload(toolRegistry)));
-        app.MapGet("/api/search", (string? q, int? limit, ToolRegistry toolRegistry) => Results.Ok(DashboardPayloadFactory.BuildSearchPayload(q, limit, toolRegistry)));
+        app.MapGet("/api/search-index", async (string? project_id, ICodeIndexStore codeIndexStore, ToolRegistry toolRegistry, CancellationToken cancellationToken) =>
+        {
+            if (!string.IsNullOrWhiteSpace(project_id))
+            {
+                var stats = await codeIndexStore.GetStatsAsync(project_id, cancellationToken);
+                var topFiles = await codeIndexStore.SearchFilesAsync(project_id, null, 20, cancellationToken);
+                return Results.Ok(new
+                {
+                    doc_count = stats.FileCount,
+                    chunk_count = stats.SymbolCount,
+                    language_distribution = stats.LanguageDistribution,
+                    last_indexed_at = stats.LastIndexedAt,
+                    top_chunks_by_token_count = topFiles.Select(f => new
+                    {
+                        symbol_name = f.Path,
+                        file_path = f.Path,
+                        kind = f.Language,
+                        token_count = f.TokenCount,
+                        start_line = 1,
+                        end_line = f.LineCount,
+                    }),
+                });
+            }
+            return Results.Ok(DashboardPayloadFactory.BuildSearchIndexPayload(toolRegistry));
+        });
+        app.MapGet("/api/search", async (string? q, int? limit, string? project_id, ICodeIndexStore codeIndexStore, ToolRegistry toolRegistry, CancellationToken cancellationToken) =>
+        {
+            if (!string.IsNullOrWhiteSpace(project_id) && !string.IsNullOrWhiteSpace(q))
+            {
+                var files = await codeIndexStore.SearchFilesAsync(project_id, q, limit ?? 20, cancellationToken);
+                return Results.Ok(new
+                {
+                    results = files.Select(f => new
+                    {
+                        score = 1.0,
+                        symbol_name = f.Path,
+                        kind = f.Language,
+                        file_path = f.Path,
+                        start_line = 1,
+                        end_line = f.LineCount,
+                        snippet = f.Summary,
+                    }),
+                });
+            }
+            return Results.Ok(DashboardPayloadFactory.BuildSearchPayload(q, limit, toolRegistry));
+        });
         app.MapGet("/api/compression-demo", async (string? path, string? task, ToolRegistry toolRegistry, ProjectRegistry projectRegistry, CancellationToken cancellationToken) =>
         {
             var projects = await projectRegistry.ListAsync(cancellationToken);

@@ -330,3 +330,146 @@ public sealed class CloudSessionSummary
     /// <summary>When the session was last saved.</summary>
     public DateTimeOffset UpdatedAt { get; set; }
 }
+
+/// <summary>
+/// Abstraction for project-scoped source code index storage.
+/// Persists file metadata, symbols, and call edges uploaded by the Rust client.
+/// </summary>
+public interface ICodeIndexStore
+{
+    /// <summary>
+    /// Replaces all indexed files and symbols for a project in a single batch operation.
+    /// Existing data for the project is deleted and replaced with the new snapshot.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="files">Indexed file entries.</param>
+    /// <param name="symbols">Indexed symbol entries.</param>
+    /// <param name="edges">Call graph edges.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task SyncIndexAsync(string projectId, IReadOnlyList<IndexedFile> files, IReadOnlyList<IndexedSymbol> symbols, IReadOnlyList<IndexedCallEdge> edges, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns index summary stats for a project.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>File count, symbol count, edge count, and language distribution.</returns>
+    Task<CodeIndexStats> GetStatsAsync(string projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Searches symbols by name for a project, optionally filtered by kind.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="query">Substring query matched against symbol name.</param>
+    /// <param name="kind">Optional kind filter (fn, struct, class, etc.).</param>
+    /// <param name="limit">Maximum results.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Matching symbol entries.</returns>
+    Task<IReadOnlyList<IndexedSymbol>> SearchSymbolsAsync(string projectId, string? query, string? kind, int limit = 200, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns call graph edges for a project.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="limit">Maximum edges to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Call edge list.</returns>
+    Task<IReadOnlyList<IndexedCallEdge>> GetEdgesAsync(string projectId, int limit = 5000, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Searches files by path for a project.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="query">Substring query matched against file path.</param>
+    /// <param name="limit">Maximum results.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Matching file entries ordered by token count descending.</returns>
+    Task<IReadOnlyList<IndexedFile>> SearchFilesAsync(string projectId, string? query, int limit = 100, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// A single indexed source file entry.
+/// </summary>
+public sealed class IndexedFile
+{
+    /// <summary>Relative path within the project.</summary>
+    public required string Path { get; set; }
+
+    /// <summary>Content hash for change detection.</summary>
+    public string Hash { get; set; } = "";
+
+    /// <summary>Detected language (e.g. rs, cs, ts).</summary>
+    public string Language { get; set; } = "";
+
+    /// <summary>Total line count.</summary>
+    public int LineCount { get; set; }
+
+    /// <summary>Estimated token count.</summary>
+    public int TokenCount { get; set; }
+
+    /// <summary>Top-level exported names.</summary>
+    public List<string> Exports { get; set; } = [];
+
+    /// <summary>One-line summary of the file's primary purpose.</summary>
+    public string Summary { get; set; } = "";
+}
+
+/// <summary>
+/// A single indexed symbol (function, struct, class, etc.).
+/// </summary>
+public sealed class IndexedSymbol
+{
+    /// <summary>Relative file path containing this symbol.</summary>
+    public required string FilePath { get; set; }
+
+    /// <summary>Symbol name.</summary>
+    public required string Name { get; set; }
+
+    /// <summary>Symbol kind: fn, struct, class, method, trait, enum, etc.</summary>
+    public string Kind { get; set; } = "";
+
+    /// <summary>Start line (1-based).</summary>
+    public int StartLine { get; set; }
+
+    /// <summary>End line (1-based).</summary>
+    public int EndLine { get; set; }
+
+    /// <summary>Whether the symbol is publicly exported.</summary>
+    public bool IsExported { get; set; }
+}
+
+/// <summary>
+/// A directed call edge between two symbols.
+/// </summary>
+public sealed class IndexedCallEdge
+{
+    /// <summary>Calling symbol name.</summary>
+    public required string FromSymbol { get; set; }
+
+    /// <summary>Called symbol name.</summary>
+    public required string ToSymbol { get; set; }
+
+    /// <summary>Edge kind (call, import, use, etc.).</summary>
+    public string Kind { get; set; } = "call";
+}
+
+/// <summary>
+/// Aggregate stats for a project's code index.
+/// </summary>
+public sealed class CodeIndexStats
+{
+    /// <summary>Number of indexed files.</summary>
+    public int FileCount { get; set; }
+
+    /// <summary>Number of indexed symbols.</summary>
+    public int SymbolCount { get; set; }
+
+    /// <summary>Number of call edges.</summary>
+    public int EdgeCount { get; set; }
+
+    /// <summary>Language → file count distribution.</summary>
+    public Dictionary<string, int> LanguageDistribution { get; set; } = [];
+
+    /// <summary>When the index was last synced.</summary>
+    public DateTimeOffset? LastIndexedAt { get; set; }
+}
