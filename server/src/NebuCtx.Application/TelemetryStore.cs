@@ -1,5 +1,6 @@
 namespace NebuCtx.Application;
 
+using System.Collections.Frozen;
 using System.Text.Json;
 using NebuCtx.Contracts.Telemetry;
 
@@ -9,11 +10,21 @@ using NebuCtx.Contracts.Telemetry;
 public sealed class TelemetryStore
 {
     private const int MaxEvents = 250;
+
+    private static readonly FrozenSet<string> FileAccessTools = FrozenSet.Create(
+        StringComparer.OrdinalIgnoreCase,
+        "ctx_read", "ctx_edit", "ctx_search", "ctx_outline", "ctx_symbol",
+        "ctx_callees", "ctx_callers", "ctx_delta", "ctx_benchmark", "ctx_analyze",
+        "ctx_smart_read", "ctx_multi_read");
+
     private readonly Lock _gate = new();
     private readonly Dictionary<string, CommandTelemetrySnapshot> _commands = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, DailyTelemetrySnapshot> _daily = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, SessionTelemetrySnapshot> _sessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<TelemetryEventSnapshot> _events = [];
+    private readonly Dictionary<string, Dictionary<string, CommandTelemetrySnapshot>> _projectCommands
+        = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<(string ProjectId, string Path), int> _fileAccessCounts = new();
     private DateTimeOffset? _firstUse;
     private DateTimeOffset? _lastUpdated;
     private long _totalInputTokens;
@@ -79,6 +90,18 @@ public sealed class TelemetryStore
         /// Recent telemetry events.
         /// </summary>
         public IReadOnlyList<TelemetryEventSnapshot> Events { get; init; } = [];
+
+        /// <summary>Per-project telemetry aggregation.</summary>
+        public IReadOnlyDictionary<string, ProjectTelemetrySnapshot> PerProject { get; init; }
+            = new Dictionary<string, ProjectTelemetrySnapshot>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Returns file-access counts for a specific project.</summary>
+        /// <param name="projectId">Project identifier to filter by.</param>
+        /// <returns>Dictionary mapping file path to access count.</returns>
+        public IReadOnlyDictionary<string, int> GetFileAccess(string projectId)
+            => PerProject.TryGetValue(projectId, out var proj)
+                ? proj.FileAccess
+                : new Dictionary<string, int>();
     }
 
     /// <summary>
@@ -110,6 +133,32 @@ public sealed class TelemetryStore
         /// Total estimated output tokens.
         /// </summary>
         public long OutputTokens { get; set; }
+    }
+
+    /// <summary>
+    /// Per-project telemetry aggregation entry.
+    /// </summary>
+    public sealed class ProjectTelemetrySnapshot
+    {
+        /// <summary>Project identifier.</summary>
+        public required string ProjectId { get; init; }
+
+        /// <summary>Total tool calls recorded for this project.</summary>
+        public int TotalToolCalls { get; set; }
+
+        /// <summary>Total estimated input tokens for this project.</summary>
+        public long TotalInputTokens { get; set; }
+
+        /// <summary>Total estimated output tokens for this project.</summary>
+        public long TotalOutputTokens { get; set; }
+
+        /// <summary>Per-command aggregation for this project.</summary>
+        public IReadOnlyDictionary<string, CommandTelemetrySnapshot> Commands { get; init; }
+            = new Dictionary<string, CommandTelemetrySnapshot>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>File-access counts for this project (path → count).</summary>
+        public IReadOnlyDictionary<string, int> FileAccess { get; init; }
+            = new Dictionary<string, int>();
     }
 
     /// <summary>
@@ -282,6 +331,27 @@ public sealed class TelemetryStore
             commandEntry.InputTokens += inputTokens;
             commandEntry.OutputTokens += outputTokens;
 
+            // Per-project counters
+            if (!_projectCommands.TryGetValue(context.ProjectId, out var projCmds))
+            {
+                projCmds = new Dictionary<string, CommandTelemetrySnapshot>(StringComparer.OrdinalIgnoreCase);
+                _projectCommands[context.ProjectId] = projCmds;
+            }
+            var projCommandEntry = GetOrCreateProjectCommand(projCmds, toolName, source);
+            projCommandEntry.Count++;
+            projCommandEntry.InputTokens += inputTokens;
+            projCommandEntry.OutputTokens += outputTokens;
+
+            // File-access tracking
+            if (FileAccessTools.Contains(toolName)
+                && arguments.TryGetValue("path", out var pathArg)
+                && pathArg is string filePath
+                && !string.IsNullOrWhiteSpace(filePath))
+            {
+                var key = (context.ProjectId, filePath);
+                _fileAccessCounts[key] = _fileAccessCounts.TryGetValue(key, out var prev) ? prev + 1 : 1;
+            }
+
             var dailyEntry = GetOrCreateDaily(dateKey);
             dailyEntry.InputTokens += inputTokens;
             dailyEntry.OutputTokens += outputTokens;
@@ -340,6 +410,21 @@ public sealed class TelemetryStore
                 Daily = _daily.Values.OrderBy(item => item.Date, StringComparer.Ordinal).Select(CloneDaily).ToArray(),
                 Sessions = _sessions.Values.OrderByDescending(item => item.UpdatedAt).Select(CloneSession).ToArray(),
                 Events = _events.OrderByDescending(item => item.Timestamp).Select(CloneEvent).ToArray(),
+                PerProject = _projectCommands.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => new ProjectTelemetrySnapshot
+                    {
+                        ProjectId = kvp.Key,
+                        TotalToolCalls = kvp.Value.Values.Sum(c => c.Count),
+                        TotalInputTokens = kvp.Value.Values.Sum(c => c.InputTokens),
+                        TotalOutputTokens = kvp.Value.Values.Sum(c => c.OutputTokens),
+                        Commands = kvp.Value.ToDictionary(
+                            c => c.Key, c => CloneCommand(c.Value), StringComparer.OrdinalIgnoreCase),
+                        FileAccess = _fileAccessCounts
+                            .Where(fa => fa.Key.ProjectId == kvp.Key)
+                            .ToDictionary(fa => fa.Key.Path, fa => fa.Value),
+                    },
+                    StringComparer.OrdinalIgnoreCase),
             };
         }
     }
@@ -429,6 +514,22 @@ public sealed class TelemetryStore
             Source = source,
         };
         _commands[toolName] = entry;
+        return entry;
+    }
+
+    /// <summary>Gets or creates a command snapshot within a per-project commands dictionary.</summary>
+    /// <param name="commands">Per-project command dictionary to look up or insert into.</param>
+    /// <param name="toolName">Command or tool name.</param>
+    /// <param name="source">Dashboard source bucket.</param>
+    /// <returns>Mutable command telemetry aggregate for the project.</returns>
+    private static CommandTelemetrySnapshot GetOrCreateProjectCommand(
+        Dictionary<string, CommandTelemetrySnapshot> commands, string toolName, string source)
+    {
+        if (!commands.TryGetValue(toolName, out var entry))
+        {
+            entry = new CommandTelemetrySnapshot { Name = toolName, Source = source };
+            commands[toolName] = entry;
+        }
         return entry;
     }
 
