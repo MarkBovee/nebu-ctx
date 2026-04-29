@@ -126,6 +126,54 @@ To test the HA addon flow locally (pulls from GHCR — requires the image to be 
 NEBU_CTX_VERSION=0.5.4 bash tests/local-addon-test.sh
 ```
 
+## Session Startup Protocol
+
+At the start of every session, retrieve project state from the brain before doing any investigation work. This avoids re-researching what is already known.
+
+**Step 1 — Recall active context from brain:**
+```
+ctx_brain(action="recall", query="analytics tools plan status")
+ctx_brain(action="recall", query="architecture debt")
+ctx_brain(action="recall", query="build commands")
+```
+
+**Step 2 — Recall project knowledge:**
+```
+ctx_knowledge(action="wakeup")
+```
+
+**Step 3 — Read the developer knowledge base** (if starting a non-trivial task):
+```
+docs/DEVELOPER-KNOWLEDGE.md
+```
+
+**When to pull from brain mid-session:**
+- Before touching any file not already in context → `ctx_brain(action="recall", query="<topic>")`
+- Before adding a new IToolHandler → `ctx_brain(action="recall", query="itoolhandler pattern")`
+- Before any version bump → `ctx_brain(action="recall", query="version sync rule")`
+- Before touching hooks → `ctx_brain(action="recall", query="hook system")`
+- Before touching CLI routing → `ctx_brain(action="recall", query="mcp routing architecture")`
+
+**At session end — save state back:**
+```
+ctx_session(action="save")
+ctx_knowledge(action="consolidate")
+ctx_brain(action="store", key="session-YYYY-MM-DD", value="<what was done, decisions, current task status>")
+```
+
+Key brain facts stored (query these by key or topic):
+| Key | Contents |
+|-----|----------|
+| `dev-knowledge-location` | Full knowledge base file location |
+| `build-commands` | All build/test/install/container commands |
+| `version-sync-rule` | 3-location version sync requirement |
+| `mcp-routing-architecture` | CLOUD_ONLY_TOOLS, CLOUD_PREFERRED_TOOLS routing |
+| `analytics-tools-plan-status` | Current task completion state for Tasks 1–8 |
+| `itoolhandler-pattern` | How to add new MCP tool handlers to the server |
+| `local-machine-state` | Installed binaries, ports, container name, token |
+| `hook-system` | Hook events, agents, CRITICAL ordering rules |
+| `architecture-debt` | Known gaps: ctx_knowledge fallback, brain bridge, etc. |
+
 ## Practical Guidance
 
 - Prefer fixing runtime wrappers and release wiring at the root instead of adding more fallback docs.
