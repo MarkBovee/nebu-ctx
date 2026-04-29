@@ -167,6 +167,7 @@ public class AnalyticsToolTests
 
         var text = Assert.IsType<string>(result);
         Assert.Contains("Cost", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("$0.0000", text);
     }
 
     /// <summary>Json action should return valid JSON with estimated_cost_usd and total_tokens properties.</summary>
@@ -181,8 +182,10 @@ public class AnalyticsToolTests
 
         var text = Assert.IsType<string>(result);
         var doc = JsonDocument.Parse(text);
-        Assert.True(doc.RootElement.TryGetProperty("estimated_cost_usd", out _));
-        Assert.True(doc.RootElement.TryGetProperty("total_tokens", out _));
+        var totalTokens = doc.RootElement.GetProperty("total_tokens").GetInt64();
+        Assert.True(totalTokens > 0, "total_tokens should be non-zero for a populated store");
+        var costUsd = doc.RootElement.GetProperty("estimated_cost_usd").GetDouble();
+        Assert.True(costUsd > 0.0, "estimated_cost_usd should be non-zero");
     }
 
     /// <summary>Json action with project_id should filter results to only that project's tools and return zero cost for unknown projects.</summary>
@@ -224,6 +227,7 @@ public class AnalyticsToolTests
 
         var text = Assert.IsType<string>(result);
         Assert.Contains("token", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("0 tokens", text);
     }
 
     /// <summary>Tools action should list per-tool cost breakdown including ctx_read.</summary>
@@ -238,6 +242,7 @@ public class AnalyticsToolTests
 
         var text = Assert.IsType<string>(result);
         Assert.Contains("ctx_read", text);
+        Assert.DoesNotContain("$0.000000", text);
     }
 
     // ── ctx_heatmap ───────────────────────────────────────────────────────────
