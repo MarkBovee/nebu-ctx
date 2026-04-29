@@ -11,6 +11,7 @@ using NebuCtx.Application;
 /// </summary>
 public sealed class GainToolHandler(TelemetryStore telemetry) : IToolHandler
 {
+    private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
     /// <inheritdoc/>
     public string Name => "ctx_gain";
 
@@ -22,17 +23,22 @@ public sealed class GainToolHandler(TelemetryStore telemetry) : IToolHandler
     /// <inheritdoc/>
     public Dictionary<string, object?> InputSchema => new()
     {
-        ["action"] = new Dictionary<string, object?>
+        ["type"] = "object",
+        ["properties"] = new Dictionary<string, object?>
         {
-            ["type"] = "string",
-            ["description"] = "Report type: report | score | tasks | agents | wrapped | json",
-            ["default"] = "report",
+            ["action"] = new Dictionary<string, object?>
+            {
+                ["type"] = "string",
+                ["description"] = "Report type: report | score | tasks | agents | wrapped | json",
+                ["default"] = "report",
+            },
+            ["project_id"] = new Dictionary<string, object?>
+            {
+                ["type"] = "string",
+                ["description"] = "Optional project filter. Omit for global stats.",
+            },
         },
-        ["project_id"] = new Dictionary<string, object?>
-        {
-            ["type"] = "string",
-            ["description"] = "Optional project filter. Omit for global stats.",
-        },
+        ["required"] = new[] { "action" },
     };
 
     /// <inheritdoc/>
@@ -215,7 +221,7 @@ public sealed class GainToolHandler(TelemetryStore telemetry) : IToolHandler
                 .Select(c => new { name = c.Name, count = c.Count, input_tokens = c.InputTokens, output_tokens = c.OutputTokens }),
         };
 
-        return JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
+        return JsonSerializer.Serialize(payload, IndentedJson);
     }
 
     /// <summary>

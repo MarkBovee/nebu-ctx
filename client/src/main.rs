@@ -731,7 +731,11 @@ fn derive_dashboard_url(mcp_url: &str) -> String {
         } else {
             format!("{}:3333", authority)
         };
-        let path_part = if path.is_empty() { String::new() } else { format!("/{}", path) };
+        let path_part = if path.is_empty() || path == "v1" {
+            String::new()
+        } else {
+            format!("/{}", path)
+        };
         format!("{}://{}{}", scheme, new_authority, path_part)
     } else {
         "http://127.0.0.1:3333".to_string()

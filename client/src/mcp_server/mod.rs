@@ -237,11 +237,21 @@ impl ServerHandler for LeanCtxServer {
                 }
             }
         } else if CLOUD_PREFERRED_TOOLS.contains(&name) {
+            // Task A: when cloud is configured, fail hard rather than silently
+            // writing to local JSON. Local fallback only applies when no cloud
+            // server has been set up at all.
+            let cloud_is_configured = crate::cloud_client::ServerClient::load().is_ok();
             match route_to_cloud(name, args).await {
                 CloudResult::Success(s) => {
                     // Record telemetry so dashboard reflects cloud tool usage.
                     self.record_call(name, 0, 0, None).await;
                     return Ok(CallToolResult::success(vec![Content::text(s)]));
+                }
+                CloudResult::NotConfigured if cloud_is_configured => {
+                    // Config exists but load/connect failed transiently — fail hard.
+                    return Ok(CallToolResult::success(vec![Content::text(format!(
+                        "{name}: cloud server is configured but unreachable. Check: nebu-ctx cloud status"
+                    ))]));
                 }
                 CloudResult::NotConfigured => Some(
                     "\n\n⚠ Running locally (no cloud connection). Data stored in .nebu-ctx/ only.\n  To enable cloud persistence: nebu-ctx cloud connect"
@@ -506,10 +516,13 @@ impl ServerHandler for LeanCtxServer {
                     if crate::tools::autonomy::should_auto_consolidate(&self.autonomy, calls) {
                         let root_clone = root.clone();
                         tokio::task::spawn_blocking(move || {
-                            let _ = crate::core::consolidation_engine::consolidate_latest(
+                            if crate::core::consolidation_engine::consolidate_latest(
                                 &root_clone,
                                 crate::core::consolidation_engine::ConsolidationBudgets::default(),
-                            );
+                            ).is_ok() {
+                                // Task B: forward promoted facts to PostgreSQL.
+                                crate::cloud_client::post_knowledge_to_cloud(&root_clone);
+                            }
                         });
                     }
                 }
@@ -542,6 +555,7 @@ impl ServerHandler for LeanCtxServer {
                 | "ctx_cost"
                 | "ctx_gain"
                 | "ctx_heatmap"
+                | "ctx_stats"
                 | "ctx_task"
                 | "ctx_impact"
                 | "ctx_architecture"

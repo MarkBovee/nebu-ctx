@@ -12,6 +12,7 @@ using NebuCtx.Application;
 /// </summary>
 public sealed class StatsToolHandler(TelemetryStore telemetry) : IToolHandler
 {
+    private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
     /// <inheritdoc/>
     public string Name => "ctx_stats";
 
@@ -23,17 +24,22 @@ public sealed class StatsToolHandler(TelemetryStore telemetry) : IToolHandler
     /// <inheritdoc/>
     public Dictionary<string, object?> InputSchema => new()
     {
-        ["action"] = new Dictionary<string, object?>
+        ["type"] = "object",
+        ["properties"] = new Dictionary<string, object?>
         {
-            ["type"] = "string",
-            ["description"] = "Report type: report | json",
-            ["default"] = "report",
+            ["action"] = new Dictionary<string, object?>
+            {
+                ["type"] = "string",
+                ["description"] = "Report type: report | json",
+                ["default"] = "report",
+            },
+            ["project_id"] = new Dictionary<string, object?>
+            {
+                ["type"] = "string",
+                ["description"] = "Optional: filter to a single project. Omit for all projects.",
+            },
         },
-        ["project_id"] = new Dictionary<string, object?>
-        {
-            ["type"] = "string",
-            ["description"] = "Optional: filter to a single project. Omit for all projects.",
-        },
+        ["required"] = new[] { "action" },
     };
 
     /// <inheritdoc/>
@@ -125,6 +131,6 @@ public sealed class StatsToolHandler(TelemetryStore telemetry) : IToolHandler
             }),
         };
 
-        return JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
+        return JsonSerializer.Serialize(payload, IndentedJson);
     }
 }

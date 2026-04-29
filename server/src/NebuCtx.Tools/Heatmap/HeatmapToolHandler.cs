@@ -23,22 +23,27 @@ public sealed class HeatmapToolHandler(TelemetryStore telemetry) : IToolHandler
     /// <inheritdoc/>
     public Dictionary<string, object?> InputSchema => new()
     {
-        ["action"] = new Dictionary<string, object?>
+        ["type"] = "object",
+        ["properties"] = new Dictionary<string, object?>
         {
-            ["type"] = "string",
-            ["description"] = "Report type: status | directory | dirs | cold | json",
-            ["default"] = "status",
+            ["action"] = new Dictionary<string, object?>
+            {
+                ["type"] = "string",
+                ["description"] = "Report type: status | directory | dirs | cold | json",
+                ["default"] = "status",
+            },
+            ["project_id"] = new Dictionary<string, object?>
+            {
+                ["type"] = "string",
+                ["description"] = "Optional project filter. Omit for global stats.",
+            },
+            ["path"] = new Dictionary<string, object?>
+            {
+                ["type"] = "string",
+                ["description"] = "Optional path prefix filter for directory/dirs actions.",
+            },
         },
-        ["project_id"] = new Dictionary<string, object?>
-        {
-            ["type"] = "string",
-            ["description"] = "Optional project filter. Omit for global stats.",
-        },
-        ["path"] = new Dictionary<string, object?>
-        {
-            ["type"] = "string",
-            ["description"] = "Optional path prefix filter for directory/dirs actions.",
-        },
+        ["required"] = new[] { "action" },
     };
 
     private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };

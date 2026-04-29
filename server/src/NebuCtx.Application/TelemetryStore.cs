@@ -459,6 +459,20 @@ public sealed class TelemetryStore
             commandEntry.InputTokens += inputTokens;
             commandEntry.OutputTokens += outputTokens;
 
+            // Per-project tracking for analytics tools
+            if (!string.IsNullOrEmpty(projectId))
+            {
+                if (!_projectCommands.TryGetValue(projectId, out var projCmds))
+                {
+                    projCmds = new Dictionary<string, CommandTelemetrySnapshot>(StringComparer.OrdinalIgnoreCase);
+                    _projectCommands[projectId] = projCmds;
+                }
+                var projCommandEntry = GetOrCreateProjectCommand(projCmds, request.ToolName, source);
+                projCommandEntry.Count++;
+                projCommandEntry.InputTokens += inputTokens;
+                projCommandEntry.OutputTokens += outputTokens;
+            }
+
             var dailyEntry = GetOrCreateDaily(dateKey);
             dailyEntry.InputTokens += inputTokens;
             dailyEntry.OutputTokens += outputTokens;

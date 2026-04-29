@@ -5,7 +5,7 @@ using System.Text.Json;
 using NebuCtx.Application;
 
 /// <summary>
-/// MCP tool handler for ctx_cost — estimates token cost per session and per tool.
+/// MCP tool handler for ctx_cost — reports token usage and estimated cost per session and per tool.
 /// Supports actions: report (default), tools, status, json.
 /// Uses a fixed price of $2.50 per million tokens (input + output combined).
 /// Optionally filters by project_id argument.
@@ -14,28 +14,35 @@ public sealed class CostToolHandler(TelemetryStore telemetry) : IToolHandler
 {
     private const decimal PricePerMillionTokens = 2.50m;
 
+    private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
+
     /// <inheritdoc/>
     public string Name => "ctx_cost";
 
     /// <inheritdoc/>
     public string Description =>
-        "Token cost analytics: estimated spend, per-tool breakdown. " +
+        "Token usage and estimated cost (at $2.50/1M tokens) across all tool calls. " +
         "Actions: report (default), tools, status, json.";
 
     /// <inheritdoc/>
     public Dictionary<string, object?> InputSchema => new()
     {
-        ["action"] = new Dictionary<string, object?>
+        ["type"] = "object",
+        ["properties"] = new Dictionary<string, object?>
         {
-            ["type"] = "string",
-            ["description"] = "Report type: report | tools | status | json",
-            ["default"] = "report",
+            ["action"] = new Dictionary<string, object?>
+            {
+                ["type"] = "string",
+                ["description"] = "Report type: report | tools | status | json",
+                ["default"] = "report",
+            },
+            ["project_id"] = new Dictionary<string, object?>
+            {
+                ["type"] = "string",
+                ["description"] = "Optional project filter. Omit for global stats.",
+            },
         },
-        ["project_id"] = new Dictionary<string, object?>
-        {
-            ["type"] = "string",
-            ["description"] = "Optional project filter. Omit for global stats.",
-        },
+        ["required"] = new[] { "action" },
     };
 
     /// <inheritdoc/>
@@ -172,6 +179,6 @@ public sealed class CostToolHandler(TelemetryStore telemetry) : IToolHandler
                 }),
         };
 
-        return JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
+        return JsonSerializer.Serialize(payload, IndentedJson);
     }
 }

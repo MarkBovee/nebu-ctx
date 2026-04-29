@@ -1,0 +1,31 @@
+{
+  "hooks": {
+    "postSession": [
+      {
+        "bash": "nebu-ctx hook stop",
+        "timeoutSec": 30,
+        "type": "command"
+      }
+    ],
+    "postToolUse": [
+      {
+        "bash": "nebu-ctx hook post-tool-use",
+        "timeoutSec": 10,
+        "type": "command"
+      }
+    ],
+    "preToolUse": [
+      {
+        "bash": "nebu-ctx hook rewrite",
+        "timeoutSec": 15,
+        "type": "command"
+      },
+      {
+        "bash": "nebu-ctx hook redirect",
+        "timeoutSec": 5,
+        "type": "command"
+      }
+    ]
+  },
+  "version": 1
+}

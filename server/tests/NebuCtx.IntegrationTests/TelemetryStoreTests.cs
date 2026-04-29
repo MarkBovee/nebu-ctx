@@ -74,4 +74,26 @@ public class TelemetryStoreTests
         var snapshot = store.GetSnapshot();
         Assert.Empty(snapshot.GetFileAccess("proj-a"));
     }
+
+    [Fact]
+    public void IngestEvent_PopulatesPerProjectCounters()
+    {
+        var store = CreateStore();
+        var request = new NebuCtx.Contracts.Mcp.TelemetryIngestRequest
+        {
+            ToolName = "ctx_read",
+            TokensOriginal = 500,
+            TokensSaved = 100,
+        };
+
+        store.IngestEvent(request, "proj-ingest");
+        store.IngestEvent(request, "proj-ingest");
+
+        var snapshot = store.GetSnapshot();
+
+        Assert.True(snapshot.PerProject.ContainsKey("proj-ingest"));
+        Assert.Equal(2, snapshot.PerProject["proj-ingest"].TotalToolCalls);
+        Assert.True(snapshot.PerProject["proj-ingest"].Commands.ContainsKey("ctx_read"));
+        Assert.Equal(2, snapshot.PerProject["proj-ingest"].Commands["ctx_read"].Count);
+    }
 }
