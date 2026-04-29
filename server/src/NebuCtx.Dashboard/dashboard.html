@@ -1705,16 +1705,22 @@ function flattenEvent(ev) {
   const k = ev.kind || {};
   const type = k.type || 'unknown';
   let tool = '', saved = 0, detail = '', color = 'var(--muted)', filterCat = 'other';
-  if (type === 'ToolCall') {
+  if (type === 'ToolCall' || type === 'ClientIngest') {
     tool = k.tool || 'unknown';
     saved = k.tokens_saved || 0;
     const orig = k.tokens_original || 0;
     const mode = k.mode || '';
     const pct = orig > 0 ? Math.round(saved / orig * 100) : 0;
-    detail = (mode ? '<span class="tag tp">' + esc(mode) + '</span> ' : '') + (saved > 0 ? '<span class="tag tg">-' + fmt(saved) + ' tok (' + pct + '%)</span>' : '');
+    const modeTag = mode === 'mcp' ? 'tp' : mode === 'hook' ? 'tb' : mode === 'shell' ? 'tpk' : 'ty';
+    detail = (mode ? '<span class="tag ' + modeTag + '">' + esc(mode) + '</span> ' : '') + (saved > 0 ? '<span class="tag tg">-' + fmt(saved) + ' tok (' + pct + '%)</span>' : (orig > 0 ? '<span style="font-size:9px;color:var(--muted)">' + fmt(orig) + ' tok</span>' : ''));
     if (k.path) detail += ' <span style="color:var(--muted);font-size:9px">' + esc(k.path) + '</span>';
-    color = tool.includes('read') ? 'var(--green)' : tool.includes('shell') ? 'var(--blue)' : tool.includes('search') ? 'var(--purple)' : tool.includes('tree') ? 'var(--pink)' : 'var(--yellow)';
-    filterCat = tool.includes('read') ? 'read' : tool.includes('shell') ? 'shell' : tool.includes('search') ? 'search' : 'other';
+    const isMcp = mode === 'mcp' || tool.startsWith('ctx_');
+    const isHook = mode === 'hook';
+    const isShell = mode === 'shell' || tool.includes('shell') || tool.includes('run_in_');
+    const isRead = tool.includes('read') || tool.includes('_read');
+    const isSearch = tool.includes('search') || tool.includes('grep');
+    color = isMcp ? 'var(--purple)' : isHook ? 'var(--blue)' : isShell ? 'var(--pink)' : isRead ? 'var(--green)' : isSearch ? 'var(--yellow)' : 'var(--muted)';
+    filterCat = isShell || isHook ? 'shell' : isRead ? 'read' : isSearch ? 'search' : isMcp ? 'other' : 'other';
   } else if (type === 'CacheHit') {
     tool = 'cache hit';
     saved = k.saved_tokens || 0;
@@ -1755,7 +1761,7 @@ function computeSessionFromEvents(events, sessionStart) {
     const ts = ev.timestamp || '';
     if (sessionStart && ts < sessionStart) continue;
     if (!sessionStart && !ts.startsWith(today)) continue;
-    if (k.type === 'ToolCall') {
+    if (k.type === 'ToolCall' || k.type === 'ClientIngest') {
       saved += k.tokens_saved || 0;
       original += k.tokens_original || 0;
       calls++;
@@ -1821,8 +1827,9 @@ function renderLiveEvents(events, mcp, stats) {
     const mR = $('liveMcpRate'), hR = $('liveHookRate');
     if (mR) mR.textContent = sp.m.i > 0 ? pc(sp.m.s, sp.m.i) : '0';
     if (hR) hR.textContent = sp.h.i > 0 ? pc(sp.h.s, sp.h.i) : '0';
-    const total = Math.max(sp.m.s + sp.h.s, 1);
-    const mPct = Math.round(sp.m.s / total * 100), hPct = 100 - mPct;
+    // Bar shows call-count split (not savings) so hooks always get their fair share
+    const totalCalls = Math.max(sp.m.c + sp.h.c, 1);
+    const mPct = Math.round(sp.m.c / totalCalls * 100), hPct = 100 - mPct;
     const mBar = $('liveMcpBar'), hBar = $('liveHookBar');
     if (mBar) mBar.style.width = mPct + '%';
     if (hBar) hBar.style.width = hPct + '%';
