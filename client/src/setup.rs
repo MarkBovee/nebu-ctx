@@ -174,7 +174,7 @@ pub fn run_setup() {
     }
 
     // Step 4: API Proxy configuration
-    terminal_ui::print_step_header(4, 7, "API Proxy");
+    terminal_ui::print_step_header(4, 6, "API Proxy");
     crate::proxy_setup::install_proxy_env(&home, crate::proxy_setup::default_port(), false);
     println!();
     println!("  \x1b[2mStart proxy for maximum token savings:\x1b[0m");
@@ -183,7 +183,7 @@ pub fn run_setup() {
     println!("    \x1b[1mnebu-ctx proxy start --autostart\x1b[0m");
 
     // Step 5: Data directory + diagnostics
-    terminal_ui::print_step_header(5, 7, "Environment Check");
+    terminal_ui::print_step_header(5, 6, "Environment Check");
     let lean_dir = home.join(".nebu-ctx");
     if !lean_dir.exists() {
         let _ = std::fs::create_dir_all(&lean_dir);
@@ -193,43 +193,9 @@ pub fn run_setup() {
     }
     crate::doctor::run_compact();
 
-    // Step 6: Data sharing
-    terminal_ui::print_step_header(6, 7, "Help Improve nebu-ctx");
-    println!("  Share anonymous compression stats to make nebu-ctx better.");
-    println!("  \x1b[1mNo code, no file names, no personal data — ever.\x1b[0m");
-    println!();
-    print!("  Enable anonymous data sharing? \x1b[1m[Y/n]\x1b[0m ");
-    use std::io::Write;
-    std::io::stdout().flush().ok();
-
-    let mut input = String::new();
-    let contribute = if std::io::stdin().read_line(&mut input).is_ok() {
-        let answer = input.trim().to_lowercase();
-        answer.is_empty() || answer == "y" || answer == "yes"
-    } else {
-        false
-    };
-
-    if contribute {
-        let config_dir = home.join(".nebu-ctx");
-        let _ = std::fs::create_dir_all(&config_dir);
-        let config_path = config_dir.join("config.toml");
-        let mut config_content = std::fs::read_to_string(&config_path).unwrap_or_default();
-        if !config_content.contains("[cloud]") {
-            if !config_content.is_empty() && !config_content.ends_with('\n') {
-                config_content.push('\n');
-            }
-            config_content.push_str("\n[cloud]\ncontribute_enabled = true\n");
-            let _ = std::fs::write(&config_path, config_content);
-        }
-        terminal_ui::print_status_ok("Enabled — thank you!");
-    } else {
-        terminal_ui::print_status_skip("Skipped — enable later with: nebu-ctx config");
-    }
-
-    // Step 7: Premium Features Configuration
-    terminal_ui::print_step_header(7, 7, "Premium Features");
-    configure_premium_features(&home);
+    // Step 6: Agent settings
+    terminal_ui::print_step_header(6, 6, "Settings");
+    configure_agent_settings(&home);
 
     // Summary
     println!();
@@ -301,7 +267,7 @@ pub fn run_setup() {
 
     println!();
     println!(
-        "  {dim}After restart, lean-ctx will automatically optimize every AI interaction.{rst}"
+        "  {dim}After restart, nebu-ctx will automatically optimize every AI interaction.{rst}"
     );
     println!("  {dim}Verify with:{rst} {bold}nebu-ctx gain{rst}");
 
@@ -799,7 +765,7 @@ fn shorten_path(path: &str, home: &str) -> String {
     }
 }
 
-fn configure_premium_features(home: &std::path::Path) {
+fn configure_agent_settings(home: &std::path::Path) {
     use crate::terminal_ui;
     use std::io::Write;
 

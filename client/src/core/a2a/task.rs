@@ -255,7 +255,7 @@ impl TaskStore {
 }
 
 fn task_store_path() -> Option<PathBuf> {
-    dirs::home_dir().map(|h| h.join(".lean-ctx/agents/tasks.json"))
+    dirs::home_dir().map(|h| h.join(".nebu-ctx/agents/tasks.json"))
 }
 
 fn generate_task_id() -> String {

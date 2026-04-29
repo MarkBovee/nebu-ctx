@@ -159,28 +159,26 @@ pub fn print_command_box() {
         "  {d}│{r}  {cmd}{b}cloud heatmap{r}       {m}Server-owned context heatmap{r}    {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}lean-ctx benchmark{r}   {m}Test compression quality{r}        {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx benchmark{r}   {m}Test compression quality{r}        {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}lean-ctx config{r}      {m}Edit settings{r}                   {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx config{r}      {m}Edit settings{r}                   {d}│{r}"
     );
     println!(
         "  {d}│{r}  {cmd}{b}nebu-ctx doctor{r}      {m}Verify installation{r}             {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}lean-ctx update{r}      {m}Self-update to latest{r}           {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx update{r}      {m}Self-update to latest{r}           {d}│{r}"
     );
-    println!("  {d}│{r}  {cmd}{b}lean-ctx off{r} / {cmd}{b}on{r}    {m}Toggle compression{r}              {d}│{r}");
+    println!("  {d}│{r}  {cmd}{b}nebu-ctx off{r} / {cmd}{b}on{r}    {m}Toggle compression{r}              {d}│{r}");
     println!(
-        "  {d}│{r}  {cmd}{b}lean-ctx report-issue{r} {m}Report a bug (auto-diagnostics){r} {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx report-issue{r} {m}Report a bug (auto-diagnostics){r} {d}│{r}"
     );
-    println!("  {d}│{r}  {cmd}{b}lean-ctx contribute{r}  {m}Share anonymized compression stats{r}{d}│{r}");
     println!(
         "  {d}│{r}  {cmd}{b}nebu-ctx uninstall{r}   {m}Clean removal{r}                   {d}│{r}"
     );
     println!("  {d}└─────────────────────────────────────────────────────────┘{r}");
     println!("  {ok}Ready!{r} Your next AI command will be automatically optimized.");
-    println!("  {d}Docs: https://leanctx.com/docs{r}");
     println!();
 }
 

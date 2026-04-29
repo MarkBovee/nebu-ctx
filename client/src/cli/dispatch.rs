@@ -156,7 +156,7 @@ pub fn run() {
                 } else if rest.iter().any(|a| a == "--pipeline") {
                     let stats_path = dirs::home_dir()
                         .unwrap_or_default()
-                        .join(".lean-ctx")
+                        .join(".nebu-ctx")
                         .join("pipeline_stats.json");
                     if let Ok(data) = std::fs::read_to_string(&stats_path) {
                         if let Ok(stats) =
@@ -588,7 +588,7 @@ pub fn run() {
                         );
                     }
                     _ => {
-                        eprintln!("Usage: lean-ctx graph [build] [path]");
+                        eprintln!("Usage: nebu-ctx graph [build] [path]");
                     }
                 }
                 return;
@@ -805,7 +805,7 @@ COMMANDS:
     proxy status                   Show proxy statistics
     cache [list|clear|stats]       Show/manage file read cache
     wrapped [--week|--month|--all] Savings report card (shareable)
-    sessions [list|show|cleanup]   Manage CCP sessions (~/.lean-ctx/sessions/)
+    sessions [list|show|cleanup]   Manage CCP sessions (~/.nebu-ctx/sessions/)
     benchmark run [path] [--json]  Run real benchmark on project files
     benchmark report [path]        Generate shareable Markdown report
     cheatsheet                     Command cheat sheet & workflow quick reference
@@ -821,13 +821,13 @@ COMMANDS:
     ls [path]                      Directory listing with compression
     deps [path]                    Show project dependencies
     discover                       Find uncompressed commands in shell history
-    filter [list|validate|init]    Manage custom compression filters (~/.lean-ctx/filters/)
+    filter [list|validate|init]    Manage custom compression filters (~/.nebu-ctx/filters/)
     session                        Show adoption statistics
     config                         Show/edit configuration (~/.nebu-ctx/config.toml)
     theme [list|set|export|import] Customize terminal colors and themes
-    tee [list|clear|show <file>|last] Manage output tee files (~/.lean-ctx/tee/)
+    tee [list|clear|show <file>|last] Manage output tee files (~/.nebu-ctx/tee/)
     terse [off|lite|full|ultra]    Set agent output verbosity (saves 25-65% output tokens)
-    slow-log [list|clear]          Show/clear slow command log (~/.lean-ctx/slow-commands.log)
+    slow-log [list|clear]          Show/clear slow command log (~/.nebu-ctx/slow-commands.log)
     update [--check]               Self-update nebu-ctx binary from GitHub Releases
     gotchas [list|clear|export|stats] Bug Memory: view/manage auto-detected error patterns
     buddy [show|stats|ascii|json]  Token Guardian: your data-driven coding companion
@@ -890,17 +890,17 @@ EXAMPLES:
         nebu-ctx init --global         Install shell aliases (includes nebu-ctx-on/off/mode/status)
     nebu-ctx-on                    Enable shell aliases in track mode (full output + stats)
     nebu-ctx-off                   Disable all shell aliases
-    lean-ctx-mode track            Track mode: full output, stats recorded (default)
-    lean-ctx-mode compress         Compress mode: all output compressed (power users)
-    lean-ctx-mode off              Same as nebu-ctx-off
+    nebu-ctx-mode track            Track mode: full output, stats recorded (default)
+    nebu-ctx-mode compress         Compress mode: all output compressed (power users)
+    nebu-ctx-mode off              Same as nebu-ctx-off
     nebu-ctx-status                Show whether compression is active
-    lean-ctx init --agent pi       Install Pi Coding Agent extension
+    nebu-ctx init --agent pi       Install Pi Coding Agent extension
     nebu-ctx doctor                Check PATH, config, MCP, and local edge health
     nebu-ctx doctor --fix --json   Repair + machine-readable report
     nebu-ctx status --json         Machine-readable current status
-    lean-ctx read src/main.rs -m map
-    lean-ctx grep \"pub fn\" src/
-    lean-ctx deps .
+    nebu-ctx read src/main.rs -m map
+    nebu-ctx grep \"pub fn\" src/
+    nebu-ctx deps .
 
 CLOUD:
     cloud connect [--endpoint <url>] [--token <token>]  Save and validate a cloud connection

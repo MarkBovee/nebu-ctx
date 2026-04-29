@@ -17,7 +17,7 @@ pub struct ArchiveEntry {
 
 fn archive_base_dir() -> PathBuf {
     nebu_ctx_data_dir()
-        .unwrap_or_else(|_| PathBuf::from(".lean-ctx"))
+        .unwrap_or_else(|_| PathBuf::from(".nebu-ctx"))
         .join("archives")
 }
 
