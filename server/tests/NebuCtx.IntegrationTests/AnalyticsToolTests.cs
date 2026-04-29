@@ -2,6 +2,7 @@ namespace NebuCtx.IntegrationTests;
 
 using System.Text.Json;
 using NebuCtx.Application;
+using NebuCtx.Tools.Cost;
 using NebuCtx.Tools.Gain;
 
 /// <summary>
@@ -54,6 +55,7 @@ public class AnalyticsToolTests
 
         var text = Assert.IsType<string>(result);
         Assert.Contains("score", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("16/100", text);
     }
 
     /// <summary>Json action should return valid JSON with a total_tool_calls property.</summary>
@@ -114,6 +116,114 @@ public class AnalyticsToolTests
 
         var text = Assert.IsType<string>(result);
         Assert.Contains("## Context Gain Report", text);
+        Assert.Contains("ctx_read", text);
+    }
+
+    /// <summary>Tasks action should bucket ctx_read into Read and ctx_edit into Write categories.</summary>
+    [Fact]
+    public async Task CtxGain_Tasks_BucketsToolsByCategory()
+    {
+        var handler = new GainToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "tasks" },
+            new ToolExecutionContext(),
+            CancellationToken.None);
+
+        var text = Assert.IsType<string>(result);
+        Assert.Contains("## Task Breakdown", text);
+        // ctx_read contains "read" → Read bucket; ctx_edit contains "edit" → Write bucket
+        Assert.Contains("Read", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Write", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Wrapped action should report the most-used tool (ctx_read with 5 calls vs ctx_edit with 3).</summary>
+    [Fact]
+    public async Task CtxGain_Wrapped_ReportsMostUsedTool()
+    {
+        var handler = new GainToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "wrapped" },
+            new ToolExecutionContext(),
+            CancellationToken.None);
+
+        var text = Assert.IsType<string>(result);
+        Assert.Contains("## nebu-ctx Wrapped", text);
+        Assert.Contains("ctx_read", text); // most-used (5 calls vs 3)
+    }
+
+    // ── ctx_cost ──────────────────────────────────────────────────────────────
+
+    /// <summary>Report action should return markdown containing a cost estimate.</summary>
+    [Fact]
+    public async Task CtxCost_Report_ReturnsMarkdownWithCostEstimate()
+    {
+        var handler = new CostToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "report" },
+            new ToolExecutionContext { ProjectId = "" },
+            CancellationToken.None);
+
+        var text = Assert.IsType<string>(result);
+        Assert.Contains("Cost", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Json action should return valid JSON with estimated_cost_usd and total_tokens properties.</summary>
+    [Fact]
+    public async Task CtxCost_Json_ReturnsDeserializableJson()
+    {
+        var handler = new CostToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "json" },
+            new ToolExecutionContext { ProjectId = "" },
+            CancellationToken.None);
+
+        var text = Assert.IsType<string>(result);
+        var doc = JsonDocument.Parse(text);
+        Assert.True(doc.RootElement.TryGetProperty("estimated_cost_usd", out _));
+        Assert.True(doc.RootElement.TryGetProperty("total_tokens", out _));
+    }
+
+    /// <summary>Json action with project_id should filter results and include project_id in the response.</summary>
+    [Fact]
+    public async Task CtxCost_FiltersByProjectId_WhenProvided()
+    {
+        var handler = new CostToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "json", ["project_id"] = "proj-a" },
+            new ToolExecutionContext { ProjectId = "" },
+            CancellationToken.None);
+
+        var text = Assert.IsType<string>(result);
+        var doc = JsonDocument.Parse(text);
+        Assert.True(doc.RootElement.TryGetProperty("project_id", out var pid));
+        Assert.Equal("proj-a", pid.GetString());
+    }
+
+    /// <summary>Status action should return a one-line summary containing the word "token".</summary>
+    [Fact]
+    public async Task CtxCost_Status_ReturnsStatusSummary()
+    {
+        var handler = new CostToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "status" },
+            new ToolExecutionContext { ProjectId = "" },
+            CancellationToken.None);
+
+        var text = Assert.IsType<string>(result);
+        Assert.Contains("token", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Tools action should list per-tool cost breakdown including ctx_read.</summary>
+    [Fact]
+    public async Task CtxCost_Tools_ReturnsPerToolBreakdown()
+    {
+        var handler = new CostToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "tools" },
+            new ToolExecutionContext { ProjectId = "" },
+            CancellationToken.None);
+
+        var text = Assert.IsType<string>(result);
         Assert.Contains("ctx_read", text);
     }
 }
