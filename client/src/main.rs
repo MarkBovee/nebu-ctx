@@ -25,10 +25,6 @@ fn main() {
         let rest = args[2..].to_vec();
         let command = args[1].as_str();
 
-        if matches!(command, "gain" | "cep" | "dashboard" | "watch" | "heatmap" | "stats") {
-            cli::exit_cloud_analytics_only(command);
-        }
-
         match command {
             "-c" | "exec" => {
                 let raw = rest.first().map(|a| a == "--raw").unwrap_or(false);
@@ -125,113 +121,29 @@ fn main() {
                 return;
             }
             "gain" => {
-                if rest.iter().any(|a| a == "--reset") {
-                    core::stats::reset_all();
-                    println!("Stats reset. All token savings data cleared.");
-                    return;
+                let project_context = lean_ctx::git_context::discover_project_context(
+                    std::path::Path::new(&std::env::current_dir().unwrap_or_default()),
+                );
+                let mut args_map = serde_json::Map::new();
+                if let Some(sub) = args.get(2) {
+                    args_map.insert("action".to_string(), serde_json::Value::String(sub.clone()));
                 }
-                if rest.iter().any(|a| a == "--live" || a == "--watch") {
-                    core::stats::gain_live();
-                    return;
-                }
-                let model = rest.iter().enumerate().find_map(|(i, a)| {
-                    if let Some(v) = a.strip_prefix("--model=") {
-                        return Some(v.to_string());
+                match lean_ctx::cloud_client::ServerClient::load() {
+                    Ok(client) => match client.call_tool("ctx_gain", args_map, &project_context) {
+                        Ok(result) => {
+                            println!("{}", result);
+                            std::process::exit(0);
+                        }
+                        Err(e) => {
+                            eprintln!("ctx_gain error: {e}");
+                            std::process::exit(1);
+                        }
+                    },
+                    Err(e) => {
+                        eprintln!("Server not configured: {e}");
+                        std::process::exit(1);
                     }
-                    if a == "--model" {
-                        return rest.get(i + 1).cloned();
-                    }
-                    None
-                });
-                let period = rest
-                    .iter()
-                    .enumerate()
-                    .find_map(|(i, a)| {
-                        if let Some(v) = a.strip_prefix("--period=") {
-                            return Some(v.to_string());
-                        }
-                        if a == "--period" {
-                            return rest.get(i + 1).cloned();
-                        }
-                        None
-                    })
-                    .unwrap_or_else(|| "all".to_string());
-                let limit = rest
-                    .iter()
-                    .enumerate()
-                    .find_map(|(i, a)| {
-                        if let Some(v) = a.strip_prefix("--limit=") {
-                            return v.parse::<usize>().ok();
-                        }
-                        if a == "--limit" {
-                            return rest.get(i + 1).and_then(|v| v.parse::<usize>().ok());
-                        }
-                        None
-                    })
-                    .unwrap_or(10);
-
-                if rest.iter().any(|a| a == "--graph") {
-                    println!("{}", core::stats::format_gain_graph());
-                } else if rest.iter().any(|a| a == "--daily") {
-                    println!("{}", core::stats::format_gain_daily());
-                } else if rest.iter().any(|a| a == "--json") {
-                    println!(
-                        "{}",
-                        tools::ctx_gain::handle(
-                            "json",
-                            Some(&period),
-                            model.as_deref(),
-                            Some(limit)
-                        )
-                    );
-                } else if rest.iter().any(|a| a == "--score") {
-                    println!(
-                        "{}",
-                        tools::ctx_gain::handle("score", None, model.as_deref(), Some(limit))
-                    );
-                } else if rest.iter().any(|a| a == "--cost") {
-                    println!(
-                        "{}",
-                        tools::ctx_gain::handle("cost", None, model.as_deref(), Some(limit))
-                    );
-                } else if rest.iter().any(|a| a == "--tasks") {
-                    println!(
-                        "{}",
-                        tools::ctx_gain::handle("tasks", None, None, Some(limit))
-                    );
-                } else if rest.iter().any(|a| a == "--agents") {
-                    println!(
-                        "{}",
-                        tools::ctx_gain::handle("agents", None, None, Some(limit))
-                    );
-                } else if rest.iter().any(|a| a == "--heatmap") {
-                    println!(
-                        "{}",
-                        tools::ctx_gain::handle("heatmap", None, None, Some(limit))
-                    );
-                } else if rest.iter().any(|a| a == "--wrapped") {
-                    println!(
-                        "{}",
-                        tools::ctx_gain::handle(
-                            "wrapped",
-                            Some(&period),
-                            model.as_deref(),
-                            Some(limit)
-                        )
-                    );
-                } else if rest.iter().any(|a| a == "--deep") {
-                    println!(
-                        "{}\n{}\n{}\n{}\n{}",
-                        tools::ctx_gain::handle("report", None, model.as_deref(), Some(limit)),
-                        tools::ctx_gain::handle("tasks", None, None, Some(limit)),
-                        tools::ctx_gain::handle("cost", None, model.as_deref(), Some(limit)),
-                        tools::ctx_gain::handle("agents", None, None, Some(limit)),
-                        tools::ctx_gain::handle("heatmap", None, None, Some(limit))
-                    );
-                } else {
-                    println!("{}", core::stats::format_gain());
                 }
-                return;
             }
             "token-report" | "report-tokens" => {
                 let code = lean_ctx::token_report::run_cli(&rest);
@@ -240,9 +152,19 @@ fn main() {
                 }
                 return;
             }
-            "cep" => {
-                println!("{}", tools::ctx_gain::handle("score", None, None, Some(10)));
-                return;
+            "dashboard" => {
+                match lean_ctx::cloud_client::ServerClient::load() {
+                    Ok(client) => println!("Dashboard: {}", client.endpoint().replace(":4242", ":3333")),
+                    Err(_) => println!("Dashboard: http://127.0.0.1:3333"),
+                }
+                std::process::exit(0);
+            }
+            "watch" => {
+                match lean_ctx::cloud_client::ServerClient::load() {
+                    Ok(client) => println!("Dashboard: {}", client.endpoint().replace(":4242", ":3333")),
+                    Err(_) => println!("Dashboard: http://127.0.0.1:3333"),
+                }
+                std::process::exit(0);
             }
             "serve" => {
                 #[cfg(feature = "http-server")]
@@ -661,10 +583,6 @@ fn main() {
                 cli::cmd_config(&rest);
                 return;
             }
-            "stats" => {
-                cli::cmd_stats(&rest);
-                return;
-            }
             "cache" => {
                 cli::cmd_cache(&rest);
                 return;
@@ -876,7 +794,8 @@ USAGE:
 
 COMMANDS:
          token-report [--json]          Token + memory report (project + session + CEP)
-    gain|cep|watch|dashboard|heatmap|stats  Cloud-only analytics surfaces (not served locally)
+    gain [action]              Fetch analytics from server (report, score, cost, tasks, etc.)
+    dashboard|watch            Print the dashboard URL
     serve [--host H] [--port N]    MCP over HTTP (Streamable HTTP, local-first)
     proxy start [--port=4444]      API proxy: compress tool_results before LLM API
     proxy status                   Show proxy statistics

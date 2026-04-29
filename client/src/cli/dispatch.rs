@@ -613,10 +613,6 @@ pub fn run() {
                 super::cmd_config(&rest);
                 return;
             }
-            "stats" => {
-                super::cmd_stats(&rest);
-                return;
-            }
             "cache" => {
                 super::cmd_cache(&rest);
                 return;

@@ -490,11 +490,6 @@ fn format_tokens_cli(tokens: u64) -> String {
     }
 }
 
-pub fn cmd_stats(args: &[String]) {
-    let _ = args;
-    exit_cloud_analytics_only("stats");
-}
-
 pub fn cmd_cache(args: &[String]) {
     use crate::core::cli_cache;
     match args.first().map(|s| s.as_str()) {
@@ -695,7 +690,8 @@ pub fn cmd_cheatsheet() {
   Browsing?   → \x1b[1maggressive\x1b[0m (syntax stripped)
 
 \x1b[1;36m━━━ MONITORING ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m
-    NebuCtx Cloud dashboard \x1b[2m# canonical stats, gain, cost, heatmap views\x1b[0m
+    nebu-ctx gain              \x1b[2m# fetch analytics from server\x1b[0m
+    nebu-ctx dashboard         \x1b[2m# print dashboard URL\x1b[0m
     nebu-ctx wrapped       \x1b[2m# weekly savings report\x1b[0m
     nebu-ctx discover      \x1b[2m# find uncompressed commands\x1b[0m
     nebu-ctx doctor        \x1b[2m# diagnose installation\x1b[0m
