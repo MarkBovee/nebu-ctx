@@ -12,6 +12,17 @@
         "matcher": ".*"
       }
     ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "command": "nebu-ctx hook pre-compact",
+            "timeout": 15,
+            "type": "command"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "hooks": [
@@ -32,12 +43,34 @@
         "matcher": "Read|read|ReadFile|read_file|View|view|Grep|grep|Search|search|ListFiles|list_files|ListDirectory|list_directory"
       }
     ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "nebu-ctx hook session-start",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
           {
             "command": "nebu-ctx hook stop",
             "timeout": 30,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "nebu-ctx hook user-prompt-submit",
+            "timeout": 5,
             "type": "command"
           }
         ]

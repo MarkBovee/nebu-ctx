@@ -157,20 +157,20 @@ nebu-ctx ships a built-in real-time Observatory dashboard at `http://localhost:3
 | Section | What you see |
 |:---|:---|
 | **Overview** | All-time tokens saved, cost saved ($), Gain Score, Buddy level |
-| **Live Observatory** | Real-time event feed — every tool call with mode, project, and savings. MCP vs Hook call-volume split bar |
-| **Brain Memory** | All `ctx_brain` stored memories, grouped by project |
-| **Knowledge Graph** | `ctx_knowledge` facts — categories, values, creation time |
-| **Agent World** | Active agent sessions, pending messages, shared contexts |
+| **Live Observatory** | Real-time event feed — every tool call with mode, project, and savings |
+| **Knowledge Graph** | `ctx_knowledge` facts — categories, values, creation time, cascade delete |
+| **Dependency Map** | Project module dependency graph |
 | **Compression Lab** | Interactive file compressor — see before/after token counts live |
-| **Search Explorer** | Full-text search across all indexed symbols and tool schemas |
-| **Symbol Explorer** | Project symbol index — functions, routes, classes |
-| **Call Graph** | Cross-file dependency edges and symbol references |
+| **Agent World** | Active agent sessions, pending messages, shared contexts |
+| **Bug Memory** | `ctx_gotchas` — patterns that triggered unusual compression |
+| **Brain Memory** | All `ctx_brain` stored memories, grouped by project |
+| **Search Explorer** | Full-text search across all indexed project files and symbols |
+| **Learning Curves** | Auto-learned entropy and Jaccard thresholds per language |
+| **Symbol Explorer** | Project symbol index — functions, classes, constants (per project) |
+| **Call Graph** | Cross-file dependency edges and symbol call references (per project) |
 | **Route Map** | HTTP routes extracted from source files |
 | **Context Layer** | Context pressure, tokens sent/saved per session |
-| **Pipeline Stats** | Per-layer run counts and token breakdown |
-| **Learning Curves** | Auto-learned entropy and Jaccard thresholds per language |
-| **Dependency Map** | Project module dependency graph |
-| **Bug Memory** | `ctx_gotchas` — patterns that triggered unusual compression |
+| **MCP Token** | View and rotate the active MCP authentication token |
 
 Open the dashboard:
 ```bash
@@ -425,25 +425,35 @@ Install via the HA add-on store or manually by copying the `homeassistant/` dire
 nebu-ctx is a two-process system:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  AI Editor (Claude Code / Cursor / Copilot / etc.)          │
-│  ↓ MCP tools/call                    ↑ compressed context   │
-├─────────────────────────────────────────────────────────────┤
-│  Rust Client (nebu-ctx binary)                              │
-│  • MCP stdio server (exposes 49 tools to editors)           │
-│  • Shell hook (fish/zsh/bash — 90+ CLI patterns)            │
-│  • Claude Code / Copilot PreToolUse hooks                   │
-│  • Proxies CLOUD_ONLY tools to .NET server                  │
-├─────────────────────────────────────────────────────────────┤
-│  .NET 10 Cloud Server (port 4242 MCP · port 3333 dashboard) │
-│  • ctx_brain / ctx_knowledge / ctx_session — PostgreSQL     │
-│  • ctx_gain / ctx_cost / ctx_stats / ctx_heatmap — analytics│
-│  • /api/events — real-time telemetry stream                 │
-│  • Dashboard UI — Observable at localhost:3333              │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│  AI Editor (Claude Code / Cursor / Copilot / etc.)               │
+│  ↓ MCP stdio (tools/call)            ↑ compressed context        │
+├──────────────────────────────────────────────────────────────────┤
+│  Rust Client  (nebu-ctx binary)                                  │
+│  • MCP stdio server — exposes all 49 tools to editors            │
+│  • Shell hook — fish/zsh/bash, 90+ CLI compression patterns      │
+│  • Claude Code hooks (7 types):                                  │
+│      PreToolUse:Bash        → nebu-ctx hook rewrite              │
+│      PreToolUse:Read/Grep   → nebu-ctx hook redirect             │
+│      PostToolUse:.*         → nebu-ctx hook post-tool-use        │
+│      Stop                   → nebu-ctx hook stop                 │
+│      PreCompact             → nebu-ctx hook pre-compact          │
+│      SessionStart           → nebu-ctx hook session-start        │
+│      UserPromptSubmit       → nebu-ctx hook user-prompt-submit   │
+│  • Proxies CLOUD_ONLY / CLOUD_PREFERRED tools to .NET server     │
+├──────────────────────────────────────────────────────────────────┤
+│  .NET 10 Server  (port 4242 MCP HTTP · port 3333 dashboard)      │
+│  • ctx_brain / ctx_knowledge / ctx_session — PostgreSQL          │
+│  • ctx_gain / ctx_cost / ctx_stats / ctx_heatmap / ctx_routes    │
+│  • /api/events — polled by Live Observatory (dashboard)          │
+│  • /v1/tools/call — MCP HTTP endpoint                            │
+│  • /v1/telemetry/ingest — per-call telemetry from client         │
+│  • /v1/index/sync — code index (files, symbols, call edges)      │
+│  • Dashboard SPA — served at localhost:3333                      │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-**CLOUD_ONLY tools** (always routed to server): `ctx_brain`, `ctx_gain`, `ctx_cost`, `ctx_heatmap`, `ctx_stats`  
+**CLOUD_ONLY tools** (always routed to server): `ctx_brain`, `ctx_routes`, `ctx_gain`, `ctx_cost`, `ctx_heatmap`, `ctx_stats`  
 **CLOUD_PREFERRED tools** (try cloud, fall back to local): `ctx_knowledge`, `ctx_session`  
 **LOCAL tools** (all others): handled entirely in the Rust client
 

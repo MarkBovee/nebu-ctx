@@ -209,6 +209,226 @@ pub fn handle_stop() {
     }
 }
 
+/// PreCompact hook: fired by Claude Code just before it compacts the context window.
+///
+/// Reads the current local session state and knowledge facts, builds a compact
+/// XML `<session_state>` snapshot (≤2KB), and outputs it as `additionalContext`
+/// so Claude Code injects it into the post-compaction context automatically.
+/// Also fires an async save to the cloud brain so the state survives cross-session.
+///
+/// Wired to Claude Code `PreCompact`.
+pub fn handle_pre_compact() {
+    let project_root = std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    let xml = build_session_snapshot_xml(&project_root, "compaction");
+
+    // Fire async cloud save so state lands in PostgreSQL (same as handle_stop does).
+    if !project_root.is_empty() {
+        if let Some(session) =
+            crate::core::session::SessionState::load_latest_for_project_root(&project_root)
+        {
+            crate::cloud_client::post_session_to_brain(&session);
+        }
+        post_promoted_facts_to_cloud(&project_root);
+    }
+
+    // Output the snapshot as additionalContext for Claude Code to inject after compact.
+    if !xml.is_empty() {
+        let escaped = xml.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n");
+        println!("{{\"additionalContext\":\"{escaped}\"}}");
+    }
+}
+
+/// SessionStart hook: fired by Claude Code at session start, after compact, or on resume.
+///
+/// - `source="compact"`: Injects task/decisions/files from the most recent local session
+///   and current knowledge facts to restore context after a compaction.
+/// - `source="startup"` or `source="resume"`: Injects the nebu-ctx routing block so
+///   the agent prefers ctx_* MCP tools and compressed shell output from session start.
+///
+/// Wired to Claude Code `SessionStart`.
+pub fn handle_session_start() {
+    let mut input = String::new();
+    if std::io::stdin().read_to_string(&mut input).is_err() {
+        return;
+    }
+
+    let source = extract_json_field(&input, "source")
+        .unwrap_or_else(|| "startup".to_string());
+
+    let project_root = std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    let additional = if source == "compact" || source == "resume" {
+        // After compact/resume: inject session state so agent picks up exactly where it left off.
+        let snapshot = build_session_snapshot_xml(&project_root, &source);
+        let routing = session_start_routing_block();
+        if snapshot.is_empty() { routing } else { format!("{routing}\n\n{snapshot}") }
+    } else {
+        // Fresh startup: inject routing block only.
+        session_start_routing_block()
+    };
+
+    if !additional.is_empty() {
+        let escaped = additional.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n");
+        println!("{{\"additionalContext\":\"{escaped}\"}}");
+    }
+}
+
+/// UserPromptSubmit hook: fired by Claude Code when the user submits a prompt.
+///
+/// Captures the raw prompt for session continuity tracking. Stores it in the
+/// cloud brain so the pre-compact snapshot can include the user's most recent
+/// intent. Must be fast — fires async and exits immediately.
+///
+/// Wired to Claude Code `UserPromptSubmit`.
+pub fn handle_user_prompt_submit() {
+    let mut input = String::new();
+    if std::io::stdin().read_to_string(&mut input).is_err() {
+        return;
+    }
+
+    let prompt = extract_json_field(&input, "prompt")
+        .or_else(|| extract_json_field(&input, "message"))
+        .unwrap_or_default();
+
+    let trimmed = prompt.trim().to_string();
+    if trimmed.is_empty() {
+        return;
+    }
+
+    // Skip system-generated messages injected by hooks.
+    let is_system = trimmed.starts_with("<session_state")
+        || trimmed.starts_with("<context_guidance>")
+        || trimmed.starts_with("<system-reminder>")
+        || trimmed.starts_with("<tool-result>");
+    if is_system {
+        return;
+    }
+
+    // Store the user prompt in brain so PreCompact can surface recent intent.
+    let project_root = std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+    if project_root.is_empty() {
+        return;
+    }
+    let Ok(client) = crate::cloud_client::ServerClient::load() else { return };
+    let ctx = crate::git_context::discover_project_context(std::path::Path::new(&project_root));
+    let mut args = serde_json::Map::new();
+    args.insert("action".to_string(), serde_json::json!("store"));
+    let key = format!("user-prompt-{}", chrono::Utc::now().timestamp());
+    args.insert("key".to_string(), serde_json::Value::String(key));
+    let value = format!("user_prompt: {}", &trimmed[..trimmed.len().min(400)]);
+    args.insert("value".to_string(), serde_json::Value::String(value));
+    let _ = client.call_tool("ctx_brain", args, &ctx);
+}
+
+/// Builds a compact XML `<session_state>` block (≤2KB) from local session state
+/// and knowledge facts. Used by `handle_pre_compact` and `handle_session_start`.
+///
+/// `source` is included in the XML attribute so the agent knows where it came from
+/// (e.g. `"compaction"` or `"compact"` or `"resume"`).
+/// Returns an empty string if no session state is found.
+fn build_session_snapshot_xml(project_root: &str, source: &str) -> String {
+    if project_root.is_empty() {
+        return String::new();
+    }
+
+    let session = crate::core::session::SessionState::load_latest_for_project_root(project_root);
+    let knowledge = crate::core::knowledge::ProjectKnowledge::load_or_create(project_root);
+
+    let has_session = session.is_some();
+    let high_confidence_facts: Vec<_> = knowledge
+        .facts
+        .iter()
+        .filter(|f| f.is_current() && f.confidence >= 0.7)
+        .collect();
+
+    if !has_session && high_confidence_facts.is_empty() {
+        return String::new();
+    }
+
+    let mut parts: Vec<String> = Vec::new();
+
+    if let Some(ref s) = session {
+        // P1: Current task (never truncated)
+        if let Some(ref task) = s.task {
+            parts.push(format!("<current_task>{}</current_task>", xml_escape(&task.description)));
+        }
+
+        // P2: Recent decisions (latest 5)
+        let decisions: Vec<_> = s.decisions.iter().rev().take(5).collect();
+        if !decisions.is_empty() {
+            let lines: Vec<String> = decisions.iter().map(|d| format!("- {}", xml_escape(&d.summary))).collect();
+            parts.push(format!("<decisions>\n{}\n</decisions>", lines.join("\n")));
+        }
+
+        // P3: Files touched (modified only, latest 8)
+        let modified_files: Vec<_> = s.files_touched.iter().filter(|f| f.modified).rev().take(8).collect();
+        if !modified_files.is_empty() {
+            let lines: Vec<String> = modified_files.iter().map(|f| format!("- {}", xml_escape(&f.path))).collect();
+            parts.push(format!("<files_modified>\n{}\n</files_modified>", lines.join("\n")));
+        }
+
+        // P4: Next steps (latest 3)
+        let next_steps: Vec<_> = s.next_steps.iter().rev().take(3).collect();
+        if !next_steps.is_empty() {
+            let lines: Vec<String> = next_steps.iter().map(|ns| format!("- {}", xml_escape(ns))).collect();
+            parts.push(format!("<next_steps>\n{}\n</next_steps>", lines.join("\n")));
+        }
+    }
+
+    // P5: Key knowledge facts (latest 5 by category)
+    if !high_confidence_facts.is_empty() {
+        let facts_text: Vec<String> = high_confidence_facts
+            .iter()
+            .rev()
+            .take(5)
+            .map(|f| format!("- [{}] {}: {}", xml_escape(&f.category), xml_escape(&f.key), xml_escape(&f.value)))
+            .collect();
+        parts.push(format!("<knowledge>\n{}\n</knowledge>", facts_text.join("\n")));
+    }
+
+    if parts.is_empty() {
+        return String::new();
+    }
+
+    // Enforce ≤2KB (≈500 tokens) budget: truncate parts from the end if over limit.
+    let mut xml = format!("<session_state source=\"{source}\">\n\n{}\n\n</session_state>", parts.join("\n\n"));
+    if xml.len() > 2048 {
+        while xml.len() > 2048 && parts.len() > 1 {
+            parts.pop();
+            xml = format!("<session_state source=\"{source}\">\n\n{}\n\n</session_state>", parts.join("\n\n"));
+        }
+    }
+
+    xml
+}
+
+/// Returns the static routing block injected at session start.
+/// Guides the agent to prefer ctx_* MCP tools for compressed output.
+fn session_start_routing_block() -> String {
+    r#"<context_window_protection>
+  Use nebu-ctx MCP tools instead of raw native tools to save tokens:
+  - ctx_read / ctx_search / ctx_shell / ctx_tree instead of Read / Grep / Bash / ls
+  - ctx_batch_execute for multi-step research (one call replaces many)
+  - Bash only for: git, mkdir, rm, mv, navigation
+  Skills, roles, and decisions from this session remain active until revoked.
+</context_window_protection>"#.to_string()
+}
+
+/// Escapes characters that are not safe inside XML text nodes.
+fn xml_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
 /// Forwards the current knowledge facts for the project to the cloud server
 /// via `ctx_knowledge(action="remember")` for each current, high-confidence fact.
 fn post_promoted_facts_to_cloud(project_root: &str) {
