@@ -1,6 +1,6 @@
 # nebu-ctx — Handover & Continuation Guide
 
-> Last updated: 2026-04-29 · Version: 0.5.6
+> Last updated: 2026-04-29 · Version: 0.5.7
 
 This document captures the current state of the project and what to do next. Read this when picking up after a break.
 
@@ -27,9 +27,9 @@ The .NET host serves:
 ### Version Sync — Three Places Must Always Match
 
 ```
-client/Cargo.toml                             version = "0.5.6"
-homeassistant/config.yaml                     version: "0.5.6"
-server/src/NebuCtx.Application/ToolRegistry.cs  Current = "0.5.6"
+client/Cargo.toml                             version = "0.5.7"
+homeassistant/config.yaml                     version: "0.5.7"
+server/src/NebuCtx.Application/ToolRegistry.cs  Current = "0.5.7"
 ```
 
 When bumping the version, update all three in one commit.
@@ -38,7 +38,7 @@ When bumping the version, update all three in one commit.
 
 | Item | Location | Status |
 |------|----------|--------|
-| Rust client binary | `~/.cargo/bin/nebu-ctx` | ✅ installed v0.5.6 |
+| Rust client binary | `~/.cargo/bin/nebu-ctx` | ✅ installed v0.5.6 (bump to 0.5.7 after next `cargo install`) |
 | Fish shell hook | `~/.nebu-ctx/shell-hook.fish` | ✅ active (`nebu-ctx: ON`) |
 | Copilot CLI MCP config | `~/.copilot/mcp-config.json` | ✅ wired, all tools auto-approved |
 | VS Code MCP config | `~/.config/Code/User/mcp.json` | ✅ wired |
@@ -67,12 +67,12 @@ nebu-ctx doctor                          # full health check
 
 ## Next Session: Full Integration Test Plan
 
-The next session should be a **structured end-to-end integration test** of everything shipped in v0.5.6. Run each test, note pass/fail, and iterate on failures.
+The next session should be a **structured end-to-end integration test** of everything shipped in v0.5.7. Run each test, note pass/fail, and iterate on failures.
 
 ### Pre-flight
 
 ```bash
-nebu-ctx --version         # must show 0.5.6
+nebu-ctx --version         # must show 0.5.7 after reinstall
 nebu-ctx doctor            # check hooks, MCP configs, cloud connection
 nebu-ctx cloud status      # must show connected + token valid
 podman ps | grep nebu-ctx  # must show nebu-ctx-local running
@@ -168,6 +168,19 @@ Open `http://127.0.0.1:3333` and verify:
 - **Projects** page shows per-project stats
 - **Brain** page shows stored memories including session entries
 
+### Test 7 — Project code index sync
+
+After triggering a local graph index build (any `ctx_read` in the project root triggers it):
+
+```bash
+# Wait for background index build, then check the server received it
+curl -s -H "Authorization: Bearer $TOKEN" "http://127.0.0.1:4242/v1/projects/resolve" | python3 -m json.tool
+# Then check files were stored
+curl -s -H "Authorization: Bearer $TOKEN" "http://127.0.0.1:3333/api/search-index?project_id=<project_id>" | python3 -m json.tool
+```
+
+Expected: `doc_count > 0` (files indexed). Also open the dashboard → Search Explorer / Symbol Explorer / Call Graph and select the project from the dropdown — each should show real data from your project's source code.
+
 ### Known Remaining Issues
 
 | Issue | Location | Priority |
@@ -178,7 +191,33 @@ Open `http://127.0.0.1:3333` and verify:
 
 ---
 
-## What Was Built in v0.5.6 (this sprint)
+## What Was Built in v0.5.7 (this sprint)
+
+### Project Code Index Pipeline
+
+Full end-to-end pipeline to push project source index from the Rust client to PostgreSQL, and display it in the dashboard.
+
+**Server (new Postgres tables + endpoints):**
+- `project_files`, `project_symbols`, `project_call_edges` tables added to schema
+- `ICodeIndexStore` interface + `PostgresCodeIndexStore` bulk-COPY implementation
+- `POST /v1/index/sync` — accepts `{project_id, files, symbols, edges}`, DELETE+re-insert atomically, returns `{synced, files, symbols, edges}` counts
+- Dashboard API endpoints (`/api/search-index`, `/api/symbols`, `/api/call-graph`, `/api/search`) accept `?project_id=` and return real DB data
+
+**Dashboard UI (project selectors):**
+- `getProjectList()` helper with 1-min TTL cache (fetches `/api/projects`)
+- `buildProjectSelectorHtml()` shared utility for consistent dropdown styling
+- Search Explorer: project `<select>` at top; shows source file stats (files/symbols/language breakdown) when a project is selected
+- Symbol Explorer: project `<select>` at top; `filterSymbols()` passes `project_id` to server
+- Call Graph: project `<select>` in toolbar; loads edges from DB per project
+
+**Rust client (sync pipeline):**
+- `IndexSyncPayload`, `IndexSyncFile`, `IndexSyncSymbol`, `IndexSyncEdge` structs in `cloud_client.rs`
+- `ServerClient::sync_index()` POSTing to `/v1/index/sync`
+- `fire_sync_index()` in `index_orchestrator.rs`: called in a background thread after every successful graph index build; resolves project via server then pushes all files/symbols/edges; fully best-effort (silent if server unreachable)
+
+---
+
+## What Was Built in v0.5.6 (previous sprint)
 
 ### Cloud Analytics Tools (4 new MCP tools)
 
