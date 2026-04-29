@@ -2,184 +2,202 @@
 
 ## Purpose
 
-`nebu-ctx` is now organized around a thin Rust client plus a .NET MCP host and dashboard stack.
+`nebu-ctx` is organized around a thin Rust client plus a .NET MCP host and dashboard stack.
 
 - Rust thin client installed from `client/`
 - .NET MCP HTTP host under `server/src/NebuCtx.Server.Host/`
-- dashboard HTTP UI served by that same .NET host on its dashboard port
-
-There is older Rust runtime code in the repository, but the cleaned product layout and packaging contract now center on the top-level `client/` and `server/` trees.
+- Dashboard HTTP UI served by that same .NET host on its dashboard port
 
 ## Main Surfaces
 
 - `client/src/main.rs`: thin-client CLI entrypoint
-- `client/tests/`: client-owned tests
+- `client/src/hook_handlers.rs`: all Claude Code / Copilot CLI hook logic (7 hook types)
+- `client/src/mcp_server/mod.rs`: MCP tool routing, CLOUD_ONLY_TOOLS, CLOUD_PREFERRED_TOOLS
+- `client/src/mcp_server/dispatch.rs`: local tool dispatch (stubs/delegates for non-cloud tools)
+- `client/src/cloud_client.rs`: HTTP client for cloud server calls
 - `server/src/`: .NET host, dashboard, contracts, storage, project registry, and tool handlers
-- `server/tests/`: .NET contract, integration, and project identity tests
-- `scripts/server/`: refresh/build/publish scripts for the .NET host
+- `server/src/NebuCtx.Tools/`: one directory per IToolHandler (Brain/, Gain/, Cost/, Heatmap/, Stats/, Knowledge/, Routes/, Session/)
+- `server/src/NebuCtx.Application/TelemetryStore.cs`: in-memory telemetry; per-project counters + file-access tracking
+- `server/src/NebuCtx.Contracts/`: all DTOs shared across server projects
+- `server/tests/NebuCtx.IntegrationTests/`: endpoint + analytics tests; uses `NebuCtxTestFactory` (no Postgres required)
 - `tests/`: cross-stack smoke, add-on, and release validation
-- `homeassistant/`: Home Assistant add-on packaging and runtime wrapper
-- `homeassistant/Dockerfile` and `docker-entrypoint.sh`: standalone and add-on container packaging for the .NET host
-- `Dockerfile`: multi-stage build (SDK → Alpine runtime); produces the GHCR image and is used for local dev builds
+- `homeassistant/`: Home Assistant add-on packaging
+- `Dockerfile`: multi-stage build (SDK → Alpine runtime); produces GHCR image and local dev builds
 
 ## Layout Rules
 
 - Treat `client/target/` as normal Cargo output.
-- `server/dist/` is gitignored — binaries are no longer committed; the server is built in the multi-stage Dockerfile and published to GHCR.
+- `server/dist/` is gitignored — binaries are never committed; built in CI and published to GHCR.
 - Keep cross-stack and repo-level tests in top-level `tests/` only.
-- Prefer updating docs and scripts to the cleaned top-level layout instead of preserving old path aliases.
 
 ## Storage Model
 
-- The main supported server path is PostgreSQL via `NEBULA_STORE=postgres` and `DATABASE_URL`.
-- The most validated Postgres-backed MCP path today is `ctx_brain`.
-- For live review sessions, run the .NET host locally against the same PostgreSQL database you want to inspect in the dashboard.
+- **Only supported store**: PostgreSQL via `NEBULA_STORE=postgres` and `DATABASE_URL`.
+- No in-memory/JSON store fallback in production — `StartupValidator` enforces Postgres at startup.
+- `TelemetryStore` is in-memory (singleton); `PostgresTelemetryStore` persists events; `TelemetryHydrationService` loads on startup.
+- `IBrainStore`, `IKnowledgeStore`, `ISessionStore`, `IProjectStore`, `ICodeIndexStore`, `ICheckoutBindingStore` are all Postgres-backed in production.
+
+## Tool Routing Architecture
+
+```
+CLOUD_ONLY_TOOLS  = ["ctx_brain", "ctx_routes", "ctx_gain", "ctx_cost", "ctx_heatmap", "ctx_stats"]
+CLOUD_PREFERRED   = ["ctx_knowledge", "ctx_session"]
+```
+
+- `CLOUD_ONLY_TOOLS`: error if server unreachable — no local fallback.
+- `CLOUD_PREFERRED`: routes to cloud when configured; falls back to local JSON only when no cloud server is set up. If cloud is configured but unreachable → hard fail (no silent fallback).
+- All other tools: dispatched locally via `dispatch.rs`.
+
+## Hook System (Claude Code / Copilot CLI)
+
+7 hook types registered in `.claude/settings.local.json`:
+
+| Hook | Command | Timeout |
+|------|---------|---------|
+| `PostToolUse.*` | `nebu-ctx hook post-tool-use` | 10s |
+| `PreCompact` | `nebu-ctx hook pre-compact` | 15s |
+| `PreToolUse:Bash\|bash` | `nebu-ctx hook rewrite` | — |
+| `PreToolUse:Read\|read\|...` | `nebu-ctx hook redirect` | — |
+| `SessionStart` | `nebu-ctx hook session-start` | 10s |
+| `Stop` | `nebu-ctx hook stop` | 30s |
+| `UserPromptSubmit` | `nebu-ctx hook user-prompt-submit` | 5s |
+
+- **PreCompact**: reads session state + knowledge, builds `<session_state>` XML ≤2KB, stores to brain, outputs `{"additionalContext":"..."}`.
+- **SessionStart**: on `"compact"/"resume"` source → snapshot + routing XML; on `"startup"` → routing XML only.
+- **UserPromptSubmit**: stores prompt to `ctx_brain` with full project context.
+- All hook logic lives in `client/src/hook_handlers.rs`. CLI dispatch arms are in `main.rs`.
+
+## Adding a New IToolHandler
+
+1. Create `server/src/NebuCtx.Tools/<ToolName>/<ToolName>ToolHandler.cs` implementing `IToolHandler`.
+2. Register in `server/src/NebuCtx.Tools/ToolRegistration.cs` via `AddToolHandlers()`.
+3. If cloud-only: add to `CLOUD_ONLY_TOOLS` in `client/src/mcp_server/mod.rs`.
+4. Remove any local dispatch stub in `client/src/mcp_server/dispatch.rs`.
+5. Write integration tests in `server/tests/NebuCtx.IntegrationTests/` using direct handler instantiation (not `WebApplicationFactory`) where possible.
+
+## Integration Test Pattern
+
+`McpEndpointTests` (full HTTP pipeline) uses `NebuCtxTestFactory`:
+- `NebuCtxTestFactory` extends `WebApplicationFactory<Program>`, sets `ASPNETCORE_ENVIRONMENT=Test`.
+- `Program.cs` skips `StoreFactory.InitializeSchemaAsync` when environment is `Test`.
+- All Postgres stores are replaced with in-memory stubs; `TelemetryHydrationService` is removed.
+- Analytics/unit tests (`AnalyticsToolTests`, `TelemetryStoreTests`) use direct handler instantiation — no factory needed.
+
+**Never use `WebApplicationFactory<Program>` directly** in `IClassFixture<>` — use `NebuCtxTestFactory`.
+
+## Dashboard
+
+15 panels in order: Overview, Live Observatory, Knowledge Graph, Dependency Map, Compression Lab, Agent World, Bug Memory, Brain Memory, Search Explorer, Learning Curves, Symbol Explorer, Call Graph, Route Map, Context Layer, MCP Token.
+
+Dashboard served on port `3333`. MCP server on port `4242`.
 
 ## Product Naming
 
-- The current product/package/binary name is `nebu-ctx`.
-- Compatibility aliases remain in places that would otherwise break users or tests abruptly.
-- Internal names like `LeanCtxServer` and older env vars still exist in the codebase. Treat them as compatibility debt, not the preferred product surface.
+- Binary/package name: `nebu-ctx`.
+- Older internal names (`LeanCtxServer`, `lean-ctx`, `lean_ctx`) are compatibility debt — do not introduce new uses.
+- Environment variables use `NEBULA_CTX_*` prefix (not `LEAN_CTX_*` or `AUTH_TOKEN`).
 
 ## Home Assistant Add-on
 
-The add-on runs two processes in one container:
+Add-on runs dashboard (3333) + MCP (4242) in one container. Keep these files in sync:
 
-- dashboard on port `3333`
-- MCP HTTP server on port `4242`
+- `docker-entrypoint.sh`, `homeassistant/config.yaml`, `homeassistant/README.md`, `tests/local-addon-test.sh`
 
-The add-on container behavior is driven by `docker-entrypoint.sh`. Keep these files aligned whenever you change add-on behavior:
-
-- `docker-entrypoint.sh`
-- `homeassistant/config.yaml`
-- `homeassistant/README.md`
-- `tests/local-addon-test.sh`
-
-There is no `homeassistant/Dockerfile` — when `image:` is set in `config.yaml`, HA Supervisor pulls the pre-built GHCR image directly and ignores any Dockerfile. For local addon smoke testing, `tests/local-addon-test.sh` defaults to building from the root `Dockerfile`.
-
-Current add-on behavior:
-
-- PostgreSQL only
-- builds `DATABASE_URL` from `postgres_*` fields
-- generates and persists the MCP token in `/data/auth_token`
-- logs the active token at startup for local and HA setup flows
+No `homeassistant/Dockerfile` at runtime — HA Supervisor pulls pre-built GHCR image when `image:` is set in `config.yaml`.
 
 ## Release Flow
 
-- All three version locations **must be kept in sync** on every version bump:
-  1. `client/Cargo.toml` — Rust client version (e.g. `version = "0.5.1"`)
-  2. `homeassistant/config.yaml` — HA addon version (e.g. `version: "0.5.1"`)
-  3. `server/src/NebuCtx.Application/ToolRegistry.cs` — `ServerVersion.Current` constant (e.g. `"0.5.1"`)
-  Commit all three together. No dist rebuild required — binaries are built in CI.
-- `auto-release.yml` tags main when the version changes and no matching tag exists.
-- `release.yml` builds tagged binaries, publishes release assets, publishes the crate to crates.io, and builds + pushes the server Docker image to `ghcr.io/markbovee/nebu-ctx`.
-- When a version-bumped commit lands on `main`, `auto-release.yml` triggers, verifies all three version locations are in sync (Cargo.toml, config.yaml, AND ToolRegistry.cs), then creates and pushes the tag. The tag push then triggers `release.yml`.
-- `release.yml` builds amd64+arm64 client binaries, creates the GitHub release, publishes the crate to crates.io via the `publish-crate` job, and builds + pushes a multi-platform server image to GHCR via the `publish-server-image` job.
-- **Required secret:** `CARGO_REGISTRY_TOKEN` must be set in GitHub repo Settings → Secrets → Actions. Generate a token at https://crates.io/settings/tokens with "Publish new crates" and "Publish updates" scopes.
-- The GHCR server image is built from the multi-stage `Dockerfile` at the repo root. The `homeassistant/Dockerfile` pulls from GHCR — no SDK or source needed at add-on install time.
+**Three version locations must be kept in sync on every bump:**
 
-If you change package, binary, or image names, update all of these together:
+1. `client/Cargo.toml` — `version = "x.y.z"`
+2. `homeassistant/config.yaml` — `version: "x.y.z"`
+3. `server/src/NebuCtx.Application/ToolRegistry.cs` — `ServerVersion.Current = "x.y.z"`
 
-- `Cargo.toml`
-- `client/Cargo.toml`
-- `.github/workflows/release.yml`
-- `.github/workflows/auto-release.yml`
-- `homeassistant/Dockerfile`
-- local smoke scripts under `tests/`
+Also update `Cargo.lock` via `cargo update --manifest-path client/Cargo.toml` before committing.
+
+- `auto-release.yml` verifies all three locations are in sync, then tags and triggers `release.yml`.
+- `release.yml` builds amd64+arm64 binaries, creates GitHub release, publishes crate to crates.io (no `--locked`), and builds+pushes multi-platform server image to `ghcr.io/markbovee/nebu-ctx`.
+- **Required secret:** `CARGO_REGISTRY_TOKEN` in GitHub Settings → Secrets → Actions.
+
+If renaming package/binary/image, update: `Cargo.toml`, `client/Cargo.toml`, both workflow files, `homeassistant/Dockerfile`, `tests/` smoke scripts.
 
 ## Build And Validation
 
-Use these commands as the default validation baseline:
-
 ```bash
+# Rust client tests
 cargo test --manifest-path client/Cargo.toml
-dotnet test server/NebuCtx.slnx
+
+# .NET server tests (all 67 pass, 0 fail — no Postgres required)
+dotnet test server/NebuCtx.slnx -p:AllowMissingPrunePackageData=true
+
+# CLI smoke test
 bash tests/local-server-cli-test.sh
 ```
 
-For add-on validation (builds multi-stage image from source, then smoke-tests it):
-
-```bash
-ADDON_DOCKERFILE=Dockerfile bash tests/local-addon-test.sh
-```
-
-To build the standalone container for local dev (multi-stage, compiles server from source):
-
+Local dev container (shares Postgres with HA server):
 ```bash
 podman build -t nebu-ctx-server -f Dockerfile .
-```
-
-To run the local dev container pointing at the shared PostgreSQL database (same data as HA server):
-
-```bash
-podman run -d --name nebu-ctx-eval \
+podman run -d --name nebu-ctx-local \
   -p 127.0.0.1:3333:3333 -p 127.0.0.1:4242:4242 \
   --env-file .env \
   nebu-ctx-server
 ```
 
-The `.env` file must include `NEBULA_CTX_HTTP_TOKEN` (not `AUTH_TOKEN`) and `NEBULA_CTX_HOST=0.0.0.0` for the container to bind on all interfaces and accept the token. Use the same `DATABASE_URL` as the HA server so both instances share telemetry and data.
+`.env` must include `NEBULA_CTX_HTTP_TOKEN` and `NEBULA_CTX_HOST=0.0.0.0`.
 
-To test the HA addon flow locally (pulls from GHCR — requires the image to be published):
-
+For HA addon validation (builds from source):
 ```bash
-NEBU_CTX_VERSION=0.5.4 bash tests/local-addon-test.sh
+ADDON_DOCKERFILE=Dockerfile bash tests/local-addon-test.sh
 ```
+
+## Known Fixed Bugs (2026-04-29)
+
+These were confirmed fixed — do not re-investigate:
+
+| Bug | Fix location |
+|-----|-------------|
+| `cloud bind`/`sync` "duplicate field" serde error | `[JsonIgnore]` on `WorkspaceBound` in `ProjectResolutionContracts.cs` |
+| Token tracking always 0 | `hook_handlers.rs` reads `usage.input_tokens`/`usage.output_tokens` |
+| `nebu-ctx on`/`off` "unknown command" | Dispatch arms added with helpful shell-function error messages |
+| Ghost commands (`login`, `register`, `forgot-password`, `contribute`) | Replaced with `removed_cloud_command()` stub |
+| `ctx_knowledge` silently falling back to local | Hard-fail when cloud configured but unreachable |
+| Autopilot loop missing cloud knowledge sync | `post_knowledge_to_cloud()` called after consolidation |
+| `McpEndpointTests` failing (no Postgres in CI) | `NebuCtxTestFactory` + `ASPNETCORE_ENVIRONMENT=Test` skip |
+| `cargo publish --locked` fails in CI | Removed `--locked` from `release.yml` publish step |
 
 ## Session Startup Protocol
 
-At the start of every session, retrieve project state from the brain before doing any investigation work. This avoids re-researching what is already known.
+At the start of every session, retrieve project state before investigating:
 
-**Step 1 — Recall active context from brain:**
 ```
-ctx_brain(action="recall", query="analytics tools plan status")
-ctx_brain(action="recall", query="architecture debt")
-ctx_brain(action="recall", query="build commands")
-```
-
-**Step 2 — Recall project knowledge:**
-```
+ctx_brain(action="recall", query="session state decisions")
+ctx_brain(action="recall", query="build commands version")
 ctx_knowledge(action="wakeup")
 ```
 
-**Step 3 — Read the developer knowledge base** (if starting a non-trivial task):
-```
-docs/DEVELOPER-KNOWLEDGE.md
-```
+Read [docs/DEVELOPER-KNOWLEDGE.md](docs/DEVELOPER-KNOWLEDGE.md) for non-trivial tasks.
 
-**When to pull from brain mid-session:**
-- Before touching any file not already in context → `ctx_brain(action="recall", query="<topic>")`
-- Before adding a new IToolHandler → `ctx_brain(action="recall", query="itoolhandler pattern")`
-- Before any version bump → `ctx_brain(action="recall", query="version sync rule")`
-- Before touching hooks → `ctx_brain(action="recall", query="hook system")`
-- Before touching CLI routing → `ctx_brain(action="recall", query="mcp routing architecture")`
+**Pull from brain before touching:**
+- Any unfamiliar file → `ctx_brain(action="recall", query="<topic>")`
+- Adding a new IToolHandler → `ctx_brain(action="recall", query="itoolhandler pattern")`
+- Version bump → `ctx_brain(action="recall", query="version sync rule")`
+- Hook system → `ctx_brain(action="recall", query="hook system")`
+- CLI routing → `ctx_brain(action="recall", query="mcp routing architecture")`
 
-**At session end — save state back:**
+**At session end:**
 ```
 ctx_session(action="save")
 ctx_knowledge(action="consolidate")
-ctx_brain(action="store", key="session-YYYY-MM-DD", value="<what was done, decisions, current task status>")
+ctx_brain(action="store", key="session-YYYY-MM-DD", value="<summary>")
 ```
-
-Key brain facts stored (query these by key or topic):
-| Key | Contents |
-|-----|----------|
-| `dev-knowledge-location` | Full knowledge base file location |
-| `build-commands` | All build/test/install/container commands |
-| `version-sync-rule` | 3-location version sync requirement |
-| `mcp-routing-architecture` | CLOUD_ONLY_TOOLS, CLOUD_PREFERRED_TOOLS routing |
-| `analytics-tools-plan-status` | Current task completion state for Tasks 1–8 |
-| `itoolhandler-pattern` | How to add new MCP tool handlers to the server |
-| `local-machine-state` | Installed binaries, ports, container name, token |
-| `hook-system` | Hook events, agents, CRITICAL ordering rules |
-| `architecture-debt` | Known gaps: ctx_knowledge fallback, brain bridge, etc. |
 
 ## Practical Guidance
 
-- Prefer fixing runtime wrappers and release wiring at the root instead of adding more fallback docs.
-- Prefer the cleaned top-level `client/` and `server/` structure in all docs and scripts.
-- When changing shell scripts on Windows checkouts, preserve LF line endings. `.gitattributes` exists for this; container builds also normalize shell scripts defensively.
+- Before writing a new tool handler, check if a similar one exists under `server/src/NebuCtx.Tools/`.
+- Before adding CLI dispatch arms, check `main.rs` and `cli/cloud.rs` for existing patterns.
+- Preserve LF line endings in shell scripts (`.gitattributes` handles this; container builds normalize defensively).
 - If a task touches Postgres-backed behavior, validate `ctx_brain` over HTTP before claiming the server path is healthy.
+- `dotnet test` requires no live Postgres — `NebuCtxTestFactory` handles all isolation.
 
 <!-- nebu-ctx -->
 ## nebu-ctx
