@@ -9,6 +9,7 @@ using NebuCtx.Tools.Heatmap;
 using NebuCtx.Tools.Knowledge;
 using NebuCtx.Tools.Routes;
 using NebuCtx.Tools.Session;
+using NebuCtx.Tools.Stats;
 
 /// <summary>
 /// Registers all tool handlers with the DI container.
@@ -29,6 +30,7 @@ public static class ToolRegistration
         services.AddSingleton<IToolHandler, KnowledgeToolHandler>();
         services.AddSingleton<IToolHandler, RoutesToolHandler>();
         services.AddSingleton<IToolHandler, SessionToolHandler>();
+        services.AddSingleton<IToolHandler, StatsToolHandler>();
 
         return services;
     }

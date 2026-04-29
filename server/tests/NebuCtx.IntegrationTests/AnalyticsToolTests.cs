@@ -5,6 +5,7 @@ using NebuCtx.Application;
 using NebuCtx.Tools.Cost;
 using NebuCtx.Tools.Gain;
 using NebuCtx.Tools.Heatmap;
+using NebuCtx.Tools.Stats;
 
 /// <summary>
 /// Integration tests for analytics tool handlers: ctx_gain, ctx_cost, ctx_heatmap, ctx_stats.
@@ -314,5 +315,68 @@ public class AnalyticsToolTests
             CancellationToken.None);
 
         Assert.IsType<string>(result);
+    }
+
+    // ── ctx_stats ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task CtxStats_Report_ReturnsMarkdownWithProjectBreakdown()
+    {
+        var handler = new StatsToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "report" },
+            new ToolExecutionContext { ProjectId = "" },
+            CancellationToken.None);
+
+        var text = Assert.IsType<string>(result);
+        Assert.Contains("proj-a", text);
+        Assert.Contains("proj-b", text);
+    }
+
+    [Fact]
+    public async Task CtxStats_Json_ReturnsAllProjects()
+    {
+        var handler = new StatsToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "json" },
+            new ToolExecutionContext { ProjectId = "" },
+            CancellationToken.None);
+
+        var text = Assert.IsType<string>(result);
+        var doc = JsonDocument.Parse(text);
+        Assert.True(doc.RootElement.TryGetProperty("projects", out var projects));
+        Assert.Equal(2, projects.GetArrayLength());
+    }
+
+    [Fact]
+    public async Task CtxStats_FiltersByProjectId_WhenProvided()
+    {
+        var handler = new StatsToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "json", ["project_id"] = "proj-a" },
+            new ToolExecutionContext { ProjectId = "" },
+            CancellationToken.None);
+
+        var text = Assert.IsType<string>(result);
+        var doc = JsonDocument.Parse(text);
+        // Single-project filter → projects array has 1 entry
+        Assert.True(doc.RootElement.TryGetProperty("projects", out var projects));
+        Assert.Equal(1, projects.GetArrayLength());
+        Assert.Equal("proj-a", projects[0].GetProperty("project_id").GetString());
+        Assert.Equal(5, projects[0].GetProperty("total_tool_calls").GetInt32());
+    }
+
+    [Fact]
+    public async Task CtxStats_UnknownProjectId_ReturnsEmptyProjects()
+    {
+        var handler = new StatsToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "json", ["project_id"] = "no-such" },
+            new ToolExecutionContext { ProjectId = "" },
+            CancellationToken.None);
+
+        var text = Assert.IsType<string>(result);
+        var doc = JsonDocument.Parse(text);
+        Assert.Equal(0, doc.RootElement.GetProperty("projects").GetArrayLength());
     }
 }
