@@ -3,7 +3,7 @@
 //! Uses the SQLite-backed Property Graph to answer: "What breaks when file X changes?"
 //! Performs BFS traversal of reverse import edges to find all transitively affected files.
 
-use crate::core::property_graph::{CodeGraph, DependencyChain, Edge, EdgeKind, ImpactResult, Node};
+use crate::core::property_graph::{CodeGraph, DependencyChain, ImpactResult, Node};
 use crate::core::tokens::count_tokens;
 use std::path::Path;
 
@@ -196,11 +196,11 @@ fn handle_build(root: &str) -> String {
         }
     }
 
-    let resolver_ctx =
+    let _resolver_ctx =
         crate::core::import_resolver::ResolverContext::new(root_path, file_paths.clone());
 
     let mut total_nodes = 0usize;
-    let mut total_edges = 0usize;
+    let total_edges = 0usize;
 
     for (rel_path, content, ext) in &file_contents {
         let file_node_id = match graph.upsert_node(&Node::file(rel_path)) {

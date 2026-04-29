@@ -60,6 +60,16 @@ pub fn refresh_installed_hooks() {
     if codex_hooks {
         install_codex_hook();
     }
+
+    // Copilot CLI hooks
+    let copilot_global_hooks = home.join(".github").join("hooks").join("hooks.json");
+    if copilot_global_hooks.exists()
+        && std::fs::read_to_string(&copilot_global_hooks)
+            .unwrap_or_default()
+            .contains("nebu-ctx")
+    {
+        install_copilot_hook(true);
+    }
 }
 
 fn resolve_binary_path() -> String {

@@ -501,6 +501,24 @@ pub fn run_setup_with_options(opts: SetupOptions) -> Result<SetupReport, String>
                     });
                 }
             }
+            "claude" | "claude-code" => {
+                crate::hooks::install_agent_hook("claude", true);
+                hooks_step.items.push(SetupItem {
+                    name: "Claude Code hooks".to_string(),
+                    status: "updated".to_string(),
+                    path: Some("~/.claude/settings.json".to_string()),
+                    note: Some("PreToolUse + PostToolUse + Stop hooks".to_string()),
+                });
+            }
+            "copilot" => {
+                crate::hooks::install_agent_hook("copilot", true);
+                hooks_step.items.push(SetupItem {
+                    name: "Copilot hooks".to_string(),
+                    status: "updated".to_string(),
+                    path: Some("~/.github/hooks/hooks.json".to_string()),
+                    note: Some("preToolUse + postToolUse + postSession hooks".to_string()),
+                });
+            }
             _ => {}
         }
     }

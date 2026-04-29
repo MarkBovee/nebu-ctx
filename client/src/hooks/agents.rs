@@ -216,7 +216,8 @@ pub(super) fn install_claude_hook_config(home: &std::path::Path) {
     };
 
     let needs_update =
-        !settings_content.contains("hook rewrite") || !settings_content.contains("hook redirect");
+        !settings_content.contains("hook rewrite") || !settings_content.contains("hook redirect")
+        || !settings_content.contains("hook stop") || !settings_content.contains("hook post-tool-use");
     let has_old_hooks = settings_content.contains("nebu-ctx-rewrite.sh")
         || settings_content.contains("nebu-ctx-redirect.sh");
 
@@ -239,6 +240,25 @@ pub(super) fn install_claude_hook_config(home: &std::path::Path) {
                     "hooks": [{
                         "type": "command",
                         "command": redirect_cmd
+                    }]
+                }
+            ],
+            "PostToolUse": [
+                {
+                    "matcher": ".*",
+                    "hooks": [{
+                        "type": "command",
+                        "command": format!("{binary} hook post-tool-use"),
+                        "timeout": 10
+                    }]
+                }
+            ],
+            "Stop": [
+                {
+                    "hooks": [{
+                        "type": "command",
+                        "command": format!("{binary} hook stop"),
+                        "timeout": 30
                     }]
                 }
             ]
@@ -273,7 +293,8 @@ pub(super) fn install_claude_project_hooks(cwd: &std::path::Path) {
     let _ = std::fs::create_dir_all(cwd.join(".claude"));
 
     let existing = std::fs::read_to_string(&settings_path).unwrap_or_default();
-    if existing.contains("hook rewrite") && existing.contains("hook redirect") {
+    if existing.contains("hook rewrite") && existing.contains("hook redirect")
+        && existing.contains("hook stop") && existing.contains("hook post-tool-use") {
         return;
     }
 
@@ -292,6 +313,25 @@ pub(super) fn install_claude_project_hooks(cwd: &std::path::Path) {
                     "hooks": [{
                         "type": "command",
                         "command": redirect_cmd
+                    }]
+                }
+            ],
+            "PostToolUse": [
+                {
+                    "matcher": ".*",
+                    "hooks": [{
+                        "type": "command",
+                        "command": format!("{binary} hook post-tool-use"),
+                        "timeout": 10
+                    }]
+                }
+            ],
+            "Stop": [
+                {
+                    "hooks": [{
+                        "type": "command",
+                        "command": format!("{binary} hook stop"),
+                        "timeout": 30
                     }]
                 }
             ]
@@ -852,6 +892,20 @@ fn install_copilot_pretooluse_hook(global: bool) {
                     "bash": redirect_cmd,
                     "timeoutSec": 5
                 }
+            ],
+            "postToolUse": [
+                {
+                    "type": "command",
+                    "bash": format!("{binary} hook post-tool-use"),
+                    "timeoutSec": 10
+                }
+            ],
+            "postSession": [
+                {
+                    "type": "command",
+                    "bash": format!("{binary} hook stop"),
+                    "timeoutSec": 30
+                }
             ]
         }
     });
@@ -870,6 +924,7 @@ fn install_copilot_pretooluse_hook(global: bool) {
     let needs_write = if hook_path.exists() {
         let content = std::fs::read_to_string(&hook_path).unwrap_or_default();
         !content.contains("hook rewrite") || content.contains("\"PreToolUse\"")
+            || !content.contains("hook stop") || !content.contains("hook post-tool-use")
     } else {
         true
     };

@@ -176,6 +176,90 @@ pub fn handle_rewrite_inline() {
     print!("{cmd}");
 }
 
+/// Session-end handler: consolidate local session facts into `knowledge.json`,
+/// then forward every promoted fact to the cloud via `ctx_knowledge`.
+/// Wired to Claude Code `Stop` and Copilot CLI `postSession`.
+pub fn handle_stop() {
+    let project_root = std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    if project_root.is_empty() {
+        return;
+    }
+
+    let outcome = crate::core::consolidation_engine::consolidate_latest(
+        &project_root,
+        crate::core::consolidation_engine::ConsolidationBudgets::default(),
+    );
+
+    let promoted = outcome.as_ref().map(|o| o.promoted).unwrap_or(0);
+    if promoted == 0 {
+        return;
+    }
+
+    // Forward promoted facts to the cloud so they land in PostgreSQL.
+    post_promoted_facts_to_cloud(&project_root);
+}
+
+/// Forwards the current knowledge facts for the project to the cloud server
+/// via `ctx_knowledge(action="remember")` for each current, high-confidence fact.
+fn post_promoted_facts_to_cloud(project_root: &str) {
+    let Ok(client) = crate::cloud_client::ServerClient::load() else {
+        return;
+    };
+    let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));
+    let knowledge = crate::core::knowledge::ProjectKnowledge::load_or_create(project_root);
+
+    for fact in knowledge.facts.iter().filter(|f| f.is_current() && f.confidence >= 0.7) {
+        let mut args = serde_json::Map::new();
+        args.insert("action".to_string(), serde_json::json!("remember"));
+        args.insert("category".to_string(), serde_json::json!(fact.category));
+        args.insert("key".to_string(), serde_json::json!(fact.key));
+        args.insert("value".to_string(), serde_json::json!(fact.value));
+        args.insert("confidence".to_string(), serde_json::json!(fact.confidence));
+        let _ = client.call_tool("ctx_knowledge", args, &ctx);
+    }
+}
+
+/// PostToolUse telemetry handler: reads the hook event JSON from stdin,
+/// extracts the tool name and rough token sizes, and fires a telemetry
+/// event to the server. Wired to Claude Code `PostToolUse` and Copilot
+/// CLI `postToolUse`.
+pub fn handle_post_tool_use() {
+    let mut input = String::new();
+    if std::io::stdin().read_to_string(&mut input).is_err() {
+        return;
+    }
+
+    let tool_name = extract_json_field(&input, "tool_name")
+        .or_else(|| extract_json_field(&input, "toolName"))
+        .unwrap_or_else(|| "unknown".to_string());
+
+    // Rough token proxy: byte-length of input + output divided by 4.
+    let input_bytes = extract_json_field(&input, "tool_input")
+        .map(|s| s.len())
+        .unwrap_or(0);
+    let output_bytes = extract_json_field(&input, "tool_response")
+        .or_else(|| extract_json_field(&input, "tool_result"))
+        .map(|s| s.len())
+        .unwrap_or(0);
+
+    let tokens_in = (input_bytes / 4) as i64;
+    let tokens_out = (output_bytes / 4) as i64;
+
+    crate::core::telemetry_queue::fire_sync(crate::models::TelemetryIngestRequest {
+        tool_name: crate::core::stats::normalize_command(&tool_name),
+        tokens_original: tokens_in + tokens_out,
+        tokens_saved: 0,
+        duration_ms: 0,
+        mode: Some("hook".to_string()),
+        repository_fingerprint: None,
+        checkout_binding: None,
+        project_slug: None,
+    });
+}
+
 fn resolve_binary() -> String {
     let path = crate::core::portable_binary::resolve_portable_binary();
     crate::hooks::to_bash_compatible_path(&path)

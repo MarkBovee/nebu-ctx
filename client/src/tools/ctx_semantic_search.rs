@@ -1,12 +1,9 @@
 use std::collections::HashSet;
 use std::path::Path;
-use std::sync::OnceLock;
 use std::time::SystemTime;
 
-use crate::core::embedding_index::EmbeddingIndex;
 #[cfg(feature = "embeddings")]
 use crate::core::embeddings::EmbeddingEngine;
-use crate::core::hybrid_search::{format_hybrid_results, HybridConfig};
 use crate::core::vector_index::{format_search_results, BM25Index};
 #[cfg(feature = "embeddings")]
 use crate::core::{
@@ -168,7 +165,7 @@ fn filtered_candidate_k(top_k: usize, filtered: bool) -> usize {
 
 fn hybrid_search_mode(
     query: &str,
-    root: &Path,
+    _root: &Path,
     index: &BM25Index,
     top_k: usize,
     compact: bool,
@@ -238,12 +235,12 @@ fn hybrid_search_mode(
 }
 
 fn dense_search_mode(
-    query: &str,
-    root: &Path,
-    index: &BM25Index,
-    top_k: usize,
-    compact: bool,
-    filter: &SearchFilter,
+    _query: &str,
+    _root: &Path,
+    _index: &BM25Index,
+    _top_k: usize,
+    _compact: bool,
+    _filter: &SearchFilter,
 ) -> String {
     #[cfg(feature = "embeddings")]
     {

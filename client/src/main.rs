@@ -713,8 +713,10 @@ fn main() {
                     "codex-pretooluse" => hook_handlers::handle_codex_pretooluse(),
                     "codex-session-start" => hook_handlers::handle_codex_session_start(),
                     "rewrite-inline" => hook_handlers::handle_rewrite_inline(),
+                    "stop" => hook_handlers::handle_stop(),
+                    "post-tool-use" => hook_handlers::handle_post_tool_use(),
                     _ => {
-                        eprintln!("Usage: nebu-ctx hook <rewrite|redirect|copilot|codex-pretooluse|codex-session-start|rewrite-inline>");
+                        eprintln!("Usage: nebu-ctx hook <rewrite|redirect|copilot|codex-pretooluse|codex-session-start|rewrite-inline|stop|post-tool-use>");
                         eprintln!("  Internal commands used by agent hooks (Claude, Cursor, Copilot, etc.)");
                         std::process::exit(1);
                     }
