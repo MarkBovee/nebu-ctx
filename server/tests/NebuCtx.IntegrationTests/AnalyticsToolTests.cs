@@ -384,4 +384,18 @@ public class AnalyticsToolTests
         var doc = JsonDocument.Parse(text);
         Assert.Equal(0, doc.RootElement.GetProperty("projects").GetArrayLength());
     }
+
+    /// <summary>An unrecognised action should fall back to the default report output.</summary>
+    [Fact]
+    public async Task CtxStats_UnknownAction_FallsBackToReport()
+    {
+        var handler = new StatsToolHandler(CreatePopulatedStore());
+        var result = await handler.ExecuteAsync(
+            new Dictionary<string, object?> { ["action"] = "unknown_action" },
+            new ToolExecutionContext { ProjectId = "" },
+            CancellationToken.None);
+
+        var text = Assert.IsType<string>(result);
+        Assert.Contains("## Project Stats", text);
+    }
 }

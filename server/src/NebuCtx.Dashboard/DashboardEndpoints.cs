@@ -123,27 +123,28 @@ public static class DashboardEndpoints
             }).ToArray();
             return Results.Ok(new { projects = payload, total = payload.Length });
         });
-        // Per-project stats endpoint
+        // Per-project stats endpoint — returns 200 with zero counts when the project has no telemetry yet
         app.MapGet("/api/projects/{projectId}/stats", (string projectId, TelemetryStore telemetry) =>
         {
             var snapshot = telemetry.GetSnapshot();
-            if (!snapshot.PerProject.TryGetValue(projectId, out var proj))
-                return Results.NotFound(new { error = $"Project '{projectId}' not found." });
+            snapshot.PerProject.TryGetValue(projectId, out var proj);
 
             return Results.Ok(new
             {
-                project_id = proj.ProjectId,
-                total_tool_calls = proj.TotalToolCalls,
-                total_input_tokens = proj.TotalInputTokens,
-                total_output_tokens = proj.TotalOutputTokens,
-                top_tools = proj.Commands.Values
+                project_id = projectId,
+                total_tool_calls = proj?.TotalToolCalls ?? 0,
+                total_input_tokens = proj?.TotalInputTokens ?? 0L,
+                total_output_tokens = proj?.TotalOutputTokens ?? 0L,
+                top_tools = proj?.Commands.Values
                     .OrderByDescending(c => c.Count)
                     .Take(20)
-                    .Select(c => new { name = c.Name, count = c.Count }),
-                file_access = proj.FileAccess
+                    .Select(c => new { name = c.Name, count = c.Count })
+                    ?? [],
+                file_access = proj?.FileAccess
                     .OrderByDescending(f => f.Value)
                     .Take(50)
-                    .Select(f => new { path = f.Key, count = f.Value }),
+                    .Select(f => new { path = f.Key, count = f.Value })
+                    ?? [],
             });
         });
 
