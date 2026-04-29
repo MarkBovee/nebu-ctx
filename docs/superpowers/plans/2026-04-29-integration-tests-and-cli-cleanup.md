@@ -50,7 +50,7 @@ Expected: version 0.5.6, container running, health status ok.
 
 **Files:** None — CLI/curl only
 
-- [ ] **Step 1: Verify version**
+- [x] **Step 1: Verify version**
 
 ```bash
 nebu-ctx --version
@@ -58,7 +58,7 @@ nebu-ctx --version
 
 Expected: `nebu-ctx 0.5.6 ...`
 
-- [ ] **Step 2: Verify doctor**
+- [x] **Step 2: Verify doctor**
 
 ```bash
 nebu-ctx doctor
@@ -66,7 +66,7 @@ nebu-ctx doctor
 
 Expected: no critical failures. Note any warnings.
 
-- [ ] **Step 3: Verify cloud status**
+- [x] **Step 3: Verify cloud status**
 
 ```bash
 nebu-ctx cloud status
@@ -74,7 +74,7 @@ nebu-ctx cloud status
 
 Expected: `"health": {"status": "ok"}` with endpoint `http://192.168.1.135:4242`
 
-- [ ] **Step 4: Verify container**
+- [x] **Step 4: Verify container**
 
 ```bash
 podman ps --format "{{.Names}} {{.Status}}" | grep nebu-ctx
@@ -88,7 +88,7 @@ Expected: `nebu-ctx-local Up ...`
 
 **Files:** `client/src/hook_handlers.rs`
 
-- [ ] **Step 1: Get baseline telemetry count**
+- [x] **Step 1: Get baseline telemetry count**
 
 ```bash
 TOKEN=$(grep '^NEBULA_CTX_HTTP_TOKEN=' .env | cut -d= -f2)
@@ -97,7 +97,7 @@ curl -sH "Authorization: Bearer $TOKEN" http://127.0.0.1:3333/api/gain | python3
 
 Note the current `totalCalls` value.
 
-- [ ] **Step 2: Fire a manual hook event**
+- [x] **Step 2: Fire a manual hook event**
 
 ```bash
 echo '{"tool_name":"ctx_read","tool_input":{"path":"test"},"tool_output":"result","usage":{"input_tokens":100,"output_tokens":50}}' \
@@ -106,7 +106,7 @@ echo '{"tool_name":"ctx_read","tool_input":{"path":"test"},"tool_output":"result
 
 Expected: no error, exits 0.
 
-- [ ] **Step 3: Verify telemetry count increased**
+- [x] **Step 3: Verify telemetry count increased**
 
 ```bash
 TOKEN=$(grep '^NEBULA_CTX_HTTP_TOKEN=' .env | cut -d= -f2)
@@ -115,7 +115,7 @@ curl -sH "Authorization: Bearer $TOKEN" http://127.0.0.1:3333/api/gain | python3
 
 Expected: `totalCalls` increased by at least 1.
 
-- [ ] **Step 4: Record pass/fail in notes**
+- [x] **Step 4: Record pass/fail in notes**
 
 Record: ✅ PASS or ❌ FAIL (with error detail). Continue regardless.
 
@@ -125,7 +125,7 @@ Record: ✅ PASS or ❌ FAIL (with error detail). Continue regardless.
 
 **Files:** `client/src/hook_handlers.rs`, `client/src/cloud_client.rs`
 
-- [ ] **Step 1: Trigger stop hook manually**
+- [x] **Step 1: Trigger stop hook manually**
 
 ```bash
 echo '{}' | nebu-ctx hook stop
@@ -133,7 +133,7 @@ echo '{}' | nebu-ctx hook stop
 
 Expected: exits 0 (may print nothing or a summary line).
 
-- [ ] **Step 2: Query brain for session entry**
+- [x] **Step 2: Query brain for session entry**
 
 ```bash
 TOKEN=$(grep '^NEBULA_CTX_HTTP_TOKEN=' .env | cut -d= -f2)
@@ -147,7 +147,7 @@ curl -sX POST \
 
 Expected: a `session-<id>` key appears in results with recent timestamp.
 
-- [ ] **Step 3: Record pass/fail**
+- [x] **Step 3: Record pass/fail**
 
 Record: ✅ PASS or ❌ FAIL.
 
@@ -157,7 +157,7 @@ Record: ✅ PASS or ❌ FAIL.
 
 **Files:** None (server-side, tests only)
 
-- [ ] **Step 1: Call ctx_gain**
+- [x] **Step 1: Call ctx_gain**
 
 ```bash
 TOKEN=$(grep '^NEBULA_CTX_HTTP_TOKEN=' .env | cut -d= -f2)
@@ -168,7 +168,7 @@ curl -s -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
 
 Expected: JSON output with non-empty content (not all zeros).
 
-- [ ] **Step 2: Call ctx_cost**
+- [x] **Step 2: Call ctx_cost**
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
@@ -177,7 +177,7 @@ curl -s -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
 
 Expected: JSON with cost data.
 
-- [ ] **Step 3: Call ctx_heatmap**
+- [x] **Step 3: Call ctx_heatmap**
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
@@ -186,7 +186,7 @@ curl -s -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
 
 Expected: heatmap data.
 
-- [ ] **Step 4: Call ctx_stats**
+- [x] **Step 4: Call ctx_stats**
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
@@ -195,7 +195,7 @@ curl -s -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
 
 Expected: stats snapshot.
 
-- [ ] **Step 5: Check per-project stats REST endpoint**
+- [x] **Step 5: Check per-project stats REST endpoint**
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" \
@@ -204,7 +204,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 Expected: 200 with project stats (zeros OK for a new project, non-zero better).
 
-- [ ] **Step 6: Record pass/fail per tool**
+- [x] **Step 6: Record pass/fail per tool**
 
 ---
 
@@ -212,7 +212,7 @@ Expected: 200 with project stats (zeros OK for a new project, non-zero better).
 
 **Files:** `client/src/hook_handlers.rs`
 
-- [ ] **Step 1: Check ctx_cost for token totals**
+- [x] **Step 1: Check ctx_cost for token totals**
 
 ```bash
 TOKEN=$(grep '^NEBULA_CTX_HTTP_TOKEN=' .env | cut -d= -f2)
@@ -222,7 +222,7 @@ curl -sH "Authorization: Bearer $TOKEN" http://127.0.0.1:3333/api/gain \
 
 If `totalTokens` is 0, note it as a known issue. The fix is in Phase 2, Task 9.
 
-- [ ] **Step 2: Inspect what Claude Code sends in PostToolUse hook**
+- [x] **Step 2: Inspect what Claude Code sends in PostToolUse hook**
 
 Look at `client/src/hook_handlers.rs` function `handle_post_tool_use()` to see which JSON field names it reads for token counts. Compare with the Claude Code hook event schema.
 
@@ -232,7 +232,7 @@ grep -A 30 "fn handle_post_tool_use" client/src/hook_handlers.rs
 
 Expected: the code reads `tool_input` / `tool_output` OR `usage.input_tokens` / `usage.output_tokens`. Note which fields it looks for.
 
-- [ ] **Step 3: Test with known-good token data**
+- [x] **Step 3: Test with known-good token data**
 
 ```bash
 echo '{"tool_name":"ctx_read","tool_input":{"path":"test"},"tool_output":"result","usage":{"input_tokens":100,"output_tokens":50}}' \
@@ -241,7 +241,7 @@ echo '{"tool_name":"ctx_read","tool_input":{"path":"test"},"tool_output":"result
 
 Check if this gets picked up. Record the field names that work.
 
-- [ ] **Step 4: Record findings**
+- [x] **Step 4: Record findings**
 
 Note: which field names work, what changes are needed, feed into Phase 2 Task 9.
 
@@ -251,7 +251,7 @@ Note: which field names work, what changes are needed, feed into Phase 2 Task 9.
 
 **Files:** `client/src/mcp_server/mod.rs`
 
-- [ ] **Step 1: Call ctx_knowledge via MCP tool**
+- [x] **Step 1: Call ctx_knowledge via MCP tool**
 
 ```bash
 TOKEN=$(grep '^NEBULA_CTX_HTTP_TOKEN=' .env | cut -d= -f2)
@@ -263,7 +263,7 @@ curl -s -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
 
 Expected: success response, NOT a `⚠ Running locally` warning.
 
-- [ ] **Step 2: Verify it landed in PostgreSQL**
+- [x] **Step 2: Verify it landed in PostgreSQL**
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
@@ -274,7 +274,7 @@ curl -s -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
 
 Expected: the key is returned from the server (not local fallback).
 
-- [ ] **Step 3: Record pass/fail**
+- [x] **Step 3: Record pass/fail**
 
 If shows local fallback: this is Task A bug, tracked in Phase 2, Task 10.
 
@@ -284,7 +284,7 @@ If shows local fallback: this is Task A bug, tracked in Phase 2, Task 10.
 
 **Files:** None (browser check)
 
-- [ ] **Step 1: Verify dashboard is reachable**
+- [x] **Step 1: Verify dashboard is reachable**
 
 ```bash
 curl -sH "Authorization: Bearer $(grep '^NEBULA_CTX_HTTP_TOKEN=' .env | cut -d= -f2)" \
@@ -293,7 +293,7 @@ curl -sH "Authorization: Bearer $(grep '^NEBULA_CTX_HTTP_TOKEN=' .env | cut -d= 
 
 Expected: HTML response.
 
-- [ ] **Step 2: Check API endpoints used by dashboard**
+- [x] **Step 2: Check API endpoints used by dashboard**
 
 ```bash
 TOKEN=$(grep '^NEBULA_CTX_HTTP_TOKEN=' .env | cut -d= -f2)
@@ -303,7 +303,7 @@ curl -sH "Authorization: Bearer $TOKEN" "http://127.0.0.1:3333/api/projects" | p
 
 Expected: non-empty JSON responses.
 
-- [ ] **Step 3: Record pass/fail**
+- [x] **Step 3: Record pass/fail**
 
 ---
 
@@ -320,7 +320,7 @@ Expected: non-empty JSON responses.
 >
 > The server response contains `"checkout_bound": false, "workspace_bound": false` (two C# properties on the same backing field). The Rust `#[serde(rename = "checkout_bound", alias = "workspace_bound")]` treats both as referring to the same field → duplicate field deserialization error → "failed to parse server response".
 
-- [ ] **Step 1: Confirm current failure**
+- [x] **Step 1: Confirm current failure**
 
 ```bash
 nebu-ctx cloud bind 2>&1
@@ -328,7 +328,7 @@ nebu-ctx cloud bind 2>&1
 
 Expected currently: `failed to parse server response`
 
-- [ ] **Step 2: Fix — suppress WorkspaceBound from response serialization**
+- [x] **Step 2: Fix — suppress WorkspaceBound from response serialization**
 
 In `server/src/NebuCtx.Contracts/Projects/ProjectResolutionContracts.cs`, add `[JsonIgnore]` to the `WorkspaceBound` property on `ProjectResolutionResponse`:
 
@@ -357,7 +357,7 @@ public bool WorkspaceBound
 }
 ```
 
-- [ ] **Step 3: Build the server**
+- [x] **Step 3: Build the server**
 
 ```bash
 dotnet build server/NebuCtx.slnx -p:AllowMissingPrunePackageData=true
@@ -365,7 +365,7 @@ dotnet build server/NebuCtx.slnx -p:AllowMissingPrunePackageData=true
 
 Expected: 0 errors, 0 warnings.
 
-- [ ] **Step 4: Rebuild and redeploy the local container**
+- [x] **Step 4: Rebuild and redeploy the local container**
 
 ```bash
 podman build -t nebu-ctx-server -f Dockerfile .
@@ -378,7 +378,7 @@ podman run -d --name nebu-ctx-local \
 sleep 3
 ```
 
-- [ ] **Step 5: Verify fix**
+- [x] **Step 5: Verify fix**
 
 ```bash
 nebu-ctx cloud bind 2>&1
@@ -392,7 +392,7 @@ nebu-ctx sync 2>&1
 
 Expected: JSON with synced state, no error.
 
-- [ ] **Step 6: Run server tests**
+- [x] **Step 6: Run server tests**
 
 ```bash
 dotnet vstest server/tests/*/bin/Debug/net10.0/*.dll --logger:"console;verbosity=detailed" 2>&1 | tail -20
@@ -400,7 +400,7 @@ dotnet vstest server/tests/*/bin/Debug/net10.0/*.dll --logger:"console;verbosity
 
 Expected: all tests pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add server/src/NebuCtx.Contracts/Projects/ProjectResolutionContracts.cs
@@ -421,7 +421,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 
 **Files:** `client/src/hook_handlers.rs`
 
-- [ ] **Step 1: Check current field extraction logic**
+- [x] **Step 1: Check current field extraction logic**
 
 ```bash
 grep -A 50 "fn handle_post_tool_use" client/src/hook_handlers.rs
@@ -429,7 +429,7 @@ grep -A 50 "fn handle_post_tool_use" client/src/hook_handlers.rs
 
 Note which JSON field names the code reads (e.g., `tool_input`, `tool_output`, `usage`).
 
-- [ ] **Step 2: Test with Claude Code hook payload format**
+- [x] **Step 2: Test with Claude Code hook payload format**
 
 The Claude Code PostToolUse hook sends a JSON payload with this structure. Test all candidate field names:
 
@@ -445,13 +445,13 @@ echo '{"tool_name":"ctx_read","tool_input":{"path":"file"},"tool_output":"conten
 
 Check the telemetry ingestion result in the dashboard to see which format produces non-zero token counts.
 
-- [ ] **Step 3: Read the current extraction code**
+- [x] **Step 3: Read the current extraction code**
 
 ```bash
 cat client/src/hook_handlers.rs | grep -A 80 "fn handle_post_tool_use"
 ```
 
-- [ ] **Step 4: Update field extraction to handle both formats**
+- [x] **Step 4: Update field extraction to handle both formats**
 
 In `client/src/hook_handlers.rs`, update `handle_post_tool_use()` to try multiple field name patterns:
 
@@ -481,7 +481,7 @@ let output_tokens = payload
     });
 ```
 
-- [ ] **Step 5: Build and test**
+- [x] **Step 5: Build and test**
 
 ```bash
 cargo build --manifest-path client/Cargo.toml 2>&1 | tail -5
@@ -490,13 +490,13 @@ cargo test --manifest-path client/Cargo.toml --lib 2>&1 | tail -10
 
 Expected: 0 errors.
 
-- [ ] **Step 6: Reinstall the client**
+- [x] **Step 6: Reinstall the client**
 
 ```bash
 cargo install --path client/
 ```
 
-- [ ] **Step 7: Verify tokens are now non-zero**
+- [x] **Step 7: Verify tokens are now non-zero**
 
 ```bash
 echo '{"tool_name":"ctx_read","usage":{"input_tokens":100,"output_tokens":50}}' \
@@ -510,7 +510,7 @@ curl -s -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
 
 Expected: totalTokens > 0.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add client/src/hook_handlers.rs
@@ -532,7 +532,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 
 **Context:** `ctx_knowledge` is in `CLOUD_PREFERRED_TOOLS` and silently falls back to local `knowledge.json` when the cloud call fails. When a server is configured, it should behave as cloud-only.
 
-- [ ] **Step 1: Find the fallback logic**
+- [x] **Step 1: Find the fallback logic**
 
 ```bash
 grep -n "CLOUD_PREFERRED\|cloud_preferred\|ctx_knowledge\|fallback" client/src/mcp_server/mod.rs | head -20
@@ -540,13 +540,13 @@ grep -n "CLOUD_PREFERRED\|cloud_preferred\|ctx_knowledge\|fallback" client/src/m
 
 Note the line number of the fallback branch (~line 233 from HANDOVER.md).
 
-- [ ] **Step 2: Read the routing logic around line 233**
+- [x] **Step 2: Read the routing logic around line 233**
 
 ```bash
 sed -n '220,260p' client/src/mcp_server/mod.rs
 ```
 
-- [ ] **Step 3: Apply the fix**
+- [x] **Step 3: Apply the fix**
 
 When `ServerClient::load()` succeeds AND the tool is in `CLOUD_PREFERRED_TOOLS`, skip the local fallback and return the cloud error to the caller instead of silently falling back. The pattern should be:
 
@@ -579,7 +579,7 @@ if is_cloud_preferred(tool_name) {
 
 Find the exact code and apply the matching change.
 
-- [ ] **Step 4: Build**
+- [x] **Step 4: Build**
 
 ```bash
 cargo build --manifest-path client/Cargo.toml 2>&1 | tail -5
@@ -588,7 +588,7 @@ cargo test --manifest-path client/Cargo.toml --lib 2>&1 | tail -10
 
 Expected: 0 errors.
 
-- [ ] **Step 5: Reinstall and verify no local fallback warning**
+- [x] **Step 5: Reinstall and verify no local fallback warning**
 
 ```bash
 cargo install --path client/
@@ -596,7 +596,7 @@ cargo install --path client/
 
 In an active MCP session, call `ctx_knowledge(action="recall", query="test")`. Confirm there is no `⚠ Running locally` output.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add client/src/mcp_server/mod.rs
@@ -619,7 +619,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 
 **Context:** The auto-consolidation loop (~line 499) fires `consolidate_latest()` and writes only to local `knowledge.json`. After promotion, it should call `post_promoted_facts_to_cloud()` (same as the Stop hook does).
 
-- [ ] **Step 1: Find the auto-consolidation loop**
+- [x] **Step 1: Find the auto-consolidation loop**
 
 ```bash
 sed -n '490,530p' client/src/mcp_server/mod.rs
@@ -627,7 +627,7 @@ sed -n '490,530p' client/src/mcp_server/mod.rs
 
 Note the structure: it calls `consolidate_latest()` and checks `promoted > 0`.
 
-- [ ] **Step 2: Read the Stop hook bridge code for reference**
+- [x] **Step 2: Read the Stop hook bridge code for reference**
 
 ```bash
 grep -n "post_promoted_facts_to_cloud\|post_knowledge_to_cloud\|post_session_to_brain" client/src/hook_handlers.rs
@@ -635,7 +635,7 @@ grep -n "post_promoted_facts_to_cloud\|post_knowledge_to_cloud\|post_session_to_
 
 Identify the exact function call used in the Stop hook.
 
-- [ ] **Step 3: Apply the bridge**
+- [x] **Step 3: Apply the bridge**
 
 After the `consolidate_latest()` call in the autopilot loop, add the same cloud bridge that `handle_stop()` uses:
 
@@ -649,7 +649,7 @@ if promoted > 0 {
 
 Find the exact context and apply the matching change.
 
-- [ ] **Step 4: Build and test**
+- [x] **Step 4: Build and test**
 
 ```bash
 cargo build --manifest-path client/Cargo.toml 2>&1 | tail -5
@@ -658,13 +658,13 @@ cargo test --manifest-path client/Cargo.toml --lib 2>&1 | tail -10
 
 Expected: 0 errors.
 
-- [ ] **Step 5: Reinstall**
+- [x] **Step 5: Reinstall**
 
 ```bash
 cargo install --path client/
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add client/src/mcp_server/mod.rs
@@ -684,7 +684,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 
 **Files:** None
 
-- [ ] **Step 1: Rebuild container with all server fixes**
+- [x] **Step 1: Rebuild container with all server fixes**
 
 ```bash
 podman build -t nebu-ctx-server -f Dockerfile .
@@ -697,7 +697,7 @@ podman run -d --name nebu-ctx-local \
 sleep 5
 ```
 
-- [ ] **Step 2: Re-run cloud bind**
+- [x] **Step 2: Re-run cloud bind**
 
 ```bash
 nebu-ctx cloud bind 2>&1
@@ -705,7 +705,7 @@ nebu-ctx cloud bind 2>&1
 
 Expected: JSON response, no error.
 
-- [ ] **Step 3: Re-run stop hook → brain snapshot**
+- [x] **Step 3: Re-run stop hook → brain snapshot**
 
 ```bash
 echo '{}' | nebu-ctx hook stop
@@ -718,7 +718,7 @@ curl -sX POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/js
 
 Expected: session key present.
 
-- [ ] **Step 4: Re-run token tracking test**
+- [x] **Step 4: Re-run token tracking test**
 
 ```bash
 echo '{"tool_name":"ctx_read","usage":{"input_tokens":123,"output_tokens":456}}' \
@@ -731,7 +731,7 @@ curl -s -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
 
 Expected: totalTokens > 0.
 
-- [ ] **Step 5: Run full Rust test suite**
+- [x] **Step 5: Run full Rust test suite**
 
 ```bash
 cargo test --manifest-path client/Cargo.toml 2>&1 | tail -20
@@ -739,7 +739,7 @@ cargo test --manifest-path client/Cargo.toml 2>&1 | tail -20
 
 Expected: all tests pass.
 
-- [ ] **Step 6: Run .NET test suite**
+- [x] **Step 6: Run .NET test suite**
 
 ```bash
 dotnet vstest server/tests/*/bin/Debug/net10.0/*.dll --logger:"console;verbosity=detailed" 2>&1 | tail -20
@@ -758,7 +758,7 @@ Expected: all tests pass.
 **Files:**
 - Modify: `client/src/main.rs`
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```bash
 nebu-ctx on 2>&1
@@ -766,7 +766,7 @@ nebu-ctx on 2>&1
 
 Expected currently: `nebu-ctx: unknown command 'on'\n` (unhelpful).
 
-- [ ] **Step 2: Add `on`/`off` as informational subcommands**
+- [x] **Step 2: Add `on`/`off` as informational subcommands**
 
 In `client/src/main.rs`, add handlers in the main `match command` block (before the `_ =>` fallthrough):
 
@@ -800,7 +800,7 @@ Exact implementation:
 }
 ```
 
-- [ ] **Step 3: Build and verify**
+- [x] **Step 3: Build and verify**
 
 ```bash
 cargo build --manifest-path client/Cargo.toml 2>&1 | tail -3
@@ -815,13 +815,13 @@ nebu-ctx off 2>&1
 
 Expected: helpful error message pointing to shell init, exit code 1.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 ```bash
 cargo test --manifest-path client/Cargo.toml --lib 2>&1 | tail -10
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add client/src/main.rs
@@ -843,7 +843,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 **Files:**
 - Modify: `client/src/main.rs`
 
-- [ ] **Step 1: Verify current behavior of each legacy command**
+- [x] **Step 1: Verify current behavior of each legacy command**
 
 ```bash
 nebu-ctx login 2>&1
@@ -853,7 +853,7 @@ nebu-ctx contribute 2>&1
 nebu-ctx upgrade 2>&1 | head -3
 ```
 
-- [ ] **Step 2: Remove `login`, `register`, `forgot-password`, `contribute`, `upgrade` from main dispatch**
+- [x] **Step 2: Remove `login`, `register`, `forgot-password`, `contribute`, `upgrade` from main dispatch**
 
 In `client/src/main.rs`, remove these match arms entirely:
 
@@ -889,7 +889,7 @@ In `client/src/main.rs`, remove these match arms entirely:
 
 After removal, the `_ =>` fallthrough will print "unknown command" for these. That is acceptable — the user is directed to the help text.
 
-- [ ] **Step 3: Remove unused functions from `cli/cloud.rs`**
+- [x] **Step 3: Remove unused functions from `cli/cloud.rs`**
 
 In `client/src/cli/cloud.rs`, remove:
 - `pub fn cmd_login(_args: &[String])` and `removed_cloud_command("login")` call
@@ -899,7 +899,7 @@ In `client/src/cli/cloud.rs`, remove:
 - `fn removed_cloud_command(command: &str)` if no longer referenced
 - `pub fn cmd_upgrade()` in `main.rs` (the `fn cmd_upgrade()` function)
 
-- [ ] **Step 4: Build and verify no compile errors**
+- [x] **Step 4: Build and verify no compile errors**
 
 ```bash
 cargo build --manifest-path client/Cargo.toml 2>&1 | tail -10
@@ -907,7 +907,7 @@ cargo build --manifest-path client/Cargo.toml 2>&1 | tail -10
 
 Expected: 0 errors, 0 warnings (fix any unused-import warnings).
 
-- [ ] **Step 5: Verify old commands now show a consistent error**
+- [x] **Step 5: Verify old commands now show a consistent error**
 
 ```bash
 cargo install --path client/ --quiet
@@ -918,13 +918,13 @@ nebu-ctx contribute 2>&1
 
 Expected: `nebu-ctx: unknown command 'login'\n` + help text. This is cleaner than a custom "removed" message.
 
-- [ ] **Step 6: Run tests**
+- [x] **Step 6: Run tests**
 
 ```bash
 cargo test --manifest-path client/Cargo.toml 2>&1 | tail -10
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add client/src/main.rs client/src/cli/cloud.rs
@@ -948,7 +948,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 - Modify: `client/src/main.rs` (the `print_help()` function)
 - Modify: `client/src/cli/dispatch.rs` (the `print_dispatch_help()` or similar)
 
-- [ ] **Step 1: Audit the help text**
+- [x] **Step 1: Audit the help text**
 
 ```bash
 nebu-ctx --help 2>&1 | grep -n "lean-ctx\|nebu-ctx-on\|nebu-ctx-off\|login\|register\|contribute\|upgrade\|forgot"
@@ -960,7 +960,7 @@ Note every occurrence of:
 - `upgrade` (renamed to `update`)
 - Any outdated `CLOUD` section entries
 
-- [ ] **Step 2: Update the help text**
+- [x] **Step 2: Update the help text**
 
 In `print_help()` in `client/src/main.rs`:
 
@@ -983,7 +983,7 @@ In `print_help()` in `client/src/main.rs`:
        nebu-ctx-off    Disable all shell aliases
    ```
 
-- [ ] **Step 3: Build and verify help output**
+- [x] **Step 3: Build and verify help output**
 
 ```bash
 cargo build --manifest-path client/Cargo.toml 2>&1 | tail -3
@@ -999,13 +999,13 @@ nebu-ctx --help 2>&1 | grep -c "login\|register\|contribute\|forgot"
 
 Expected: 0 references to removed commands.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 ```bash
 cargo test --manifest-path client/Cargo.toml 2>&1 | tail -10
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add client/src/main.rs client/src/cli/dispatch.rs
@@ -1025,7 +1025,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 
 **Files:** None
 
-- [ ] **Step 1: Verify all canonical commands work**
+- [x] **Step 1: Verify all canonical commands work**
 
 ```bash
 nebu-ctx --version
@@ -1040,7 +1040,7 @@ nebu-ctx gain report
 
 Expected: all return sensible output, no panics.
 
-- [ ] **Step 2: Verify cleaned-up commands give clean errors**
+- [x] **Step 2: Verify cleaned-up commands give clean errors**
 
 ```bash
 nebu-ctx on 2>&1 | head -3        # helpful "shell function" message
@@ -1051,7 +1051,7 @@ nebu-ctx register 2>&1 | head -2  # "unknown command"
 
 Expected: helpful errors, no panics, exit code 1.
 
-- [ ] **Step 3: Run full test suite one final time**
+- [x] **Step 3: Run full test suite one final time**
 
 ```bash
 cargo test --manifest-path client/Cargo.toml 2>&1 | tail -10
@@ -1073,19 +1073,19 @@ All three locations must be updated in one commit.
 - Modify: `homeassistant/config.yaml` — bump `version: "0.5.7"`
 - Modify: `server/src/NebuCtx.Application/ToolRegistry.cs` — bump `Current = "0.5.7"`
 
-- [ ] **Step 1: Update client/Cargo.toml**
+- [x] **Step 1: Update client/Cargo.toml**
 
 Change `version = "0.5.6"` to `version = "0.5.7"` in `client/Cargo.toml`.
 
-- [ ] **Step 2: Update homeassistant/config.yaml**
+- [x] **Step 2: Update homeassistant/config.yaml**
 
 Change `version: "0.5.6"` to `version: "0.5.7"` in `homeassistant/config.yaml`.
 
-- [ ] **Step 3: Update ToolRegistry.cs**
+- [x] **Step 3: Update ToolRegistry.cs**
 
 Change `Current = "0.5.6"` to `Current = "0.5.7"` in `server/src/NebuCtx.Application/ToolRegistry.cs`.
 
-- [ ] **Step 4: Verify all three locations match**
+- [x] **Step 4: Verify all three locations match**
 
 ```bash
 grep 'version = "0.5.7"' client/Cargo.toml
@@ -1095,20 +1095,20 @@ grep '"0.5.7"' server/src/NebuCtx.Application/ToolRegistry.cs
 
 Expected: each grep returns one line.
 
-- [ ] **Step 5: Build the client to update Cargo.lock**
+- [x] **Step 5: Build the client to update Cargo.lock**
 
 ```bash
 cargo build --manifest-path client/Cargo.toml 2>&1 | tail -5
 ```
 
-- [ ] **Step 6: Final test run**
+- [x] **Step 6: Final test run**
 
 ```bash
 cargo test --manifest-path client/Cargo.toml --lib 2>&1 | tail -5
 dotnet build server/NebuCtx.slnx -p:AllowMissingPrunePackageData=true 2>&1 | tail -5
 ```
 
-- [ ] **Step 7: Commit all three version files together**
+- [x] **Step 7: Commit all three version files together**
 
 ```bash
 git add client/Cargo.toml client/Cargo.lock homeassistant/config.yaml \
@@ -1127,7 +1127,7 @@ Fixes in this release:
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 ```
 
-- [ ] **Step 8: Push to main to trigger auto-release**
+- [x] **Step 8: Push to main to trigger auto-release**
 
 ```bash
 git push origin main
@@ -1135,7 +1135,7 @@ git push origin main
 
 Expected: `auto-release.yml` detects the version bump, verifies all 3 locations sync, creates tag `0.5.7`, dispatches `release.yml`.
 
-- [ ] **Step 9: Watch the release pipeline**
+- [x] **Step 9: Watch the release pipeline**
 
 ```bash
 gh run list --limit 5

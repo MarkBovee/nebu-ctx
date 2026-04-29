@@ -37,7 +37,7 @@
 - Modify: `server/src/NebuCtx.Application/TelemetryStore.cs`
 - Create: `server/tests/NebuCtx.IntegrationTests/TelemetryStoreTests.cs`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `server/tests/NebuCtx.IntegrationTests/TelemetryStoreTests.cs`:
 
@@ -121,7 +121,7 @@ public class TelemetryStoreTests
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 cd server
@@ -133,7 +133,7 @@ dotnet vstest tests/NebuCtx.IntegrationTests/bin/Debug/net10.0/NebuCtx.Integrati
 
 Expected: compile error — `PerProject`, `GetFileAccess`, `ProjectTelemetrySnapshot` don't exist yet.
 
-- [ ] **Step 3: Add `ProjectTelemetrySnapshot` and file-access tracking to `TelemetryStore.cs`**
+- [x] **Step 3: Add `ProjectTelemetrySnapshot` and file-access tracking to `TelemetryStore.cs`**
 
 Inside the `TelemetryStore` class, add the static file-access tool set immediately after the `MaxEvents` constant:
 
@@ -268,7 +268,7 @@ PerProject = _projectCommands.ToDictionary(
     StringComparer.OrdinalIgnoreCase),
 ```
 
-- [ ] **Step 4: Build and run tests**
+- [x] **Step 4: Build and run tests**
 
 ```bash
 cd server
@@ -280,7 +280,7 @@ dotnet vstest tests/NebuCtx.IntegrationTests/bin/Debug/net10.0/NebuCtx.Integrati
 
 Expected: all 4 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/NebuCtx.Application/TelemetryStore.cs \
@@ -298,7 +298,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 - Create: `server/src/NebuCtx.Tools/Gain/GainToolHandler.cs`
 - Create: `server/tests/NebuCtx.IntegrationTests/AnalyticsToolTests.cs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `server/tests/NebuCtx.IntegrationTests/AnalyticsToolTests.cs`:
 
@@ -352,7 +352,7 @@ public class AnalyticsToolTests : IClassFixture<WebApplicationFactory<Program>>
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 cd server && dotnet build NebuCtx.slnx -p:AllowMissingPrunePackageData=true 2>&1 | tail -5
@@ -363,7 +363,7 @@ dotnet vstest tests/NebuCtx.IntegrationTests/bin/Debug/net10.0/NebuCtx.Integrati
 
 Expected: tests fail — `ctx_gain` not in manifest / call returns 404.
 
-- [ ] **Step 3: Implement GainToolHandler**
+- [x] **Step 3: Implement GainToolHandler**
 
 Create `server/src/NebuCtx.Tools/Gain/GainToolHandler.cs`:
 
@@ -550,7 +550,7 @@ public sealed class GainToolHandler(TelemetryStore telemetryStore) : IToolHandle
 }
 ```
 
-- [ ] **Step 4: Register in ToolRegistration.cs**
+- [x] **Step 4: Register in ToolRegistration.cs**
 
 Add to `server/src/NebuCtx.Tools/ToolRegistration.cs`:
 
@@ -562,7 +562,7 @@ using NebuCtx.Tools.Gain;
 services.AddSingleton<IToolHandler, GainToolHandler>();
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 ```bash
 cd server && dotnet build NebuCtx.slnx -p:AllowMissingPrunePackageData=true 2>&1 | tail -5
@@ -573,7 +573,7 @@ dotnet vstest tests/NebuCtx.IntegrationTests/bin/Debug/net10.0/NebuCtx.Integrati
 
 Expected: all 7 tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add server/src/NebuCtx.Tools/Gain/GainToolHandler.cs \
@@ -593,7 +593,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 - Modify: `server/src/NebuCtx.Tools/ToolRegistration.cs`
 - Modify: `server/tests/NebuCtx.IntegrationTests/AnalyticsToolTests.cs`
 
-- [ ] **Step 1: Add failing test to `AnalyticsToolTests.cs`**
+- [x] **Step 1: Add failing test to `AnalyticsToolTests.cs`**
 
 ```csharp
 [Theory]
@@ -622,7 +622,7 @@ public async Task CtxCost_InManifest()
 }
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 ```bash
 cd server && dotnet build NebuCtx.slnx -p:AllowMissingPrunePackageData=true 2>&1 | tail -5
@@ -633,7 +633,7 @@ dotnet vstest tests/NebuCtx.IntegrationTests/bin/Debug/net10.0/NebuCtx.Integrati
 
 Expected: `ctx_cost` not in manifest / 404.
 
-- [ ] **Step 3: Implement CostToolHandler**
+- [x] **Step 3: Implement CostToolHandler**
 
 Create `server/src/NebuCtx.Tools/Cost/CostToolHandler.cs`:
 
@@ -746,7 +746,7 @@ public sealed class CostToolHandler(TelemetryStore telemetryStore) : IToolHandle
 }
 ```
 
-- [ ] **Step 4: Register**
+- [x] **Step 4: Register**
 
 Add to `ToolRegistration.cs`:
 
@@ -757,7 +757,7 @@ using NebuCtx.Tools.Cost;
 services.AddSingleton<IToolHandler, CostToolHandler>();
 ```
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 ```bash
 cd server && dotnet build NebuCtx.slnx -p:AllowMissingPrunePackageData=true 2>&1 | tail -5
@@ -786,7 +786,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 - Modify: `server/src/NebuCtx.Tools/ToolRegistration.cs`
 - Modify: `server/tests/NebuCtx.IntegrationTests/AnalyticsToolTests.cs`
 
-- [ ] **Step 1: Add failing tests to `AnalyticsToolTests.cs`**
+- [x] **Step 1: Add failing tests to `AnalyticsToolTests.cs`**
 
 ```csharp
 [Theory]
@@ -816,7 +816,7 @@ public async Task CtxHeatmap_InManifest()
 }
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 ```bash
 cd server && dotnet build NebuCtx.slnx -p:AllowMissingPrunePackageData=true 2>&1 | tail -5
@@ -827,7 +827,7 @@ dotnet vstest tests/NebuCtx.IntegrationTests/bin/Debug/net10.0/NebuCtx.Integrati
 
 Expected: fail — `ctx_heatmap` not in manifest.
 
-- [ ] **Step 3: Implement HeatmapToolHandler**
+- [x] **Step 3: Implement HeatmapToolHandler**
 
 Create `server/src/NebuCtx.Tools/Heatmap/HeatmapToolHandler.cs`:
 
@@ -938,7 +938,7 @@ public sealed class HeatmapToolHandler(TelemetryStore telemetryStore) : IToolHan
 }
 ```
 
-- [ ] **Step 4: Register and run tests**
+- [x] **Step 4: Register and run tests**
 
 Add to `ToolRegistration.cs`:
 
@@ -957,7 +957,7 @@ dotnet vstest tests/NebuCtx.IntegrationTests/bin/Debug/net10.0/NebuCtx.Integrati
 
 Expected: all 6 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/NebuCtx.Tools/Heatmap/HeatmapToolHandler.cs \
@@ -978,7 +978,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 - Modify: `server/src/NebuCtx.Dashboard/DashboardEndpoints.cs`
 - Modify: `server/tests/NebuCtx.IntegrationTests/AnalyticsToolTests.cs`
 
-- [ ] **Step 1: Add failing tests**
+- [x] **Step 1: Add failing tests**
 
 ```csharp
 [Theory]
@@ -1013,7 +1013,7 @@ public async Task ProjectStats_Endpoint_ReturnsOk()
 }
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 ```bash
 cd server && dotnet build NebuCtx.slnx -p:AllowMissingPrunePackageData=true 2>&1 | tail -5
@@ -1024,7 +1024,7 @@ dotnet vstest tests/NebuCtx.IntegrationTests/bin/Debug/net10.0/NebuCtx.Integrati
 
 Expected: fail — `ctx_stats` not in manifest, `/api/projects/*/stats` returns 404.
 
-- [ ] **Step 3: Implement StatsToolHandler**
+- [x] **Step 3: Implement StatsToolHandler**
 
 Create `server/src/NebuCtx.Tools/Stats/StatsToolHandler.cs`:
 
@@ -1127,7 +1127,7 @@ public sealed class StatsToolHandler(TelemetryStore telemetryStore, ProjectRegis
 }
 ```
 
-- [ ] **Step 4: Register StatsToolHandler**
+- [x] **Step 4: Register StatsToolHandler**
 
 Add to `ToolRegistration.cs`:
 
@@ -1137,7 +1137,7 @@ using NebuCtx.Tools.Stats;
 services.AddSingleton<IToolHandler, StatsToolHandler>();
 ```
 
-- [ ] **Step 5: Add `/api/projects/{projectId}/stats` endpoint**
+- [x] **Step 5: Add `/api/projects/{projectId}/stats` endpoint**
 
 In `DashboardEndpoints.cs`, add after the existing `/api/projects` endpoint:
 
@@ -1170,7 +1170,7 @@ app.MapGet("/api/projects/{projectId}/stats", async (
 });
 ```
 
-- [ ] **Step 6: Run all analytics tests**
+- [x] **Step 6: Run all analytics tests**
 
 ```bash
 cd server && dotnet build NebuCtx.slnx -p:AllowMissingPrunePackageData=true 2>&1 | tail -5
@@ -1181,7 +1181,7 @@ dotnet vstest tests/NebuCtx.IntegrationTests/bin/Debug/net10.0/NebuCtx.Integrati
 
 Expected: all tests pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add server/src/NebuCtx.Tools/Stats/StatsToolHandler.cs \
@@ -1201,7 +1201,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 - Modify: `client/src/mcp_server/mod.rs`
 - Modify: `client/src/mcp_server/dispatch.rs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `client/tests/integration_tests.rs` (or create `client/tests/cloud_routing_tests.rs`), add:
 
@@ -1218,7 +1218,7 @@ fn analytics_tools_are_cloud_only() {
 
 Note: `CLOUD_ONLY_TOOLS` is currently `const` (not pub). You will need to expose it or change to `pub const` in the implementation step.
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 ```bash
 cargo test --manifest-path client/Cargo.toml analytics_tools_are_cloud_only 2>&1 | tail -10
@@ -1226,7 +1226,7 @@ cargo test --manifest-path client/Cargo.toml analytics_tools_are_cloud_only 2>&1
 
 Expected: compile error — `CLOUD_ONLY_TOOLS` not accessible.
 
-- [ ] **Step 3: Add tools to CLOUD_ONLY_TOOLS in `mod.rs`**
+- [x] **Step 3: Add tools to CLOUD_ONLY_TOOLS in `mod.rs`**
 
 In `client/src/mcp_server/mod.rs`, change the constant:
 
@@ -1243,7 +1243,7 @@ pub const CLOUD_ONLY_TOOLS: &[&str] = &[
 
 (Change `const` to `pub const` so the test can access it.)
 
-- [ ] **Step 4: Delete stub dispatch arms in `dispatch.rs`**
+- [x] **Step 4: Delete stub dispatch arms in `dispatch.rs`**
 
 Delete the three stub arms from `client/src/mcp_server/dispatch.rs`. They look like:
 
@@ -1276,7 +1276,7 @@ Delete the three stub arms from `client/src/mcp_server/dispatch.rs`. They look l
 
 Delete all three blocks. (`ctx_stats` was never in dispatch — nothing to delete for it.)
 
-- [ ] **Step 5: Build and run tests**
+- [x] **Step 5: Build and run tests**
 
 ```bash
 cargo test --manifest-path client/Cargo.toml analytics_tools_are_cloud_only 2>&1 | tail -5
@@ -1285,7 +1285,7 @@ cargo test --manifest-path client/Cargo.toml --lib 2>&1 | grep -E 'FAILED|passed
 
 Expected: `analytics_tools_are_cloud_only` passes; no new errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add client/src/mcp_server/mod.rs client/src/mcp_server/dispatch.rs
@@ -1302,7 +1302,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 - Modify: `client/src/main.rs`
 - Modify: `client/src/cli/mod.rs`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```rust
 #[test]
@@ -1317,7 +1317,7 @@ fn cep_command_removed_from_cli() {
 
 Instead, the real test for this task is that `cargo build` succeeds with no warnings and no dead-code paths.
 
-- [ ] **Step 2: Delete the `exit_cloud_analytics_only` guard and dead CLI commands in `main.rs`**
+- [x] **Step 2: Delete the `exit_cloud_analytics_only` guard and dead CLI commands in `main.rs`**
 
 In `client/src/main.rs`, remove line 28:
 
@@ -1350,7 +1350,7 @@ Delete the top-level `"stats"` match arm that calls `cli::cmd_stats` (around lin
 
 Delete the top-level `"heatmap"` match arm if one exists in the outer match (search for it — it may only be in the guard, not as a match arm).
 
-- [ ] **Step 3: Rewrite the `gain` match arm**
+- [x] **Step 3: Rewrite the `gain` match arm**
 
 Replace the entire existing `"gain" => { ... }` block (the large block from ~line 127 to ~line 240) with:
 
@@ -1390,7 +1390,7 @@ Replace the entire existing `"gain" => { ... }` block (the large block from ~lin
 }
 ```
 
-- [ ] **Step 4: Rewrite `dashboard` and `watch` arms**
+- [x] **Step 4: Rewrite `dashboard` and `watch` arms**
 
 Find and replace the `"dashboard"` and `"watch"` match arms. They currently call `exit_cloud_analytics_only`. Replace each with:
 
@@ -1413,7 +1413,7 @@ Find and replace the `"dashboard"` and `"watch"` match arms. They currently call
 }
 ```
 
-- [ ] **Step 5: Delete `cmd_stats` from `cli/mod.rs` and update help text**
+- [x] **Step 5: Delete `cmd_stats` from `cli/mod.rs` and update help text**
 
 In `client/src/cli/mod.rs`, delete the `cmd_stats` function:
 
@@ -1438,7 +1438,7 @@ with:
     dashboard|watch                Open the nebu-ctx dashboard (browser required)
 ```
 
-- [ ] **Step 6: Build and verify**
+- [x] **Step 6: Build and verify**
 
 ```bash
 cargo build --manifest-path client/Cargo.toml 2>&1 | grep -E 'error|warning.*unused|Finished'
@@ -1447,7 +1447,7 @@ cargo test --manifest-path client/Cargo.toml --lib 2>&1 | grep -E 'FAILED|passed
 
 Expected: builds with no errors, no new dead-code warnings.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add client/src/main.rs client/src/cli/mod.rs
@@ -1460,7 +1460,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 
 ## Task 8: Full server test suite + install
 
-- [ ] **Step 1: Run the complete server test suite**
+- [x] **Step 1: Run the complete server test suite**
 
 ```bash
 cd server
@@ -1473,7 +1473,7 @@ dotnet vstest tests/NebuCtx.IntegrationTests/bin/Debug/net10.0/NebuCtx.Integrati
 
 Expected: all tests pass. Fix any regressions before continuing.
 
-- [ ] **Step 2: Rebuild the server container**
+- [x] **Step 2: Rebuild the server container**
 
 ```bash
 cd /mnt/work/Projects/Personal/nebu-ctx
@@ -1482,7 +1482,7 @@ podman build -t nebu-ctx-server -f Dockerfile . 2>&1 | tail -10
 
 Expected: build succeeds.
 
-- [ ] **Step 3: Restart the local server**
+- [x] **Step 3: Restart the local server**
 
 ```bash
 podman stop nebu-ctx-local 2>/dev/null; podman rm nebu-ctx-local 2>/dev/null
@@ -1496,7 +1496,7 @@ curl -s http://127.0.0.1:4242/health
 
 Expected: `{"status":"ok"}`.
 
-- [ ] **Step 4: Smoke-test each new tool via MCP HTTP**
+- [x] **Step 4: Smoke-test each new tool via MCP HTTP**
 
 ```bash
 TOKEN=$(grep '^NEBULA_CTX_HTTP_TOKEN=' .env | cut -d= -f2)
@@ -1532,7 +1532,7 @@ curl -s http://127.0.0.1:3333/api/projects/test-project/stats \
 
 Expected: each command returns non-null JSON with the expected field.
 
-- [ ] **Step 5: Rebuild and install the Rust client**
+- [x] **Step 5: Rebuild and install the Rust client**
 
 ```bash
 cargo install --path client/ 2>&1 | tail -5
@@ -1541,7 +1541,7 @@ nebu-ctx gain --score
 
 Expected: `nebu-ctx gain --score` calls the server and prints a JSON score object.
 
-- [ ] **Step 6: Commit and version bump**
+- [x] **Step 6: Commit and version bump**
 
 All three version locations must be bumped together (e.g., `0.5.5` → `0.5.6`):
 

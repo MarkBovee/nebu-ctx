@@ -77,7 +77,11 @@ builder.Services.AddToolHandlers();
 var app = builder.Build();
 
 // --- Schema initialization ---
-await StoreFactory.InitializeSchemaAsync(serverOptions);
+// Skip during test runs so WebApplicationFactory can start without a real Postgres connection.
+if (!app.Environment.IsEnvironment("Test"))
+{
+    await StoreFactory.InitializeSchemaAsync(serverOptions);
+}
 
 // --- Middleware pipeline ---
 // Rate limiting

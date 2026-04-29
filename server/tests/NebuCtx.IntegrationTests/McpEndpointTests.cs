@@ -2,22 +2,22 @@ namespace NebuCtx.IntegrationTests;
 
 using System.Net;
 using System.Net.Http.Json;
-using Microsoft.AspNetCore.Mvc.Testing;
 using NebuCtx.Contracts.Mcp;
 using NebuCtx.Contracts.Projects;
 
 /// <summary>
 /// Integration tests for the MCP HTTP endpoints.
-/// Uses WebApplicationFactory to test the full middleware pipeline.
+/// Uses <see cref="NebuCtxTestFactory"/> to test the full middleware pipeline
+/// without requiring a real PostgreSQL connection.
 /// </summary>
-public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
 {
     private readonly HttpClient _client;
 
     /// <summary>
     /// Initializes the test with an in-memory test server.
     /// </summary>
-    public McpEndpointTests(WebApplicationFactory<Program> factory)
+    public McpEndpointTests(NebuCtxTestFactory factory)
     {
         _client = factory.CreateClient();
     }
