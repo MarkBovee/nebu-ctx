@@ -73,8 +73,9 @@ public sealed class ProjectResolutionResponse
 
     /// <summary>
     /// Legacy workspace-bound alias kept for older clients.
+    /// Not emitted in responses — use checkout_bound.
     /// </summary>
-    [JsonPropertyName("workspace_bound")]
+    [JsonIgnore]
     public bool WorkspaceBound
     {
         get => _checkoutBound;

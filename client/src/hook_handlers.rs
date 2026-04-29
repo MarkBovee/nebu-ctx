@@ -243,17 +243,34 @@ pub fn handle_post_tool_use() {
         .or_else(|| extract_json_field(&input, "toolName"))
         .unwrap_or_else(|| "unknown".to_string());
 
-    // Rough token proxy: byte-length of input + output divided by 4.
-    let input_bytes = extract_json_field(&input, "tool_input")
-        .map(|s| s.len())
-        .unwrap_or(0);
-    let output_bytes = extract_json_field(&input, "tool_response")
-        .or_else(|| extract_json_field(&input, "tool_result"))
-        .map(|s| s.len())
-        .unwrap_or(0);
+    // Prefer Claude Code's nested usage.{input,output}_tokens; fall back to
+    // byte-length proxy when those fields are absent.
+    let parsed: Option<serde_json::Value> = serde_json::from_str(&input).ok();
 
-    let tokens_in = (input_bytes / 4) as i64;
-    let tokens_out = (output_bytes / 4) as i64;
+    let tokens_in = parsed
+        .as_ref()
+        .and_then(|v| v.get("usage"))
+        .and_then(|u| u.get("input_tokens"))
+        .and_then(|t| t.as_i64())
+        .unwrap_or_else(|| {
+            let bytes = extract_json_field(&input, "tool_input")
+                .map(|s| s.len())
+                .unwrap_or(0);
+            (bytes / 4) as i64
+        });
+
+    let tokens_out = parsed
+        .as_ref()
+        .and_then(|v| v.get("usage"))
+        .and_then(|u| u.get("output_tokens"))
+        .and_then(|t| t.as_i64())
+        .unwrap_or_else(|| {
+            let bytes = extract_json_field(&input, "tool_response")
+                .or_else(|| extract_json_field(&input, "tool_result"))
+                .map(|s| s.len())
+                .unwrap_or(0);
+            (bytes / 4) as i64
+        });
 
     crate::core::telemetry_queue::fire_sync(crate::models::TelemetryIngestRequest {
         tool_name: crate::core::stats::normalize_command(&tool_name),

@@ -669,9 +669,16 @@ tr:hover td{background:var(--surface-2)}
 </div>
 
 <script>
+// Bootstrap: read token from ?token= query param and store globally
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const t = params.get('token');
+  if (t) { window.__NEBULA_CTX_TOKEN__ = t; }
+})();
+
 const _origFetch = window.fetch;
 window.fetch = function(url, opts) {
-  if (window.__NEBULA_CTX_TOKEN__ && typeof url === 'string' && url.startsWith('/api/')) {
+  if (window.__NEBULA_CTX_TOKEN__ && typeof url === 'string' && (url.startsWith('/api/') || url.includes('127.0.0.1') || url.includes(window.location.host))) {
     opts = opts || {};
     opts.headers = opts.headers || {};
     opts.headers['Authorization'] = 'Bearer ' + window.__NEBULA_CTX_TOKEN__;

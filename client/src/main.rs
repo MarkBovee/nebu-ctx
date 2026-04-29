@@ -709,6 +709,18 @@ fn main() {
             "mcp" => {
                 // fall through to MCP server startup below
             }
+            "on" => {
+                eprintln!("nebu-ctx: `nebu-ctx on` is a shell function, not a binary command.");
+                eprintln!("  Run: source ~/.nebu-ctx/shell-hook.fish  (fish)");
+                eprintln!("  Or add the shell hook to your shell profile via: nebu-ctx setup");
+                std::process::exit(1);
+            }
+            "off" => {
+                eprintln!("nebu-ctx: `nebu-ctx off` is a shell function, not a binary command.");
+                eprintln!("  Run: source ~/.nebu-ctx/shell-hook.fish  (fish)");
+                eprintln!("  Or add the shell hook to your shell profile via: nebu-ctx setup");
+                std::process::exit(1);
+            }
             _ => {
                 eprintln!("nebu-ctx: unknown command '{}'\n", args[1]);
                 print_help();

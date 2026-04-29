@@ -92,17 +92,18 @@ public sealed class BearerAuthMiddleware
     private static string? ExtractBearerToken(HttpRequest request)
     {
         var header = request.Headers.Authorization.ToString();
-        if (string.IsNullOrEmpty(header))
+
+        if (!string.IsNullOrEmpty(header) && header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
         {
-            return null;
+            return header["Bearer ".Length..].Trim();
         }
 
-        // Also check query parameter for dashboard compatibility
-        if (!header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        // Also check query parameter for dashboard browser compatibility
+        if (request.Query.TryGetValue("token", out var queryToken) && !string.IsNullOrEmpty(queryToken))
         {
-            return request.Query.TryGetValue("token", out var queryToken) ? queryToken.ToString() : null;
+            return queryToken.ToString();
         }
 
-        return header["Bearer ".Length..].Trim();
+        return null;
     }
 }
