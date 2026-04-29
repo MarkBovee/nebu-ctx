@@ -112,3 +112,49 @@ impl ServerClient {
         format!("{}{}", self.connection.endpoint.trim_end_matches('/'), path)
     }
 }
+
+/// Posts every current, high-confidence fact from local `knowledge.json` to the
+/// cloud `ctx_knowledge` store. Called after auto-consolidation and from
+/// `handle_stop()` to keep PostgreSQL in sync with the local session outcome.
+/// Silently returns if the cloud is not configured or any call fails.
+pub fn post_knowledge_to_cloud(project_root: &str) {
+    let Ok(client) = ServerClient::load() else { return };
+    let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));
+    let knowledge = crate::core::knowledge::ProjectKnowledge::load_or_create(project_root);
+
+    for fact in knowledge.facts.iter().filter(|f| f.is_current() && f.confidence >= 0.7) {
+        let mut args = Map::new();
+        args.insert("action".to_string(), Value::String("remember".to_string()));
+        args.insert("category".to_string(), Value::String(fact.category.clone()));
+        args.insert("key".to_string(), Value::String(fact.key.clone()));
+        args.insert("value".to_string(), Value::String(fact.value.clone()));
+        args.insert("confidence".to_string(), serde_json::json!(fact.confidence));
+        let _ = client.call_tool("ctx_knowledge", args, &ctx);
+    }
+}
+
+/// Posts a session summary to `ctx_brain` when a session is saved.
+/// Silently returns if the cloud is not configured.
+pub fn post_session_to_brain(session: &crate::core::session::SessionState) {
+    let Ok(client) = ServerClient::load() else { return };
+    let current_dir = std::env::current_dir().unwrap_or_default();
+    let ctx = crate::git_context::discover_project_context(&current_dir);
+
+    let task = session.task.as_ref().map(|t| t.description.as_str()).unwrap_or("(no task)");
+    let summary = format!(
+        "session={} task=\"{}\" calls={} tokens_saved={} decisions={} findings={}",
+        session.id,
+        task,
+        session.stats.total_tool_calls,
+        session.stats.total_tokens_saved,
+        session.decisions.len(),
+        session.findings.len(),
+    );
+    let key = format!("session-{}", session.id);
+
+    let mut args = Map::new();
+    args.insert("action".to_string(), Value::String("store".to_string()));
+    args.insert("key".to_string(), Value::String(key));
+    args.insert("value".to_string(), Value::String(summary));
+    let _ = client.call_tool("ctx_brain", args, &ctx);
+}
