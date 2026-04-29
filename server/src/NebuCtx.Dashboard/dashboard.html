@@ -1606,14 +1606,19 @@ function setBuddyStat(id, val) {
   const c = $('sg'+id); if (c) c.setAttribute('stroke-dashoffset', 100 - val);
 }
 
+let liveProjectMap = {}; // project_id → slug
 async function loadLive() {
   const container = $('view-live');
   try {
-    const [events, mcp, stats] = await Promise.all([
+    const [events, mcp, stats, projData] = await Promise.all([
       apiFetch('/api/events').catch(() => []),
       apiFetch('/api/mcp').catch(() => null),
       apiFetch('/api/stats').catch(() => null),
+      apiFetch('/api/projects').catch(() => null),
     ]);
+    if (projData && projData.projects) {
+      for (const p of projData.projects) liveProjectMap[p.project_id] = p.slug;
+    }
     if (!container.dataset.built) {
       container.innerHTML = `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
@@ -1655,15 +1660,16 @@ async function loadLive() {
               <div style="width:10px;height:10px;border-radius:50%;background:var(--blue);box-shadow:0 0 8px rgba(56,189,248,0.4)"></div>
               <span style="font-size:11px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.12em">Shell Hooks</span>
             </div>
-            <div style="font-size:clamp(24px,4vw,36px);font-weight:800;letter-spacing:-0.04em;color:var(--blue);margin-bottom:10px" id="liveHookSaved">0</div>
+            <div style="font-size:clamp(24px,4vw,36px);font-weight:800;letter-spacing:-0.04em;color:var(--blue);margin-bottom:2px" id="liveHookSaved">0</div>
+            <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:10px">Tracked</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
               <div style="background:var(--surface-2);border-radius:8px;padding:10px;text-align:center">
                 <div style="font-size:16px;font-weight:700;color:var(--text-bright);letter-spacing:-0.02em" id="liveHookCalls">0</div>
                 <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:2px;font-weight:600">Calls</div>
               </div>
               <div style="background:var(--surface-2);border-radius:8px;padding:10px;text-align:center">
-                <div style="font-size:16px;font-weight:700;color:var(--green);letter-spacing:-0.02em"><span id="liveHookRate">0</span>%</div>
-                <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:2px;font-weight:600">Rate</div>
+                <div style="font-size:16px;font-weight:700;color:var(--blue);letter-spacing:-0.02em"><span id="liveHookRate">0</span>%</div>
+                <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:2px;font-weight:600">Share</div>
               </div>
             </div>
           </div>
@@ -1749,7 +1755,9 @@ function flattenEvent(ev) {
     detail = '<span class="tag tb">' + esc(k.language || '') + '</span> entropy ' + (k.old_entropy||0).toFixed(2) + '→' + (k.new_entropy||0).toFixed(2) + ' jaccard ' + (k.old_jaccard||0).toFixed(2) + '→' + (k.new_jaccard||0).toFixed(2);
     color = 'var(--muted)';
   }
-  return { tool, saved, detail, color, filterCat, ts: ev.timestamp || '', type };
+  const project_id = (ev.kind || {}).project_id || '';
+  const actor = (ev.kind || {}).actor_label || '';
+  return { tool, saved, detail, color, filterCat, ts: ev.timestamp || '', type, project_id, actor };
 }
 
 function computeSessionFromEvents(events, sessionStart) {
@@ -1820,16 +1828,18 @@ function renderLiveEvents(events, mcp, stats) {
     const sp = ss(cmds);
     const mS = $('liveMcpSaved'), hS = $('liveHookSaved');
     if (mS) mS.textContent = fmt(sp.m.s);
-    if (hS) hS.textContent = fmt(sp.h.s);
+    // Hooks don't compress — show tokens tracked (input volume) not tokens saved
+    if (hS) hS.textContent = fmt(sp.h.i);
     const mC = $('liveMcpCalls'), hC = $('liveHookCalls');
     if (mC) mC.textContent = ff(sp.m.c);
     if (hC) hC.textContent = ff(sp.h.c);
     const mR = $('liveMcpRate'), hR = $('liveHookRate');
     if (mR) mR.textContent = sp.m.i > 0 ? pc(sp.m.s, sp.m.i) : '0';
-    if (hR) hR.textContent = sp.h.i > 0 ? pc(sp.h.s, sp.h.i) : '0';
-    // Bar shows call-count split (not savings) so hooks always get their fair share
+    // Bar and hook share use call-count split (savings always 0 for hooks)
     const totalCalls = Math.max(sp.m.c + sp.h.c, 1);
     const mPct = Math.round(sp.m.c / totalCalls * 100), hPct = 100 - mPct;
+    // Hook Rate → call share % (what fraction of all calls are hook-tracked)
+    if (hR) hR.textContent = String(hPct);
     const mBar = $('liveMcpBar'), hBar = $('liveHookBar');
     if (mBar) mBar.style.width = mPct + '%';
     if (hBar) hBar.style.width = hPct + '%';
@@ -1856,6 +1866,10 @@ function renderLiveEvents(events, mcp, stats) {
   if (!feed) return;
   feed.innerHTML = filtered.slice(-50).reverse().map(e => {
     const ts = e.ts ? e.ts.substring(11, 19) : '';
+    const projSlug = liveProjectMap[e.project_id] || (e.project_id ? e.project_id.replace('proj_','').substring(0,8) : '');
+    const metaHtml = (projSlug || e.actor)
+      ? `<div style="display:flex;gap:5px;margin-top:4px;flex-wrap:wrap">${projSlug ? '<span style="font-size:9px;font-family:var(--mono);color:var(--muted);background:var(--surface-2);padding:1px 5px;border-radius:3px">@' + esc(projSlug) + '</span>' : ''}${e.actor ? '<span style="font-size:9px;color:var(--muted);opacity:.7">' + esc(e.actor) + '</span>' : ''}</div>`
+      : '';
     return `<div class="event-card" style="--event-accent:${e.color}">
       <div class="event-icon" style="background:${e.color}18;color:${e.color};box-shadow:0 0 12px ${e.color}10">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
@@ -1863,6 +1877,7 @@ function renderLiveEvents(events, mcp, stats) {
       <div class="event-body">
         <div class="event-tool">${esc(e.tool)}</div>
         <div class="event-detail">${e.detail}</div>
+        ${metaHtml}
       </div>
       <div class="event-time">${esc(ts)}</div>
     </div>`;
