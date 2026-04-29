@@ -1,6 +1,6 @@
 [package]
 name = "nebu-ctx"
-version = "0.5.8"
+version = "0.5.9"
 edition = "2021"
 autobins = false
 description = "Lean-ctx runtime adapted for the NebuCtx Cloud-backed product."
