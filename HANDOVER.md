@@ -1,6 +1,6 @@
 # nebu-ctx — Handover & Continuation Guide
 
-> Last updated: 2026-04-28 · Version: 0.5.5
+> Last updated: 2026-04-29 · Version: 0.5.6
 
 This document captures the current state of the project and what to do next. Read this when picking up after a break.
 
@@ -27,9 +27,9 @@ The .NET host serves:
 ### Version Sync — Three Places Must Always Match
 
 ```
-client/Cargo.toml                             version = "0.5.5"
-homeassistant/config.yaml                     version: "0.5.5"
-server/src/NebuCtx.Application/ToolRegistry.cs  Current = "0.5.5"
+client/Cargo.toml                             version = "0.5.6"
+homeassistant/config.yaml                     version: "0.5.6"
+server/src/NebuCtx.Application/ToolRegistry.cs  Current = "0.5.6"
 ```
 
 When bumping the version, update all three in one commit.
@@ -38,11 +38,12 @@ When bumping the version, update all three in one commit.
 
 | Item | Location | Status |
 |------|----------|--------|
-| Rust client binary | `~/.cargo/bin/nebu-ctx` | ✅ installed v0.5.5 |
+| Rust client binary | `~/.cargo/bin/nebu-ctx` | ✅ installed v0.5.6 |
 | Fish shell hook | `~/.nebu-ctx/shell-hook.fish` | ✅ active (`nebu-ctx: ON`) |
 | Copilot CLI MCP config | `~/.copilot/mcp-config.json` | ✅ wired, all tools auto-approved |
 | VS Code MCP config | `~/.config/Code/User/mcp.json` | ✅ wired |
-| .NET server | Not running locally (runs in container or on HA) | — |
+| .NET server | Running locally in container `nebu-ctx-local` on ports 3333/4242 | ✅ live |
+| Claude Code hooks | `Stop`, `PostToolUse`, `PreToolUse` (Bash + Read/View) | ✅ wired in `.claude/settings.local.json` |
 
 The fish shell hook adds `~/.cargo/bin` to `fish_add_path`, so `nebu-ctx` should be available in new fish sessions.
 
@@ -64,248 +65,217 @@ nebu-ctx doctor                          # full health check
 
 ---
 
-## What Needs Testing
+## Next Session: Full Integration Test Plan
 
-Nothing has been tested end-to-end yet on this machine. The following testing sessions are needed in order:
+The next session should be a **structured end-to-end integration test** of everything shipped in v0.5.6. Run each test, note pass/fail, and iterate on failures.
 
-### 1. Client Smoke Test (local, no server)
-
-```bash
-# Verify binary works
-nebu-ctx --version
-
-# Doctor check — should show editors detected, hooks in place
-nebu-ctx doctor
-
-# Status — shows cloud connection, should show "not connected" if server is down
-nebu-ctx cloud status
-```
-
-### 2. Server / Dashboard
-
-The .NET server needs a running PostgreSQL instance. The fastest way to test locally:
+### Pre-flight
 
 ```bash
-# Build and run the server container (requires Postgres)
-podman build -t nebu-ctx-server -f Dockerfile .
-podman run -p 3333:3333 -p 4242:4242 \
-  -e NEBULA_STORE=postgres \
-  -e DATABASE_URL="postgres://user:pass@host/nebula" \
-  -e NEBULA_MCP_AUTH_TOKEN=test \
-  nebu-ctx-server
+nebu-ctx --version         # must show 0.5.6
+nebu-ctx doctor            # check hooks, MCP configs, cloud connection
+nebu-ctx cloud status      # must show connected + token valid
+podman ps | grep nebu-ctx  # must show nebu-ctx-local running
 ```
 
-Or pull the published image:
-```bash
-podman run -p 3333:3333 -p 4242:4242 \
-  -e NEBULA_STORE=postgres \
-  -e DATABASE_URL="postgres://user:pass@host/nebula" \
-  -e NEBULA_MCP_AUTH_TOKEN=test \
-  ghcr.io/markbovee/nebu-ctx:0.5.5
-```
+### Test 1 — PostToolUse hook fires telemetry
 
-Then open `http://127.0.0.1:3333` for the dashboard and test:
-- Brain page — shows stored memories
-- Knowledge page — shows project facts
-- Sessions page
-
-### 3. End-to-End via MCP Tools (Copilot CLI)
-
-With the server running and the Copilot CLI session restarted (`/restart`), test each tool:
-
-```
-ctx_brain         — store and recall memories (requires Postgres)
-ctx_knowledge     — remember/recall project facts
-ctx_session       — save/load session state
-ctx_overview      — project map (runs locally, no server needed)
-ctx_shell         — run shell commands through the tool
-ctx_read          — read and compress files
-```
-
-Quick smoke sequence:
-1. `ctx_knowledge(action="remember", key="test", value="hello", category="testing")`
-2. `ctx_knowledge(action="recall", query="test")`
-3. `ctx_brain(action="store", key="handover-test", value="2026-04-28")`
-4. `ctx_brain(action="recall", query="handover")`
-
-### 4. Home Assistant Add-on
-
-The add-on should be tested on the actual HA instance before the next release:
+Every tool call should fire `nebu-ctx hook post-tool-use` which POSTs to `/v1/telemetry/ingest`.
 
 ```bash
-# Local add-on test (uses podman, requires .env with Postgres creds)
-bash scripts/server/refresh-dist.sh
-podman build -t nebu-ctx-addon-dev -f homeassistant/Dockerfile .
-bash tests/local-addon-test.sh
+# Before: check baseline call count
+curl -sH "Authorization: Bearer $TOKEN" http://127.0.0.1:3333/api/gain | head -5
+
+# Make a tool call (any ctx_read, ctx_brain, etc.) in Claude Code / Copilot CLI
+# After: verify count went up
+curl -sH "Authorization: Bearer $TOKEN" http://127.0.0.1:3333/api/gain | head -5
 ```
 
-Check:
-- MCP endpoint responds: `curl http://127.0.0.1:4242/health`
-- Dashboard loads: `curl http://127.0.0.1:3333`
-- Auth token is printed to logs on startup
-- Token persists across restarts (`/data/auth_token` inside container)
+Expected: call count increases. If not → check hook_handlers.rs `handle_post_tool_use()` and the `.claude/settings.local.json` PostToolUse entry.
+
+### Test 2 — Stop hook fires brain snapshot
+
+When a Claude Code session ends (`Stop` event fires → `nebu-ctx hook stop`):
+
+```bash
+# Trigger manually to test without ending session:
+echo '{}' | nebu-ctx hook stop
+
+# Then check brain for session entry
+curl -sX POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  http://127.0.0.1:4242/v1/tools/call \
+  -d '{"name":"ctx_brain","arguments":{"action":"recall","query":"session"}}' | python3 -m json.tool
+```
+
+Expected: a `session-<id>` key appears in brain results. If not → check `handle_stop()` in `hook_handlers.rs` and `post_session_to_brain()` in `cloud_client.rs`.
+
+### Test 3 — Analytics tools return real data
+
+```bash
+TOKEN=$(grep '^NEBULA_CTX_HTTP_TOKEN=' .env | cut -d= -f2)
+BASE="http://127.0.0.1:4242/v1/tools/call"
+H='-H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json"'
+
+# ctx_gain
+curl -s $H $BASE -d '{"name":"ctx_gain","arguments":{"action":"report"}}' | python3 -m json.tool
+
+# ctx_cost
+curl -s $H $BASE -d '{"name":"ctx_cost","arguments":{"action":"report"}}' | python3 -m json.tool
+
+# ctx_heatmap
+curl -s $H $BASE -d '{"name":"ctx_heatmap","arguments":{"action":"status"}}' | python3 -m json.tool
+
+# ctx_stats
+curl -s $H $BASE -d '{"name":"ctx_stats","arguments":{"action":"report"}}' | python3 -m json.tool
+
+# Per-project stats REST endpoint
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:3333/api/projects/nebu-ctx/stats" | python3 -m json.tool
+```
+
+Expected: non-zero counts. If zero → use ctx_gain with `action="report"` in an active session first to generate telemetry, then re-test.
+
+### Test 4 — Token tracking (known gap)
+
+Most tool calls currently show `0` for input/output tokens in `ctx_cost` — the PostToolUse hook uses `tool_input`/`tool_output` byte-length as a rough proxy but many tools don't populate those fields.
+
+```bash
+curl -sH "Authorization: Bearer $TOKEN" http://127.0.0.1:3333/api/gain \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d)"
+```
+
+Check if `totalTokens > 0`. If still 0 → investigate `handle_post_tool_use()` stdin parsing. The hook reads `tool_input` and `tool_output` JSON fields — check if Claude Code / Copilot CLI actually sends those field names in the hook event JSON.
+
+Fix if needed: adjust field extraction in `hook_handlers.rs` to match the actual hook payload schema.
+
+### Test 5 — ctx_knowledge cloud routing
+
+Verify `ctx_knowledge` goes to cloud (not local fallback) when server is reachable:
+
+```bash
+# In Claude Code / Copilot CLI:
+ctx_knowledge(action="remember", category="testing", key="integration-test", value="2026-04-29 passed")
+ctx_knowledge(action="recall", query="integration-test")
+```
+
+Expected: no `⚠ Running locally` warning in output. Check dashboard knowledge page to confirm it landed in PostgreSQL.
+
+### Test 6 — Dashboard accuracy
+
+Open `http://127.0.0.1:3333` and verify:
+- **Gain** page shows activity score + agent breakdown
+- **Heatmap** page shows file access counts
+- **Projects** page shows per-project stats
+- **Brain** page shows stored memories including session entries
+
+### Known Remaining Issues
+
+| Issue | Location | Priority |
+|-------|----------|----------|
+| Token tracking shows 0 for most tools | `hook_handlers.rs::handle_post_tool_use` | High |
+| `ctx_knowledge` local fallback when cloud configured (Task A) | `mcp_server/mod.rs` ~line 233 | Medium |
+| Consolidation → PostgreSQL bridge (Task B) | `mcp_server/mod.rs` autopilot loop | Medium |
 
 ---
 
-## Brain Automation — Why It's Not Fully Automatic
+## What Was Built in v0.5.6 (this sprint)
 
-### What exists today
+### Cloud Analytics Tools (4 new MCP tools)
 
-The client has **two auto-consolidation paths**, but both write to **local JSON files only** — not to the PostgreSQL brain:
+| Tool | Action | Description |
+|------|--------|-------------|
+| `ctx_gain` | report/score/tasks/agents/wrapped/json | Per-project activity score + agent breakdown |
+| `ctx_cost` | report/tools/status/json | Token usage + $2.50/1M cost estimate |
+| `ctx_heatmap` | status/directory/dirs/cold/json | File-access frequency heatmap |
+| `ctx_stats` | report/json | Unified per-project telemetry snapshot |
 
-1. **MCP server autopilot** (`mcp_server/mod.rs`): After every N tool calls (default: 25, cooldown: 120s), `should_auto_consolidate()` fires `consolidate_latest()`. This promotes session decisions + salient findings into the **local** `ProjectKnowledge` store (`~/.nebu-ctx/<project>/knowledge.json`).
+REST endpoint added: `GET /api/projects/{projectId}/stats` → always 200, zeros for unknown projects.
 
-2. **`ctx_knowledge(action="consolidate")`**: Same engine, callable manually via MCP tool.
+### TelemetryStore Changes
 
-### Why `ctx_brain` is NOT automated
+- `_projectCommands` dict: per-project tool call counters
+- `_fileAccessCounts` dict: `(projectId, path) → count`
+- `FileAccessTools` FrozenSet: 12 read/edit tools that track file access
+- `IngestEvent` now updates `_projectCommands` (Rust client sessions feed analytics)
+- `ProjectTelemetrySnapshot` + `PerProject` on `Snapshot`
 
-`ctx_brain` is a **cloud-only tool** (`CLOUD_ONLY_TOOLS` in `mcp_server/mod.rs`). It routes to the PostgreSQL-backed server over HTTP. The consolidation engine (`consolidation_engine.rs`) only calls `ProjectKnowledge::save()` — which writes to a local JSON file (`knowledge.json`). There is **no bridge** between the local consolidation engine and `ctx_brain` / PostgreSQL.
+### Hook Automation (complete)
 
-So what we did manually at end-of-session (storing lessons to `ctx_brain` and `ctx_knowledge`) is **not automated**. The system consolidates to local JSON automatically, but the PostgreSQL brain requires explicit tool calls.
+| Hook | Event | Handler | Does |
+|------|-------|---------|------|
+| `PreToolUse: Bash` | Before every shell command | `hook rewrite` | Rewrites to compression-aware form |
+| `PreToolUse: Read/View/Grep` | Before every file read | `hook redirect` | Redirects native reads to MCP |
+| `PostToolUse: .*` | After every tool call | `hook post-tool-use` | Fires telemetry to `/v1/telemetry/ingest` |
+| `Stop` | Session end | `hook stop` | Consolidates knowledge → `ctx_knowledge` + snapshots session → `ctx_brain` |
 
-### Also: ctx_knowledge falls back to local JSON when cloud is available
+Stop hook was previously broken: `promoted == 0` early return silently skipped brain snapshot every session that had no new knowledge promotions. Fixed in `7b1997c`.
 
-`ctx_knowledge` is in `CLOUD_PREFERRED_TOOLS` (not `CLOUD_ONLY_TOOLS`). When the cloud server is reachable it routes to PostgreSQL, but when the cloud call fails it **silently falls back to local `knowledge.json`** with a warning appended to the output. This means knowledge facts can end up split across local files and PostgreSQL depending on connectivity at the time of the call. The warning text is:
+### InputSchema Fix
 
-> ⚠ Running locally (no cloud connection). Data stored in .nebu-ctx/ only.
+All 4 analytics handlers had `InputSchema` at root level (not wrapped in `type:object/properties`). Fixed in `caa86f8` — all handlers now follow the MCP JSON Schema envelope pattern:
 
-**This must change.** In our setup the cloud server is always the source of truth. Local fallback creates hidden divergence.
-
-### What needs to be built (tomorrow)
-
-**Task A — Eliminate local fallback for ctx_knowledge when cloud is configured**
-
-In `mcp_server/mod.rs`, the `CLOUD_PREFERRED_TOOLS` path (`route_to_cloud` → fallback on failure) should be split:
-- If `ServerClient::load()` succeeds (cloud is configured), treat `ctx_knowledge` like a cloud-only tool — fail hard instead of silently writing local.
-- Only use local fallback when no cloud server is configured at all.
-
-File to change: `client/src/mcp_server/mod.rs` — `call_tool` routing block (~line 233).
-
-**Task B — Consolidation → PostgreSQL bridge**
-
-The autopilot consolidation loop (`mcp_server/mod.rs` ~line 499) fires `consolidate_latest()` which writes `knowledge.json` locally. After it runs, promoted facts should be forwarded to the cloud:
-
-1. Add a `post_consolidation_to_cloud(outcome, project_root)` async fn in `cloud_client.rs` — iterates the just-promoted facts and calls `ctx_knowledge(action="remember")` for each via `route_to_cloud`.
-2. Call it in the autopilot `tokio::task::spawn_blocking` block after `consolidate_latest()` succeeds.
-3. Also call it from `ctx_knowledge(action="consolidate")` handler in `tools/ctx_knowledge.rs`.
-4. Gate behind `autonomy.auto_brain_sync = true` (add to `AutonomyConfig` with default `true`).
-
-**Task C — Session-end brain snapshot**
-
-When `ctx_session(action="save")` is called, auto-post a summary to `ctx_brain`. In `tools/ctx_session.rs`, after the save completes, call `route_to_cloud("ctx_brain", {action:"store", key:"session-{id}", value:"{summary}"})`.
-
-### Until tasks A/B/C are done: manual end-of-session ritual
-
-```
-ctx_session(action="save")
-ctx_knowledge(action="consolidate")
-ctx_brain(action="store", key="session-YYYY-MM-DD", value="<summary>")
-```
-
----
-
-## IDE Hook Expansion
-
-### Current state (target agents)
-
-| IDE / Agent | Hook events wired | What they do |
-|-------------|-------------------|--------------|
-| **Claude Code** | `PreToolUse: Bash` → `hook rewrite`; `PreToolUse: Read/Grep/View/ListFiles` → `hook redirect` | Rewrites shell commands; redirects native file reads to MCP |
-| **Copilot CLI** | `preToolUse` → `hook rewrite` + `hook redirect` | Same as Claude Code; written to `~/.github/hooks/hooks.json` |
-| **OpenCode** | MCP server registration only | No hook events wired — needs `PreToolUse: Bash` at minimum |
-
-Other agents (Cursor, Gemini, Codex, Windsurf, Amp, etc.) are deprioritised for now.
-
-### What is missing
-
-**1. `Stop` / session-end hook (Claude Code, Copilot CLI)**
-
-Claude Code fires a `Stop` notification when the session ends. This is the perfect trigger to auto-consolidate to PostgreSQL. Currently **not wired** — the client never receives it because no `Stop` hook is registered.
-
-To add:
-- Claude Code: add `"Stop": [{"hooks": [{"type": "command", "command": "nebu-ctx hook stop"}]}]` to `settings.json` in `install_claude_hook_config()`
-- Copilot CLI: add `"postSession"` entry to `.github/hooks/hooks.json` in `install_copilot_pretooluse_hook()`
-- Add `handle_stop()` in `hook_handlers.rs` — calls `consolidate_latest()` then `post_consolidation_to_cloud()`
-- Wire `"hook stop"` in `main.rs` dispatch
-
-**2. `PostToolUse` hook for telemetry (Claude Code, Copilot CLI)**
-
-After every tool call, a `PostToolUse` event fires. Useful for:
-- Emitting per-call telemetry (token counts, tool name) — currently only done via `fire_sync` in `-c`/`-t` paths
-- Triggering incremental cloud sync of newly stored knowledge
-
-Currently only wired in Codex tests — not in any production hook install.
-
-**3. OpenCode has no hooks at all**
-
-OpenCode registers the MCP server but installs **zero hook events**. Shell command interception and session-end consolidation won't work until hooks are wired.
-
-Needs at minimum:
-- `PreToolUse: Bash → hook rewrite` in `install_opencode_*()` in `hooks/agents.rs`
-- `Stop` equivalent for session-end sync (check OpenCode's hook event schema)
-
-### Implementation plan (tomorrow)
-
-**Step 1 — Add `Stop` hook to Claude Code and Copilot CLI**
-
-Files: `client/src/hooks/agents.rs` (`install_claude_hook_config`, `install_copilot_pretooluse_hook`), `client/src/hook_handlers.rs`, `client/src/main.rs`
-
-```rust
-// hook_handlers.rs — new function
-pub fn handle_stop() {
-    // consolidate local session → knowledge.json
-    // then POST promoted facts to cloud via route_to_cloud
-}
-```
-
-```json
-// Claude Code settings.json addition
-"Stop": [{ "hooks": [{ "type": "command", "command": "nebu-ctx hook stop" }] }]
-```
-
-**Step 2 — Wire `PostToolUse` for telemetry in Claude Code and Copilot CLI**
-
-Add `"PostToolUse": [{ "matcher": ".*", "hooks": [{ "type": "command", "command": "nebu-ctx hook post-tool-use" }] }]` and a `handle_post_tool_use()` in `hook_handlers.rs` that reads stdin JSON, extracts tool name + output length, and fires telemetry.
-
-**Step 3 — Add hooks to OpenCode**
-
-Check `install_opencode_*()` in `hooks/agents.rs` and add `hook rewrite` for `PreToolUse: Bash` plus a `Stop`-equivalent if OpenCode supports it.
-
-**Step 4 — Re-deploy after each change**
-
-```bash
-nebu-ctx hooks install claude --global
-nebu-ctx hooks install copilot --global
-nebu-ctx hooks install opencode --global
+```csharp
+public Dictionary<string, object?> InputSchema => new()
+{
+    ["type"] = "object",
+    ["properties"] = new Dictionary<string, object?>
+    {
+        ["action"] = new Dictionary<string, object?> { ["type"] = "string", ... },
+        ["project_id"] = new Dictionary<string, object?> { ["type"] = "string", ... },
+    },
+    ["required"] = new[] { "action" },
+};
 ```
 
 ---
 
-### 1. Rust Compiler Warnings (19 warnings in lib)
+## Brain Automation — Current State
 
-The Rust client build produces 19 warnings, concentrated in `client/src/core/knowledge_embedding.rs`. 13 are auto-fixable:
+### What is automated now
 
+1. **PostToolUse hook** → `handle_post_tool_use()` → `TelemetryStore.IngestEvent()` → per-project counters in memory
+2. **Stop hook** → `handle_stop()`:
+   - `consolidate_latest()` → promotes session facts to local `knowledge.json`
+   - If `promoted > 0`: `post_promoted_facts_to_cloud()` → `ctx_knowledge` (PostgreSQL)
+   - Always: `SessionState::load_latest_for_project_root()` + `post_session_to_brain()` → `ctx_brain` (PostgreSQL)
+
+### What is still manual / not bridged
+
+**Task A — ctx_knowledge local fallback:** `ctx_knowledge` is in `CLOUD_PREFERRED_TOOLS` and silently falls back to local `knowledge.json` when cloud call fails. In a setup where cloud is always on, this creates hidden divergence. Fix: in `mcp_server/mod.rs` ~line 233, if `ServerClient::load()` succeeds treat `ctx_knowledge` like a cloud-only tool.
+
+**Task B — Autopilot consolidation → PostgreSQL:** The auto-consolidation loop in `mcp_server/mod.rs` (~line 499) fires `consolidate_latest()` and writes only to local `knowledge.json`. After promotion, the loop should call `post_promoted_facts_to_cloud()` to bridge to PostgreSQL. (The Stop hook already does this — the autopilot mid-session loop does not.)
+
+
+
+---
+
+### 1. Token Tracking Shows 0 for Most Tools
+
+`ctx_cost` shows near-zero token usage because `handle_post_tool_use()` extracts token count from `tool_input`/`tool_output` byte length in the hook event JSON. Many Claude Code / Copilot CLI tool events don't populate those fields with the actual content (they send metadata only). The raw byte proxy may be using wrong field names.
+
+To investigate:
 ```bash
-cargo fix --lib -p nebu-ctx --manifest-path client/Cargo.toml
+# Log what the hook actually receives from Claude Code
+echo '{"tool_name":"ctx_read","tool_input":{"path":"test"},"tool_output":"..."}' | nebu-ctx hook post-tool-use
+# Compare to what Claude Code actually sends — add a debug log line temporarily
 ```
 
-Remaining manual fixes (dead code that needs a decision — keep or delete):
-- `ALPHA_SEMANTIC`, `BETA_CONFIDENCE`, `GAMMA_RECENCY`, `MAX_RECENCY_DAYS` — unused constants
-- `lexical_fallback`, `recency_decay` — unused functions
-- `filter` parameter — unused in one function (prefix with `_` or remove)
+Files: `client/src/hook_handlers.rs::handle_post_tool_use()`
 
-These are clean-up tasks, not bugs. Fix, run `cargo test --manifest-path client/Cargo.toml`, then commit.
+### 2. ctx_knowledge Local Fallback (Task A)
 
-### 2. Home Assistant Add-on Verification
+See "Brain Automation — Current State" above.
 
-The HA add-on now uses `image: "ghcr.io/markbovee/nebu-ctx"` in `config.yaml` (no Dockerfile). After the v0.5.5 GHCR image is published:
-- Test add-on discovery in HA (should appear in the store)
-- Test install — HA should pull `ghcr.io/markbovee/nebu-ctx:0.5.5` automatically
+### 3. Autopilot Consolidation → PostgreSQL Gap (Task B)
+
+See "Brain Automation — Current State" above.
+
+### 4. Home Assistant Add-on Verification
+
+After v0.5.6 GHCR image is published via CI:
+- Test add-on discovery in HA (should appear in store)
+- Test install — HA should pull `ghcr.io/markbovee/nebu-ctx:0.5.6` automatically
 - Verify dashboard on port 3333 and MCP on port 4242
-
-### 3. End-to-End Testing Pass
-
-See "What Needs Testing" section below — nothing has been fully validated end-to-end since the GHCR migration.
 
 ---
 

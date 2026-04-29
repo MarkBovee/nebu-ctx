@@ -1,7 +1,7 @@
 # nebu-ctx Developer Knowledge Base
 
 > Auto-generated from session history. Read this first at every session start instead of re-researching.
-> Last updated: 2026-04-29 · Version baseline: 0.5.5 → next: 0.5.6
+> Last updated: 2026-04-29 · Version baseline: 0.5.6
 
 ---
 
@@ -45,7 +45,7 @@ homeassistant/config.yaml                          version: "X.Y.Z"
 server/src/NebuCtx.Application/ToolRegistry.cs     Current = "X.Y.Z"
 ```
 
-`auto-release.yml` fails if any of the three differ. Current: `0.5.5` → next: `0.5.6`.
+`auto-release.yml` fails if any of the three differ. Current: `0.5.6`.
 
 ---
 
@@ -112,14 +112,13 @@ File: `client/src/mcp_server/mod.rs`
 // Tools that ALWAYS route to cloud server (never local fallback)
 pub const CLOUD_ONLY_TOOLS: &[&str] = &[
     "ctx_brain", "ctx_gain", "ctx_cost", "ctx_heatmap", "ctx_stats",
-    // after Task 6 (analytics plan)
 ];
 
 // Tools that try cloud first, fall back to local on failure
 const CLOUD_PREFERRED_TOOLS: &[&str] = &["ctx_knowledge", "ctx_session", ...];
 ```
 
-**KEY ISSUE (Task A — WIP stash):** `ctx_knowledge` is in `CLOUD_PREFERRED_TOOLS` and silently falls back to local JSON if cloud call fails. In a setup where cloud is always on, this creates silent divergence. Fix: if `ServerClient::load()` succeeds, treat `ctx_knowledge` like a cloud-only tool.
+**KEY ISSUE (Task A — pending):** `ctx_knowledge` is in `CLOUD_PREFERRED_TOOLS` and silently falls back to local JSON if cloud call fails. In a setup where cloud is always on, this creates silent divergence. Fix: if `ServerClient::load()` succeeds, treat `ctx_knowledge` like a cloud-only tool.
 
 **Routing flow:**
 1. Tool call arrives via MCP
@@ -353,21 +352,86 @@ var snap = store.GetSnapshot();
 
 ---
 
-## 12. WIP Stash — DO NOT POP during analytics plan
+## 12. Hook Automation — Complete as of v0.5.6
 
+All hooks are wired and active in `.claude/settings.local.json`:
+
+| Hook | Matcher | Command | Handler | Does |
+|------|---------|---------|---------|------|
+| `PreToolUse` | `Bash` | `hook rewrite` | `handle_rewrite()` | Rewrites shell cmds to compression-aware form |
+| `PreToolUse` | `Read/View/Grep/...` | `hook redirect` | `handle_redirect()` | Redirects native reads to MCP |
+| `PostToolUse` | `.*` | `hook post-tool-use` | `handle_post_tool_use()` | Fires telemetry to `/v1/telemetry/ingest` |
+| `Stop` | — | `hook stop` | `handle_stop()` | Consolidates knowledge + snapshots session to brain |
+
+### Stop hook flow (hook_handlers.rs)
+
+```rust
+pub fn handle_stop() {
+    // 1. Consolidate local session facts → knowledge.json
+    let outcome = consolidate_latest(&project_root, ...);
+    // 2. If facts promoted, push to cloud ctx_knowledge
+    if outcome.promoted > 0 {
+        post_promoted_facts_to_cloud(&project_root);
+    }
+    // 3. Always snapshot session summary → ctx_brain (PostgreSQL)
+    let session = SessionState::load_latest_for_project_root(&project_root);
+    cloud_client::post_session_to_brain(&session);
+}
 ```
-stash@{0}: On main: wip: Task A/B/C cloud sync (pre-brainstorm)
-```
 
-**3 compile errors in this stash:**
-- `cloud_client.rs` — `post_session_to_brain()` references `SessionState.tool_calls` and `tokens_saved` which don't exist on the struct
-- `mcp_server/mod.rs` — cloud fallback fix + autopilot wiring partially done
+**Critical bug fixed (7b1997c):** Early `return` on `promoted == 0` was silently skipping brain snapshot for every session with no promoted facts. Brain snapshot now always fires.
 
-This stash implements Tasks A/B/C from the brain automation plan (HANDOVER.md). It is **separate from the analytics tools plan** and should be addressed after v0.5.6 ships.
+### PostToolUse — known token tracking gap
+
+`handle_post_tool_use()` uses `tool_input`/`tool_output` field byte length as token proxy. In practice, many Claude Code / Copilot hook events send minimal metadata rather than full content, so most calls show 0 tokens. Needs field-name investigation to fix.
 
 ---
 
-## 13. Pre-existing Test Failures (not caused by recent changes)
+## 13. Analytics Tools — v0.5.6
+
+Four new cloud-only MCP tools + REST endpoint:
+
+| Tool | Actions | Key behaviour |
+|------|---------|---------------|
+| `ctx_gain` | report/score/tasks/agents/wrapped/json | Activity score = `calls*2 + tokens/1000`. Per-project when `project_id` given, global when empty. |
+| `ctx_cost` | report/tools/status/json | $2.50/1M token pricing. Reports cost estimate (not savings). |
+| `ctx_heatmap` | status/directory/dirs/cold/json | File-access counts from `TelemetryStore._fileAccessCounts`. Median-based cold detection. |
+| `ctx_stats` | report/json | Per-project unified snapshot. |
+
+REST: `GET /api/projects/{projectId}/stats` → always `200` with zeros for unknown projects (not 404).
+
+**InputSchema envelope (mandatory):**
+```csharp
+public Dictionary<string, object?> InputSchema => new()
+{
+    ["type"] = "object",
+    ["properties"] = new Dictionary<string, object?>
+    {
+        ["action"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "..." },
+        ["project_id"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "..." },
+    },
+    ["required"] = new[] { "action" },
+};
+```
+
+**IngestEvent feeds per-project counters:** `TelemetryStore.IngestEvent` (called by Rust client PostToolUse hook) now updates `_projectCommands` so Rust MCP sessions show up in per-project analytics.
+
+---
+
+## 14. WIP Stash — Tasks A/B (not yet implemented)
+
+```
+stash@{0}: On main: wip: Task A/B cloud sync
+```
+
+Task C (session-end brain snapshot) is now done via Stop hook. The stash still contains partially-implemented A/B work with compile errors — do not pop until ready to finish those tasks.
+
+- **Task A** — `ctx_knowledge` cloud-only when server configured (`mcp_server/mod.rs` ~line 233)
+- **Task B** — autopilot consolidation loop → PostgreSQL bridge (`mcp_server/mod.rs` ~line 499)
+
+---
+
+## 15. Pre-existing Test Failures (not caused by recent changes)
 
 In `client/tests/integration_tests.rs`:
 - `help_shows_environment_section`
@@ -377,7 +441,7 @@ These were failing before this session began. Do not investigate or fix as part 
 
 ---
 
-## 14. CI/CD
+## 16. CI/CD
 
 ### Release flow
 1. Bump all 3 version locations in one commit → push to `main`
@@ -394,16 +458,28 @@ These were failing before this session began. Do not investigate or fix as part 
 
 ---
 
-## 15. Installed State (This Linux Machine)
+## 17. Installed State (This Linux Machine)
 
 | Item | Location | Status |
 |------|----------|--------|
-| Rust client | `~/.cargo/bin/nebu-ctx` | v0.5.5 |
+| Rust client | `~/.cargo/bin/nebu-ctx` | v0.5.6 |
 | Fish shell hook | `~/.nebu-ctx/shell-hook.fish` | active |
 | Copilot CLI MCP config | `~/.copilot/mcp-config.json` | wired, all tools auto-approved |
 | VS Code MCP config | `~/.config/Code/User/mcp.json` | wired |
-| Server container | `nebu-ctx-local` (podman) | running (PostgreSQL always on) |
+| Server container | `nebu-ctx-local` (podman) | running on 3333/4242 (PostgreSQL always on) |
 | Token env var | `NEBULA_CTX_HTTP_TOKEN` in `.env` | present |
+| Claude Code hooks | Stop + PostToolUse + PreToolUse (Bash + Read) | `.claude/settings.local.json` |
+
+### MCP API call pattern (Rust client uses /v1/tools/call, NOT /mcp)
+
+```bash
+TOKEN=$(grep '^NEBULA_CTX_HTTP_TOKEN=' .env | cut -d= -f2)
+curl -s -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  http://127.0.0.1:4242/v1/tools/call \
+  -d '{"name":"ctx_brain","arguments":{"action":"recall","query":"test"}}'
+```
 
 ### Reinstall client after changes
 ```bash
@@ -421,17 +497,7 @@ podman run -d --name nebu-ctx-local \
 
 ---
 
-## 16. Session-End Ritual (Until Tasks A/B/C land)
-
-```
-ctx_session(action="save")
-ctx_knowledge(action="consolidate")
-ctx_brain(action="store", key="session-YYYY-MM-DD", value="<summary>")
-```
-
----
-
-## 17. C# Coding Standards (this repo)
+## 18. C# Coding Standards (this repo)
 
 - No fully-qualified type names — always add `using` directives
 - No `dynamic`
@@ -442,24 +508,26 @@ ctx_brain(action="store", key="session-YYYY-MM-DD", value="<summary>")
 - Guard clauses + early returns to keep logic flat
 - `[JsonInclude]` on required properties with non-public setters (STJ/OpenAPI compat)
 - EF Core: timestamps in `DbContext.SaveChanges()` override, never in business logic
+- `static readonly JsonSerializerOptions` field, never `new JsonSerializerOptions()` per call
 
 ---
 
-## 18. Rust Coding Standards (this repo)
+## 19. Rust Coding Standards (this repo)
 
 - Dead code behind `#[cfg(feature = "...")]` or deleted
 - Telemetry fires BEFORE `passthrough()` / `process::exit()`
 - ureq 3.x: always set `Content-Type: application/json` explicitly for JSON POSTs
 - `pub const` for constants accessed from tests (e.g. `CLOUD_ONLY_TOOLS`)
 - `2024` edition
+- `Value::String(s)` match before printing `serde_json::Value` — `println!("{}", value)` wraps strings in JSON quotes
 
 ---
 
-## 19. Known Architecture Debt
+## 20. Known Architecture Debt
 
-1. **ctx_knowledge local fallback** — silently writes to JSON when cloud call fails (Tasks A workaround)
-2. **Brain automation gap** — consolidation engine writes to local JSON, no bridge to PostgreSQL (Task B)
-3. **Session-end brain snapshot** — not automatic (Task C)
-4. **WIP stash** — Tasks A/B/C partially implemented, 3 compile errors
+1. **ctx_knowledge local fallback** — silently writes to JSON when cloud call fails (Task A pending)
+2. **Brain automation gap** — autopilot consolidation writes to local JSON, no bridge to PostgreSQL mid-session (Task B pending)
+3. **Token tracking shows 0** — PostToolUse hook may be using wrong field names for token extraction
+4. **WIP stash** — Tasks A/B partially implemented, compile errors — do not pop until ready
 5. **OpenCode hooks** — zero hooks installed, shell rewrite + Stop not wired
-6. **`/api/heatmap`** — returns empty arrays until Task 4 lands (HeatmapToolHandler reads file-access from TelemetryStore)
+
