@@ -134,4 +134,36 @@ public sealed class PostgresBrainStore : IBrainStore
 
         return entries;
     }
+
+    /// <inheritdoc />
+    public async Task<bool> DeleteAsync(string projectId, string key, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        await using var cmd = new NpgsqlCommand(
+            "DELETE FROM brain_entries WHERE project_id = @project_id AND key = @key",
+            conn);
+
+        cmd.Parameters.AddWithValue("project_id", projectId);
+        cmd.Parameters.AddWithValue("key", key);
+
+        var rows = await cmd.ExecuteNonQueryAsync(cancellationToken);
+        return rows > 0;
+    }
+
+    /// <inheritdoc />
+    public async Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        await using var cmd = new NpgsqlCommand(
+            "DELETE FROM brain_entries WHERE project_id = @project_id",
+            conn);
+
+        cmd.Parameters.AddWithValue("project_id", projectId);
+
+        return await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
 }

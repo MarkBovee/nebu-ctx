@@ -410,9 +410,17 @@ public static class DashboardPayloadFactory
         var topLanguage = AggregateLanguageCounts(projects).OrderByDescending(item => item.Value).Select(item => item.Key).FirstOrDefault() ?? "mixed";
         var mood = ResolveBuddyMood(compressionRate, telemetry.TotalToolCalls);
         var rarity = ResolveBuddyRarity(totalSaved, telemetry.TotalToolCalls);
-        var level = Math.Min(100, Math.Max(1, telemetry.TotalToolCalls * 4));
+
+        // XP drives level via a sqrt curve: level 100 requires ~5M XP.
+        // This prevents hitting the cap after only a handful of sessions.
         var xp = totalSaved + (telemetry.TotalToolCalls * 25L);
-        var xpNextLevel = Math.Max(100L, (level + 1L) * 150L);
+        var level = (int)Math.Clamp(Math.Floor(Math.Sqrt((double)xp / 500.0)) + 1, 1, 100);
+        // xp_next_level is always ahead of current xp so the bar never overflows.
+        var xpNextLevel = level < 100 ? (long)(level * level * 500L) : (long)(100 * 100 * 500L);
+
+        // Log-scaled stat helper: value maps to 0-100 where maxValue → 100.
+        static int LogStat(long value, long maxValue) =>
+            value <= 0 ? 1 : (int)Math.Clamp(Math.Log10(value + 1.0) / Math.Log10(maxValue + 1.0) * 100.0, 1, 100);
 
         return new
         {
@@ -433,11 +441,16 @@ public static class DashboardPayloadFactory
             xp_next_level = xpNextLevel,
             stats = new
             {
+                // Compression: actual rate → already naturally 0-100 %.
                 compression = Math.Min(100, (int)Math.Round(compressionRate * 100)),
-                vigilance = Math.Min(100, telemetry.Events.Count * 5),
-                endurance = Math.Min(100, telemetry.Sessions.Count * 20),
-                wisdom = Math.Min(100, AggregateLanguageCounts(projects).Count * 25),
-                experience = Math.Min(100, telemetry.TotalToolCalls * 8),
+                // Vigilance: log scale, 2 000 events → 100.
+                vigilance = LogStat(telemetry.Events.Count, 2000),
+                // Endurance: active days (Daily), 500 days → 100.
+                endurance = LogStat(telemetry.Daily.Count, 500),
+                // Wisdom: distinct languages, 5 → 100.
+                wisdom = Math.Min(100, AggregateLanguageCounts(projects).Count * 20),
+                // Experience: based on total XP, 5 M XP → 100.
+                experience = LogStat(xp, 5_000_000L),
             },
         };
     }

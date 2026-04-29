@@ -1867,8 +1867,8 @@ function renderLiveEvents(events, mcp, stats) {
   feed.innerHTML = filtered.slice(-50).reverse().map(e => {
     const ts = e.ts ? e.ts.substring(11, 19) : '';
     const projSlug = liveProjectMap[e.project_id] || (e.project_id ? e.project_id.replace('proj_','').substring(0,8) : '');
-    const metaHtml = (projSlug || e.actor)
-      ? `<div style="display:flex;gap:5px;margin-top:4px;flex-wrap:wrap">${projSlug ? '<span style="font-size:9px;font-family:var(--mono);color:var(--muted);background:var(--surface-2);padding:1px 5px;border-radius:3px">@' + esc(projSlug) + '</span>' : ''}${e.actor ? '<span style="font-size:9px;color:var(--muted);opacity:.7">' + esc(e.actor) + '</span>' : ''}</div>`
+    const metaCol = (projSlug || e.actor)
+      ? `<div style="min-width:80px;max-width:120px;display:flex;flex-direction:column;gap:2px;align-items:flex-end;justify-content:center;padding:0 8px;flex-shrink:0">${projSlug ? '<span style="font-size:9px;font-family:var(--mono);color:var(--muted);background:var(--surface-2);padding:1px 5px;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px">@' + esc(projSlug) + '</span>' : ''}${e.actor ? '<span style="font-size:9px;color:var(--muted);opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px">' + esc(e.actor) + '</span>' : ''}</div>`
       : '';
     return `<div class="event-card" style="--event-accent:${e.color}">
       <div class="event-icon" style="background:${e.color}18;color:${e.color};box-shadow:0 0 12px ${e.color}10">
@@ -1877,8 +1877,8 @@ function renderLiveEvents(events, mcp, stats) {
       <div class="event-body">
         <div class="event-tool">${esc(e.tool)}</div>
         <div class="event-detail">${e.detail}</div>
-        ${metaHtml}
       </div>
+      ${metaCol}
       <div class="event-time">${esc(ts)}</div>
     </div>`;
   }).join('');
@@ -2166,7 +2166,8 @@ function renderDepsGraph(files, edges) {
   const graphEl = $('depsGraph');
   if (!graphEl) return;
   graphEl.innerHTML = '';
-  const width = graphEl.clientWidth, height = graphEl.clientHeight || 500;
+  const width = graphEl.clientWidth || graphEl.offsetWidth || 800;
+  const height = graphEl.clientHeight || graphEl.offsetHeight || 500;
 
   const langColors = {
     'rust': '#f87171', 'rs': '#f87171', 'javascript': '#fbbf24', 'js': '#fbbf24',
@@ -2302,6 +2303,15 @@ async function loadCompression() {
     } catch { compressionFiles = []; }
 
     container.innerHTML = `
+      <div class="card" style="margin-bottom:14px;padding:16px 20px;background:linear-gradient(135deg,rgba(99,102,241,0.06),rgba(56,189,248,0.04));border:1px solid rgba(99,102,241,0.15)">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div style="font-size:22px;flex-shrink:0">🗜️</div>
+          <div>
+            <div style="font-weight:700;color:var(--text-bright);margin-bottom:4px">Compression Lab</div>
+            <div style="font-size:13px;color:var(--muted);line-height:1.6">Pick any file from your project index, choose a <strong>read mode</strong>, and see exactly how Nebu-CTX would compress it before sending to your AI tool — including token counts before and after. Use this to understand which mode saves the most tokens for different file types.</div>
+          </div>
+        </div>
+      </div>
       <div class="row r12">
         <div class="card" style="max-height:600px;overflow:hidden;display:flex;flex-direction:column">
           <h3>Select File</h3>
@@ -2417,18 +2427,26 @@ async function loadAgents() {
     if (!agents.length) {
       timeline.innerHTML = '<div class="empty-state" style="padding:40px"><h2>No active agents</h2><p>Agents appear here when multi-agent workflows are running.</p></div>';
     } else {
-      timeline.innerHTML = agents.map(a => {
+      const sorted = [...agents].sort((a, b) => (a.last_active_minutes_ago ?? 9999) - (b.last_active_minutes_ago ?? 9999));
+      const activeAgents = sorted.filter(a => (a.last_active_minutes_ago ?? 9999) <= 30);
+      const staleAgents = sorted.filter(a => (a.last_active_minutes_ago ?? 9999) > 30);
+      const renderAgent = (a, dimmed) => {
         const st = (a.status || '').toLowerCase();
         const statusColor = st === 'active' ? 'active' : st === 'idle' ? 'idle' : 'offline';
-        return `<div class="swimlane">
+        const mins = a.last_active_minutes_ago;
+        const timeStr = mins == null ? '' : mins < 1 ? 'just now' : mins < 60 ? mins + 'm ago' : Math.round(mins/60) + 'h ago';
+        const timeColor = mins == null ? 'var(--muted)' : mins < 5 ? 'var(--green)' : mins < 30 ? 'var(--yellow)' : 'var(--muted)';
+        return `<div class="swimlane" style="${dimmed ? 'opacity:0.45' : ''}">
           <div class="agent-dot ${statusColor}"></div>
           <div class="agent-info">
-            <div class="agent-name">${esc(a.id)}</div>
-            <div class="agent-meta">${esc(a.type || '')} &middot; ${esc(a.role || '')} &middot; ${esc(a.status || '')} ${a.status_message ? ' &middot; '+esc(a.status_message) : ''}</div>
+            <div class="agent-name">${esc(a.id)}${a.role ? ' <span style="font-size:10px;color:var(--muted);font-weight:400">· ' + esc(a.role) + '</span>' : ''}</div>
+            <div class="agent-meta">${esc(a.type || '')} &middot; ${esc(a.status || '')}${a.status_message ? ' &middot; ' + esc(a.status_message) : ''}</div>
           </div>
-          <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">${a.last_active_minutes_ago != null ? a.last_active_minutes_ago+'m ago' : ''}</div>
+          <div style="font-size:11px;font-family:var(--mono);color:${timeColor};font-weight:600;white-space:nowrap">${timeStr}</div>
         </div>`;
-      }).join('');
+      };
+      timeline.innerHTML = activeAgents.map(a => renderAgent(a, false)).join('')
+        + (staleAgents.length ? `<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin:12px 0 6px;padding:0 4px">Inactive (>30m)</div>` + staleAgents.map(a => renderAgent(a, true)).join('') : '');
     }
   } catch (e) { showError(container, 'Could not load agent data.'); }
 }
@@ -2466,14 +2484,30 @@ async function loadBugs() {
       return `<tr>
         <td><span class="${sevClass}" style="font-weight:600">${esc(g.severity || 'Info')}</span></td>
         <td>${esc((g.category || '').toLowerCase())}</td>
-        <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(g.trigger)}</td>
-        <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(g.resolution)}</td>
+        <td style="max-width:280px;font-size:12px;word-break:break-word;white-space:normal">${esc(g.trigger)}</td>
+        <td style="max-width:280px;font-size:12px;word-break:break-word;white-space:normal;color:var(--muted)">${esc(g.resolution)}</td>
         <td class="r">${g.occurrences || 1}x</td>
         <td class="r"><span class="tag ${conf >= 70 ? 'tg' : conf >= 40 ? 'ty' : 'td'}">${conf}%</span></td>
         <td class="r">${g.prevented_count || 0}</td>
       </tr>`;
     }).join('');
   } catch (e) { showError(container, 'Could not load bug memory data.'); }
+}
+
+async function deleteBrainEntry(projectId, key) {
+  if (!confirm(`Delete memory "${key}"?`)) return;
+  try {
+    await apiFetch(`/api/brain/${encodeURIComponent(projectId)}/${encodeURIComponent(key)}`, { method: 'DELETE' });
+    loadBrain();
+  } catch (e) { alert('Failed to delete entry.'); }
+}
+
+async function clearBrainProject(projectId, name) {
+  if (!confirm(`Clear all memories for "${name}"? This cannot be undone.`)) return;
+  try {
+    await apiFetch(`/api/brain/${encodeURIComponent(projectId)}`, { method: 'DELETE' });
+    loadBrain();
+  } catch (e) { alert('Failed to clear project memories.'); }
 }
 
 async function loadBrain() {
@@ -2501,19 +2535,24 @@ async function loadBrain() {
       ${projectNames.length === 0 ? '<div class="card"><div class="empty-state" style="padding:40px"><h2>No memories stored</h2><p>Use <code>ctx_brain(action="store", key="...", value="...")</code> to persist long-term memories.</p></div></div>' : ''}
       ${projectNames.map(proj => {
         const rows = byProject[proj];
+        const projId = rows[0].project_id || '';
         return `<div class="card" style="margin-bottom:16px">
-          <h3>${esc(proj)} <span class="tag tg" style="margin-left:6px">${rows.length} memories</span></h3>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <h3 style="margin:0">${esc(proj)} <span class="tag tg" style="margin-left:6px">${rows.length} memories</span></h3>
+            ${projId ? `<button onclick="clearBrainProject('${esc(projId)}','${esc(proj)}')" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear all</button>` : ''}
+          </div>
           <div style="overflow-x:auto">
           <table>
-            <thead><tr><th>Key</th><th>Value</th><th class="r">Stored</th></tr></thead>
+            <thead><tr><th>Key</th><th>Value</th><th class="r">Stored</th><th></th></tr></thead>
             <tbody>${rows.map(e => {
               const d = new Date(e.created_at);
               const ago = Math.round((Date.now() - d.getTime()) / 86400000);
               const dateStr = ago === 0 ? 'today' : ago === 1 ? 'yesterday' : ago + 'd ago';
               return `<tr>
                 <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(e.key)}</td>
-                <td style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.value)}">${esc(e.value)}</td>
+                <td style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.value)}">${esc(e.value)}</td>
                 <td class="r" style="font-size:11px;color:var(--muted)" title="${esc(e.created_at)}">${dateStr}</td>
+                <td style="padding:4px 6px;width:28px">${e.project_id ? `<button onclick="deleteBrainEntry('${esc(e.project_id)}','${esc(e.key)}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px" title="Delete">×</button>` : ''}</td>
               </tr>`;
             }).join('')}</tbody>
           </table>
@@ -3027,16 +3066,17 @@ async function loadContextLayer() {
       <div class="card">
         <h3>Context Ledger (last ${entries.length} entries)</h3>
         <div style="overflow-x:auto;margin-top:8px">
-          <table><thead><tr><th>File</th><th>Mode</th><th class="r">Original</th><th class="r">Sent</th><th class="r">Saved</th></tr></thead><tbody>
+          <table><thead><tr><th>Tool</th><th>Type</th><th>Actor</th><th class="r">Tokens In</th><th class="r">Saved</th></tr></thead><tbody>
           ${entries.map(e => {
-            const saved = e.original_tokens - e.sent_tokens;
-            const pctSaved = e.original_tokens ? ((saved / e.original_tokens) * 100).toFixed(0) : 0;
+            const orig = e.tokens_original || 0;
+            const saved = e.tokens_saved || 0;
+            const pctSaved = orig > 0 ? ((saved / orig) * 100).toFixed(0) : 0;
             return `<tr>
-              <td style="font-family:var(--mono);font-size:11px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-bright)">${esc(e.path)}</td>
-              <td><span style="background:var(--surface-2);padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600">${esc(e.mode)}</span></td>
-              <td class="r" style="font-size:12px">${fmt(e.original_tokens)}</td>
-              <td class="r" style="font-size:12px;color:var(--green)">${fmt(e.sent_tokens)}</td>
-              <td class="r" style="font-size:12px;color:var(--green);font-weight:600">${pctSaved}%</td>
+              <td style="font-family:var(--mono);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-bright)">${esc(e.tool || '—')}</td>
+              <td><span style="background:var(--surface-2);padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600">${esc(e.type || '—')}</span></td>
+              <td style="font-size:11px;color:var(--muted)">${esc(e.actor_label || '—')}</td>
+              <td class="r" style="font-size:12px">${fmt(orig)}</td>
+              <td class="r" style="font-size:12px;color:${saved > 0 ? 'var(--green)' : 'var(--muted)'};font-weight:${saved > 0 ? '600' : '400'}">${saved > 0 ? pctSaved + '%' : '—'}</td>
             </tr>`;
           }).join('')}
           </tbody></table>

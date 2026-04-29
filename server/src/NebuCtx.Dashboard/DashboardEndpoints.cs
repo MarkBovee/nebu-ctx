@@ -85,6 +85,19 @@ public static class DashboardEndpoints
             var cleared = await projectRegistry.ClearProjectMetadataAsync(projectId, cancellationToken);
             return cleared ? Results.Ok(new { cleared = true, project_id = projectId }) : Results.NotFound(new { cleared = false, project_id = projectId });
         });
+
+        // Brain memory management — delete a single entry or all entries for a project.
+        app.MapDelete("/api/brain/{projectId}/{key}", async (string projectId, string key, IBrainStore brainStore, CancellationToken cancellationToken) =>
+        {
+            var deleted = await brainStore.DeleteAsync(projectId, key, cancellationToken);
+            return deleted ? Results.Ok(new { deleted = true }) : Results.NotFound(new { deleted = false });
+        });
+
+        app.MapDelete("/api/brain/{projectId}", async (string projectId, IBrainStore brainStore, CancellationToken cancellationToken) =>
+        {
+            var count = await brainStore.ClearProjectAsync(projectId, cancellationToken);
+            return Results.Ok(new { deleted = count, project_id = projectId });
+        });
         app.MapGet("/api/brain", async (ProjectRegistry projectRegistry, IBrainStore brainStore, CancellationToken cancellationToken) =>
         {
             var projects = await projectRegistry.ListAsync(cancellationToken);

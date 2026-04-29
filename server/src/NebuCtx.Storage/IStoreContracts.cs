@@ -109,6 +109,23 @@ public interface IBrainStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>All brain entries up to the specified limit.</returns>
     Task<IReadOnlyList<BrainEntry>> ListAllAsync(string projectId, int limit = 200, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes a specific brain memory entry by project and key.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="key">Memory key to delete.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if the entry was found and deleted, false if not found.</returns>
+    Task<bool> DeleteAsync(string projectId, string key, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes all brain memory entries for a project.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of entries deleted.</returns>
+    Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
