@@ -131,7 +131,12 @@ fn main() {
                 match lean_ctx::cloud_client::ServerClient::load() {
                     Ok(client) => match client.call_tool("ctx_gain", args_map, &project_context) {
                         Ok(result) => {
-                            println!("{}", result);
+                            let text = match &result {
+                                serde_json::Value::String(s) => s.clone(),
+                                other => serde_json::to_string_pretty(other)
+                                    .unwrap_or_else(|_| other.to_string()),
+                            };
+                            println!("{}", text);
                             std::process::exit(0);
                         }
                         Err(e) => {
@@ -152,18 +157,11 @@ fn main() {
                 }
                 return;
             }
-            "dashboard" => {
-                match lean_ctx::cloud_client::ServerClient::load() {
-                    Ok(client) => println!("Dashboard: {}", client.endpoint().replace(":4242", ":3333")),
-                    Err(_) => println!("Dashboard: http://127.0.0.1:3333"),
-                }
-                std::process::exit(0);
-            }
-            "watch" => {
-                match lean_ctx::cloud_client::ServerClient::load() {
-                    Ok(client) => println!("Dashboard: {}", client.endpoint().replace(":4242", ":3333")),
-                    Err(_) => println!("Dashboard: http://127.0.0.1:3333"),
-                }
+            "dashboard" | "watch" => {
+                let url = lean_ctx::cloud_client::ServerClient::load()
+                    .map(|c| derive_dashboard_url(c.endpoint()))
+                    .unwrap_or_else(|_| "http://127.0.0.1:3333".to_string());
+                println!("Dashboard: {url}");
                 std::process::exit(0);
             }
             "serve" => {
@@ -725,8 +723,22 @@ fn main() {
     }
 }
 
-fn passthrough(command: &str) -> ! {
-    let (shell, flag) = shell::shell_and_flag();
+fn derive_dashboard_url(mcp_url: &str) -> String {
+    if let Some((scheme, rest)) = mcp_url.split_once("://") {
+        let (authority, path) = rest.split_once('/').unwrap_or((rest, ""));
+        let new_authority = if let Some(colon_pos) = authority.rfind(':') {
+            format!("{}:3333", &authority[..colon_pos])
+        } else {
+            format!("{}:3333", authority)
+        };
+        let path_part = if path.is_empty() { String::new() } else { format!("/{}", path) };
+        format!("{}://{}{}", scheme, new_authority, path_part)
+    } else {
+        "http://127.0.0.1:3333".to_string()
+    }
+}
+
+fn passthrough(command: &str) -> ! {    let (shell, flag) = shell::shell_and_flag();
     let status = std::process::Command::new(&shell)
         .arg(&flag)
         .arg(command)
