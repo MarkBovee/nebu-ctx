@@ -89,10 +89,10 @@ public sealed class GainToolHandler(TelemetryStore telemetry) : IToolHandler
         return sb.ToString();
     }
 
-    /// <summary>Returns a score summary line for quick display.</summary>
+    /// <summary>Returns an activity score summary line for quick display.</summary>
     /// <param name="snapshot">Current telemetry snapshot.</param>
     /// <param name="projectId">Optional project filter; null for global stats.</param>
-    /// <returns>Score summary string.</returns>
+    /// <returns>Activity score summary string.</returns>
     private static string BuildScore(TelemetryStore.Snapshot snapshot, string? projectId)
     {
         var commands = GetCommands(snapshot, projectId);
@@ -100,7 +100,7 @@ public sealed class GainToolHandler(TelemetryStore telemetry) : IToolHandler
         var totalTokens = commands.Values.Sum(c => c.InputTokens + c.OutputTokens);
         var score = totalCalls > 0 ? (int)Math.Min(100, totalCalls * 2 + totalTokens / 1000) : 0;
 
-        return $"Context efficiency score: **{score}/100** ({totalCalls} tool calls, {totalTokens:N0} tokens processed)";
+        return $"Activity score: **{score}/100** ({totalCalls} tool calls, {totalTokens:N0} tokens processed)";
     }
 
     /// <summary>Lists tool calls grouped by inferred task category.</summary>
@@ -154,9 +154,8 @@ public sealed class GainToolHandler(TelemetryStore telemetry) : IToolHandler
     private static string BuildAgents(TelemetryStore.Snapshot snapshot, string? projectId)
     {
         // Sessions carry ActorLabel; Commands only carry a source-bucket label ("mcp"/"hook").
-        var sessions = projectId is not null
-            ? snapshot.Sessions.Where(s => s.ProjectId == projectId)
-            : snapshot.Sessions;
+        var sessions = snapshot.Sessions
+            .Where(s => projectId is null || string.Equals(s.ProjectId, projectId, StringComparison.OrdinalIgnoreCase));
 
         var byAgent = sessions
             .GroupBy(s => string.IsNullOrWhiteSpace(s.ActorLabel) ? "unknown" : s.ActorLabel, StringComparer.OrdinalIgnoreCase)

@@ -126,7 +126,7 @@ public class AnalyticsToolTests
         var handler = new GainToolHandler(CreatePopulatedStore());
         var result = await handler.ExecuteAsync(
             new Dictionary<string, object?> { ["action"] = "tasks" },
-            new ToolExecutionContext(),
+            new ToolExecutionContext { ProjectId = "" },
             CancellationToken.None);
 
         var text = Assert.IsType<string>(result);
@@ -143,7 +143,7 @@ public class AnalyticsToolTests
         var handler = new GainToolHandler(CreatePopulatedStore());
         var result = await handler.ExecuteAsync(
             new Dictionary<string, object?> { ["action"] = "wrapped" },
-            new ToolExecutionContext(),
+            new ToolExecutionContext { ProjectId = "" },
             CancellationToken.None);
 
         var text = Assert.IsType<string>(result);
