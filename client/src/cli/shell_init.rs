@@ -245,7 +245,7 @@ pub fn generate_hook_fish(binary: &str) -> String {
         \tend\n\
         \talias k '_lc kubectl'\n\
         \tset -gx NEBU_CTX_ENABLED 1\n\
-        \tisatty stdout; and echo 'nebu-ctx: ON (track mode — full output, stats recorded)'\n\
+        \tisatty stdout; and '{binary}' on-brief\n\
         end\n\
         \n\
         function nebu-ctx-off\n\
@@ -353,7 +353,7 @@ nebu-ctx-on() {{
     done
     alias k='_lc kubectl'
     export NEBU_CTX_ENABLED=1
-    [ -t 1 ] && echo "nebu-ctx: ON (track mode — full output, stats recorded)"
+    [ -t 1 ] && '{binary}' on-brief
 }}
 
 nebu-ctx-off() {{

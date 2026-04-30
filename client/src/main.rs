@@ -496,6 +496,10 @@ fn main() {
                 }
                 return;
             }
+            "on-brief" => {
+                status::print_on_brief();
+                return;
+            }
             "read" => {
                 cli::cmd_read(&rest);
                 return;

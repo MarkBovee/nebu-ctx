@@ -215,3 +215,29 @@ fn print_human(report: &StatusReport, path: &std::path::Path) {
     }
     println!("  report saved: {}", path.display());
 }
+
+/// Print a compact single-line colored status for shell startup.
+/// Called via `nebu-ctx on-brief` from the shell hook's `nebu-ctx-on` function.
+pub fn print_on_brief() {
+    use std::io::IsTerminal;
+    if !std::io::stdout().is_terminal() {
+        return;
+    }
+
+    let version = env!("CARGO_PKG_VERSION");
+    let cloud_part = match crate::config::load_connection() {
+        Ok(Some(conn)) => {
+            let host = conn
+                .endpoint
+                .trim_end_matches('/')
+                .trim_start_matches("https://")
+                .trim_start_matches("http://");
+            format!("  \x1b[2m·\x1b[0m  \x1b[36mcloud\x1b[0m \x1b[2m→ {host}\x1b[0m")
+        }
+        _ => String::new(),
+    };
+
+    println!(
+        "  \x1b[36m◈\x1b[0m \x1b[1mnebu-ctx\x1b[0m \x1b[2mv{version}\x1b[0m  \x1b[2m·\x1b[0m  \x1b[32mON\x1b[0m{cloud_part}"
+    );
+}
