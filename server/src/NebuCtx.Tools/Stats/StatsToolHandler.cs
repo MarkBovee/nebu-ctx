@@ -2,7 +2,7 @@ namespace NebuCtx.Tools.Stats;
 
 using System.Text;
 using System.Text.Json;
-using NebuCtx.Application;
+using NebuCtx.Server.Core;
 
 /// <summary>
 /// MCP tool handler for ctx_stats — per-project tool-usage statistics.

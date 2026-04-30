@@ -2,7 +2,7 @@ namespace NebuCtx.Tools.Cost;
 
 using System.Text;
 using System.Text.Json;
-using NebuCtx.Application;
+using NebuCtx.Server.Core;
 
 /// <summary>
 /// MCP tool handler for ctx_cost — reports token usage and estimated cost per session and per tool.

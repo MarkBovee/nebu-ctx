@@ -1,7 +1,7 @@
 namespace NebuCtx.IntegrationTests;
 
 using System.Text.Json;
-using NebuCtx.Application;
+using NebuCtx.Server.Core;
 using NebuCtx.Tools.Cost;
 using NebuCtx.Tools.Gain;
 using NebuCtx.Tools.Heatmap;

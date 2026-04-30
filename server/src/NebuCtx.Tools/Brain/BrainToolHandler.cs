@@ -1,7 +1,7 @@
 namespace NebuCtx.Tools.Brain;
 
-using NebuCtx.Application;
-using NebuCtx.Application.Services;
+using NebuCtx.Server.Core;
+using NebuCtx.Server.Core.Services;
 
 /// <summary>
 /// Tool handler for ctx_brain — project-scoped persistent memory.

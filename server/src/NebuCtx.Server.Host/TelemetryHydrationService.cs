@@ -1,6 +1,6 @@
 namespace NebuCtx.Server.Host;
 
-using NebuCtx.Application;
+using NebuCtx.Server.Core;
 using NebuCtx.Storage.Postgres;
 
 /// <summary>

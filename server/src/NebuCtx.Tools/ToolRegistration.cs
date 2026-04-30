@@ -1,7 +1,7 @@
 namespace NebuCtx.Tools;
 
 using Microsoft.Extensions.DependencyInjection;
-using NebuCtx.Application;
+using NebuCtx.Server.Core;
 using NebuCtx.Tools.Brain;
 using NebuCtx.Tools.Cost;
 using NebuCtx.Tools.Gain;

@@ -1,6 +1,6 @@
 namespace NebuCtx.IntegrationTests;
 
-using NebuCtx.Application;
+using NebuCtx.Server.Core;
 
 /// <summary>
 /// Unit tests for per-project aggregation and file-access tracking in TelemetryStore.

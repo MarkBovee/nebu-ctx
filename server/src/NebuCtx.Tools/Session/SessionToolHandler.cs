@@ -1,7 +1,7 @@
 namespace NebuCtx.Tools.Session;
 
-using NebuCtx.Application;
-using NebuCtx.Application.Services;
+using NebuCtx.Server.Core;
+using NebuCtx.Server.Core.Services;
 
 /// <summary>
 /// Tool handler for ctx_session — project-scoped agent session state.

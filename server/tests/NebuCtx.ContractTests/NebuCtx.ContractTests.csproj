@@ -14,7 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\NebuCtx.Contracts\NebuCtx.Contracts.csproj" />
-    <ProjectReference Include="..\..\src\NebuCtx.Hosting\NebuCtx.Hosting.csproj" />
+    <ProjectReference Include="..\..\src\NebuCtx.Server.Core\NebuCtx.Server.Core.csproj" />
     <ProjectReference Include="..\..\src\NebuCtx.Storage\NebuCtx.Storage.csproj" />
   </ItemGroup>
 

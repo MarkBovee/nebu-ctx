@@ -1,6 +1,6 @@
 namespace NebuCtx.ContractTests;
 
-using NebuCtx.Hosting.Validation;
+using NebuCtx.Server.Core.Validation;
 
 /// <summary>
 /// Tests startup configuration validation.

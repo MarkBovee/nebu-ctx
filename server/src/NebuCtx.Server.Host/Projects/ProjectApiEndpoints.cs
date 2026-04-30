@@ -1,9 +1,8 @@
 namespace NebuCtx.Server.Host.Projects;
 
-using NebuCtx.Application;
 using NebuCtx.Contracts.Mcp;
 using NebuCtx.Contracts.Projects;
-using NebuCtx.Projects;
+using NebuCtx.Server.Core;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -20,10 +19,12 @@ public static class ProjectApiEndpoints
     /// <returns>The same route builder for chaining.</returns>
     public static IEndpointRouteBuilder MapProjectApi(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/v1/projects/resolve", ResolveProjectAsync);
-        app.MapGet("/v1/projects", ListProjectsAsync);
-        app.MapGet("/v1/projects/{projectId}/bindings", GetBindingsAsync);
-        app.MapPost("/v1/projects/{projectId}/bindings", BindCheckoutAsync);
+        var projects = app.MapGroup("/v1/projects");
+
+        projects.MapPost("/resolve", ResolveProjectAsync);
+        projects.MapGet("/", ListProjectsAsync);
+        projects.MapGet("/{projectId}/bindings", GetBindingsAsync);
+        projects.MapPost("/{projectId}/bindings", BindCheckoutAsync);
 
         return app;
     }

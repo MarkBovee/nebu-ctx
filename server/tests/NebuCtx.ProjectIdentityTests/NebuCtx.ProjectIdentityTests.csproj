@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\NebuCtx.Projects\NebuCtx.Projects.csproj" />
+    <ProjectReference Include="..\..\src\NebuCtx.Server.Core\NebuCtx.Server.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

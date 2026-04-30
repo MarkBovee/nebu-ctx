@@ -6,7 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NebuCtx.Contracts\NebuCtx.Contracts.csproj" />
-    <ProjectReference Include="..\NebuCtx.Application\NebuCtx.Application.csproj" />
+    <ProjectReference Include="..\NebuCtx.Server.Core\NebuCtx.Server.Core.csproj" />
   </ItemGroup>
 
 </Project>

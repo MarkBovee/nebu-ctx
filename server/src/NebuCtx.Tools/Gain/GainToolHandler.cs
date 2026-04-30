@@ -2,7 +2,7 @@ namespace NebuCtx.Tools.Gain;
 
 using System.Text;
 using System.Text.Json;
-using NebuCtx.Application;
+using NebuCtx.Server.Core;
 
 /// <summary>
 /// MCP tool handler for ctx_gain — reports token-savings and tool-usage analytics.

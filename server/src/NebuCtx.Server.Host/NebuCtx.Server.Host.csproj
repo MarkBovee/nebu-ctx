@@ -6,12 +6,16 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NebuCtx.Contracts\NebuCtx.Contracts.csproj" />
-    <ProjectReference Include="..\NebuCtx.Hosting\NebuCtx.Hosting.csproj" />
+    <ProjectReference Include="..\NebuCtx.Server.Core\NebuCtx.Server.Core.csproj" />
     <ProjectReference Include="..\NebuCtx.Storage\NebuCtx.Storage.csproj" />
-    <ProjectReference Include="..\NebuCtx.Projects\NebuCtx.Projects.csproj" />
-    <ProjectReference Include="..\NebuCtx.Application\NebuCtx.Application.csproj" />
     <ProjectReference Include="..\NebuCtx.Tools\NebuCtx.Tools.csproj" />
-    <ProjectReference Include="..\NebuCtx.Dashboard\NebuCtx.Dashboard.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Dashboard\dashboard.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

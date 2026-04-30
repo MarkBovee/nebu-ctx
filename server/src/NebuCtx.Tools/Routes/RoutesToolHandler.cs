@@ -1,7 +1,7 @@
 namespace NebuCtx.Tools.Routes;
 
-using NebuCtx.Application;
-using NebuCtx.Application.Routing;
+using NebuCtx.Server.Core;
+using NebuCtx.Server.Core.Routing;
 
 /// <summary>
 /// Tool handler for ctx_routes — lists known HTTP routes from the .NET host.

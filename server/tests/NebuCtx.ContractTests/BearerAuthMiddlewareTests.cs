@@ -2,8 +2,9 @@ namespace NebuCtx.ContractTests;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using NebuCtx.Contracts.Configuration;
-using NebuCtx.Hosting.Auth;
+using NebuCtx.Server.Core.Auth;
 
 /// <summary>
 /// Tests dashboard-specific bearer auth behavior.
@@ -24,12 +25,12 @@ public class BearerAuthMiddlewareTests
                 context.Response.StatusCode = StatusCodes.Status200OK;
                 await Task.CompletedTask;
             },
-            new ServerOptions
+            Options.Create(new ServerOptions
             {
                 AuthToken = "secret-token",
                 DashboardDisableAuth = true,
                 DashboardPort = 3333,
-            },
+            }),
             NullLogger<BearerAuthMiddleware>.Instance);
 
         var context = new DefaultHttpContext();
@@ -56,13 +57,13 @@ public class BearerAuthMiddlewareTests
                 context.Response.StatusCode = StatusCodes.Status200OK;
                 await Task.CompletedTask;
             },
-            new ServerOptions
+            Options.Create(new ServerOptions
             {
                 AuthToken = "secret-token",
                 DashboardDisableAuth = true,
                 DashboardPort = 3333,
                 McpPort = 4242,
-            },
+            }),
             NullLogger<BearerAuthMiddleware>.Instance);
 
         var context = new DefaultHttpContext();

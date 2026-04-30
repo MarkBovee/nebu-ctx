@@ -2,7 +2,7 @@ namespace NebuCtx.ProjectIdentityTests;
 
 using System.Collections.Concurrent;
 using NebuCtx.Contracts.Projects;
-using NebuCtx.Projects;
+using NebuCtx.Server.Core;
 using NebuCtx.Storage;
 
 /// <summary>

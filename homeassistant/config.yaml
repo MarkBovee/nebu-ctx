@@ -13,7 +13,7 @@ boot: "auto"
 init: false
 ingress: true
 ingress_port: 3333
-panel_icon: "mdi:brain"
+panel_icon: "mdi:creation"
 panel_title: "Nebu-CTX"
 map:
   - config:rw

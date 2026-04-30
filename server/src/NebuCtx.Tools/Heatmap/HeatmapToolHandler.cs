@@ -2,7 +2,7 @@ namespace NebuCtx.Tools.Heatmap;
 
 using System.Text;
 using System.Text.Json;
-using NebuCtx.Application;
+using NebuCtx.Server.Core;
 
 /// <summary>
 /// MCP tool handler for ctx_heatmap — shows which files are accessed most frequently.
