@@ -351,6 +351,14 @@ gh · pip · pip3 · ruff · go · golangci-lint · eslint · prettier · tsc
 ls · find · grep · curl · wget
 ```
 
+Each time your shell starts, nebu-ctx prints a brief status line showing the active version and cloud connection:
+
+```
+  ◈ nebu-ctx v0.6.1  ·  ON  ·  cloud → 192.168.1.135:4242
+```
+
+> `nebu-ctx setup` automatically runs `init --global`, so the shell hook is always up-to-date after setup. No manual `source` step needed after the first install.
+
 <br>
 
 ## 📊 CLI Commands
@@ -385,11 +393,13 @@ nebu-ctx cloud status                      # Show current cloud connection
 <summary><strong>Setup & Analytics</strong></summary>
 
 ```bash
-nebu-ctx setup                             # One-command setup: shell + editors + verify
+nebu-ctx setup                             # One-command setup: shell + editors + verify (runs init --global)
+nebu-ctx init --global                     # Regenerate shell hook for current shell
 nebu-ctx init --agent claude               # Claude Code MCP + hook
 nebu-ctx init --agent cursor               # Cursor hooks.json
 nebu-ctx init --agent gemini               # Gemini CLI hook
 nebu-ctx init --agent copilot              # GitHub Copilot MCP
+nebu-ctx on-brief                          # Print colored status line (used by shell startup hook)
 nebu-ctx gain                              # Terminal token savings dashboard
 nebu-ctx gain --live                       # Live auto-updating dashboard
 nebu-ctx gain --json                       # Raw JSON export
