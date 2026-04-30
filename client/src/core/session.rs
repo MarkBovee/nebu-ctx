@@ -960,6 +960,7 @@ fn has_project_marker(dir: &std::path::Path) -> bool {
     const MARKERS: &[&str] = &[
         ".git",
         ".lean-ctx.toml",
+        ".nebu-ctx.toml",
         "Cargo.toml",
         "package.json",
         "go.mod",

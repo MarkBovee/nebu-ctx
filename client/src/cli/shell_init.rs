@@ -126,10 +126,10 @@ pub fn generate_hook_powershell(binary: &str) -> String {
     format!(
         r#"# nebu-ctx shell hook — transparent CLI compression (90+ patterns)
 if (-not $env:NEBU_CTX_ACTIVE -and -not $env:NEBU_CTX_DISABLED) {{
-  $LeanCtxBin = "{binary_escaped}"
+  $NebuCtxBin = "{binary_escaped}"
   function _lc {{
     if ($env:NEBU_CTX_DISABLED -or [Console]::IsOutputRedirected) {{ & @args; return }}
-    & $LeanCtxBin -c @args
+    & $NebuCtxBin -c @args
     if ($LASTEXITCODE -eq 127 -or $LASTEXITCODE -eq 126) {{
       & @args
     }}
@@ -592,7 +592,7 @@ export EDITOR=vim
 
     #[test]
     fn test_remove_nebu_ctx_block_ps() {
-        let input = "# PowerShell profile\n$env:FOO = 'bar'\n\n# nebu-ctx shell hook — transparent CLI compression (90+ patterns)\nif (-not $env:NEBU_CTX_ACTIVE) {\n  $LeanCtxBin = \"C:\\\\bin\\\\nebu-ctx.exe\"\n  function git { & $LeanCtxBin -c \"git $($args -join ' ')\" }\n}\n\n# other stuff\n$env:EDITOR = 'vim'\n";
+        let input = "# PowerShell profile\n$env:FOO = 'bar'\n\n# nebu-ctx shell hook — transparent CLI compression (90+ patterns)\nif (-not $env:NEBU_CTX_ACTIVE) {\n  $NebuCtxBin = \"C:\\\\bin\\\\nebu-ctx.exe\"\n  function git { & $NebuCtxBin -c \"git $($args -join ' ')\" }\n}\n\n# other stuff\n$env:EDITOR = 'vim'\n";
         let result = remove_nebu_ctx_block_ps(input);
         assert!(
             !result.contains("nebu-ctx shell hook"),
@@ -604,7 +604,7 @@ export EDITOR=vim
 
     #[test]
     fn test_remove_nebu_ctx_block_ps_nested() {
-        let input = "# PowerShell profile\n$env:FOO = 'bar'\n\n# nebu-ctx shell hook — transparent CLI compression (90+ patterns)\nif (-not $env:NEBU_CTX_ACTIVE) {\n  $LeanCtxBin = \"nebu-ctx\"\n  function _lc {\n    & $LeanCtxBin -c \"$($args -join ' ')\"\n  }\n  if (Get-Command nebu-ctx -ErrorAction SilentlyContinue) {\n    function git { _lc git @args }\n    foreach ($c in @('npm','pnpm')) {\n      if ($a) {\n        Set-Variable -Name \"_lc_$c\" -Value $a.Source -Scope Script\n      }\n    }\n  }\n}\n\n# other stuff\n$env:EDITOR = 'vim'\n";
+        let input = "# PowerShell profile\n$env:FOO = 'bar'\n\n# nebu-ctx shell hook — transparent CLI compression (90+ patterns)\nif (-not $env:NEBU_CTX_ACTIVE) {\n  $NebuCtxBin = \"nebu-ctx\"\n  function _lc {\n    & $NebuCtxBin -c \"$($args -join ' ')\"\n  }\n  if (Get-Command nebu-ctx -ErrorAction SilentlyContinue) {\n    function git { _lc git @args }\n    foreach ($c in @('npm','pnpm')) {\n      if ($a) {\n        Set-Variable -Name \"_lc_$c\" -Value $a.Source -Scope Script\n      }\n    }\n  }\n}\n\n# other stuff\n$env:EDITOR = 'vim'\n";
         let result = remove_nebu_ctx_block_ps(input);
         assert!(
             !result.contains("nebu-ctx shell hook"),

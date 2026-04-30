@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum LeanCtxError {
+pub enum NebuCtxError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
@@ -21,16 +21,16 @@ pub enum LeanCtxError {
     Other(String),
 }
 
-impl From<toml::de::Error> for LeanCtxError {
+impl From<toml::de::Error> for NebuCtxError {
     fn from(e: toml::de::Error) -> Self {
-        LeanCtxError::Config(e.to_string())
+        NebuCtxError::Config(e.to_string())
     }
 }
 
-impl From<serde_json::Error> for LeanCtxError {
+impl From<serde_json::Error> for NebuCtxError {
     fn from(e: serde_json::Error) -> Self {
-        LeanCtxError::Parse(e.to_string())
+        NebuCtxError::Parse(e.to_string())
     }
 }
 
-pub type Result<T> = std::result::Result<T, LeanCtxError>;
+pub type Result<T> = std::result::Result<T, NebuCtxError>;

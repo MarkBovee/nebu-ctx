@@ -184,45 +184,45 @@ impl Metrics {
         vec![
             ("gen_ai.usage.input_tokens", snap.tokens_input.to_string()),
             ("gen_ai.usage.output_tokens", snap.tokens_output.to_string()),
-            ("lean_ctx.tokens.saved", snap.tokens_saved.to_string()),
+            ("nebu_ctx.tokens.saved", snap.tokens_saved.to_string()),
             (
-                "lean_ctx.tool.calls.total",
+                "nebu_ctx.tool.calls.total",
                 snap.tool_calls_total.to_string(),
             ),
             (
-                "lean_ctx.tool.calls.error",
+                "nebu_ctx.tool.calls.error",
                 snap.tool_calls_error.to_string(),
             ),
             (
-                "lean_ctx.tool.latency_avg_ms",
+                "nebu_ctx.tool.latency_avg_ms",
                 format!("{:.2}", snap.tool_call_avg_latency_ms),
             ),
             (
-                "lean_ctx.search.queries",
+                "nebu_ctx.search.queries",
                 snap.search_queries_total.to_string(),
             ),
             (
-                "lean_ctx.search.latency_avg_ms",
+                "nebu_ctx.search.latency_avg_ms",
                 format!("{:.2}", snap.search_avg_latency_ms),
             ),
             (
-                "lean_ctx.embedding.inferences",
+                "nebu_ctx.embedding.inferences",
                 snap.embedding_inferences.to_string(),
             ),
             (
-                "lean_ctx.embedding.latency_avg_ms",
+                "nebu_ctx.embedding.latency_avg_ms",
                 format!("{:.2}", snap.embedding_avg_latency_ms),
             ),
             (
-                "lean_ctx.cache.hit_rate",
+                "nebu_ctx.cache.hit_rate",
                 format!("{:.4}", snap.cache_hit_rate),
             ),
             (
-                "lean_ctx.compression.ratio",
+                "nebu_ctx.compression.ratio",
                 format!("{:.4}", snap.compression_ratio),
             ),
             (
-                "lean_ctx.session.uptime_secs",
+                "nebu_ctx.session.uptime_secs",
                 snap.session_uptime_secs.to_string(),
             ),
         ]

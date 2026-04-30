@@ -17,7 +17,7 @@ pub struct GainEngine {
     pub costs: CostStore,
     pub heatmap: HeatMap,
     pub pricing: ModelPricing,
-    pub events: Vec<crate::core::events::LeanCtxEvent>,
+    pub events: Vec<crate::core::events::NebuCtxEvent>,
     pub session: Option<crate::core::session::SessionState>,
 }
 

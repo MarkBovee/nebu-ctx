@@ -93,7 +93,7 @@ pub fn auto_approve_tools() -> Vec<&'static str> {
     ]
 }
 
-fn lean_ctx_server_entry(binary: &str, data_dir: &str, include_auto_approve: bool) -> Value {
+fn server_entry(binary: &str, data_dir: &str, include_auto_approve: bool) -> Value {
     let mut entry = serde_json::json!({
         "command": binary,
         "args": [],
@@ -122,7 +122,7 @@ fn write_mcp_json(
 ) -> Result<WriteResult, String> {
     let data_dir = default_data_dir()?;
     let include_aa = !NO_AUTO_APPROVE_EDITORS.contains(&target.name);
-    let desired = lean_ctx_server_entry(binary, &data_dir, include_aa);
+    let desired = server_entry(binary, &data_dir, include_aa);
 
     // Claude Code manages ~/.claude.json and may overwrite it on first start.
     // Prefer the official CLI integration when available.
@@ -933,7 +933,7 @@ fn write_hermes_yaml(
 ) -> Result<WriteResult, String> {
     let data_dir = default_data_dir()?;
 
-    let lean_ctx_block = format!(
+    let mcp_block = format!(
         "  nebu-ctx:\n    command: \"{binary}\"\n    args: []\n    env:\n      NEBU_CTX_DATA_DIR: \"{data_dir}\""
     );
 
@@ -947,7 +947,7 @@ fn write_hermes_yaml(
             });
         }
 
-        let updated = upsert_hermes_yaml_mcp(&content, &lean_ctx_block);
+        let updated = upsert_hermes_yaml_mcp(&content, &mcp_block);
         crate::config_io::write_atomic_with_backup(&target.config_path, &updated)?;
         return Ok(WriteResult {
             action: WriteAction::Updated,
@@ -955,7 +955,7 @@ fn write_hermes_yaml(
         });
     }
 
-    let content = format!("mcp_servers:\n{lean_ctx_block}\n");
+    let content = format!("mcp_servers:\n{mcp_block}\n");
     crate::config_io::write_atomic_with_backup(&target.config_path, &content)?;
     Ok(WriteResult {
         action: WriteAction::Created,
@@ -963,8 +963,8 @@ fn write_hermes_yaml(
     })
 }
 
-fn upsert_hermes_yaml_mcp(existing: &str, lean_ctx_block: &str) -> String {
-    let mut out = String::with_capacity(existing.len() + lean_ctx_block.len() + 32);
+fn upsert_hermes_yaml_mcp(existing: &str, mcp_block: &str) -> String {
+    let mut out = String::with_capacity(existing.len() + mcp_block.len() + 32);
     let mut in_mcp_section = false;
     let mut saw_mcp_child = false;
     let mut inserted = false;
@@ -990,7 +990,7 @@ fn upsert_hermes_yaml_mcp(existing: &str, lean_ctx_block: &str) -> String {
             }
 
             if saw_mcp_child && (line.trim().is_empty() || is_toplevel) {
-                out.push_str(lean_ctx_block);
+                out.push_str(mcp_block);
                 out.push('\n');
                 inserted = true;
                 in_mcp_section = false;
@@ -1002,7 +1002,7 @@ fn upsert_hermes_yaml_mcp(existing: &str, lean_ctx_block: &str) -> String {
     }
 
     if in_mcp_section && !inserted {
-        out.push_str(lean_ctx_block);
+        out.push_str(mcp_block);
         out.push('\n');
         inserted = true;
     }
@@ -1012,7 +1012,7 @@ fn upsert_hermes_yaml_mcp(existing: &str, lean_ctx_block: &str) -> String {
             out.push('\n');
         }
         out.push_str("\nmcp_servers:\n");
-        out.push_str(lean_ctx_block);
+        out.push_str(mcp_block);
         out.push('\n');
     }
 

@@ -835,28 +835,6 @@ pub fn run() {
         print_check(pi_check);
     }
 
-    // 12) Build integrity (canary / origin check)
-    let integrity = crate::core::integrity::check();
-    let integrity_ok = integrity.seed_ok && integrity.origin_ok;
-    if integrity_ok {
-        passed += 1;
-    }
-    let integrity_line = if integrity_ok {
-        format!(
-            "{BOLD}Build origin{RST}  {GREEN}official{RST}  {DIM}{}{RST}",
-            integrity.repo
-        )
-    } else {
-        format!(
-            "{BOLD}Build origin{RST}  {RED}MODIFIED REDISTRIBUTION{RST}  {YELLOW}pkg={}, repo={}{RST}",
-            integrity.pkg_name, integrity.repo
-        )
-    };
-    print_check(&Outcome {
-        ok: integrity_ok,
-        line: integrity_line,
-    });
-
     // 13) Claude Code instruction truncation guard
     let claude_truncation = claude_truncation_outcome();
     if let Some(ref ct) = claude_truncation {
@@ -866,7 +844,7 @@ pub fn run() {
         print_check(ct);
     }
 
-    let mut effective_total = total + 2; // session_state + integrity always shown
+    let mut effective_total = total + 1; // session_state always shown
     effective_total += docker_outcomes.len() as u32;
     if pi.is_some() {
         effective_total += 1;
@@ -876,7 +854,6 @@ pub fn run() {
     }
     println!();
     println!("  {BOLD}{WHITE}Summary:{RST}  {GREEN}{passed}{RST}{DIM}/{effective_total}{RST} checks passed");
-    println!("  {DIM}{}{RST}", crate::core::integrity::origin_line());
 }
 
 fn claude_binary_exists() -> bool {

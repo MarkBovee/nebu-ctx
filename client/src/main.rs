@@ -601,10 +601,7 @@ fn main() {
                 cli::cmd_slow_log(&rest);
                 return;
             }
-            "update" | "--self-update" => {
-                core::updater::run(&rest);
-                return;
-            }
+
             "doctor" => {
                 let code = doctor::run_cli(&rest);
                 if code != 0 {
@@ -686,7 +683,7 @@ fn main() {
                 return;
             }
             "--version" | "-V" => {
-                println!("{}", core::integrity::origin_line());
+                println!("nebu-ctx {}", env!("CARGO_PKG_VERSION"));
                 return;
             }
             "--help" | "-h" => {
@@ -841,7 +838,6 @@ COMMANDS:
     tee [list|clear|show <file>|last] Manage output tee files (~/.nebu-ctx/tee/)
     terse [off|lite|full|ultra]    Set agent output verbosity (saves 25-65% output tokens)
     slow-log [list|clear]          Show/clear slow command log (~/.nebu-ctx/slow-commands.log)
-    update [--check]               Self-update nebu-ctx binary from GitHub Releases
     gotchas [list|clear|export|stats] Bug Memory: view/manage auto-detected error patterns
     buddy [show|stats|ascii|json]  Token Guardian: your data-driven coding companion
     doctor [--fix] [--json]        Run diagnostics (and optionally repair)

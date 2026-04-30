@@ -7,7 +7,7 @@ const RING_CAPACITY: usize = 1000;
 const JSONL_MAX_LINES: usize = 10_000;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct LeanCtxEvent {
+pub struct NebuCtxEvent {
     pub id: u64,
     pub timestamp: String,
     pub kind: EventKind,
@@ -57,7 +57,7 @@ pub enum EventKind {
 
 struct EventBus {
     seq: AtomicU64,
-    ring: Mutex<VecDeque<LeanCtxEvent>>,
+    ring: Mutex<VecDeque<NebuCtxEvent>>,
 }
 
 impl EventBus {
@@ -70,7 +70,7 @@ impl EventBus {
 
     fn emit(&self, kind: EventKind) -> u64 {
         let id = self.seq.fetch_add(1, Ordering::Relaxed) + 1;
-        let event = LeanCtxEvent {
+        let event = NebuCtxEvent {
             id,
             timestamp: chrono::Local::now()
                 .format("%Y-%m-%dT%H:%M:%S%.3f")
@@ -90,12 +90,12 @@ impl EventBus {
         id
     }
 
-    fn events_since(&self, after_id: u64) -> Vec<LeanCtxEvent> {
+    fn events_since(&self, after_id: u64) -> Vec<NebuCtxEvent> {
         let ring = self.ring.lock().unwrap_or_else(|e| e.into_inner());
         ring.iter().filter(|e| e.id > after_id).cloned().collect()
     }
 
-    fn latest_events(&self, n: usize) -> Vec<LeanCtxEvent> {
+    fn latest_events(&self, n: usize) -> Vec<NebuCtxEvent> {
         let ring = self.ring.lock().unwrap_or_else(|e| e.into_inner());
         let len = ring.len();
         let start = len.saturating_sub(n);
@@ -114,7 +114,7 @@ fn jsonl_path() -> Option<std::path::PathBuf> {
         .map(|d| d.join("events.jsonl"))
 }
 
-fn append_jsonl(event: &LeanCtxEvent) {
+fn append_jsonl(event: &NebuCtxEvent) {
     let Some(path) = jsonl_path() else { return };
 
     if let Some(parent) = path.parent() {
@@ -148,22 +148,22 @@ pub fn emit(kind: EventKind) -> u64 {
     bus().emit(kind)
 }
 
-pub fn events_since(after_id: u64) -> Vec<LeanCtxEvent> {
+pub fn events_since(after_id: u64) -> Vec<NebuCtxEvent> {
     bus().events_since(after_id)
 }
 
-pub fn latest_events(n: usize) -> Vec<LeanCtxEvent> {
+pub fn latest_events(n: usize) -> Vec<NebuCtxEvent> {
     bus().latest_events(n)
 }
 
-pub fn load_events_from_file(n: usize) -> Vec<LeanCtxEvent> {
+pub fn load_events_from_file(n: usize) -> Vec<NebuCtxEvent> {
     let Some(path) = jsonl_path() else {
         return Vec::new();
     };
     let Ok(content) = std::fs::read_to_string(&path) else {
         return Vec::new();
     };
-    let all: Vec<LeanCtxEvent> = content
+    let all: Vec<NebuCtxEvent> = content
         .lines()
         .filter(|l| !l.trim().is_empty())
         .filter_map(|l| serde_json::from_str(l).ok())

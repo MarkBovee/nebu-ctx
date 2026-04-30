@@ -99,7 +99,7 @@ pub fn get_update_banner() -> Option<String> {
     let cache = read_cache()?;
     if is_newer(&cache.latest, CURRENT_VERSION) {
         Some(format!(
-            "  \x1b[33m\x1b[1m\u{27F3} Update available: v{CURRENT_VERSION} \u{2192} v{}\x1b[0m  \x1b[2m\u{2014} run:\x1b[0m \x1b[1mlean-ctx update\x1b[0m",
+            "  \x1b[33m\x1b[1m\u{27F3} Update available: v{CURRENT_VERSION} \u{2192} v{}\x1b[0m  \x1b[2m\u{2014} run:\x1b[0m \x1b[1mnebu-ctx update\x1b[0m",
             cache.latest
         ))
     } else {

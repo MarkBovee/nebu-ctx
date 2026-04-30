@@ -756,15 +756,15 @@ impl Config {
         }
     }
 
-    pub fn save(&self) -> std::result::Result<(), super::error::LeanCtxError> {
+    pub fn save(&self) -> std::result::Result<(), super::error::NebuCtxError> {
         let path = Self::path().ok_or_else(|| {
-            super::error::LeanCtxError::Config("cannot determine home directory".into())
+            super::error::NebuCtxError::Config("cannot determine home directory".into())
         })?;
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
         let content = toml::to_string_pretty(self)
-            .map_err(|e| super::error::LeanCtxError::Config(e.to_string()))?;
+            .map_err(|e| super::error::NebuCtxError::Config(e.to_string()))?;
         std::fs::write(&path, content)?;
         Ok(())
     }
