@@ -1,4 +1,5 @@
 use std::io::{self, IsTerminal, Write};
+use crate::core::theme::Color;
 
 const LOGO: [&str; 6] = [
     r"  ███╗   ██╗███████╗██████╗ ██╗   ██╗     ██████╗████████╗██╗  ██╗",
@@ -10,6 +11,109 @@ const LOGO: [&str; 6] = [
 ];
 
 const TAGLINE: &str = "Context Runtime for AI Agents";
+
+/// Nebula icon — 13 rows, single-column Unicode characters only.
+/// Color is applied in `nebula_char_color` based on character "density" (outermost = dimmest).
+const NEBULA_ICON: [&str; 13] = [
+    r"             ·:·             ",
+    r"        .·:=+*+++*+=:·.      ",
+    r"      .:+*+=-·   ·-=+*+:.   ",
+    r"    .:+*=-  .:=+++=:.  -=*+:.",
+    r"   :+*=-  =+██▓░  ░▓██=  =*+:",
+    r"  :+*=  =██▓░        ░▓██=  =*+:",
+    r"  :+*=  ██░   +  +   ░██  =*+: ",
+    r"  :+*=  =██▓░        ░▓██=  =*+:",
+    r"   :+*=-  =+██▓░  ░▓██=  =*+:",
+    r"    .:+*=-  .:=+++=:.  -=*+:.",
+    r"      .:+*+=-·   ·-=+*+:.   ",
+    r"        .·:=+*+++*+=:·.      ",
+    r"             ·:·             ",
+];
+
+/// Assign a theme-blended color to a nebula character based on its visual "density".
+fn nebula_char_color(ch: char, t: &crate::core::theme::Theme) -> Color {
+    let white = Color::Hex("#FFFFFF".to_string());
+    match ch {
+        '·' | '.' => t.muted.lerp(&t.secondary, 0.3),
+        ':' | '-' => t.secondary.lerp(&t.primary, 0.3),
+        '=' => t.secondary.lerp(&t.primary, 0.6),
+        '+' => t.primary.lerp(&t.accent, 0.5),
+        '*' => t.accent.lerp(&white, 0.25),
+        '█' => t.accent.lerp(&white, 0.05),
+        '▓' => t.accent.lerp(&white, 0.35),
+        '░' => t.accent.lerp(&white, 0.6),
+        _ => t.muted.clone(),
+    }
+}
+
+/// Render the nebula icon with NEBU CTX text to its right (neofetch-style).
+/// Called at the end of `nebu-ctx setup`.
+pub fn print_nebu_splash() {
+    let cfg = crate::core::config::Config::load();
+    let t = crate::core::theme::load_theme(&cfg.theme);
+
+    if crate::core::theme::no_color() || !io::stdout().is_terminal() {
+        print_logo_plain();
+        return;
+    }
+
+    let max_icon_width = NEBULA_ICON.iter().map(|l| l.chars().count()).max().unwrap_or(34);
+    let gap = 4usize;
+
+    // LOGO text lines start at icon row 3, tagline at icon row 3 + LOGO.len() + 1
+    let text_start = 3usize;
+    let tagline_row = text_start + LOGO.len() + 1;
+
+    println!();
+
+    for (icon_row, icon_line) in NEBULA_ICON.iter().enumerate() {
+        // Colored icon segment
+        let mut icon_buf = String::new();
+        for ch in icon_line.chars() {
+            if ch == ' ' {
+                icon_buf.push(' ');
+            } else {
+                let color = nebula_char_color(ch, &t);
+                icon_buf.push_str(&color.fg());
+                icon_buf.push(ch);
+                icon_buf.push_str("\x1b[0m");
+            }
+        }
+        // Pad to uniform visual width + gap
+        let vis_len = icon_line.chars().count();
+        let padding = " ".repeat(max_icon_width - vis_len + gap);
+
+        // Colored text segment (LOGO or tagline)
+        let text_buf: String = if icon_row >= text_start && icon_row < text_start + LOGO.len() {
+            let logo_line = LOGO[icon_row - text_start];
+            let chars: Vec<char> = logo_line.chars().collect();
+            let n = chars.len().max(1);
+            let mut buf = String::new();
+            for (j, &ch) in chars.iter().enumerate() {
+                if ch == ' ' {
+                    buf.push(' ');
+                } else {
+                    let blend = ((j as f64 / (n - 1) as f64)
+                        + (icon_row - text_start) as f64 / (LOGO.len() - 1).max(1) as f64 * 0.3)
+                        .min(1.0);
+                    let c = t.primary.lerp(&t.secondary, blend);
+                    buf.push_str(&c.fg());
+                    buf.push(ch);
+                    buf.push_str("\x1b[0m");
+                }
+            }
+            buf
+        } else if icon_row == tagline_row {
+            format!("{}  {TAGLINE}\x1b[0m", t.muted.fg())
+        } else {
+            String::new()
+        };
+
+        println!("{icon_buf}{padding}{text_buf}");
+    }
+
+    println!();
+}
 
 pub fn print_logo_animated() {
     let cfg = crate::core::config::Config::load();

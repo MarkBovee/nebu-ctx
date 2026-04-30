@@ -78,12 +78,12 @@ pub fn run_setup() {
     terminal_ui::print_setup_header();
 
     // Step 1: Shell hook (legacy aliases + universal shell hook)
-    terminal_ui::print_step_header(1, 7, "Shell Hook");
+    terminal_ui::print_step_header(1, 6, "Shell Hook");
     crate::cli::cmd_init(&["--global".to_string()]);
     crate::shell_hook::install_all(false);
 
     // Step 2: Editor auto-detection + configuration
-    terminal_ui::print_step_header(2, 7, "AI Tool Detection");
+    terminal_ui::print_step_header(2, 6, "AI Tool Detection");
 
     let targets = crate::core::editor_registry::build_targets(&home);
     let mut newly_configured: Vec<&str> = Vec::new();
@@ -143,7 +143,7 @@ pub fn run_setup() {
     }
 
     // Step 3: Agent rules injection
-    terminal_ui::print_step_header(3, 7, "Agent Rules");
+    terminal_ui::print_step_header(3, 6, "Agent Rules");
     let rules_result = crate::rules_inject::inject_all_rules(&home);
     for name in &rules_result.injected {
         terminal_ui::print_status_new(&format!("{name:<20} \x1b[2mrules injected\x1b[0m"));
@@ -273,7 +273,7 @@ pub fn run_setup() {
 
     // Logo + commands
     println!();
-    terminal_ui::print_logo_animated();
+    terminal_ui::print_nebu_splash();
     terminal_ui::print_command_box();
 }
 
