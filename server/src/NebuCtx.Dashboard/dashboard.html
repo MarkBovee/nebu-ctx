@@ -1551,10 +1551,10 @@ async function loadTokenView() {
             </div>
             <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Connection URL</div>
             <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--rs);padding:12px 16px;font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:8px">
-              nebu-ctx cloud connect --url ${esc(endpoint)} --token ${esc(token.substring(0,12))}...
+              nebu-ctx connect --endpoint ${esc(endpoint)} --token ${esc(token.substring(0,12))}...
             </div>
           </div>
-          ${howItWorks('MCP Authentication', 'The token is auto-generated on first boot and stored in the addon data directory. It authenticates MCP clients connecting to the HTTP endpoint on port 4242. Use <strong>nebu-ctx cloud</strong> to connect from a remote machine, or configure your MCP client with the endpoint URL and Bearer token.')}
+          ${howItWorks('MCP Authentication', 'The token is auto-generated on first boot and stored in the addon data directory. It authenticates MCP clients connecting to the HTTP endpoint on port 4242. Use <strong>nebu-ctx connect</strong> to connect from a remote machine, or configure your MCP client with the endpoint URL and Bearer token.')}
           ` : `
           <div class="empty-state" style="padding:40px">
             <h2>No token configured</h2>
@@ -1864,7 +1864,7 @@ function renderLiveEvents(events, mcp, stats) {
 
   const feed = $('liveEventFeed');
   if (!feed) return;
-  feed.innerHTML = filtered.slice(-50).reverse().map(e => {
+  feed.innerHTML = filtered.slice(0, 50).map(e => {
     const ts = e.ts ? e.ts.substring(11, 19) : '';
     const projSlug = liveProjectMap[e.project_id] || (e.project_id ? e.project_id.replace('proj_','').substring(0,8) : '');
     const metaCol = (projSlug || e.actor)
