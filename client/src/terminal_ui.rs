@@ -1,12 +1,12 @@
 use std::io::{self, IsTerminal, Write};
 
 const LOGO: [&str; 6] = [
-    r"  ██╗     ███████╗ █████╗ ███╗   ██╗     ██████╗████████╗██╗  ██╗",
-    r"  ██║     ██╔════╝██╔══██╗████╗  ██║    ██╔════╝╚══██╔══╝╚██╗██╔╝",
-    r"  ██║     █████╗  ███████║██╔██╗ ██║    ██║        ██║    ╚███╔╝ ",
-    r"  ██║     ██╔══╝  ██╔══██║██║╚██╗██║    ██║        ██║    ██╔██╗ ",
-    r"  ███████╗███████╗██║  ██║██║ ╚████║    ╚██████╗   ██║   ██╔╝ ██╗",
-    r"  ╚══════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝     ╚═════╝   ╚═╝   ╚═╝  ╚═╝",
+    r"  ███╗   ██╗███████╗██████╗ ██╗   ██╗     ██████╗████████╗██╗  ██╗",
+    r"  ████╗  ██║██╔════╝██╔══██╗██║   ██║    ██╔════╝╚══██╔══╝╚██╗██╔╝",
+    r"  ██╔██╗ ██║█████╗  ██████╔╝██║   ██║    ██║        ██║    ╚███╔╝ ",
+    r"  ██║╚██╗██║██╔══╝  ██╔══██╗██║   ██║    ██║        ██║    ██╔██╗ ",
+    r"  ██║ ╚████║███████╗██████╔╝╚██████╔╝    ╚██████╗   ██║   ██╔╝ ██╗",
+    r"  ╚═╝  ╚═══╝╚══════╝╚═════╝  ╚═════╝      ╚═════╝   ╚═╝   ╚═╝  ╚═╝",
 ];
 
 const TAGLINE: &str = "Context Runtime for AI Agents";
@@ -150,13 +150,13 @@ pub fn print_command_box() {
 
     println!("  {d}┌─────────────────────────────────────────────────────────┐{r}");
     println!(
-        "  {d}│{r}  {cmd}{b}NebuCtx Cloud{r}       {m}Canonical analytics dashboard{r}   {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx connect{r}     {m}Connect to cloud server{r}         {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}.NET server dashboard{r} {m}Server-hosted browser UI{r}     {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx status{r}      {m}Connection & install status{r}     {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}cloud heatmap{r}       {m}Server-owned context heatmap{r}    {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx gain{r}        {m}View compression savings{r}        {d}│{r}"
     );
     println!(
         "  {d}│{r}  {cmd}{b}nebu-ctx benchmark{r}   {m}Test compression quality{r}        {d}│{r}"
@@ -166,9 +166,6 @@ pub fn print_command_box() {
     );
     println!(
         "  {d}│{r}  {cmd}{b}nebu-ctx doctor{r}      {m}Verify installation{r}             {d}│{r}"
-    );
-    println!(
-        "  {d}│{r}  {cmd}{b}nebu-ctx update{r}      {m}Self-update to latest{r}           {d}│{r}"
     );
     println!("  {d}│{r}  {cmd}{b}nebu-ctx off{r} / {cmd}{b}on{r}    {m}Toggle compression{r}              {d}│{r}");
     println!(

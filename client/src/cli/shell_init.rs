@@ -76,8 +76,8 @@ end
 
 fn source_line_powershell() -> String {
     r#"# nebu-ctx shell hook
-$leanCtxHook = Join-Path $HOME ".nebu-ctx" "shell-hook.ps1"
-if (Test-Path $leanCtxHook) { . $leanCtxHook }
+$nebuCtxHook = Join-Path $HOME ".nebu-ctx" "shell-hook.ps1"
+if (Test-Path $nebuCtxHook) { . $nebuCtxHook }
 "#
     .to_string()
 }
