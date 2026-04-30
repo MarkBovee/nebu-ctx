@@ -1865,7 +1865,7 @@ function renderLiveEvents(events, mcp, stats) {
   const feed = $('liveEventFeed');
   if (!feed) return;
   feed.innerHTML = filtered.slice(0, 50).map(e => {
-    const ts = e.ts ? e.ts.substring(11, 19) : '';
+    const ts = e.ts ? new Date(e.ts).toLocaleTimeString() : '';
     const projSlug = liveProjectMap[e.project_id] || (e.project_id ? e.project_id.replace('proj_','').substring(0,8) : '');
     const metaCol = (projSlug || e.actor)
       ? `<div style="min-width:80px;max-width:120px;display:flex;flex-direction:column;gap:2px;align-items:flex-end;justify-content:center;padding:0 8px;flex-shrink:0">${projSlug ? '<span style="font-size:9px;font-family:var(--mono);color:var(--muted);background:var(--surface-2);padding:1px 5px;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px">@' + esc(projSlug) + '</span>' : ''}${e.actor ? '<span style="font-size:9px;color:var(--muted);opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px">' + esc(e.actor) + '</span>' : ''}</div>`
