@@ -1,10 +1,10 @@
 import type { Plugin } from "@opencode-ai/plugin"
 
-export const LeanCtxOpenCodePlugin: Plugin = async ({ $ }) => {
+export const NebuCtxOpenCodePlugin: Plugin = async ({ $ }) => {
   try {
-    await $`which lean-ctx`.quiet()
+    await $`which nebu-ctx`.quiet()
   } catch {
-    console.warn("[lean-ctx] lean-ctx binary not found in PATH — plugin disabled")
+    console.warn("[nebu-ctx] nebu-ctx binary not found in PATH — plugin disabled")
     return {}
   }
 
@@ -20,13 +20,13 @@ export const LeanCtxOpenCodePlugin: Plugin = async ({ $ }) => {
       if (command.startsWith("nebu-ctx ")) return
 
       try {
-        const result = await $`lean-ctx hook rewrite-inline ${command}`.quiet().nothrow()
+        const result = await $`nebu-ctx hook rewrite-inline ${command}`.quiet().nothrow()
         const rewritten = String(result.stdout).trim()
         if (rewritten && rewritten !== command) {
           ;(args as Record<string, unknown>).command = rewritten
         }
       } catch {
-        // lean-ctx rewrite failed — pass through unchanged
+        // nebu-ctx rewrite failed — pass through unchanged
       }
     },
   }

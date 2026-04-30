@@ -3,34 +3,34 @@ name: nebu-ctx
 description: Context Runtime for AI Agents — 46 MCP tools, 10 read modes, 90+ shell patterns, tree-sitter AST for 18 languages. Compresses LLM context by up to 99%. Use when reading files, running shell commands, searching code, or exploring directories. Auto-installs if not present.
 ---
 
-# LeanCTX — Context Runtime for AI Agents
+# nebu-ctx — Context Runtime for AI Agents
 
-LeanCTX optimizes LLM context through 46 MCP tools, 90+ shell compression patterns, and tree-sitter AST parsing for 18 languages. It provides adaptive file reading, cross-session memory (CCP), task-conditioned relevance scoring, and a feedback loop for learning optimal compression.
+nebu-ctx optimizes LLM context through 46 MCP tools, 90+ shell compression patterns, and tree-sitter AST parsing for 18 languages. It provides adaptive file reading, cross-session memory (CCP), task-conditioned relevance scoring, and a feedback loop for learning optimal compression.
 
 ## Setup (run first)
 
-Before using lean-ctx, verify it is installed:
+Before using nebu-ctx, verify it is installed:
 
 ```bash
-which lean-ctx || bash scripts/install.sh
+which nebu-ctx || bash scripts/install.sh
 ```
 
 If the install script is not available locally, install manually:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yvgude/lean-ctx/main/skills/lean-ctx/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/markbovee/nebu-ctx/main/skills/nebu-ctx/scripts/install.sh | bash
 ```
 
 After installation, configure the MCP server:
 
 ```bash
-lean-ctx init --global
-lean-ctx doctor --fix
+nebu-ctx init --global
+nebu-ctx doctor --fix
 ```
 
-## When to use lean-ctx
+## When to use nebu-ctx
 
-Always prefer `lean-ctx -c <command>` over running commands directly when:
+Always prefer `nebu-ctx -c <command>` over running commands directly when:
 - The command produces verbose output (build logs, git diffs, dependency trees, test results)
 - You are reading files and only need the structure or API surface
 - You want to check token savings for the current session
@@ -38,19 +38,19 @@ Always prefer `lean-ctx -c <command>` over running commands directly when:
 ## Shell commands (use instead of raw exec)
 
 ```bash
-lean-ctx -c git status          # Compressed git output
-lean-ctx -c git diff            # Only meaningful diff lines
-lean-ctx -c git log --oneline -10
-lean-ctx -c npm install         # Strips progress bars, noise
-lean-ctx -c cargo build
-lean-ctx -c cargo test
-lean-ctx -c docker ps
-lean-ctx -c kubectl get pods
-lean-ctx -c aws ec2 describe-instances
-lean-ctx -c helm list
-lean-ctx -c prisma migrate dev
-lean-ctx -c curl -s <url>       # JSON schema extraction
-lean-ctx -c ls -la <dir>        # Grouped directory listing
+nebu-ctx -c git status          # Compressed git output
+nebu-ctx -c git diff            # Only meaningful diff lines
+nebu-ctx -c git log --oneline -10
+nebu-ctx -c npm install         # Strips progress bars, noise
+nebu-ctx -c cargo build
+nebu-ctx -c cargo test
+nebu-ctx -c docker ps
+nebu-ctx -c kubectl get pods
+nebu-ctx -c aws ec2 describe-instances
+nebu-ctx -c helm list
+nebu-ctx -c prisma migrate dev
+nebu-ctx -c curl -s <url>       # JSON schema extraction
+nebu-ctx -c ls -la <dir>        # Grouped directory listing
 ```
 
 Supported: git, npm, pnpm, yarn, bun, deno, cargo, docker, kubectl, helm, gh, pip, ruff, go, eslint, prettier, tsc, aws, psql, mysql, prisma, swift, zig, cmake, ansible, composer, mix, bazel, systemd, terraform, make, maven, dotnet, flutter, poetry, rubocop, playwright, curl, wget, and more.
@@ -58,12 +58,12 @@ Supported: git, npm, pnpm, yarn, bun, deno, cargo, docker, kubectl, helm, gh, pi
 ## File reading (compressed modes)
 
 ```bash
-lean-ctx read <file>                    # Full content with structured header
-lean-ctx read <file> -m map             # Dependency graph + exports + API (~5-15% tokens)
-lean-ctx read <file> -m signatures      # Function/class signatures only (~10-20% tokens)
-lean-ctx read <file> -m aggressive      # Syntax-stripped (~30-50% tokens)
-lean-ctx read <file> -m entropy         # Shannon entropy filtered (~20-40% tokens)
-lean-ctx read <file> -m diff            # Only changed lines since last read
+nebu-ctx read <file>                    # Full content with structured header
+nebu-ctx read <file> -m map             # Dependency graph + exports + API (~5-15% tokens)
+nebu-ctx read <file> -m signatures      # Function/class signatures only (~10-20% tokens)
+nebu-ctx read <file> -m aggressive      # Syntax-stripped (~30-50% tokens)
+nebu-ctx read <file> -m entropy         # Shannon entropy filtered (~20-40% tokens)
+nebu-ctx read <file> -m diff            # Only changed lines since last read
 ```
 
 Use `map` mode when you need to understand what a file does without reading every line.
@@ -73,15 +73,15 @@ Use `full` mode only when you will edit the file.
 ## AI Tool Integration
 
 ```bash
-lean-ctx init --global          # Install shell aliases
-lean-ctx init --agent claude    # Claude Code PreToolUse hook
-lean-ctx init --agent cursor    # Cursor hooks.json
-lean-ctx init --agent gemini    # Gemini CLI BeforeTool hook
-lean-ctx init --agent codex     # Codex AGENTS.md
-lean-ctx init --agent windsurf  # .windsurfrules
-lean-ctx init --agent cline     # .clinerules
-lean-ctx init --agent crush     # Crush MCP config
-lean-ctx init --agent copilot   # VS Code / Copilot .vscode/mcp.json
+nebu-ctx init --global          # Install shell aliases
+nebu-ctx init --agent claude    # Claude Code PreToolUse hook
+nebu-ctx init --agent cursor    # Cursor hooks.json
+nebu-ctx init --agent gemini    # Gemini CLI BeforeTool hook
+nebu-ctx init --agent codex     # Codex AGENTS.md
+nebu-ctx init --agent windsurf  # .windsurfrules
+nebu-ctx init --agent cline     # .clinerules
+nebu-ctx init --agent crush     # Crush MCP config
+nebu-ctx init --agent copilot   # VS Code / Copilot .vscode/mcp.json
 ```
 
 ## Multi-Agent & Knowledge (v2.7.0+)
@@ -112,13 +112,13 @@ MCP tools:
 ## Session Continuity (CCP)
 
 ```bash
-lean-ctx sessions list          # List all CCP sessions
-lean-ctx sessions show          # Show latest session state
-lean-ctx wrapped                # Weekly savings report card
-lean-ctx wrapped --month        # Monthly savings report card
-lean-ctx benchmark run          # Real project benchmark (terminal output)
-lean-ctx benchmark run --json   # Machine-readable JSON output
-lean-ctx benchmark report       # Shareable Markdown report
+nebu-ctx sessions list          # List all CCP sessions
+nebu-ctx sessions show          # Show latest session state
+nebu-ctx wrapped                # Weekly savings report card
+nebu-ctx wrapped --month        # Monthly savings report card
+nebu-ctx benchmark run          # Real project benchmark (terminal output)
+nebu-ctx benchmark run --json   # Machine-readable JSON output
+nebu-ctx benchmark report       # Shareable Markdown report
 ```
 
 MCP tools for CCP:
@@ -133,16 +133,16 @@ MCP tools for CCP:
 ## Analytics
 
 ```bash
-lean-ctx gain                   # Visual token savings dashboard
-lean-ctx dashboard              # Web dashboard at localhost:3333
-lean-ctx session                # Adoption statistics
-lean-ctx discover               # Find uncompressed commands in shell history
+nebu-ctx gain                   # Visual token savings dashboard
+nebu-ctx dashboard              # Web dashboard at localhost:3333
+nebu-ctx session                # Adoption statistics
+nebu-ctx discover               # Find uncompressed commands in shell history
 ```
 
 ## Tips
 
-- The output suffix `[lean-ctx: 5029→197 tok, -96%]` shows original vs compressed token count
-- For large outputs, lean-ctx automatically truncates while preserving relevant context
+- The output suffix `[nebu-ctx: 5029→197 tok, -96%]` shows original vs compressed token count
+- For large outputs, nebu-ctx automatically truncates while preserving relevant context
 - JSON responses from curl/wget are reduced to schema outlines
 - Build errors are grouped by type with counts
 - Test results show only failures with summary counts

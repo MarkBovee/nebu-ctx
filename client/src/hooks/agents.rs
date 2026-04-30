@@ -754,8 +754,8 @@ pub(super) fn install_pi_hook(global: bool) {
             println!("Installed pi-nebu-ctx Pi Package.");
         }
         _ => {
-            println!("Could not auto-install pi-lean-ctx. Install manually:");
-            println!("  pi install npm:pi-lean-ctx");
+            println!("Could not auto-install pi-nebu-ctx. Install manually:");
+            println!("  pi install npm:pi-nebu-ctx");
             println!();
         }
     }
@@ -776,7 +776,7 @@ pub(super) fn install_pi_hook(global: bool) {
             write_file(&agents_md, content);
             println!("Created AGENTS.md in current project directory.");
         } else {
-            println!("AGENTS.md already contains lean-ctx configuration.");
+            println!("AGENTS.md already contains nebu-ctx configuration.");
         }
     } else {
         println!(
@@ -785,9 +785,9 @@ pub(super) fn install_pi_hook(global: bool) {
     }
 
     println!();
-    println!("Setup complete. All Pi tools (bash, read, grep, find, ls) route through lean-ctx.");
+    println!("Setup complete. All Pi tools (bash, read, grep, find, ls) route through nebu-ctx.");
     println!("MCP tools (ctx_session, ctx_knowledge, ctx_semantic_search, ...) also available.");
-    println!("Use /lean-ctx in Pi to verify the binary path and MCP status.");
+    println!("Use /nebu-ctx in Pi to verify the binary path and MCP status.");
 }
 
 fn write_pi_mcp_config() {
@@ -809,7 +809,7 @@ fn write_pi_mcp_config() {
             Err(_) => return,
         };
         if content.contains("nebu-ctx") || content.contains("lean-ctx") {
-            println!("  \x1b[32m✓\x1b[0m Pi MCP config already contains lean-ctx");
+            println!("  \x1b[32m✓\x1b[0m Pi MCP config already contains nebu-ctx");
             return;
         }
 
@@ -819,12 +819,12 @@ fn write_pi_mcp_config() {
                     .entry("mcpServers")
                     .or_insert_with(|| serde_json::json!({}));
                 if let Some(servers_obj) = servers.as_object_mut() {
-                    servers_obj.insert("lean-ctx".to_string(), pi_mcp_server_entry());
+                    servers_obj.insert("nebu-ctx".to_string(), pi_mcp_server_entry());
                 }
                 if let Ok(formatted) = serde_json::to_string_pretty(&json) {
                     let _ = std::fs::write(&mcp_config_path, formatted);
                     println!(
-                        "  \x1b[32m✓\x1b[0m Added lean-ctx to Pi MCP config (~/.pi/agent/mcp.json)"
+                        "  \x1b[32m✓\x1b[0m Added nebu-ctx to Pi MCP config (~/.pi/agent/mcp.json)"
                     );
                 }
             }
@@ -834,7 +834,7 @@ fn write_pi_mcp_config() {
 
     let content = serde_json::json!({
         "mcpServers": {
-            "lean-ctx": pi_mcp_server_entry()
+            "nebu-ctx": pi_mcp_server_entry()
         }
     });
     if let Ok(formatted) = serde_json::to_string_pretty(&content) {
@@ -975,23 +975,24 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
                         .entry("servers")
                         .or_insert_with(|| serde_json::json!({}));
                     if let Some(servers_obj) = servers.as_object_mut() {
-                        if servers_obj.get("lean-ctx") == Some(&desired) {
+                        if servers_obj.get("lean-ctx") == Some(&desired) || servers_obj.get("nebu-ctx") == Some(&desired) {
                             println!("  \x1b[32m✓\x1b[0m Copilot already configured in {label}");
                             return;
                         }
-                        servers_obj.insert("lean-ctx".to_string(), desired);
+                        let _ = servers_obj.remove("lean-ctx");
+                        servers_obj.insert("nebu-ctx".to_string(), desired);
                     }
                     write_file(
                         mcp_path,
                         &serde_json::to_string_pretty(&json).unwrap_or_default(),
                     );
-                    println!("  \x1b[32m✓\x1b[0m Added lean-ctx to {label}");
+                    println!("  \x1b[32m✓\x1b[0m Added nebu-ctx to {label}");
                     return;
                 }
             }
             Err(e) => {
                 eprintln!(
-                    "Could not parse VS Code MCP config at {}: {e}\nAdd to \"servers\": \"lean-ctx\": {{ \"command\": \"{}\", \"args\": [] }}",
+                    "Could not parse VS Code MCP config at {}: {e}\nAdd to \"servers\": \"nebu-ctx\": {{ \"command\": \"{}\", \"args\": [] }}",
                     mcp_path.display(),
                     binary
                 );
@@ -1009,7 +1010,7 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
         .unwrap_or_default();
     let config = serde_json::json!({
         "servers": {
-            "lean-ctx": {
+            "nebu-ctx": {
                 "type": "stdio",
                 "command": binary,
                 "args": [],
@@ -1052,7 +1053,7 @@ pub(super) fn install_jetbrains_hook() {
     let display_path = "~/.jb-mcp.json";
 
     let entry = serde_json::json!({
-        "name": "lean-ctx",
+        "name": "nebu-ctx",
         "command": binary,
         "args": [],
         "env": {
@@ -1117,13 +1118,19 @@ pub(super) fn install_opencode_hook() {
 
     if config_path.exists() {
         let content = std::fs::read_to_string(&config_path).unwrap_or_default();
-        if content.contains("nebu-ctx") || content.contains("lean-ctx") {
-            println!("OpenCode MCP already configured at {display_path}");
-        } else if let Ok(mut json) = serde_json::from_str::<serde_json::Value>(&content) {
+        if let Ok(mut json) = serde_json::from_str::<serde_json::Value>(&content) {
             if let Some(obj) = json.as_object_mut() {
                 let mcp = obj.entry("mcp").or_insert_with(|| serde_json::json!({}));
                 if let Some(mcp_obj) = mcp.as_object_mut() {
-                    mcp_obj.insert("lean-ctx".to_string(), desired.clone());
+                    let existing = mcp_obj.get("nebu-ctx").cloned();
+                    let legacy = mcp_obj.remove("lean-ctx");
+                    if existing.as_ref() == Some(&desired) {
+                        println!("OpenCode MCP already configured at {display_path}");
+                        install_opencode_plugin(&home);
+                        return;
+                    }
+                    let _ = legacy;
+                    mcp_obj.insert("nebu-ctx".to_string(), desired.clone());
                 }
                 if let Ok(formatted) = serde_json::to_string_pretty(&json) {
                     let _ = std::fs::write(&config_path, formatted);
@@ -1135,7 +1142,7 @@ pub(super) fn install_opencode_hook() {
         let content = serde_json::to_string_pretty(&serde_json::json!({
             "$schema": "https://opencode.ai/config.json",
             "mcp": {
-                "lean-ctx": desired
+                "nebu-ctx": desired
             }
         }));
 
@@ -1153,7 +1160,7 @@ pub(super) fn install_opencode_hook() {
 fn install_opencode_plugin(home: &std::path::Path) {
     let plugin_dir = home.join(".config/opencode/plugins");
     let _ = std::fs::create_dir_all(&plugin_dir);
-    let plugin_path = plugin_dir.join("lean-ctx.ts");
+    let plugin_path = plugin_dir.join("nebu-ctx.ts");
 
     let plugin_content = include_str!("../templates/opencode-plugin.ts");
     let _ = std::fs::write(&plugin_path, plugin_content);

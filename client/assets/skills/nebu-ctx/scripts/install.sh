@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="yvgude/lean-ctx"
+REPO="markbovee/nebu-ctx"
 INSTALL_DIR="${HOME}/.local/bin"
 
 already_installed() {
-    command -v lean-ctx >/dev/null 2>&1
+    command -v nebu-ctx >/dev/null 2>&1
 }
 
 detect_platform() {
@@ -35,21 +35,21 @@ latest_version() {
 
 install_binary() {
     local platform="$1" version="$2"
-    local asset="lean-ctx-${platform}"
+    local asset="nebu-ctx-${platform}"
     local url="https://github.com/${REPO}/releases/download/v${version}/${asset}.tar.gz"
 
-    echo "Downloading lean-ctx v${version} for ${platform}..."
+    echo "Downloading nebu-ctx v${version} for ${platform}..."
     local tmp
     tmp="$(mktemp -d)"
     trap 'rm -rf "$tmp"' EXIT
 
-    curl -fsSL "$url" -o "${tmp}/lean-ctx.tar.gz"
-    tar -xzf "${tmp}/lean-ctx.tar.gz" -C "$tmp"
+    curl -fsSL "$url" -o "${tmp}/nebu-ctx.tar.gz"
+    tar -xzf "${tmp}/nebu-ctx.tar.gz" -C "$tmp"
 
     mkdir -p "$INSTALL_DIR"
-    mv "${tmp}/lean-ctx" "${INSTALL_DIR}/lean-ctx"
-    chmod +x "${INSTALL_DIR}/lean-ctx"
-    echo "Installed to ${INSTALL_DIR}/lean-ctx"
+    mv "${tmp}/nebu-ctx" "${INSTALL_DIR}/nebu-ctx"
+    chmod +x "${INSTALL_DIR}/nebu-ctx"
+    echo "Installed to ${INSTALL_DIR}/nebu-ctx"
 }
 
 ensure_path() {
@@ -63,17 +63,17 @@ ensure_path() {
 }
 
 setup_mcp() {
-    echo "Configuring lean-ctx MCP server..."
-    lean-ctx init --global 2>/dev/null || true
-    lean-ctx doctor --fix 2>/dev/null || true
+    echo "Configuring nebu-ctx MCP server..."
+    nebu-ctx init --global 2>/dev/null || true
+    nebu-ctx doctor --fix 2>/dev/null || true
 }
 
 main() {
     if already_installed; then
         local current
-        current="$(lean-ctx --version 2>/dev/null | head -1 || echo 'unknown')"
-        echo "lean-ctx already installed: ${current}"
-        echo "Run 'lean-ctx doctor' to verify configuration."
+        current="$(nebu-ctx --version 2>/dev/null | head -1 || echo 'unknown')"
+        echo "nebu-ctx already installed: ${current}"
+        echo "Run 'nebu-ctx doctor' to verify configuration."
         exit 0
     fi
 
@@ -89,7 +89,7 @@ main() {
     install_binary "$platform" "$version"
     ensure_path
     setup_mcp
-    echo "lean-ctx v${version} installed and configured."
+    echo "nebu-ctx v${version} installed and configured."
 }
 
 main "$@"

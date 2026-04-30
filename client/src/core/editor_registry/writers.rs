@@ -538,13 +538,14 @@ fn write_opencode_config(
             .as_object_mut()
             .ok_or_else(|| "\"mcp\" must be an object".to_string())?;
 
-        let existing = mcp_obj.get("nebu-ctx").cloned().or_else(|| mcp_obj.get("lean-ctx").cloned());
+        let existing = mcp_obj.get("nebu-ctx").cloned();
         if existing.as_ref() == Some(&desired) {
             return Ok(WriteResult {
                 action: WriteAction::Already,
                 note: None,
             });
         }
+        let _ = mcp_obj.remove("lean-ctx");
         mcp_obj.insert("nebu-ctx".to_string(), desired);
 
         let formatted = serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?;
@@ -1165,6 +1166,37 @@ args = ["x"]
             json["mcpServers"]["nebu-ctx"]["command"],
             "/usr/local/bin/nebu-ctx"
         );
+    }
+
+    #[test]
+    fn opencode_config_uses_nebu_ctx_and_drops_legacy_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("opencode.json");
+        std::fs::write(
+            &path,
+            r#"{ "mcp": { "other": { "type": "local", "command": ["foo"] }, "lean-ctx": { "type": "local", "command": ["old"], "enabled": true, "environment": { "NEBU_CTX_DATA_DIR": "/tmp" } } } }"#,
+        )
+        .unwrap();
+
+        let t = target(path.clone(), ConfigType::OpenCode);
+        let res = write_opencode_config(&t, "/usr/local/bin/nebu-ctx", WriteOptions::default())
+            .unwrap();
+        assert_eq!(res.action, WriteAction::Updated);
+
+        let json: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(json["mcp"]["other"]["command"], serde_json::json!(["foo"]));
+        assert!(json["mcp"].get("lean-ctx").is_none());
+        assert_eq!(json["mcp"]["nebu-ctx"]["command"], serde_json::json!(["/usr/local/bin/nebu-ctx"]));
+        assert_eq!(json["mcp"]["nebu-ctx"]["enabled"], true);
+    }
+
+    #[test]
+    fn opencode_plugin_template_uses_nebu_ctx() {
+        let plugin = include_str!("../../templates/opencode-plugin.ts");
+        assert!(plugin.contains("NebuCtxOpenCodePlugin"));
+        assert!(plugin.contains("which nebu-ctx"));
+        assert!(plugin.contains("nebu-ctx hook rewrite-inline"));
+        assert!(!plugin.contains("lean-ctx hook rewrite-inline"));
     }
 
     #[test]
