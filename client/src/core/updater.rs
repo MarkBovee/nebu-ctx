@@ -1,6 +1,6 @@
 use std::io::Read;
 
-const GITHUB_API_RELEASES: &str = "https://api.github.com/repos/yvgude/lean-ctx/releases/latest";
+const GITHUB_API_RELEASES: &str = "https://api.github.com/repos/MarkBovee/nebu-ctx/releases/latest";
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn run(args: &[String]) {
@@ -8,7 +8,7 @@ pub fn run(args: &[String]) {
 
     println!();
     println!("  \x1b[1m◆ nebu-ctx updater\x1b[0m  \x1b[2mv{CURRENT_VERSION}\x1b[0m");
-    println!("  \x1b[2mChecking github.com/yvgude/lean-ctx …\x1b[0m");
+    println!("  \x1b[2mChecking github.com/MarkBovee/nebu-ctx …\x1b[0m");
 
     let release = match fetch_latest_release() {
         Ok(r) => r,
@@ -41,7 +41,7 @@ pub fn run(args: &[String]) {
     println!("  Update available: v{CURRENT_VERSION} → \x1b[1;32mv{latest_tag}\x1b[0m");
 
     if check_only {
-        println!("Run 'lean-ctx update' to install.");
+        println!("Run 'nebu-ctx update' to install.");
         return;
     }
 
@@ -52,7 +52,7 @@ pub fn run(args: &[String]) {
         Some(u) => u,
         None => {
             eprintln!("No binary found for this platform ({asset_name}).");
-            eprintln!("Download manually: https://github.com/yvgude/lean-ctx/releases/latest");
+            eprintln!("Download manually: https://github.com/MarkBovee/nebu-ctx/releases/latest");
             std::process::exit(1);
         }
     };
@@ -82,7 +82,7 @@ pub fn run(args: &[String]) {
     }
 
     println!();
-    println!("  \x1b[1;32m✓ Updated to lean-ctx v{latest_tag}\x1b[0m");
+    println!("  \x1b[1;32m✓ Updated to nebu-ctx v{latest_tag}\x1b[0m");
     println!("  \x1b[2mBinary: {}\x1b[0m", current_exe.display());
 
     println!();
@@ -250,7 +250,7 @@ if errorlevel 1 goto retry
 move /Y "{pending}" "{target}" >nul 2>&1
 if errorlevel 1 (
     move /Y "{old}" "{target}" >nul 2>&1
-    echo Update failed. Please close all editors and run: lean-ctx update
+    echo Update failed. Please close all editors and run: nebu-ctx update
     pause
     exit /b 1
 )
@@ -357,7 +357,7 @@ fn platform_asset_name() -> String {
         _ => {
             eprintln!(
                 "Unsupported platform: {os}/{arch}. Download manually from \
-                https://github.com/yvgude/lean-ctx/releases/latest"
+                https://github.com/MarkBovee/nebu-ctx/releases/latest"
             );
             std::process::exit(1);
         }

@@ -673,32 +673,16 @@ fn main() {
                 cli::cmd_cheatsheet();
                 return;
             }
-            "login" => {
-                cli::cloud::cmd_login(&rest);
+            "connect" => {
+                cli::cloud::cmd_connect(&rest);
                 return;
             }
-            "register" => {
-                cli::cloud::cmd_register(&rest);
+            "disconnect" => {
+                cli::cloud::cmd_disconnect();
                 return;
             }
-            "forgot-password" => {
-                cli::cloud::cmd_forgot_password(&rest);
-                return;
-            }
-            "sync" => {
-                cli::cloud::cmd_sync();
-                return;
-            }
-            "contribute" => {
-                cli::cloud::cmd_contribute();
-                return;
-            }
-            "cloud" | "server" => {
-                cmd_cloud(&rest);
-                return;
-            }
-            "upgrade" => {
-                cmd_upgrade();
+            "bind" => {
+                cli::cloud::cmd_bind();
                 return;
             }
             "--version" | "-V" => {
@@ -832,7 +816,7 @@ COMMANDS:
     proxy status                   Show proxy statistics
     cache [list|clear|stats]       Show/manage file read cache
     wrapped [--week|--month|--all] Savings report card (shareable)
-    sessions [list|show|cleanup]   Manage CCP sessions (~/.lean-ctx/sessions/)
+    sessions [list|show|cleanup]   Manage CCP sessions (~/.nebu-ctx/sessions/)
     benchmark run [path] [--json]  Run real benchmark on project files
     benchmark report [path]        Generate shareable Markdown report
     cheatsheet                     Command cheat sheet & workflow quick reference
@@ -850,13 +834,13 @@ COMMANDS:
     ls [path]                      Directory listing with compression
     deps [path]                    Show project dependencies
     discover                       Find uncompressed commands in shell history
-    filter [list|validate|init]    Manage custom compression filters (~/.lean-ctx/filters/)
+    filter [list|validate|init]    Manage custom compression filters (~/.nebu-ctx/filters/)
     session                        Show adoption statistics
     config                         Show/edit configuration (~/.nebu-ctx/config.toml)
     theme [list|set|export|import] Customize terminal colors and themes
-    tee [list|clear|show <file>|last] Manage output tee files (~/.lean-ctx/tee/)
+    tee [list|clear|show <file>|last] Manage output tee files (~/.nebu-ctx/tee/)
     terse [off|lite|full|ultra]    Set agent output verbosity (saves 25-65% output tokens)
-    slow-log [list|clear]          Show/clear slow command log (~/.lean-ctx/slow-commands.log)
+    slow-log [list|clear]          Show/clear slow command log (~/.nebu-ctx/slow-commands.log)
     update [--check]               Self-update nebu-ctx binary from GitHub Releases
     gotchas [list|clear|export|stats] Bug Memory: view/manage auto-detected error patterns
     buddy [show|stats|ascii|json]  Token Guardian: your data-driven coding companion
@@ -931,9 +915,9 @@ EVAL INIT (starship/zoxide style — always in sync with binary version):
     nebu-ctx init powershell | Invoke-Expression
     nebu-ctx-on                    Enable shell aliases in track mode (full output + stats)
     nebu-ctx-off                   Disable all shell aliases
-    lean-ctx-mode track            Track mode: full output, stats recorded (default)
-    lean-ctx-mode compress         Compress mode: all output compressed (power users)
-    lean-ctx-mode off              Same as nebu-ctx-off
+    nebu-ctx-mode track            Track mode: full output, stats recorded (default)
+    nebu-ctx-mode compress         Compress mode: all output compressed (power users)
+    nebu-ctx-mode off              Same as nebu-ctx-off
     nebu-ctx-status                Show whether compression is active
     nebu-ctx init --agent pi       Install Pi Coding Agent extension
     nebu-ctx doctor                Check PATH, config, MCP, and local edge health
@@ -943,11 +927,11 @@ EVAL INIT (starship/zoxide style — always in sync with binary version):
     nebu-ctx grep \"pub fn\" src/
     nebu-ctx deps .
 
-CLOUD:
-    cloud connect [--endpoint <url>] [--token <token>]  Save and validate a cloud connection
-    cloud status                   Show cloud connection status
-    cloud bind                     Bind the current checkout to a canonical project
-    cloud disconnect               Remove the saved cloud connection
+CLOUD SERVER:
+    connect [--endpoint <url>] [--token <token>]  Save and validate a cloud connection
+    status                         Includes cloud connection status
+    bind                           Bind the current checkout to a canonical project
+    disconnect                     Remove the saved cloud connection
 
 TROUBLESHOOTING:
     Commands broken?     nebu-ctx-off             (fixes current session)
@@ -961,10 +945,6 @@ GITHUB:  https://github.com/MarkBovee/nebu-ctx
 ",
         version = env!("CARGO_PKG_VERSION"),
     );
-}
-
-fn cmd_cloud(args: &[String]) {
-    cli::cloud::cmd_cloud(args);
 }
 
 fn cmd_gotchas(args: &[String]) {
@@ -1046,9 +1026,4 @@ fn cmd_buddy(args: &[String]) {
             println!("Usage: nebu-ctx buddy [show|stats|ascii|json]");
         }
     }
-}
-
-fn cmd_upgrade() {
-    println!("'upgrade' has been renamed to 'update'. Running 'nebu-ctx update' instead.\n");
-    core::updater::run(&[]);
 }

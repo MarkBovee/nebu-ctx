@@ -681,32 +681,16 @@ pub fn run() {
                 super::cmd_cheatsheet();
                 return;
             }
-            "login" => {
-                super::cloud::cmd_login(&rest);
+            "connect" => {
+                super::cloud::cmd_connect(&rest);
                 return;
             }
-            "register" => {
-                super::cloud::cmd_register(&rest);
+            "disconnect" => {
+                super::cloud::cmd_disconnect();
                 return;
             }
-            "forgot-password" => {
-                super::cloud::cmd_forgot_password(&rest);
-                return;
-            }
-            "sync" => {
-                super::cloud::cmd_sync();
-                return;
-            }
-            "contribute" => {
-                super::cloud::cmd_contribute();
-                return;
-            }
-            "cloud" | "server" => {
-                super::cloud::cmd_cloud(&rest);
-                return;
-            }
-            "upgrade" => {
-                super::cloud::cmd_upgrade();
+            "bind" => {
+                super::cloud::cmd_bind();
                 return;
             }
             "--version" | "-V" => {
@@ -902,11 +886,11 @@ EXAMPLES:
     nebu-ctx grep \"pub fn\" src/
     nebu-ctx deps .
 
-CLOUD:
-    cloud connect [--endpoint <url>] [--token <token>]  Save and validate a cloud connection
-    cloud status                   Show cloud connection status
-    cloud bind                     Bind the current checkout to a canonical project
-    cloud disconnect               Remove the saved cloud connection
+CLOUD SERVER:
+    connect [--endpoint <url>] [--token <token>]  Save and validate a cloud connection
+    status                         Includes cloud connection status
+    bind                           Bind the current checkout to a canonical project
+    disconnect                     Remove the saved cloud connection
 
 TROUBLESHOOTING:
     Commands broken?     nebu-ctx-off             (fixes current session)

@@ -222,7 +222,7 @@ pub fn format_safety_table() -> String {
     out.push_str("  • Auth flow detection: login/OAuth prompts never compressed\n");
     out.push_str("  • Minimum token threshold: outputs <50 tokens pass through unchanged\n");
     out.push('\n');
-    out.push_str("Use `lean-ctx bypass \"command\"` to run any command with zero compression.\n");
+    out.push_str("Use `nebu-ctx bypass \"command\"` to run any command with zero compression.\n");
 
     out
 }

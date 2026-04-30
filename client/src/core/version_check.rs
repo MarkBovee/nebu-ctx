@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const VERSION_URL: &str = "https://leanctx.com/version.txt";
+const VERSION_URL: &str = "https://api.github.com/repos/MarkBovee/nebu-ctx/releases/latest";
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CACHE_TTL_SECS: u64 = 24 * 60 * 60;
 
@@ -13,7 +13,7 @@ struct VersionCache {
 }
 
 fn cache_path() -> Option<PathBuf> {
-    dirs::home_dir().map(|h| h.join(".lean-ctx/latest-version.json"))
+    dirs::home_dir().map(|h| h.join(".nebu-ctx/latest-version.json"))
 }
 
 fn now_secs() -> u64 {
@@ -75,8 +75,8 @@ fn is_newer(latest: &str, current: &str) -> bool {
     parse(latest) > parse(current)
 }
 
-/// Spawn a background thread to fetch latest version from leanctx.com/version.txt
-/// and write the result to ~/.lean-ctx/latest-version.json.
+/// Spawn a background thread to fetch latest version from GitHub releases
+/// and write the result to ~/.nebu-ctx/latest-version.json.
 /// Non-blocking, fire-and-forget. Skips if cache is fresh (<24h).
 pub fn check_background() {
     let cache = read_cache();

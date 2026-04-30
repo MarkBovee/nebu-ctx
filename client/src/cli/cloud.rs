@@ -5,107 +5,32 @@ use anyhow::{bail, Context, Result};
 use serde_json::json;
 use std::io::{self, IsTerminal, Write};
 
-fn removed_cloud_command(command: &str) -> ! {
-    eprintln!(
-        "`nebu-ctx {command}` is no longer available in the Rust client. Use `nebu-ctx cloud connect --endpoint <url> --token <token>` against your NebuCtx server."
-    );
-    std::process::exit(1);
-}
-
-pub fn cmd_login(_args: &[String]) {
-    removed_cloud_command("login");
-}
-
-pub fn cmd_forgot_password(_args: &[String]) {
-    removed_cloud_command("forgot-password");
-}
-
-pub fn cmd_register(_args: &[String]) {
-    removed_cloud_command("register");
-}
-
-pub fn cmd_sync() {
-    if let Err(error) = sync_current_checkout() {
+pub fn cmd_connect(args: &[String]) {
+    if has_help_flag(args) {
+        println!("Usage: nebu-ctx connect [--endpoint <url>] [--token <token>]");
+        return;
+    }
+    if let Err(error) = connect_cloud(args) {
         eprintln!("{error}");
         std::process::exit(1);
     }
 }
 
-fn sync_current_checkout() -> Result<()> {
-    let client = load_or_prompt_cloud_client()?;
-
-    let cwd = std::env::current_dir().context("failed to read current directory")?;
-    let project_context = git_context::discover_project_context(&cwd);
-
-    let response = client
-        .resolve_project(&project_context)
-        .context("failed to sync with cloud")?;
-
-    let binding = &project_context.checkout_binding;
-    output_json(json!({
-        "synced": true,
-        "project_id": response.project.project_id,
-        "slug": response.project.slug,
-        "checkout_bound": response.checkout_bound,
-        "branch": binding.branch,
-        "commit": binding.last_commit,
-        "local_root": binding.local_root,
-        "endpoint": client.endpoint(),
-    }))
+pub fn cmd_disconnect() {
+    if let Err(error) = disconnect_cloud() {
+        eprintln!("{error}");
+        std::process::exit(1);
+    }
 }
 
-pub fn cmd_contribute() {
-    removed_cloud_command("contribute");
-}
-
-pub fn cmd_cloud(args: &[String]) {
-    let action = args.first().map(|value| value.as_str()).unwrap_or("help");
-
-    match action {
-        "connect" => {
-            if let Err(error) = connect_cloud(&args[1..]) {
-                eprintln!("{error}");
-                std::process::exit(1);
-            }
-        }
-        "bind" => {
-            if let Err(error) = bind_current_project() {
-                eprintln!("{error}");
-                std::process::exit(1);
-            }
-        }
-        "sync" => {
-            cmd_sync();
-        }
-        "disconnect" => {
-            if let Err(error) = disconnect_cloud() {
-                eprintln!("{error}");
-                std::process::exit(1);
-            }
-        }
-        "status" => {
-            if let Err(error) = show_cloud_status() {
-                eprintln!("{error}");
-                std::process::exit(1);
-            }
-        }
-        _ => {
-            println!("Usage: nebu-ctx cloud <command>");
-            println!("  connect     - Save and validate a cloud endpoint + token");
-            println!("  status      - Show cloud connection status");
-            println!("  bind        - Bind the current checkout to a canonical project");
-            println!("  sync        - Sync current checkout state (branch, commit) to the cloud");
-            println!("  disconnect  - Remove the saved cloud connection");
-        }
+pub fn cmd_bind() {
+    if let Err(error) = bind_current_project() {
+        eprintln!("{error}");
+        std::process::exit(1);
     }
 }
 
 fn connect_cloud(command_args: &[String]) -> Result<()> {
-    if has_help_flag(command_args) {
-        println!("Usage: nebu-ctx cloud connect [--endpoint <url>] [--token <token>]");
-        return Ok(());
-    }
-
     let saved_connection = config::load_connection().ok().flatten();
     let endpoint = match option_value(command_args, &["--endpoint", "-e", "--url"]) {
         Some(value) => value,
@@ -124,16 +49,6 @@ fn connect_cloud(command_args: &[String]) -> Result<()> {
     output_json(json!({
         "connected": true,
         "endpoint": connection.endpoint,
-        "health": health,
-    }))
-}
-
-fn show_cloud_status() -> Result<()> {
-    let client = load_or_prompt_cloud_client()?;
-    let health = client.health()?;
-    output_json(json!({
-        "saved": true,
-        "endpoint": client.endpoint(),
         "health": health,
     }))
 }
@@ -157,7 +72,7 @@ fn load_or_prompt_cloud_client() -> Result<ServerClient> {
     }
 
     if !io::stdin().is_terminal() {
-        bail!("No cloud connection saved. Run `nebu-ctx cloud connect --endpoint <url> --token <token>`." );
+        bail!("No cloud connection saved. Run `nebu-ctx connect --endpoint <url> --token <token>`.");
     }
 
     let endpoint = prompt_required_value("Cloud URL", None)?;
@@ -307,7 +222,3 @@ pub fn cmd_buddy(args: &[String]) {
     }
 }
 
-pub fn cmd_upgrade() {
-    println!("'upgrade' has been renamed to 'update'. Running 'nebu-ctx update' instead.\n");
-    core::updater::run(&[]);
-}

@@ -56,7 +56,7 @@ pub fn origin_line() -> String {
     } else {
         format!(
             "WARNING: Modified redistribution detected. \
-             Official builds: https://github.com/yvgude/lean-ctx \
+             Official builds: https://github.com/MarkBovee/nebu-ctx \
              (pkg={}, repo={})",
             report.pkg_name, report.repo
         )

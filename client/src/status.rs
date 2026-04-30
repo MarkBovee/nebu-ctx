@@ -2,6 +2,12 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CloudConnectionStatus {
+    pub endpoint: String,
+    pub saved: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StatusReport {
     pub schema_version: u32,
     pub generated_at: DateTime<Utc>,
@@ -11,6 +17,7 @@ pub struct StatusReport {
     pub doctor_compact_total: u32,
     pub mcp_targets: Vec<McpTargetStatus>,
     pub rules_targets: Vec<crate::rules_inject::RulesTargetStatus>,
+    pub cloud_connection: Option<CloudConnectionStatus>,
     pub warnings: Vec<String>,
     pub errors: Vec<String>,
 }
@@ -102,7 +109,7 @@ fn build_status_report() -> Result<(StatusReport, std::path::PathBuf), String> {
         } else {
             match std::fs::read_to_string(&t.config_path) {
                 Ok(s) => {
-                    if s.contains("lean-ctx") {
+                    if s.contains("nebu-ctx") || s.contains("lean-ctx") {
                         "configured".to_string()
                     } else {
                         "missing_entry".to_string()
@@ -132,6 +139,14 @@ fn build_status_report() -> Result<(StatusReport, std::path::PathBuf), String> {
 
     let rules_targets = crate::rules_inject::collect_rules_status(&home);
 
+    let cloud_connection = crate::config::load_connection()
+        .ok()
+        .flatten()
+        .map(|conn| CloudConnectionStatus {
+            endpoint: conn.endpoint,
+            saved: true,
+        });
+
     let path = crate::core::setup_report::status_report_path()?;
 
     let report = StatusReport {
@@ -143,6 +158,7 @@ fn build_status_report() -> Result<(StatusReport, std::path::PathBuf), String> {
         doctor_compact_total,
         mcp_targets,
         rules_targets,
+        cloud_connection,
         warnings,
         errors,
     };
@@ -184,6 +200,12 @@ fn print_human(report: &StatusReport, path: &std::path::Path) {
         .filter(|t| t.detected && t.state == "up_to_date")
         .count();
     println!("  rules: {rules_up_to_date}/{rules_detected} up-to-date (detected tools)");
+
+    if let Some(cloud) = &report.cloud_connection {
+        println!("  cloud: connected → {}", cloud.endpoint);
+    } else {
+        println!("  cloud: not configured (run: nebu-ctx connect)");
+    }
 
     if !report.warnings.is_empty() {
         println!("  warnings: {}", report.warnings.len());

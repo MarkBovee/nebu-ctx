@@ -177,8 +177,8 @@ pub fn create_example_filter() -> Result<String, String> {
         return Err(format!("{} already exists", path.display()));
     }
 
-    let content = r#"# lean-ctx custom filter example
-# Place .toml files in $NEBU_CTX_DATA_DIR/filters (default: ~/.lean-ctx/filters) to define custom compression rules.
+    let content = r#"# nebu-ctx custom filter example
+# Place .toml files in $NEBU_CTX_DATA_DIR/filters (default: ~/.nebu-ctx/filters) to define custom compression rules.
 # User filters are applied BEFORE builtin patterns.
 
 # Rule 1: Replace verbose upload logs with a summary
