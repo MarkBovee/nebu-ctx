@@ -2,19 +2,34 @@ use crate::compound_lexer;
 use crate::rewrite_registry;
 use std::io::Read;
 
+fn read_stdin_string() -> Option<String> {
+    let mut input = String::new();
+    std::io::stdin().read_to_string(&mut input).ok()?;
+    Some(input)
+}
+
+fn extract_first_json_field(input: &str, fields: &[&str]) -> Option<String> {
+    fields.iter().find_map(|field| extract_json_field(input, field))
+}
+
+fn extract_command_from_hook_input(input: &str) -> Option<String> {
+    extract_json_field(input, "command")
+}
+
+fn extract_tool_name(input: &str) -> Option<String> {
+    extract_first_json_field(input, &["tool_name", "toolName"])
+}
+
 pub fn handle_rewrite() {
     let binary = resolve_binary();
-    let mut input = String::new();
-    if std::io::stdin().read_to_string(&mut input).is_err() {
-        return;
-    }
+    let Some(input) = read_stdin_string() else { return };
 
-    let tool = extract_json_field(&input, "tool_name");
+    let tool = extract_tool_name(&input);
     if !matches!(tool.as_deref(), Some("Bash" | "bash")) {
         return;
     }
 
-    let cmd = match extract_json_field(&input, "command") {
+    let cmd = match extract_command_from_hook_input(&input) {
         Some(c) => c,
         None => return,
     };
@@ -90,17 +105,14 @@ fn codex_reroute_message(rewritten: &str) -> String {
 
 pub fn handle_codex_pretooluse() {
     let binary = resolve_binary();
-    let mut input = String::new();
-    if std::io::stdin().read_to_string(&mut input).is_err() {
-        return;
-    }
+    let Some(input) = read_stdin_string() else { return };
 
-    let tool = extract_json_field(&input, "tool_name");
+    let tool = extract_tool_name(&input);
     if !matches!(tool.as_deref(), Some("Bash" | "bash")) {
         return;
     }
 
-    let cmd = match extract_json_field(&input, "command") {
+    let cmd = match extract_command_from_hook_input(&input) {
         Some(c) => c,
         None => return,
     };
@@ -122,12 +134,9 @@ pub fn handle_codex_session_start() {
 /// Tool names differ: "runInTerminal" / "editFile" instead of "Bash" / "Read".
 pub fn handle_copilot() {
     let binary = resolve_binary();
-    let mut input = String::new();
-    if std::io::stdin().read_to_string(&mut input).is_err() {
-        return;
-    }
+    let Some(input) = read_stdin_string() else { return };
 
-    let tool = extract_json_field(&input, "tool_name");
+    let tool = extract_tool_name(&input);
     let tool_name = match tool.as_deref() {
         Some(name) => name,
         None => return,
@@ -141,7 +150,7 @@ pub fn handle_copilot() {
         return;
     }
 
-    let cmd = match extract_json_field(&input, "command") {
+    let cmd = match extract_command_from_hook_input(&input) {
         Some(c) => c,
         None => return,
     };
@@ -250,10 +259,7 @@ pub fn handle_pre_compact() {
 ///
 /// Wired to Claude Code `SessionStart`.
 pub fn handle_session_start() {
-    let mut input = String::new();
-    if std::io::stdin().read_to_string(&mut input).is_err() {
-        return;
-    }
+    let Some(input) = read_stdin_string() else { return };
 
     let source = extract_json_field(&input, "source")
         .unwrap_or_else(|| "startup".to_string());
@@ -286,13 +292,9 @@ pub fn handle_session_start() {
 ///
 /// Wired to Claude Code `UserPromptSubmit`.
 pub fn handle_user_prompt_submit() {
-    let mut input = String::new();
-    if std::io::stdin().read_to_string(&mut input).is_err() {
-        return;
-    }
+    let Some(input) = read_stdin_string() else { return };
 
-    let prompt = extract_json_field(&input, "prompt")
-        .or_else(|| extract_json_field(&input, "message"))
+    let prompt = extract_first_json_field(&input, &["prompt", "message"])
         .unwrap_or_default();
 
     let trimmed = prompt.trim().to_string();
@@ -454,13 +456,9 @@ fn post_promoted_facts_to_cloud(project_root: &str) {
 /// event to the server. Wired to Claude Code `PostToolUse` and Copilot
 /// CLI `postToolUse`.
 pub fn handle_post_tool_use() {
-    let mut input = String::new();
-    if std::io::stdin().read_to_string(&mut input).is_err() {
-        return;
-    }
+    let Some(input) = read_stdin_string() else { return };
 
-    let tool_name = extract_json_field(&input, "tool_name")
-        .or_else(|| extract_json_field(&input, "toolName"))
+    let tool_name = extract_tool_name(&input)
         .unwrap_or_else(|| "unknown".to_string());
 
     // Prefer Claude Code's nested usage.{input,output}_tokens; fall back to
@@ -473,7 +471,7 @@ pub fn handle_post_tool_use() {
         .and_then(|u| u.get("input_tokens"))
         .and_then(|t| t.as_i64())
         .unwrap_or_else(|| {
-            let bytes = extract_json_field(&input, "tool_input")
+            let bytes = extract_first_json_field(&input, &["tool_input"])
                 .map(|s| s.len())
                 .unwrap_or(0);
             (bytes / 4) as i64
@@ -485,8 +483,7 @@ pub fn handle_post_tool_use() {
         .and_then(|u| u.get("output_tokens"))
         .and_then(|t| t.as_i64())
         .unwrap_or_else(|| {
-            let bytes = extract_json_field(&input, "tool_response")
-                .or_else(|| extract_json_field(&input, "tool_result"))
+            let bytes = extract_first_json_field(&input, &["tool_response", "tool_result"])
                 .map(|s| s.len())
                 .unwrap_or(0);
             (bytes / 4) as i64

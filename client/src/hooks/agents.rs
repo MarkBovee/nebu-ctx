@@ -976,7 +976,9 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
                         .or_insert_with(|| serde_json::json!({}));
                     if let Some(servers_obj) = servers.as_object_mut() {
                         if servers_obj.get("lean-ctx") == Some(&desired) || servers_obj.get("nebu-ctx") == Some(&desired) {
-                            println!("  \x1b[32m✓\x1b[0m Copilot already configured in {label}");
+                            if !crate::hooks::mcp_server_quiet_mode() {
+                                println!("  \x1b[32m✓\x1b[0m Copilot already configured in {label}");
+                            }
                             return;
                         }
                         let _ = servers_obj.remove("lean-ctx");
@@ -986,7 +988,9 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
                         mcp_path,
                         &serde_json::to_string_pretty(&json).unwrap_or_default(),
                     );
-                    println!("  \x1b[32m✓\x1b[0m Added nebu-ctx to {label}");
+                    if !crate::hooks::mcp_server_quiet_mode() {
+                        println!("  \x1b[32m✓\x1b[0m Added nebu-ctx to {label}");
+                    }
                     return;
                 }
             }
@@ -1023,7 +1027,9 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
         mcp_path,
         &serde_json::to_string_pretty(&config).unwrap_or_default(),
     );
-    println!("  \x1b[32m✓\x1b[0m Created {label} with nebu-ctx MCP server");
+    if !crate::hooks::mcp_server_quiet_mode() {
+        println!("  \x1b[32m✓\x1b[0m Created {label} with nebu-ctx MCP server");
+    }
 }
 
 pub(super) fn install_amp_hook() {

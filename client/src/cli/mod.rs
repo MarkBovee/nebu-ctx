@@ -6,6 +6,7 @@ pub use dispatch::run;
 pub use shell_init::*;
 
 use std::path::Path;
+use std::str::FromStr;
 
 use crate::core::compressor;
 use crate::core::config;
@@ -18,6 +19,35 @@ use crate::core::stats;
 use crate::core::theme;
 use crate::core::tokens::count_tokens;
 use crate::hooks::to_bash_compatible_path;
+
+pub(crate) fn has_flag(args: &[String], flags: &[&str]) -> bool {
+    args.iter().any(|arg| flags.contains(&arg.as_str()))
+}
+
+pub(crate) fn option_value(args: &[String], flags: &[&str]) -> Option<String> {
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        if flags.contains(&arg.as_str()) {
+            return args.get(index + 1).cloned();
+        }
+
+        for flag in flags {
+            let prefix = format!("{flag}=");
+            if let Some(value) = arg.strip_prefix(&prefix) {
+                return Some(value.to_string());
+            }
+        }
+
+        index += 1;
+    }
+
+    None
+}
+
+pub(crate) fn option_value_parsed<T: FromStr>(args: &[String], flags: &[&str]) -> Option<T> {
+    option_value(args, flags).and_then(|value| value.parse::<T>().ok())
+}
 
 pub fn cmd_read(args: &[String]) {
     if args.is_empty() {

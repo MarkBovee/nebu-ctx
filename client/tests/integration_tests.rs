@@ -57,6 +57,20 @@ fn binary_config_shows_defaults() {
 }
 
 #[test]
+fn gain_remains_available_as_local_cli_surface() {
+    let output = nebula_ctx_bin()
+        .arg("gain")
+        .output()
+        .expect("failed to run nebu-ctx gain");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        !stderr.contains("no longer available as a local client surface"),
+        "gain should still run locally, got stderr: {stderr}"
+    );
+}
+
+#[test]
 fn shell_hook_compresses_echo() {
     let output = nebula_ctx_bin()
         .args(["-c", "echo", "hello", "world"])
@@ -97,12 +111,12 @@ fn help_shows_environment_section() {
         .expect("failed to run nebu-ctx");
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("LEAN_CTX_DISABLED"),
-        "help should document LEAN_CTX_DISABLED"
+        stdout.contains("NEBU_CTX_DISABLED"),
+        "help should document NEBU_CTX_DISABLED"
     );
     assert!(
-        stdout.contains("LEAN_CTX_RAW"),
-        "help should document LEAN_CTX_RAW"
+        stdout.contains("NEBU_CTX_RAW"),
+        "help should document NEBU_CTX_RAW"
     );
 }
 
@@ -268,7 +282,7 @@ fn pipe_guard_rust_side_defense_in_depth() {
     if cfg!(windows) {
         return;
     }
-    let script = "for i in 1 2 3 4 5; do echo \"item_$i: $(date +%s)\"; done";
+    let script = "printf 'item_1: a\nitem_2: b\nitem_3: c\nitem_4: d\nitem_5: e\n'";
     let output = Command::new(env!("CARGO_BIN_EXE_nebu-ctx"))
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .args(["-c", script])
@@ -278,7 +292,7 @@ fn pipe_guard_rust_side_defense_in_depth() {
     for i in 1..=5 {
         assert!(
             stdout.contains(&format!("item_{i}:")),
-            "Rust-side pipe guard must pass through all lines unchanged (missing item_{i})"
+            "Rust-side pipe guard must pass through all lines unchanged (missing item_{i})\nstdout:\n{stdout}"
         );
     }
 }

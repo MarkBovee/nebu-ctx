@@ -30,3 +30,9 @@ NEVER loop trying to make Edit work. If it fails, switch to ctx_edit immediately
 Write, Delete have no nebu-ctx equivalent — use them normally.
 
 Prefer `ctx_workflow` for state + evidence + tool gating.
+
+## Memory Policy
+
+- Use `ctx_session` for task state, findings, and decisions that should survive across chats.
+- Use `ctx_knowledge(action="remember")` for durable project facts.
+- Let the stop/compact hooks consolidate session context into the nebu-ctx server instead of relying on chat history.

@@ -6,7 +6,7 @@ use serde_json::json;
 use std::io::{self, IsTerminal, Write};
 
 pub fn cmd_connect(args: &[String]) {
-    if has_help_flag(args) {
+    if super::has_flag(args, &["--help", "-h", "help"]) {
         println!("Usage: nebu-ctx connect [--endpoint <url>] [--token <token>]");
         return;
     }
@@ -32,14 +32,14 @@ pub fn cmd_bind() {
 
 fn connect_cloud(command_args: &[String]) -> Result<()> {
     let saved_connection = config::load_connection().ok().flatten();
-    let endpoint = match option_value(command_args, &["--endpoint", "-e", "--url"]) {
+    let endpoint = match super::option_value(command_args, &["--endpoint", "-e", "--url"]) {
         Some(value) => value,
         None => match saved_connection.as_ref() {
             Some(connection) => connection.endpoint.clone(),
             None => prompt_required_value("Cloud URL", None)?,
         },
     };
-    let token = match option_value(command_args, &["--token", "-t"]) {
+    let token = match super::option_value(command_args, &["--token", "-t"]) {
         Some(value) => value,
         None => prompt_required_secret("Cloud token")?,
     };
@@ -124,25 +124,6 @@ fn prompt_required_secret(label: &str) -> Result<String> {
             return Ok(value);
         }
     }
-}
-
-fn option_value(command_args: &[String], flags: &[&str]) -> Option<String> {
-    let mut index = 0;
-    while index < command_args.len() {
-        if flags.contains(&command_args[index].as_str()) {
-            return command_args.get(index + 1).cloned();
-        }
-
-        index += 1;
-    }
-
-    None
-}
-
-fn has_help_flag(command_args: &[String]) -> bool {
-    command_args
-        .iter()
-        .any(|argument| matches!(argument.as_str(), "--help" | "-h" | "help"))
 }
 
 fn output_json(value: serde_json::Value) -> Result<()> {

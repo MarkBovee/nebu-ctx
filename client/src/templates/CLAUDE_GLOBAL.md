@@ -26,4 +26,10 @@ Write, Edit, and other mutation tools have no nebu-ctx equivalent — use them n
 
 CRITICAL: Every time you reach for Read, Bash, Grep, or ListFiles — stop and use the lean-ctx MCP equivalent instead. This is not optional.
 
+## Memory policy
+
+- Use `ctx_session` for task state, findings, and decisions that should survive across chats.
+- Use `ctx_knowledge(action="remember")` for durable project facts.
+- The stop/compact hooks already persist session state into the nebu-ctx server; rely on that instead of chat history for reusable memory.
+
 Preferred workflow: use `ctx_workflow` for state + evidence + tool gating.

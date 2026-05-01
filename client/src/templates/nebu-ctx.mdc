@@ -57,6 +57,7 @@ NEVER loop trying to make Edit work. If it fails, switch to ctx_edit immediately
 - `ctx_benchmark` — find optimal mode for a file
 - `ctx_session load` — on new chat, restore previous session
 - `ctx_workflow` — state machine + evidence + tool gating
+- `ctx_knowledge remember` — store durable project facts in the server
 
 ## Proactive Tools
 
@@ -64,6 +65,7 @@ Use without being asked:
 - `ctx_compress` — when context grows large, create checkpoint
 - `ctx_metrics` — periodically verify token savings
  - `ctx_overview` — at session start (fast project orientation)
+- `ctx_session` / `ctx_knowledge` — when a finding or decision should persist
 
 ## Write, Delete, Glob
 

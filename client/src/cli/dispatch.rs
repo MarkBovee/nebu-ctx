@@ -4,6 +4,20 @@ use crate::{
 };
 use anyhow::Result;
 
+fn fire_shell_telemetry(tool_name: String) {
+    core::telemetry_queue::fire_sync(crate::models::TelemetryIngestRequest {
+        tool_name,
+        tokens_original: 0,
+        tokens_saved: 0,
+        duration_ms: 0,
+        mode: Some("shell".to_string()),
+        repository_fingerprint: None,
+        checkout_binding: None,
+        project_slug: None,
+    });
+}
+
+
 pub fn run() {
     let args: Vec<String> = std::env::args().collect();
 
@@ -11,7 +25,7 @@ pub fn run() {
         let rest = args[2..].to_vec();
         let command = args[1].as_str();
 
-        if matches!(command, "gain" | "cep" | "dashboard" | "watch" | "heatmap" | "stats") {
+        if matches!(command, "dashboard" | "watch" | "heatmap" | "stats") {
             super::exit_cloud_analytics_only(command);
         }
 
@@ -27,6 +41,7 @@ pub fn run() {
                 if std::env::var("NEBU_CTX_ACTIVE").is_ok()
                     || std::env::var("NEBU_CTX_DISABLED").is_ok()
                 {
+                    fire_shell_telemetry(core::stats::normalize_command(&command));
                     passthrough(&command);
                 }
                 if raw {
@@ -36,22 +51,29 @@ pub fn run() {
                 }
                 let code = shell::exec(&command);
                 core::stats::flush();
+                fire_shell_telemetry(core::stats::normalize_command(&command));
                 std::process::exit(code);
             }
             "-t" | "--track" => {
                 let cmd_args = &args[2..];
-                let command = if cmd_args.len() == 1 {
-                    cmd_args[0].clone()
+                let tracked_name = cmd_args
+                    .first()
+                    .map(|s| core::stats::normalize_command(s))
+                    .unwrap_or_else(|| "shell".to_string());
+                let code = if cmd_args.len() > 1 {
+                    shell::exec_argv(cmd_args)
                 } else {
-                    shell::join_command(cmd_args)
+                    let command = cmd_args[0].clone();
+                    if std::env::var("NEBU_CTX_ACTIVE").is_ok()
+                        || std::env::var("NEBU_CTX_DISABLED").is_ok()
+                    {
+                        fire_shell_telemetry(tracked_name.clone());
+                        passthrough(&command);
+                    }
+                    shell::exec(&command)
                 };
-                if std::env::var("NEBU_CTX_ACTIVE").is_ok()
-                    || std::env::var("NEBU_CTX_DISABLED").is_ok()
-                {
-                    passthrough(&command);
-                }
-                let code = shell::exec(&command);
                 core::stats::flush();
+                fire_shell_telemetry(tracked_name);
                 std::process::exit(code);
             }
             "shell" | "--shell" => {
@@ -64,45 +86,14 @@ pub fn run() {
                     println!("Stats reset. All token savings data cleared.");
                     return;
                 }
-                if rest.iter().any(|a| a == "--live" || a == "--watch") {
+                if super::has_flag(&rest, &["--live", "--watch"]) {
                     core::stats::gain_live();
                     return;
                 }
-                let model = rest.iter().enumerate().find_map(|(i, a)| {
-                    if let Some(v) = a.strip_prefix("--model=") {
-                        return Some(v.to_string());
-                    }
-                    if a == "--model" {
-                        return rest.get(i + 1).cloned();
-                    }
-                    None
-                });
-                let period = rest
-                    .iter()
-                    .enumerate()
-                    .find_map(|(i, a)| {
-                        if let Some(v) = a.strip_prefix("--period=") {
-                            return Some(v.to_string());
-                        }
-                        if a == "--period" {
-                            return rest.get(i + 1).cloned();
-                        }
-                        None
-                    })
+                let model = super::option_value(&rest, &["--model"]);
+                let period = super::option_value(&rest, &["--period"])
                     .unwrap_or_else(|| "all".to_string());
-                let limit = rest
-                    .iter()
-                    .enumerate()
-                    .find_map(|(i, a)| {
-                        if let Some(v) = a.strip_prefix("--limit=") {
-                            return v.parse::<usize>().ok();
-                        }
-                        if a == "--limit" {
-                            return rest.get(i + 1).and_then(|v| v.parse::<usize>().ok());
-                        }
-                        None
-                    })
-                    .unwrap_or(10);
+                let limit = super::option_value_parsed::<usize>(&rest, &["--limit"]).unwrap_or(10);
 
                 if rest.iter().any(|a| a == "--graph") {
                     println!("{}", core::stats::format_gain_graph());
@@ -376,12 +367,7 @@ pub fn run() {
                     let sub = rest.first().map(|s| s.as_str()).unwrap_or("help");
                     match sub {
                         "start" => {
-                            let port: u16 = rest
-                                .iter()
-                                .find_map(|p| {
-                                    p.strip_prefix("--port=").or_else(|| p.strip_prefix("-p="))
-                                })
-                                .and_then(|p| p.parse().ok())
+                            let port = super::option_value_parsed::<u16>(&rest, &["--port", "-p"])
                                 .unwrap_or(4444);
                             let autostart = rest.iter().any(|a| a == "--autostart");
                             if autostart {
@@ -394,12 +380,10 @@ pub fn run() {
                             }
                         }
                         "stop" => {
+                            let port = super::option_value_parsed::<u16>(&rest, &["--port", "-p"])
+                                .unwrap_or(4444);
                             match ureq::get(&format!(
-                                "http://127.0.0.1:{}/health",
-                                rest.iter()
-                                    .find_map(|p| p.strip_prefix("--port="))
-                                    .and_then(|p| p.parse::<u16>().ok())
-                                    .unwrap_or(4444)
+                                "http://127.0.0.1:{port}/health"
                             ))
                             .call()
                             {
@@ -412,10 +396,7 @@ pub fn run() {
                             }
                         }
                         "status" => {
-                            let port: u16 = rest
-                                .iter()
-                                .find_map(|p| p.strip_prefix("--port="))
-                                .and_then(|p| p.parse().ok())
+                            let port = super::option_value_parsed::<u16>(&rest, &["--port", "-p"])
                                 .unwrap_or(4444);
                             match ureq::get(&format!("http://127.0.0.1:{port}/status")).call() {
                                 Ok(resp) => {
@@ -658,8 +639,13 @@ pub fn run() {
                     "codex-pretooluse" => hook_handlers::handle_codex_pretooluse(),
                     "codex-session-start" => hook_handlers::handle_codex_session_start(),
                     "rewrite-inline" => hook_handlers::handle_rewrite_inline(),
+                    "stop" => hook_handlers::handle_stop(),
+                    "post-tool-use" => hook_handlers::handle_post_tool_use(),
+                    "pre-compact" => hook_handlers::handle_pre_compact(),
+                    "session-start" => hook_handlers::handle_session_start(),
+                    "user-prompt-submit" => hook_handlers::handle_user_prompt_submit(),
                     _ => {
-                        eprintln!("Usage: nebu-ctx hook <rewrite|redirect|copilot|codex-pretooluse|codex-session-start|rewrite-inline>");
+                        eprintln!("Usage: nebu-ctx hook <rewrite|redirect|copilot|codex-pretooluse|codex-session-start|rewrite-inline|stop|post-tool-use|pre-compact|session-start|user-prompt-submit>");
                         eprintln!("  Internal commands used by agent hooks (Claude, Cursor, Copilot, etc.)");
                         std::process::exit(1);
                     }
@@ -672,6 +658,25 @@ pub fn run() {
             }
             "uninstall" => {
                 uninstall::run();
+                return;
+            }
+            "bypass" => {
+                if rest.is_empty() {
+                    eprintln!("Usage: nebu-ctx bypass \"command\"");
+                    eprintln!("Runs the command with zero compression (raw passthrough).");
+                    std::process::exit(1);
+                }
+                let command = if rest.len() == 1 {
+                    rest[0].clone()
+                } else {
+                    shell::join_command(&args[2..])
+                };
+                std::env::set_var("NEBU_CTX_RAW", "1");
+                let code = shell::exec(&command);
+                std::process::exit(code);
+            }
+            "safety-levels" | "safety" => {
+                println!("{}", core::compression_safety::format_safety_table());
                 return;
             }
             "cheat" | "cheatsheet" | "cheat-sheet" => {
@@ -699,6 +704,18 @@ pub fn run() {
                 return;
             }
             "mcp" => {}
+            "on" => {
+                eprintln!("nebu-ctx: `nebu-ctx on` is a shell function, not a binary command.");
+                eprintln!("  Run: source ~/.nebu-ctx/shell-hook.fish  (fish)");
+                eprintln!("  Or add the shell hook to your shell profile via: nebu-ctx setup");
+                std::process::exit(1);
+            }
+            "off" => {
+                eprintln!("nebu-ctx: `nebu-ctx off` is a shell function, not a binary command.");
+                eprintln!("  Run: source ~/.nebu-ctx/shell-hook.fish  (fish)");
+                eprintln!("  Or add the shell hook to your shell profile via: nebu-ctx setup");
+                std::process::exit(1);
+            }
             _ => {
                 eprintln!("nebu-ctx: unknown command '{}'\n", args[1]);
                 print_help();
@@ -750,6 +767,7 @@ fn run_mcp_server() -> Result<()> {
         );
 
         let server = tools::create_server();
+        core::telemetry_queue::start_drain_task();
         let transport =
             mcp_stdio::HybridStdioTransport::new_server(tokio::io::stdin(), tokio::io::stdout());
         let service = server.serve(transport).await?;
@@ -776,11 +794,13 @@ USAGE:
     nebu-ctx -c \"command\"          Execute with compressed output (used by AI hooks)
     nebu-ctx -c --raw \"command\"    Execute without compression (full output)
     nebu-ctx exec \"command\"        Same as -c
+    nebu-ctx bypass \"command\"      Run command with zero compression (raw passthrough)
     nebu-ctx shell                 Interactive shell with compression
 
 COMMANDS:
          token-report [--json]          Token + memory report (project + session + CEP)
-    gain|cep|watch|dashboard|heatmap|stats  Cloud-only analytics surfaces (not served locally)
+    gain [action]              Fetch analytics from server (report, score, cost, tasks, etc.)
+    dashboard|watch            Print the dashboard URL
     serve [--host H] [--port N]    MCP over HTTP (Streamable HTTP, local-first)
     proxy start [--port=4444]      API proxy: compress tool_results before LLM API
     proxy status                   Show proxy statistics
@@ -793,7 +813,9 @@ COMMANDS:
     setup                          One-command setup: shell + editor + verify
     bootstrap                      Non-interactive setup + fix (zero-config)
     status [--json]                Show setup + MCP + rules status
-    init [--global]                Install shell aliases (zsh/bash/fish/PowerShell)
+    init <shell>                   Print shell hook to stdout (eval pattern, like starship)
+                                   Supported: bash, zsh, fish, powershell
+    init --global                  Install shell aliases to rc file (file-based)
     init --agent <name>            Configure MCP for specific editor/agent
     read <file> [-m mode]          Read file with compression
     diff <file1> <file2>           Compressed file diff
@@ -812,6 +834,8 @@ COMMANDS:
     gotchas [list|clear|export|stats] Bug Memory: view/manage auto-detected error patterns
     buddy [show|stats|ascii|json]  Token Guardian: your data-driven coding companion
     doctor [--fix] [--json]        Run diagnostics (and optionally repair)
+    safety-levels                  Show compression safety levels per command
+    bypass \"command\"               Run command with zero compression (raw passthrough)
     uninstall                      Remove shell hook, MCP configs, and data directory
 
 SHELL HOOK PATTERNS (90+):
@@ -867,7 +891,17 @@ EXAMPLES:
         nebu-ctx setup                 One-command setup (shell + editors + verify)
         nebu-ctx bootstrap             Non-interactive setup + fix (zero-config)
         nebu-ctx bootstrap --json      Machine-readable bootstrap report
-        nebu-ctx init --global         Install shell aliases (includes nebu-ctx-on/off/mode/status)
+        nebu-ctx init --global         Install shell aliases (file-based, includes nebu-ctx-on/off)
+
+EVAL INIT (starship/zoxide style — always in sync with binary version):
+    # bash: add to ~/.bashrc
+    eval \"$(nebu-ctx init bash)\"
+    # zsh: add to ~/.zshrc
+    eval \"$(nebu-ctx init zsh)\"
+    # fish: add to ~/.config/fish/config.fish
+    nebu-ctx init fish | source
+    # powershell: add to $PROFILE
+    nebu-ctx init powershell | Invoke-Expression
     nebu-ctx-on                    Enable shell aliases in track mode (full output + stats)
     nebu-ctx-off                   Disable all shell aliases
     nebu-ctx-mode track            Track mode: full output, stats recorded (default)

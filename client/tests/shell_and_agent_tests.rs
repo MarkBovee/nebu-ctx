@@ -1,4 +1,4 @@
-//! E2E tests for shell detection, LEAN_CTX_SHELL override,
+//! E2E tests for shell detection, NEBU_CTX_SHELL override,
 //! agent init (incl. antigravity alias), Windows path handling,
 //! and pipe-guard (stdout not a terminal → bypass nebu-ctx).
 
@@ -46,7 +46,7 @@ fn run_with_env(
 }
 
 // ---------------------------------------------------------------------------
-// LEAN_CTX_SHELL override tests (via `nebu-ctx -c`)
+// NEBU_CTX_SHELL override tests (via `nebu-ctx -c`)
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -56,7 +56,7 @@ fn nebula_ctx_shell_override_uses_specified_shell() {
     }
     let (stdout, _stderr, code) = run_with_env(
         &["-c", "echo nebula_ctx_shell_works"],
-        &[("LEAN_CTX_SHELL", "/bin/sh")],
+        &[("NEBU_CTX_SHELL", "/bin/sh")],
         None,
     );
     assert_eq!(code, 0, "should succeed with /bin/sh");
@@ -73,7 +73,7 @@ fn nebula_ctx_shell_override_bash() {
     }
     let (stdout, _stderr, code) = run_with_env(
         &["-c", "echo $BASH_VERSION"],
-        &[("LEAN_CTX_SHELL", "/bin/bash")],
+        &[("NEBU_CTX_SHELL", "/bin/bash")],
         None,
     );
     assert_eq!(code, 0, "should succeed with /bin/bash");
@@ -84,7 +84,7 @@ fn nebula_ctx_shell_override_bash() {
 fn nebula_ctx_shell_override_invalid_shell_fails() {
     let (_stdout, _stderr, code) = run_with_env(
         &["-c", "echo hello"],
-        &[("LEAN_CTX_SHELL", "/nonexistent/shell")],
+        &[("NEBU_CTX_SHELL", "/nonexistent/shell")],
         None,
     );
     assert_ne!(code, 0, "should fail with nonexistent shell");
@@ -227,7 +227,7 @@ fn agent_init_lists_antigravity_in_supported() {
 }
 
 // ---------------------------------------------------------------------------
-// Hook rewrite with LEAN_CTX_SHELL override
+// Hook rewrite with NEBU_CTX_SHELL override
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -235,7 +235,7 @@ fn hook_rewrite_works_with_shell_override() {
     let input = r#"{"tool_name":"Bash","command":"git status"}"#;
     let (stdout, _stderr, _code) = run_with_env(
         &["hook", "rewrite"],
-        &[("LEAN_CTX_SHELL", "/bin/sh")],
+        &[("NEBU_CTX_SHELL", "/bin/sh")],
         Some(input),
     );
     if !stdout.trim().is_empty() {
@@ -258,7 +258,7 @@ fn hook_rewrite_works_with_shell_override() {
 fn generated_script_handles_windows_path() {
     let script = lean_ctx::hooks::generate_rewrite_script("/c/Users/Jaina/bin/nebu-ctx.exe");
     assert!(
-        script.contains("LEAN_CTX_BIN=\"/c/Users/Jaina/bin/nebu-ctx.exe\""),
+        script.contains("NEBU_CTX_BIN=\"/c/Users/Jaina/bin/nebu-ctx.exe\""),
         "Windows bash path should be properly quoted in script"
     );
 }
@@ -267,7 +267,7 @@ fn generated_script_handles_windows_path() {
 fn generated_script_handles_path_with_spaces() {
     let script = lean_ctx::hooks::generate_rewrite_script("/c/Program Files/nebu-ctx/nebu-ctx.exe");
     assert!(
-        script.contains("LEAN_CTX_BIN=\"/c/Program Files/nebu-ctx/nebu-ctx.exe\""),
+        script.contains("NEBU_CTX_BIN=\"/c/Program Files/nebu-ctx/nebu-ctx.exe\""),
         "path with spaces should be quoted"
     );
 }
@@ -277,7 +277,7 @@ fn generated_compact_script_handles_windows_path() {
     let script =
         lean_ctx::hooks::generate_compact_rewrite_script("/c/Users/Jaina/bin/nebu-ctx.exe");
     assert!(
-        script.contains("LEAN_CTX_BIN=\"/c/Users/Jaina/bin/nebu-ctx.exe\""),
+        script.contains("NEBU_CTX_BIN=\"/c/Users/Jaina/bin/nebu-ctx.exe\""),
         "compact script should handle Windows path"
     );
 }
@@ -286,7 +286,7 @@ fn generated_compact_script_handles_windows_path() {
 fn generated_script_skips_own_binary() {
     let script = lean_ctx::hooks::generate_rewrite_script("nebu-ctx");
     assert!(
-        script.contains("nebu-ctx ") || script.contains("$LEAN_CTX_BIN "),
+        script.contains("nebu-ctx ") || script.contains("$NEBU_CTX_BIN "),
         "script should reference nebu-ctx for self-skip check"
     );
 }

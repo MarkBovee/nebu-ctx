@@ -37,6 +37,8 @@ Compatibility: ctx_read replaces READ operations only. Your native Edit/Write/St
 If Edit requires native Read and Read is unavailable, use `ctx_edit(path, old_string, new_string)` instead.
 Write, Delete, Glob → use normally. NEVER loop on Edit failures — switch to ctx_edit immediately.
 
+Memory policy: persist durable project facts with `ctx_knowledge(action="remember")`, restore or record session state with `ctx_session`, and let the stop/compact hooks consolidate context into the nebu-ctx server automatically.
+
 Preferred workflow control: use `ctx_workflow` to track states + enforce tool gates + evidence.
 
 Fallback only if a nebu-ctx tool is unavailable: use native equivalents.
@@ -80,6 +82,7 @@ Write, Delete, Glob → use normally. NEVER loop on Edit failures — switch to 
 ## Proactive (use without being asked):
 - `ctx_overview(task)` at session start
 - `ctx_compress` when context grows large
+- `ctx_session` / `ctx_knowledge` when useful facts or session state should persist
 <!-- /lean-ctx -->"#;
 
 // ---------------------------------------------------------------------------
@@ -106,6 +109,12 @@ PREFER nebu-ctx MCP tools over native equivalents for token savings:
 | `ctx_search` | `Grep` | Compact context, token-efficient results |
 | `ctx_tree` | `ls`, `find` | Compact directory maps with file counts |
 | `ctx_edit` | `Edit` (when Read unavailable) | Search-and-replace without native Read dependency |
+
+## Memory
+
+- Use `ctx_session` to carry forward task state, findings, and decisions across chats.
+- Use `ctx_knowledge(action="remember")` for durable facts that should survive future sessions.
+- Stop/compact hooks already consolidate the current session into the nebu-ctx server; keep new facts there instead of relying on chat history.
 
 ## ctx_read Modes
 

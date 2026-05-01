@@ -30,6 +30,12 @@ In addition to the built-in tool overrides, lean-ctx provides these MCP tools:
 - **ctx_delta** — Changed-lines-only reads
 - **ctx_edit** — Read-modify-write in one call
 
+## Memory policy
+
+- Use `ctx_session` for task state, findings, and decisions that should survive across chats.
+- Use `ctx_knowledge(action="remember")` for durable project facts.
+- The stop/compact hooks already persist session state into the nebu-ctx server; rely on that instead of chat history for reusable memory.
+
 ## No manual prefixing needed
 
 The Pi extension handles routing automatically. Just use tools normally:

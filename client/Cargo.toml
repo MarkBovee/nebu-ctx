@@ -1,6 +1,6 @@
 [package]
 name = "nebu-ctx"
-version = "0.6.2"
+version = "0.7.0"
 edition = "2021"
 autobins = false
 description = "Lean-ctx runtime adapted for the NebuCtx Cloud-backed product."
@@ -85,8 +85,6 @@ tree-sitter-kotlin-ng = { version = "1.1", optional = true }
 tree-sitter-swift = { version = "0.7", optional = true }
 tree-sitter-php = { version = "0.24", optional = true }
 ureq = "3.3.0"
-tar = "0.4.45"
-zip = "8.4.0"
 tree-sitter-bash = { version = "0.25", optional = true }
 tree-sitter-scala = { version = "0.25", optional = true }
 tree-sitter-elixir = { version = "0.3", optional = true }

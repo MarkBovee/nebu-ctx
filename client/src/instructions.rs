@@ -38,8 +38,9 @@ Cached? fresh=true or lines:N-M.
 
 Auto: ctx_overview, ctx_preload, ctx_dedup, ctx_compress behind the scenes.
 Multi-agent: ctx_agent(action=handoff|sync|diary).
-ctx_semantic_search for meaning search. ctx_session for memory.
+ctx_semantic_search for meaning search. ctx_session for memory/state.
 ctx_knowledge: remember|recall|timeline|rooms|search|wakeup.
+Memory rule: persist durable facts with ctx_knowledge(action=\"remember\"); keep session state in ctx_session so stop/compact hooks can forward it to the nebu-ctx server.
 ctx_shell raw=true for uncompressed.
 
 CEP: 1.ACT FIRST 2.DELTA ONLY 3.STRUCTURED(+/-/~) 4.ONE LINE 5.QUALITY

@@ -8,7 +8,7 @@ use support::{
     upsert_lean_ctx_codex_hook_entries,
 };
 
-fn mcp_server_quiet_mode() -> bool {
+pub(crate) fn mcp_server_quiet_mode() -> bool {
     std::env::var_os("NEBU_CTX_MCP_SERVER").is_some()
         || matches!(std::env::var("NEBU_CTX_QUIET"), Ok(value) if value.trim() == "1")
 }
