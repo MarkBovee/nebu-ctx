@@ -147,7 +147,7 @@ fn exec_direct(args: &[String]) -> i32 {
     match status {
         Ok(s) => s.code().unwrap_or(1),
         Err(e) => {
-            eprintln!("lean-ctx: failed to execute: {e}");
+            eprintln!("nebu-ctx: failed to execute: {e}");
             127
         }
     }
@@ -193,7 +193,7 @@ fn exec_inherit(command: &str, shell: &str, shell_flag: &str) -> i32 {
     match status {
         Ok(s) => s.code().unwrap_or(1),
         Err(e) => {
-            eprintln!("lean-ctx: failed to execute: {e}");
+            eprintln!("nebu-ctx: failed to execute: {e}");
             127
         }
     }
@@ -251,7 +251,7 @@ fn exec_buffered(command: &str, shell: &str, shell_flag: &str, cfg: &config::Con
     let child = match child {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("lean-ctx: failed to execute: {e}");
+            eprintln!("nebu-ctx: failed to execute: {e}");
             return 127;
         }
     };
@@ -259,7 +259,7 @@ fn exec_buffered(command: &str, shell: &str, shell_flag: &str, cfg: &config::Con
     let output = match child.wait_with_output() {
         Ok(o) => o,
         Err(e) => {
-            eprintln!("lean-ctx: failed to wait: {e}");
+            eprintln!("nebu-ctx: failed to wait: {e}");
             return 127;
         }
     };
@@ -289,7 +289,7 @@ fn exec_buffered(command: &str, shell: &str, shell_flag: &str, cfg: &config::Con
     };
     if should_tee {
         if let Some(path) = save_tee(command, &full_output) {
-            eprintln!("[lean-ctx: full output -> {path} (redacted, 24h TTL)]");
+            eprintln!("[nebu-ctx: full output -> {path} (redacted, 24h TTL)]");
         }
     }
 
@@ -669,7 +669,7 @@ pub fn interactive() {
     let mut stdout = io::stdout();
 
     loop {
-        let _ = write!(stdout, "lean-ctx> ");
+        let _ = write!(stdout, "nebu-ctx> ");
         let _ = stdout.flush();
 
         let mut line = String::new();
@@ -687,7 +687,7 @@ pub fn interactive() {
             break;
         }
         if cmd == "gain" {
-            println!("{}", crate::cli::cloud_analytics_only_message("gain"));
+            println!("{}", crate::cli::hosted_analytics_only_message("gain"));
             continue;
         }
 
@@ -714,9 +714,9 @@ fn compress_and_measure(command: &str, stdout: &str, stderr: &str) -> (String, u
         result.push_str(&compressed_stderr);
     }
 
-    // Count tokens on content BEFORE the [lean-ctx: ...] footer to avoid
+    // Count tokens on content BEFORE the [nebu-ctx: ...] footer to avoid
     // counting the annotation overhead against savings.
-    let content_for_counting = if let Some(pos) = result.rfind("\n[lean-ctx: ") {
+    let content_for_counting = if let Some(pos) = result.rfind("\n[nebu-ctx: ") {
         &result[..pos]
     } else {
         &result
@@ -749,7 +749,7 @@ fn compress_if_beneficial(command: &str, output: &str) -> String {
                 let ratio = compressed_tokens as f64 / original_tokens as f64;
                 if ratio < 0.05 && original_tokens > 100 {
                     eprintln!(
-                        "[lean-ctx] WARNING: compression removed >95% of content, returning original"
+                        "[nebu-ctx] WARNING: compression removed >95% of content, returning original"
                     );
                     return output.to_string();
                 }
@@ -757,7 +757,7 @@ fn compress_if_beneficial(command: &str, output: &str) -> String {
                 let pct = (saved as f64 / original_tokens as f64 * 100.0).round() as usize;
                 if pct >= 5 {
                     return format!(
-                        "{compressed}\n[lean-ctx: {original_tokens}→{compressed_tokens} tok, -{pct}%]"
+                        "{compressed}\n[nebu-ctx: {original_tokens}→{compressed_tokens} tok, -{pct}%]"
                     );
                 }
                 return compressed;
@@ -783,7 +783,7 @@ fn compress_if_beneficial(command: &str, output: &str) -> String {
             let pct = (saved as f64 / original_tokens as f64 * 100.0).round() as usize;
             if pct >= 5 {
                 return format!(
-                    "{cleaned}\n[lean-ctx: {original_tokens}→{cleaned_tokens} tok, -{pct}%]"
+                    "{cleaned}\n[nebu-ctx: {original_tokens}→{cleaned_tokens} tok, -{pct}%]"
                 );
             }
             return cleaned;
@@ -832,7 +832,7 @@ fn truncate_with_safety_scan(lines: &[&str], original_tokens: usize) -> Option<S
     let pct = (saved as f64 / original_tokens as f64 * 100.0).round() as usize;
     if pct >= 5 {
         Some(format!(
-            "{compressed}\n[lean-ctx: {original_tokens}→{ct} tok, -{pct}%]"
+            "{compressed}\n[nebu-ctx: {original_tokens}→{ct} tok, -{pct}%]"
         ))
     } else {
         Some(compressed)
@@ -937,7 +937,7 @@ fn which_powershell() -> Result<String, ()> {
 }
 
 pub fn save_tee(command: &str, output: &str) -> Option<String> {
-    let tee_dir = dirs::home_dir()?.join(".lean-ctx").join("tee");
+    let tee_dir = crate::core::data_dir::nebu_ctx_data_dir().ok()?.join("tee");
     std::fs::create_dir_all(&tee_dir).ok()?;
 
     cleanup_old_tee_logs(&tee_dir);

@@ -389,7 +389,7 @@ fn seed_knowledge(project_root: &str) {
         (
             "SECURITY",
             "data-policy",
-            "Zero data sent to cloud, 100% local processing",
+            "Zero data sent to external SaaS, 100% local and self-hosted processing",
             0.99,
         ),
         (

@@ -1,6 +1,5 @@
 pub mod cli;
 pub mod config;
-pub mod cloud_client;
 pub mod compound_lexer;
 pub mod config_io;
 pub mod core;
@@ -23,6 +22,7 @@ pub mod project_metadata;
 pub mod report;
 pub mod rewrite_registry;
 pub mod rules_inject;
+pub mod server_client;
 pub mod mcp_server;
 pub mod setup;
 pub mod shell;

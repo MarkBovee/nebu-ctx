@@ -25,8 +25,8 @@ pub fn run() {
         let rest = args[2..].to_vec();
         let command = args[1].as_str();
 
-        if matches!(command, "dashboard" | "watch" | "heatmap" | "stats") {
-            super::exit_cloud_analytics_only(command);
+        if matches!(command, "heatmap" | "stats") {
+            super::exit_hosted_analytics_only(command);
         }
 
         match command {
@@ -323,7 +323,7 @@ pub fn run() {
                                        --host, -H            Bind host (default: 127.0.0.1)\\n\\
                                        --port, -p            Bind port (default: 8080)\\n\\
                                        --project-root        Resolve relative paths against this root (default: cwd)\\n\\
-                                       --auth-token          Require Authorization: Bearer <token> (required for non-loopback binds)\\n\\
+                                       --auth-token          Require Authorization: Bearer <token> (required for non-loopback hosts)\\n\\
                                        --stateful/--stateless  Streamable HTTP session mode (default: stateless)\\n\\
                                        --json/--sse          Response framing in stateless mode (default: json)\\n\\
                                        --max-body-bytes      Max request body size in bytes (default: 2097152)\\n\\
@@ -623,11 +623,11 @@ pub fn run() {
                 return;
             }
             "gotchas" | "bugs" => {
-                super::cloud::cmd_gotchas(&rest);
+                super::connect::cmd_gotchas(&rest);
                 return;
             }
             "buddy" | "pet" => {
-                super::cloud::cmd_buddy(&rest);
+                super::connect::cmd_buddy(&rest);
                 return;
             }
             "hook" => {
@@ -684,15 +684,11 @@ pub fn run() {
                 return;
             }
             "connect" => {
-                super::cloud::cmd_connect(&rest);
+                super::connect::cmd_connect(&rest);
                 return;
             }
             "disconnect" => {
-                super::cloud::cmd_disconnect();
-                return;
-            }
-            "bind" => {
-                super::cloud::cmd_bind();
+                super::connect::cmd_disconnect();
                 return;
             }
             "--version" | "-V" => {
@@ -800,7 +796,6 @@ USAGE:
 COMMANDS:
          token-report [--json]          Token + memory report (project + session + CEP)
     gain [action]              Fetch analytics from server (report, score, cost, tasks, etc.)
-    dashboard|watch            Print the dashboard URL
     serve [--host H] [--port N]    MCP over HTTP (Streamable HTTP, local-first)
     proxy start [--port=4444]      API proxy: compress tool_results before LLM API
     proxy status                   Show proxy statistics
@@ -916,11 +911,10 @@ EVAL INIT (starship/zoxide style — always in sync with binary version):
     nebu-ctx grep \"pub fn\" src/
     nebu-ctx deps .
 
-CLOUD SERVER:
-    connect [--endpoint <url>] [--token <token>]  Save and validate a cloud connection
-    status                         Includes cloud connection status
-    bind                           Bind the current checkout to a canonical project
-    disconnect                     Remove the saved cloud connection
+HOST CONNECTION:
+    connect [--endpoint <url>] [--token <token>]  Save and validate a server connection
+    status                         Includes host connection status
+    disconnect                     Remove the saved server connection
 
 TROUBLESHOOTING:
     Commands broken?     nebu-ctx-off             (fixes current session)

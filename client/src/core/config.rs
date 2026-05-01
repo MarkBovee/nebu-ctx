@@ -103,7 +103,7 @@ pub struct Config {
     #[serde(default = "default_theme")]
     pub theme: String,
     #[serde(default)]
-    pub cloud: CloudConfig,
+    pub server: ServerConfig,
     #[serde(default)]
     pub autonomy: AutonomyConfig,
     #[serde(default = "default_buddy_enabled")]
@@ -285,7 +285,7 @@ impl AutonomyConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
-pub struct CloudConfig {
+pub struct ServerConfig {
     pub contribute_enabled: bool,
     pub last_contribute: Option<String>,
     pub last_sync: Option<String>,
@@ -333,7 +333,7 @@ impl Default for Config {
             custom_aliases: Vec::new(),
             slow_command_threshold_ms: 5000,
             theme: default_theme(),
-            cloud: CloudConfig::default(),
+            server: ServerConfig::default(),
             autonomy: AutonomyConfig::default(),
             buddy_enabled: default_buddy_enabled(),
             redirect_exclude: Vec::new(),

@@ -1,6 +1,6 @@
 # nebu-ctx
 
-Rust runtime client for the cloud-backed `nebu-ctx` MCP and dashboard stack.
+Rust runtime client for the `nebu-ctx` MCP, host, and dashboard stack.
 
 Homepage: <https://nebu-ctx.com>
 
@@ -18,9 +18,9 @@ cargo install --path client --bin nebu-ctx --force
 
 ## What it does
 
-- Restores the original `lean-ctx` runtime surface under the `nebu-ctx` product name.
-- Connects to a running `nebu-ctx` cloud host over HTTP with `nebu-ctx cloud connect`.
-- Supports local runtime tools plus cloud-backed tools such as `ctx_brain` against the shared PostgreSQL-backed server state.
+- Started from the practical `lean-ctx` client surface and was reshaped into the current `nebu-ctx` runtime client.
+- Connects to a running `nebu-ctx` host over HTTP with `nebu-ctx connect`.
+- Supports local runtime tools plus server-backed tools such as `ctx_brain` against shared PostgreSQL-backed server state.
 
 ## Repository
 

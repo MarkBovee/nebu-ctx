@@ -131,7 +131,7 @@ pub fn ensure_all_background(project_root: &str) {
                 let mut s = state.lock().unwrap_or_else(|e| e.into_inner());
                 finish_ok(&mut s.graph);
                 drop(s);
-                // Fire-and-forget: sync the built index to the cloud server.
+                // Fire-and-forget: sync the built index to the configured server.
                 let sync_root = root.clone();
                 std::thread::spawn(move || {
                     fire_sync_index(&sync_root, &built_idx);
@@ -218,10 +218,12 @@ pub fn status_json(project_root: &str) -> String {
     serde_json::to_string(&res).unwrap_or_else(|_| "{}".to_string())
 }
 
-/// Syncs a freshly built `ProjectIndex` to the cloud server in a best-effort manner.
+/// Syncs a freshly built `ProjectIndex` to the configured server in a best-effort manner.
 /// Silently returns if the server is not configured or unreachable.
 fn fire_sync_index(project_root: &str, idx: &ProjectIndex) {
-    use crate::cloud_client::{IndexSyncEdge, IndexSyncFile, IndexSyncPayload, IndexSyncSymbol, ServerClient};
+    use crate::server_client::{
+        IndexSyncEdge, IndexSyncFile, IndexSyncPayload, IndexSyncSymbol, ServerClient,
+    };
 
     let Ok(client) = ServerClient::load() else { return };
     let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));

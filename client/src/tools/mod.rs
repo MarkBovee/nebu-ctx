@@ -377,7 +377,7 @@ impl LeanCtxServer {
 
         self.write_mcp_live_stats().await;
 
-        // Ship this event to the cloud server via the in-process queue.
+        // Ship this event to the configured server via the in-process queue.
         // enqueue() returns immediately; the drain task handles the HTTP POST.
         let session_slug = {
             let session = self.session.read().await;

@@ -139,7 +139,7 @@ fn build_status_report() -> Result<(StatusReport, std::path::PathBuf), String> {
 
     let rules_targets = crate::rules_inject::collect_rules_status(&home);
 
-    let cloud_connection = crate::config::load_connection()
+    let host_connection = crate::config::load_connection()
         .ok()
         .flatten()
         .map(|conn| CloudConnectionStatus {
@@ -158,7 +158,7 @@ fn build_status_report() -> Result<(StatusReport, std::path::PathBuf), String> {
         doctor_compact_total,
         mcp_targets,
         rules_targets,
-        cloud_connection,
+        cloud_connection: host_connection,
         warnings,
         errors,
     };
@@ -201,10 +201,10 @@ fn print_human(report: &StatusReport, path: &std::path::Path) {
         .count();
     println!("  rules: {rules_up_to_date}/{rules_detected} up-to-date (detected tools)");
 
-    if let Some(cloud) = &report.cloud_connection {
-        println!("  cloud: connected → {}", cloud.endpoint);
+    if let Some(host) = &report.cloud_connection {
+        println!("  host: connected → {}", host.endpoint);
     } else {
-        println!("  cloud: not configured (run: nebu-ctx connect)");
+        println!("  host: not configured (run: nebu-ctx connect)");
     }
 
     if !report.warnings.is_empty() {
@@ -225,19 +225,19 @@ pub fn print_on_brief() {
     }
 
     let version = env!("CARGO_PKG_VERSION");
-    let cloud_part = match crate::config::load_connection() {
+    let host_part = match crate::config::load_connection() {
         Ok(Some(conn)) => {
             let host = conn
                 .endpoint
                 .trim_end_matches('/')
                 .trim_start_matches("https://")
                 .trim_start_matches("http://");
-            format!("  \x1b[2m·\x1b[0m  \x1b[36mcloud\x1b[0m \x1b[2m→ {host}\x1b[0m")
+            format!("  \x1b[2m·\x1b[0m  \x1b[36mhost\x1b[0m \x1b[2m→ {host}\x1b[0m")
         }
         _ => String::new(),
     };
 
     println!(
-        "  \x1b[36m◈\x1b[0m \x1b[1mnebu-ctx\x1b[0m \x1b[2mv{version}\x1b[0m  \x1b[2m·\x1b[0m  \x1b[32mON\x1b[0m{cloud_part}"
+        "  \x1b[36m◈\x1b[0m \x1b[1mnebu-ctx\x1b[0m \x1b[2mv{version}\x1b[0m  \x1b[2m·\x1b[0m  \x1b[32mON\x1b[0m{host_part}"
     );
 }

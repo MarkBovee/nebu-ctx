@@ -1,4 +1,4 @@
-//! Environment diagnostics for lean-ctx installation and integration.
+//! Environment diagnostics for nebu-ctx installation and integration.
 
 use std::net::TcpListener;
 use std::path::PathBuf;
@@ -106,7 +106,7 @@ fn rc_has_pipe_guard(path: &PathBuf) -> bool {
             let has_nebu_hook = s.contains(".nebu-ctx/shell-hook.") || s.contains(".nebu-ctx/shell-hook.");
             if has_nebu_hook {
                 if let Some(home) = dirs::home_dir() {
-                    for dir in &[".nebu-ctx", ".lean-ctx"] {
+                    for dir in &[".nebu-ctx"] {
                         for ext in &["zsh", "bash", "fish", "ps1"] {
                             let hook = home.join(format!("{dir}/shell-hook.{ext}"));
                             if let Ok(h) = std::fs::read_to_string(&hook) {
@@ -198,9 +198,9 @@ fn shell_aliases_outcome() -> Outcome {
 
     if parts.is_empty() {
         let hint = if cfg!(windows) {
-            "no \"lean-ctx\" in PowerShell profile, ~/.zshrc or ~/.bashrc"
+            "no nebu-ctx shell hook in PowerShell profile, ~/.zshrc or ~/.bashrc"
         } else {
-            "no \"lean-ctx\" in ~/.zshrc, ~/.bashrc, or ~/.config/fish/config.fish"
+            "no nebu-ctx shell hook in ~/.zshrc, ~/.bashrc, or ~/.config/fish/config.fish"
         };
         Outcome {
             ok: false,
@@ -218,7 +218,7 @@ fn shell_aliases_outcome() -> Outcome {
         Outcome {
             ok: true,
             line: format!(
-                "{BOLD}Shell aliases{RST}  {GREEN}lean-ctx referenced in {}{RST}",
+                "{BOLD}Shell aliases{RST}  {GREEN}nebu-ctx referenced in {}{RST}",
                 parts.join(", ")
             ),
         }
@@ -596,7 +596,7 @@ fn docker_env_outcomes() -> Vec<Outcome> {
     }
     let env_sh = crate::core::data_dir::nebu_ctx_data_dir()
         .map(|d| d.join("env.sh").to_string_lossy().to_string())
-        .unwrap_or_else(|_| "/root/.lean-ctx/env.sh".to_string());
+        .unwrap_or_else(|_| "/root/.nebu-ctx/env.sh".to_string());
 
     let mut outcomes = vec![];
 

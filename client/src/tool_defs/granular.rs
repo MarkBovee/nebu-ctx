@@ -293,9 +293,9 @@ symbol (lookup definition/usages as file::name), impact (blast radius of changes
         ),
         tool_def(
             "ctx_brain",
-            "Cloud-backed long-term knowledge store (Postgres). Survives across machines and sessions. \
+            "Server-backed long-term knowledge store (Postgres). Survives across machines and sessions. \
 Actions: store (persist a fact with key+value), recall (semantic search by query), forget (delete by key). \
-Requires cloud connection — run: nebu-ctx cloud connect",
+Requires server connection — run: nebu-ctx connect",
             json!({
                 "type": "object",
                 "properties": {
@@ -1029,7 +1029,7 @@ Modes: full|map|signatures|diff|aggressive|entropy|task|reference|lines:N-M. fre
         ("ctx_context", "Session context overview — cached files, seen files, session state.", json!({"type": "object", "properties": {}})),
         ("ctx_graph", "Code dependency graph. Actions: build (index project), related (find files connected to path), \
 symbol (lookup definition/usages as file::name), impact (blast radius of changes to path), status (index stats).", json!({"type": "object", "properties": {"action": {"type": "string"}, "path": {"type": "string"}, "project_root": {"type": "string"}}, "required": ["action"]})),
-        ("ctx_brain", "Cloud-backed long-term knowledge store (Postgres). Actions: store, recall, forget. Requires cloud connection.", json!({"type": "object", "properties": {"action": {"type": "string", "enum": ["store", "recall", "forget"]}, "key": {"type": "string"}, "value": {"type": "string"}, "query": {"type": "string"}}, "required": ["action"]})),
+        ("ctx_brain", "Server-backed long-term knowledge store (Postgres). Actions: store, recall, forget. Requires server connection.", json!({"type": "object", "properties": {"action": {"type": "string", "enum": ["store", "recall", "forget"]}, "key": {"type": "string"}, "value": {"type": "string"}, "query": {"type": "string"}}, "required": ["action"]})),
         ("ctx_session", "Cross-session memory (CCP). Actions: load (restore previous session ~400 tok), \
 save, status, task (set current task), finding (record discovery), decision (record choice), \
 reset, list (show sessions), cleanup, snapshot (build compaction snapshot ~2KB), \
@@ -1046,11 +1046,11 @@ pull (receive shared files), list (show all shared contexts), clear (remove your
         ("ctx_preload", "Proactive context loader — reads and caches task-relevant files, returns compact L-curve-optimized summary with critical lines, imports, and signatures. Costs ~50-100 tokens instead of ~5000 for individual reads.", json!({"type": "object", "properties": {"task": {"type": "string", "description": "Task description (e.g. 'fix auth bug in validate_token')"}, "path": {"type": "string", "description": "Project root (default: .)"}}, "required": ["task"]})),
         ("ctx_prefetch", "Predictive prefetch — prewarm cache for blast radius files (graph + task signals) within budgets.", json!({"type": "object", "properties": {"root": {"type": "string"}, "task": {"type": "string"}, "changed_files": {"type": "array", "items": {"type": "string"}}, "budget_tokens": {"type": "integer"}, "max_files": {"type": "integer"}}})),
         ("ctx_wrapped", "Savings report card. Periods: week|month|all.", json!({"type": "object", "properties": {"period": {"type": "string"}}})),
-        ("ctx_cost", "Cloud-only analytics surface. Local client no longer serves cost attribution.", json!({"type": "object", "properties": {"action": {"type": "string"}, "agent_id": {"type": "string"}, "limit": {"type": "integer"}}})),
-        ("ctx_gain", "Cloud-only analytics surface. Local client no longer serves gain reports.", json!({"type": "object", "properties": {"action": {"type": "string"}, "period": {"type": "string"}, "model": {"type": "string"}, "limit": {"type": "integer"}}})),
+        ("ctx_cost", "Server-only analytics surface. Local client no longer serves cost attribution.", json!({"type": "object", "properties": {"action": {"type": "string"}, "agent_id": {"type": "string"}, "limit": {"type": "integer"}}})),
+        ("ctx_gain", "Server-only analytics surface. Local client no longer serves gain reports.", json!({"type": "object", "properties": {"action": {"type": "string"}, "period": {"type": "string"}, "model": {"type": "string"}, "limit": {"type": "integer"}}})),
         ("ctx_feedback", "Harness feedback for LLM output tokens/latency (local-first). Actions: record|report|json|reset|status.", json!({"type": "object", "properties": {"action": {"type": "string"}, "agent_id": {"type": "string"}, "intent": {"type": "string"}, "model": {"type": "string"}, "llm_input_tokens": {"type": "integer"}, "llm_output_tokens": {"type": "integer"}, "latency_ms": {"type": "integer"}, "note": {"type": "string"}, "limit": {"type": "integer"}}})),
         ("ctx_handoff", "Context Ledger Protocol (hashed, deterministic, local-first). Actions: create|show|list|pull|clear.", json!({"type": "object", "properties": {"action": {"type": "string"}, "path": {"type": "string"}, "paths": {"type": "array", "items": {"type": "string"}}, "apply_workflow": {"type": "boolean"}, "apply_session": {"type": "boolean"}, "apply_knowledge": {"type": "boolean"}}})),
-        ("ctx_heatmap", "Cloud-only analytics surface. Local client no longer serves heatmaps.", json!({"type": "object", "properties": {"action": {"type": "string"}, "path": {"type": "string"}}})),
+        ("ctx_heatmap", "Server-only analytics surface. Local client no longer serves heatmaps.", json!({"type": "object", "properties": {"action": {"type": "string"}, "path": {"type": "string"}}})),
         ("ctx_task", "Multi-agent task orchestration. Actions: create|update|list|get|cancel|message|info.", json!({"type": "object", "properties": {"action": {"type": "string"}, "task_id": {"type": "string"}, "to_agent": {"type": "string"}, "description": {"type": "string"}, "state": {"type": "string"}, "message": {"type": "string"}}, "required": ["action"]})),
         ("ctx_impact", "Graph-based impact analysis. Actions: analyze|chain|build|status.", json!({"type": "object", "properties": {"action": {"type": "string"}, "path": {"type": "string"}, "root": {"type": "string"}, "depth": {"type": "integer"}}})),
         ("ctx_architecture", "Graph-based architecture analysis. Actions: overview|clusters|layers|cycles|entrypoints|module.", json!({"type": "object", "properties": {"action": {"type": "string"}, "path": {"type": "string"}, "root": {"type": "string"}}})),

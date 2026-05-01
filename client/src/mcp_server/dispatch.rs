@@ -1625,10 +1625,10 @@ impl LeanCtxServer {
                 result
             }
             "ctx_brain" => {
-                // Safety net: ctx_brain should be intercepted by cloud routing in call_tool before
+                // Safety net: ctx_brain should be intercepted by server routing in call_tool before
                 // reaching dispatch. If we land here, the connection is not configured.
                 format!(
-                    "ctx_brain requires a cloud connection. Run: nebu-ctx cloud connect\n\
+                    "ctx_brain requires a server connection. Run: nebu-ctx connect\n\
                      This tool stores and recalls knowledge in Postgres on the NebuCtx server."
                 )
             }

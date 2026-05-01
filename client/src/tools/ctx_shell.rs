@@ -149,7 +149,7 @@ pub fn handle(command: &str, output: &str, crp_mode: CrpMode) -> String {
     if contains_auth_flow(output) {
         let savings = protocol::format_savings(original_tokens, original_tokens);
         return format!(
-            "{output}\n[lean-ctx: auth/device-code flow detected — output preserved uncompressed]\n{savings}"
+            "{output}\n[nebu-ctx: auth/device-code flow detected — output preserved uncompressed]\n{savings}"
         );
     }
 

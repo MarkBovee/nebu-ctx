@@ -186,7 +186,7 @@ pub fn handle_rewrite_inline() {
 }
 
 /// Session-end handler: consolidate local session facts into `knowledge.json`,
-/// then forward every promoted fact to the cloud via `ctx_knowledge`.
+/// then forward every promoted fact to the server via `ctx_knowledge`.
 /// Always snapshots the session summary to `ctx_brain` regardless of whether
 /// any facts were promoted.
 /// Wired to Claude Code `Stop` and Copilot CLI `postSession`.
@@ -206,15 +206,15 @@ pub fn handle_stop() {
 
     let promoted = outcome.as_ref().map(|o| o.promoted).unwrap_or(0);
     if promoted > 0 {
-        // Forward promoted facts to the cloud so they land in PostgreSQL.
-        post_promoted_facts_to_cloud(&project_root);
+        // Forward promoted facts to the server so they land in PostgreSQL.
+        post_promoted_facts_to_server(&project_root);
     }
 
     // Always snapshot session summary to brain (even if no knowledge facts promoted).
     if let Some(session) =
         crate::core::session::SessionState::load_latest_for_project_root(&project_root)
     {
-        crate::cloud_client::post_session_to_brain(&session);
+        crate::server_client::post_session_to_brain(&session);
     }
 }
 
@@ -223,7 +223,7 @@ pub fn handle_stop() {
 /// Reads the current local session state and knowledge facts, builds a compact
 /// XML `<session_state>` snapshot (≤2KB), and outputs it as `additionalContext`
 /// so Claude Code injects it into the post-compaction context automatically.
-/// Also fires an async save to the cloud brain so the state survives cross-session.
+/// Also fires an async save to the server-backed brain so the state survives cross-session.
 ///
 /// Wired to Claude Code `PreCompact`.
 pub fn handle_pre_compact() {
@@ -233,14 +233,14 @@ pub fn handle_pre_compact() {
 
     let xml = build_session_snapshot_xml(&project_root, "compaction");
 
-    // Fire async cloud save so state lands in PostgreSQL (same as handle_stop does).
+    // Fire async server save so state lands in PostgreSQL (same as handle_stop does).
     if !project_root.is_empty() {
         if let Some(session) =
             crate::core::session::SessionState::load_latest_for_project_root(&project_root)
         {
-            crate::cloud_client::post_session_to_brain(&session);
+            crate::server_client::post_session_to_brain(&session);
         }
-        post_promoted_facts_to_cloud(&project_root);
+        post_promoted_facts_to_server(&project_root);
     }
 
     // Output the snapshot as additionalContext for Claude Code to inject after compact.
@@ -287,7 +287,7 @@ pub fn handle_session_start() {
 /// UserPromptSubmit hook: fired by Claude Code when the user submits a prompt.
 ///
 /// Captures the raw prompt for session continuity tracking. Stores it in the
-/// cloud brain so the pre-compact snapshot can include the user's most recent
+/// server-backed brain so the pre-compact snapshot can include the user's most recent
 /// intent. Must be fast — fires async and exits immediately.
 ///
 /// Wired to Claude Code `UserPromptSubmit`.
@@ -318,7 +318,7 @@ pub fn handle_user_prompt_submit() {
     if project_root.is_empty() {
         return;
     }
-    let Ok(client) = crate::cloud_client::ServerClient::load() else { return };
+    let Ok(client) = crate::server_client::ServerClient::load() else { return };
     let ctx = crate::git_context::discover_project_context(std::path::Path::new(&project_root));
     let mut args = serde_json::Map::new();
     args.insert("action".to_string(), serde_json::json!("store"));
@@ -431,10 +431,10 @@ fn xml_escape(s: &str) -> String {
         .replace('"', "&quot;")
 }
 
-/// Forwards the current knowledge facts for the project to the cloud server
+/// Forwards the current knowledge facts for the project to the configured server
 /// via `ctx_knowledge(action="remember")` for each current, high-confidence fact.
-fn post_promoted_facts_to_cloud(project_root: &str) {
-    let Ok(client) = crate::cloud_client::ServerClient::load() else {
+fn post_promoted_facts_to_server(project_root: &str) {
+    let Ok(client) = crate::server_client::ServerClient::load() else {
         return;
     };
     let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));

@@ -1,47 +1,40 @@
-use crate::cloud_client::ServerClient;
+use crate::server_client::ServerClient;
 use crate::models::ServerConnection;
-use crate::{config, core, git_context};
-use anyhow::{bail, Context, Result};
+use crate::{config, core};
+use anyhow::{Context, Result};
 use serde_json::json;
-use std::io::{self, IsTerminal, Write};
+use std::io::{self, Write};
 
 pub fn cmd_connect(args: &[String]) {
     if super::has_flag(args, &["--help", "-h", "help"]) {
         println!("Usage: nebu-ctx connect [--endpoint <url>] [--token <token>]");
         return;
     }
-    if let Err(error) = connect_cloud(args) {
+    if let Err(error) = connect_server(args) {
         eprintln!("{error}");
         std::process::exit(1);
     }
 }
 
 pub fn cmd_disconnect() {
-    if let Err(error) = disconnect_cloud() {
+    if let Err(error) = disconnect_server() {
         eprintln!("{error}");
         std::process::exit(1);
     }
 }
 
-pub fn cmd_bind() {
-    if let Err(error) = bind_current_project() {
-        eprintln!("{error}");
-        std::process::exit(1);
-    }
-}
-
-fn connect_cloud(command_args: &[String]) -> Result<()> {
+fn connect_server(command_args: &[String]) -> Result<()> {
     let saved_connection = config::load_connection().ok().flatten();
     let endpoint = match super::option_value(command_args, &["--endpoint", "-e", "--url"]) {
         Some(value) => value,
         None => match saved_connection.as_ref() {
             Some(connection) => connection.endpoint.clone(),
-            None => prompt_required_value("Cloud URL", None)?,
+            None => prompt_required_value("Server URL", None)?,
         },
     };
     let token = match super::option_value(command_args, &["--token", "-t"]) {
         Some(value) => value,
-        None => prompt_required_secret("Cloud token")?,
+        None => prompt_required_secret("Server token")?,
     };
 
     let (connection, client) = validate_and_save_connection(&endpoint, &token)?;
@@ -53,32 +46,9 @@ fn connect_cloud(command_args: &[String]) -> Result<()> {
     }))
 }
 
-fn bind_current_project() -> Result<()> {
-    let client = load_or_prompt_cloud_client()?;
-    let project_context = git_context::discover_project_context(
-        &std::env::current_dir().context("failed to read current directory")?,
-    );
-    output_json(serde_json::to_value(client.resolve_project(&project_context)?)?)
-}
-
-fn disconnect_cloud() -> Result<()> {
+fn disconnect_server() -> Result<()> {
     config::clear_connection()?;
     output_json(json!({ "disconnected": true }))
-}
-
-fn load_or_prompt_cloud_client() -> Result<ServerClient> {
-    if let Ok(client) = ServerClient::load() {
-        return Ok(client);
-    }
-
-    if !io::stdin().is_terminal() {
-        bail!("No cloud connection saved. Run `nebu-ctx connect --endpoint <url> --token <token>`.");
-    }
-
-    let endpoint = prompt_required_value("Cloud URL", None)?;
-    let token = prompt_required_secret("Cloud token")?;
-    let (_, client) = validate_and_save_connection(&endpoint, &token)?;
-    Ok(client)
 }
 
 fn validate_and_save_connection(endpoint: &str, token: &str) -> Result<(ServerConnection, ServerClient)> {

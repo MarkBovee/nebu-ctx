@@ -1,4 +1,4 @@
-pub mod cloud;
+pub mod connect;
 pub mod dispatch;
 pub(crate) mod shell_init;
 
@@ -721,7 +721,6 @@ pub fn cmd_cheatsheet() {
 
 \x1b[1;36m━━━ MONITORING ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m
     nebu-ctx gain              \x1b[2m# fetch analytics from server\x1b[0m
-    nebu-ctx dashboard         \x1b[2m# print dashboard URL\x1b[0m
     nebu-ctx wrapped       \x1b[2m# weekly savings report\x1b[0m
     nebu-ctx discover      \x1b[2m# find uncompressed commands\x1b[0m
     nebu-ctx doctor        \x1b[2m# diagnose installation\x1b[0m
@@ -960,14 +959,14 @@ fn quiet_enabled() -> bool {
     matches!(std::env::var("NEBU_CTX_QUIET"), Ok(v) if v.trim() == "1")
 }
 
-pub fn cloud_analytics_only_message(surface: &str) -> String {
+pub fn hosted_analytics_only_message(surface: &str) -> String {
     format!(
-        "nebu-ctx {surface} is no longer available as a local client surface.\nAnalytics and dashboards now live in NebuCtx Cloud only.\nRun the .NET NebuCtx server and use its hosted dashboard for canonical stats, gain, cost, and heatmap views."
+        "nebu-ctx {surface} is no longer available as a local client surface.\nAnalytics and dashboards now live on the NebuCtx host.\nRun the .NET NebuCtx server and use its hosted dashboard for canonical stats, gain, cost, and heatmap views."
     )
 }
 
-pub fn exit_cloud_analytics_only(surface: &str) -> ! {
-    eprintln!("{}", cloud_analytics_only_message(surface));
+pub fn exit_hosted_analytics_only(surface: &str) -> ! {
+    eprintln!("{}", hosted_analytics_only_message(surface));
     std::process::exit(1);
 }
 
@@ -999,7 +998,7 @@ pub fn cmd_init(args: &[String]) {
         if !global {
             crate::hooks::install_project_rules();
         }
-        qprintln!("\nAnalytics are served by NebuCtx Cloud; this client no longer renders local dashboards.");
+        qprintln!("\nAnalytics are served by the NebuCtx host; this client no longer renders local dashboards.");
         return;
     }
 

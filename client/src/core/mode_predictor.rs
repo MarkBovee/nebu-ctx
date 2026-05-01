@@ -107,7 +107,7 @@ impl ModePredictor {
     }
 
     /// Built-in defaults for common file types and sizes.
-    /// Ensures reasonable compression even without local history or cloud models.
+    /// Ensures reasonable compression even without local history or server models.
     /// Respects Kolmogorov-Gate: files with K>0.7 skip aggressive modes.
     fn predict_from_defaults(sig: &FileSignature) -> Option<String> {
         let mode = match (sig.ext.as_str(), sig.size_bucket) {

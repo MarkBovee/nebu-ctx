@@ -135,7 +135,7 @@ fn module_explicitly_mentioned(task_l: &str, module: &str) -> bool {
                 || task_l.contains("npm")
                 || task_l.contains("node")
         }
-        "cloud-infra" => task_l.contains("docker") || task_l.contains("infra"),
+        "server-infra" => task_l.contains("docker") || task_l.contains("infra"),
         _ => false,
     }
 }

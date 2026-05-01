@@ -254,7 +254,7 @@ pub fn print_command_box() {
 
     println!("  {d}┌─────────────────────────────────────────────────────────┐{r}");
     println!(
-        "  {d}│{r}  {cmd}{b}nebu-ctx connect{r}     {m}Connect to cloud server{r}         {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx connect{r}     {m}Connect to NebuCtx host{r}         {d}│{r}"
     );
     println!(
         "  {d}│{r}  {cmd}{b}nebu-ctx status{r}      {m}Connection & install status{r}     {d}│{r}"

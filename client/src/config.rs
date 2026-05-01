@@ -7,7 +7,7 @@ const CONNECTION_FILE: &str = "server_connection.json";
 
 pub fn config_dir() -> PathBuf {
     let home = preferred_home_dir().unwrap_or_else(|| PathBuf::from("."));
-    home.join(".nebu-ctx").join("cloud")
+    home.join(".nebu-ctx").join("server")
 }
 
 pub(crate) fn preferred_home_dir() -> Option<PathBuf> {

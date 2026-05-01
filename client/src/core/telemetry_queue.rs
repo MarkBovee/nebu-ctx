@@ -1,7 +1,7 @@
 //! In-process async telemetry queue for the MCP server process.
 //!
 //! MCP tool calls enqueue events without blocking; a single background Tokio
-//! task drains the channel and POSTs each event to the cloud server on a
+//! task drains the channel and POSTs each event to the configured server on a
 //! threadpool thread.
 //!
 //! Shell hooks run as short-lived separate processes that cannot share the
@@ -47,7 +47,7 @@ pub fn start_drain_task() {
             // Offload the blocking HTTP POST to the threadpool so the async
             // runtime is never stalled by network I/O.
             tokio::task::spawn_blocking(move || {
-                let Ok(client) = crate::cloud_client::ServerClient::load() else {
+                let Ok(client) = crate::server_client::ServerClient::load() else {
                     return;
                 };
                 let _ = client.ingest_telemetry(&req);
@@ -65,7 +65,7 @@ pub fn start_drain_task() {
 pub fn fire_sync(request: TelemetryIngestRequest) {
     let (done_tx, done_rx) = std::sync::mpsc::channel::<()>();
     std::thread::spawn(move || {
-        if let Ok(client) = crate::cloud_client::ServerClient::load() {
+        if let Ok(client) = crate::server_client::ServerClient::load() {
             let _ = client.ingest_telemetry(&request);
         }
         let _ = done_tx.send(());

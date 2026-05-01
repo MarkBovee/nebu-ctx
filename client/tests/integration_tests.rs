@@ -120,6 +120,37 @@ fn help_shows_environment_section() {
     );
 }
 
+#[test]
+fn help_no_longer_lists_bind_or_dashboard() {
+    let output = nebula_ctx_bin()
+        .arg("--help")
+        .output()
+        .expect("failed to run nebu-ctx");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(!stdout.contains("bind"), "help should not list bind: {stdout}");
+    assert!(
+        !stdout.contains("dashboard"),
+        "help should not list dashboard: {stdout}"
+    );
+    assert!(!stdout.contains("watch"), "help should not list watch: {stdout}");
+}
+
+#[test]
+fn help_prefers_connect_over_cloud_wording() {
+    let output = nebula_ctx_bin()
+        .arg("--help")
+        .output()
+        .expect("failed to run nebu-ctx");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(stdout.contains("connect"), "help should mention connect: {stdout}");
+    assert!(
+        !stdout.contains("CLOUD SERVER"),
+        "help should not use cloud server heading: {stdout}"
+    );
+}
+
 // ── Pipe Guard Tests ────────────────────────────────────────
 
 #[test]
