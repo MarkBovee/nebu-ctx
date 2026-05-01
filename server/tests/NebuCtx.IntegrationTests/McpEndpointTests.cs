@@ -1,7 +1,9 @@
 namespace NebuCtx.IntegrationTests;
 
+using System.IO;
 using System.Net;
 using System.Net.Http.Json;
+using NebuCtx.Server.Host.Dashboard;
 using NebuCtx.Contracts.Mcp;
 using NebuCtx.Contracts.Projects;
 
@@ -234,6 +236,49 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
 
         var html = await response.Content.ReadAsStringAsync();
         Assert.Contains("nebu-ctx Observatory", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Dashboard HTML loader falls back to the published Dashboard/ subdirectory.
+    /// </summary>
+    [Fact]
+    public void DashboardHtmlProvider_LoadHtml_ReadsPublishedDashboardSubdirectory()
+    {
+        var baseDirectory = AppContext.BaseDirectory;
+        var dashboardDirectory = Path.Combine(baseDirectory, "Dashboard");
+        var dashboardPath = Path.Combine(dashboardDirectory, "dashboard.html");
+        var backupPath = Path.Combine(baseDirectory, "dashboard.html.test-backup");
+        var rootDashboardPath = Path.Combine(baseDirectory, "dashboard.html");
+        var rootDashboardExisted = File.Exists(rootDashboardPath);
+
+        Directory.CreateDirectory(dashboardDirectory);
+
+        if (rootDashboardExisted)
+        {
+            File.Move(rootDashboardPath, backupPath, overwrite: true);
+        }
+
+        try
+        {
+            File.WriteAllText(dashboardPath, "<html><body>published dashboard asset</body></html>");
+
+            var html = DashboardHtmlProvider.LoadHtml();
+
+            Assert.Contains("published dashboard asset", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("was not copied to the output directory", html, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (File.Exists(dashboardPath))
+            {
+                File.Delete(dashboardPath);
+            }
+
+            if (rootDashboardExisted && File.Exists(backupPath))
+            {
+                File.Move(backupPath, rootDashboardPath, overwrite: true);
+            }
+        }
     }
 
     /// <summary>

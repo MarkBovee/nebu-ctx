@@ -254,29 +254,31 @@ pub fn print_command_box() {
 
     println!("  {d}┌─────────────────────────────────────────────────────────┐{r}");
     println!(
-        "  {d}│{r}  {cmd}{b}nebu-ctx connect{r}     {m}Connect to NebuCtx host{r}         {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx connect{r}     {m}Connect to NebuCtx host{r}           {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}nebu-ctx status{r}      {m}Connection & install status{r}     {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx status{r}      {m}Connection & install status{r}       {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}nebu-ctx gain{r}        {m}View compression savings{r}        {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx gain{r}        {m}View compression savings{r}          {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}nebu-ctx benchmark{r}   {m}Test compression quality{r}        {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx benchmark{r}   {m}Test compression quality{r}          {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}nebu-ctx config{r}      {m}Edit settings{r}                   {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx config{r}      {m}Edit settings{r}                     {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}nebu-ctx doctor{r}      {m}Verify installation{r}             {d}│{r}"
-    );
-    println!("  {d}│{r}  {cmd}{b}nebu-ctx off{r} / {cmd}{b}on{r}    {m}Toggle compression{r}              {d}│{r}");
-    println!(
-        "  {d}│{r}  {cmd}{b}nebu-ctx report-issue{r} {m}Report a bug (auto-diagnostics){r} {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx doctor{r}      {m}Verify installation{r}               {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}nebu-ctx uninstall{r}   {m}Clean removal{r}                   {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx off{r} / {cmd}{b}on{r}    {m}Toggle compression{r}                {d}│{r}"
+    );
+    println!(
+        "  {d}│{r}  {cmd}{b}nebu-ctx report-issue{r} {m}Report a bug (auto-diagnostics){r}  {d}│{r}"
+    );
+    println!(
+        "  {d}│{r}  {cmd}{b}nebu-ctx uninstall{r}   {m}Clean removal{r}                     {d}│{r}"
     );
     println!("  {d}└─────────────────────────────────────────────────────────┘{r}");
     println!("  {ok}Ready!{r} Your next AI command will be automatically optimized.");

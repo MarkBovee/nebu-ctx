@@ -6,6 +6,11 @@ namespace NebuCtx.Server.Host.Dashboard;
 public static class DashboardHtmlProvider
 {
     private const string DashboardHtmlFileName = "dashboard.html";
+    private static readonly string[] CandidatePaths =
+    [
+        Path.Combine(AppContext.BaseDirectory, DashboardHtmlFileName),
+        Path.Combine(AppContext.BaseDirectory, "Dashboard", DashboardHtmlFileName),
+    ];
 
     /// <summary>
     /// Loads the dashboard HTML payload from the application base directory.
@@ -13,10 +18,12 @@ public static class DashboardHtmlProvider
     /// <returns>The dashboard HTML, or a small fallback page if the asset is unavailable.</returns>
     public static string LoadHtml()
     {
-        var htmlPath = Path.Combine(AppContext.BaseDirectory, DashboardHtmlFileName);
-        if (File.Exists(htmlPath))
+        foreach (var htmlPath in CandidatePaths)
         {
-            return File.ReadAllText(htmlPath);
+            if (File.Exists(htmlPath))
+            {
+                return File.ReadAllText(htmlPath);
+            }
         }
 
         return """
