@@ -194,13 +194,13 @@ The client currently wires 7 hook types for Claude Code / Copilot CLI style flow
 
 | Hook | Command |
 |:---|:---|
-| `PostToolUse.*` | `nebu-ctx hook post-tool-use` |
-| `PreCompact` | `nebu-ctx hook pre-compact` |
-| `PreToolUse:Bash|bash` | `nebu-ctx hook rewrite` |
-| `PreToolUse:Read|read|...` | `nebu-ctx hook redirect` |
-| `SessionStart` | `nebu-ctx hook session-start` |
-| `Stop` | `nebu-ctx hook stop` |
-| `UserPromptSubmit` | `nebu-ctx hook user-prompt-submit` |
+| PostToolUse.* | `nebu-ctx hook post-tool-use` |
+| PreCompact | `nebu-ctx hook pre-compact` |
+| PreToolUse:bash | `nebu-ctx hook rewrite` |
+| PreToolUse:read... | `nebu-ctx hook redirect` |
+| SessionStart | `nebu-ctx hook session-start` |
+| Stop | `nebu-ctx hook stop` |
+| UserPromptSubmit | `nebu-ctx hook user-prompt-submit` |
 
 Those hooks are responsible for things like:
 
