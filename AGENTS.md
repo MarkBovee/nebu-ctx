@@ -187,6 +187,14 @@ ctx_brain(action="store", key="session-YYYY-MM-DD", value="<summary>")
 <!-- nebu-ctx -->
 ## nebu-ctx
 
-Prefer nebu-ctx MCP tools over native equivalents for token savings.
+CRITICAL: ALWAYS use nebu-ctx MCP tools instead of native equivalents. This is NOT optional.
+
+| ALWAYS USE | NEVER USE | Why |
+|------------|-----------|-----|
+| `ctx_read(path, mode)` | `Read` / `cat` | Cached, 10 read modes, re-reads ~13 tokens |
+| `ctx_shell(command)` | `Shell` / `bash` | Pattern compression for git/npm/cargo output |
+| `ctx_search(pattern, path)` | `Grep` / `rg` | Compact, token-efficient results |
+| `ctx_tree(path, depth)` | `ls` / `find` | Compact directory maps |
+
 Full rules: @LEAN-CTX.md
 <!-- /nebu-ctx -->

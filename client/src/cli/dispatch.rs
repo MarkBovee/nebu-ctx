@@ -644,8 +644,23 @@ pub fn run() {
                     "pre-compact" => hook_handlers::handle_pre_compact(),
                     "session-start" => hook_handlers::handle_session_start(),
                     "user-prompt-submit" => hook_handlers::handle_user_prompt_submit(),
+                    "telemetry" => {
+                        let tool_name = rest.get(1).cloned().unwrap_or_else(|| "unknown".to_string());
+                        let tokens_original: i64 = rest.get(2).and_then(|s| s.parse().ok()).unwrap_or(0);
+                        let tokens_saved: i64 = rest.get(3).and_then(|s| s.parse().ok()).unwrap_or(0);
+                        core::telemetry_queue::fire_sync(crate::models::TelemetryIngestRequest {
+                            tool_name: core::stats::normalize_command(&tool_name),
+                            tokens_original,
+                            tokens_saved,
+                            duration_ms: 0,
+                            mode: Some("plugin".to_string()),
+                            repository_fingerprint: None,
+                            checkout_binding: None,
+                            project_slug: None,
+                        });
+                    }
                     _ => {
-                        eprintln!("Usage: nebu-ctx hook <rewrite|redirect|copilot|codex-pretooluse|codex-session-start|rewrite-inline|stop|post-tool-use|pre-compact|session-start|user-prompt-submit>");
+                        eprintln!("Usage: nebu-ctx hook <rewrite|redirect|copilot|codex-pretooluse|codex-session-start|rewrite-inline|stop|post-tool-use|pre-compact|session-start|user-prompt-submit|telemetry>");
                         eprintln!("  Internal commands used by agent hooks (Claude, Cursor, Copilot, etc.)");
                         std::process::exit(1);
                     }

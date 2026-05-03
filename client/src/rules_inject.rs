@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 const MARKER: &str = "# nebu-ctx — Context Engineering Layer";
 const LEGACY_MARKER: &str = "# lean-ctx — Context Engineering Layer";
 const END_MARKER: &str = "<!-- /lean-ctx -->";
-const RULES_VERSION: &str = "nebu-ctx-rules-v9";
+const RULES_VERSION: &str = "nebu-ctx-rules-v10";
 const LEGACY_RULES_VERSION: &str = "lean-ctx-rules-v9";
 
 pub const RULES_MARKER: &str = MARKER;
@@ -21,7 +21,7 @@ pub fn rules_dedicated_markdown() -> &'static str {
 // Used for: CLAUDE.md, instructions.md, GEMINI.md, copilot-instructions.md
 // ---------------------------------------------------------------------------
 const RULES_SHARED: &str = r#"# nebu-ctx — Context Engineering Layer
-<!-- nebu-ctx-rules-v9 -->
+<!-- nebu-ctx-rules-v10 -->
 
 CRITICAL: ALWAYS use nebu-ctx MCP tools instead of native equivalents. This is NOT optional.
 
@@ -50,18 +50,20 @@ Fallback only if a nebu-ctx tool is unavailable: use native equivalents.
 // Used for: Windsurf, Zed, Cline, Roo Code, OpenCode, Continue, Aider
 // ---------------------------------------------------------------------------
 const RULES_DEDICATED: &str = r#"# nebu-ctx — Context Engineering Layer
-<!-- nebu-ctx-rules-v9 -->
+<!-- nebu-ctx-rules-v10 -->
 
-PREFER nebu-ctx MCP tools over native equivalents for token savings:
+CRITICAL: ALWAYS use nebu-ctx MCP tools instead of native equivalents. This is NOT optional.
 
-## Tool preference:
-| PREFER | OVER | Why |
-|--------|------|-----|
-| `ctx_read(path, mode)` | `Read` / `cat` | Cached, 10 read modes, re-reads ~13 tokens |
-| `ctx_shell(command)` | `Shell` / `bash` | Pattern compression for git/npm/cargo output |
+## Tool replacement:
+| ALWAYS USE | NEVER USE | Why |
+|------------|-----------|-----|
+| `ctx_read(path, mode)` | `Read` / `cat` / `head` / `tail` | Cached, 10 read modes, re-reads ~13 tokens |
+| `ctx_shell(command)` | `Shell` / `bash` / terminal | Pattern compression for git/npm/cargo output |
 | `ctx_search(pattern, path)` | `Grep` / `rg` | Compact, token-efficient results |
 | `ctx_tree(path, depth)` | `ls` / `find` | Compact directory maps |
 | `ctx_edit(path, old_string, new_string)` | `Edit` (when Read unavailable) | Search-and-replace without native Read |
+
+Compatibility: ctx_read replaces READ operations only. Your native Edit/Write/StrReplace tools remain unchanged — keep using them for editing.
 
 ## ctx_read modes:
 - `auto` — auto-select optimal mode (recommended default)
@@ -83,6 +85,8 @@ Write, Delete, Glob → use normally. NEVER loop on Edit failures — switch to 
 - `ctx_overview(task)` at session start
 - `ctx_compress` when context grows large
 - `ctx_session` / `ctx_knowledge` when useful facts or session state should persist
+
+Fallback only if a nebu-ctx tool is unavailable: use native equivalents.
 <!-- /lean-ctx -->"#;
 
 // ---------------------------------------------------------------------------
@@ -91,19 +95,19 @@ Write, Delete, Glob → use normally. NEVER loop on Edit failures — switch to 
 // LITM-optimized: critical warning at top and bottom.
 // ---------------------------------------------------------------------------
 const RULES_CURSOR_MDC: &str = r#"---
-description: "lean-ctx: prefer ctx_read/ctx_shell/ctx_search/ctx_tree over Read/Shell/Grep/ls for token savings"
+description: "nebu-ctx: ALWAYS use ctx_read/ctx_shell/ctx_search/ctx_tree instead of Read/Shell/Grep/ls — this is NOT optional"
 alwaysApply: true
 ---
 
 # nebu-ctx — Context Engineering Layer
-<!-- nebu-ctx-rules-v9 -->
+<!-- nebu-ctx-rules-v10 -->
 
-PREFER nebu-ctx MCP tools over native equivalents for token savings:
+CRITICAL: ALWAYS use nebu-ctx MCP tools instead of native equivalents. This is NOT optional.
 
 ## Tool Mapping
 
-| PREFER | OVER | Why |
-|--------|------|-----|
+| ALWAYS USE | NEVER USE | Why |
+|------------|-----------|-----|
 | `ctx_read` | `Read` | Session caching, 10 read modes, re-reads cost ~13 tokens |
 | `ctx_shell` | `Shell` | Pattern-based compression for git, npm, cargo, docker, tsc |
 | `ctx_search` | `Grep` | Compact context, token-efficient results |
@@ -675,7 +679,7 @@ mod tests {
         let lines: Vec<&str> = RULES_SHARED.lines().collect();
         let first_5 = lines[..5.min(lines.len())].join("\n");
         assert!(
-            first_5.contains("PREFER") || first_5.contains("nebu-ctx") || first_5.contains("lean-ctx"),
+            first_5.contains("ALWAYS") || first_5.contains("nebu-ctx") || first_5.contains("lean-ctx"),
             "LITM: preference instruction must be near start"
         );
         let last_5 = lines[lines.len().saturating_sub(5)..].join("\n");
@@ -704,7 +708,7 @@ mod tests {
         let lines: Vec<&str> = RULES_DEDICATED.lines().collect();
         let first_5 = lines[..5.min(lines.len())].join("\n");
         assert!(
-            first_5.contains("PREFER") || first_5.contains("nebu-ctx") || first_5.contains("lean-ctx"),
+            first_5.contains("ALWAYS") || first_5.contains("nebu-ctx") || first_5.contains("lean-ctx"),
             "LITM: preference instruction must be near start"
         );
         let last_5 = lines[lines.len().saturating_sub(5)..].join("\n");
@@ -719,7 +723,7 @@ mod tests {
         let lines: Vec<&str> = RULES_CURSOR_MDC.lines().collect();
         let first_10 = lines[..10.min(lines.len())].join("\n");
         assert!(
-            first_10.contains("PREFER") || first_10.contains("lean-ctx"),
+            first_10.contains("ALWAYS") || first_10.contains("lean-ctx"),
             "LITM: preference instruction must be near start of MDC"
         );
         let last_5 = lines[lines.len().saturating_sub(5)..].join("\n");

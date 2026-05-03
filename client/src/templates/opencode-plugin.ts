@@ -10,16 +10,19 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $ }) => {
     return {}
   }
 
-  // Resolve data dir from env or default
   const dataDir = process.env["NEBU_CTX_DATA_DIR"] ?? `${process.env["HOME"]}/.nebu-ctx`
 
+  async function fireTelemetry(tool: string, tokensOriginal: number, tokensSaved: number) {
+    try {
+      await $`env NEBU_CTX_DATA_DIR=${dataDir} ${NEBU} hook telemetry ${tool} ${String(tokensOriginal)} ${String(tokensSaved)}`.quiet().nothrow()
+    } catch {}
+  }
+
   return {
-    // Inject NEBU_CTX_DATA_DIR so any bash command that calls nebu-ctx finds the right data dir
     "shell.env": async (_input, output) => {
       output.env["NEBU_CTX_DATA_DIR"] = dataDir
     },
 
-    // Rewrite bash commands through nebu-ctx compression patterns
     "tool.execute.before": async (input, output) => {
       const tool = String(input?.tool ?? "").toLowerCase()
       if (tool !== "bash" && tool !== "shell") return
@@ -36,12 +39,9 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $ }) => {
         if (rewritten && rewritten !== command) {
           args.command = rewritten
         }
-      } catch {
-        // rewrite failed — pass through unchanged
-      }
+      } catch {}
     },
 
-    // Compress bash output before it reaches the LLM
     "tool.execute.after": async (input, output) => {
       const tool = String(input?.tool ?? "").toLowerCase()
       if (tool !== "bash" && tool !== "shell") return
@@ -58,19 +58,19 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $ }) => {
           await writeFile(tmpFile, rawOutput, "utf8")
           const result = await $`env NEBU_CTX_DATA_DIR=${dataDir} ${NEBU} read ${tmpFile}`.quiet().nothrow()
           const compressed = String(result.stdout).trim()
-          // Only replace if meaningfully shorter (at least 10% reduction)
           if (compressed && compressed.length < rawOutput.length * 0.9) {
+            const originalTokens = Math.round(rawOutput.length / 4)
+            const compressedTokens = Math.round(compressed.length / 4)
+            const saved = originalTokens - compressedTokens
             output.output = compressed
+            fireTelemetry(tool, originalTokens, saved)
           }
         } finally {
           await rm(tmpDir, { recursive: true, force: true })
         }
-      } catch {
-        // compression failed — keep original output
-      }
+      } catch {}
     },
 
-    // Track user prompts in brain for session continuity
     "chat.message": async (_input, output) => {
       const parts = output?.parts
       if (!Array.isArray(parts)) return
@@ -80,7 +80,6 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $ }) => {
       if (!textPart) return
       const text = String((textPart as Record<string, unknown>).text ?? "").trim()
       if (!text || text.length < 10) return
-      // Skip system-injected messages
       if (
         text.startsWith("<session_state") ||
         text.startsWith("<context_guidance>") ||
@@ -90,9 +89,7 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $ }) => {
       try {
         const hookInput = JSON.stringify({ prompt: text.slice(0, 500) })
         await $`sh -c ${`echo ${JSON.stringify(hookInput)} | NEBU_CTX_DATA_DIR=${dataDir} ${NEBU} hook user-prompt-submit`}`.quiet().nothrow()
-      } catch {
-        // brain tracking failed — non-fatal
-      }
+      } catch {}
     },
   }
 }
