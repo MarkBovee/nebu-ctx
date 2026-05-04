@@ -55,6 +55,7 @@ public static class ServiceCollectionExtensions
     private static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
         services.AddSingleton<ProjectRegistry>();
+        services.AddSingleton<KnowledgeRepairService>();
         services.AddSingleton<BrainService>();
         services.AddSingleton<KnowledgeService>();
         services.AddSingleton<SessionService>();

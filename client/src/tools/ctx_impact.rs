@@ -1,11 +1,20 @@
 //! `ctx_impact` — Graph-based impact analysis tool.
 //!
-//! Uses the SQLite-backed Property Graph to answer: "What breaks when file X changes?"
-//! Performs BFS traversal of reverse import edges to find all transitively affected files.
+//! Uses the persisted graph index to answer: "What breaks when file X changes?"
 
-use crate::core::property_graph::{CodeGraph, DependencyChain, ImpactResult, Node};
+use crate::core::graph_index::ProjectIndex;
 use crate::core::tokens::count_tokens;
-use std::path::Path;
+
+struct ImpactResult {
+    affected_files: Vec<String>,
+    max_depth_reached: usize,
+    edges_traversed: usize,
+}
+
+struct DependencyChain {
+    path: Vec<String>,
+    depth: usize,
+}
 
 pub fn handle(action: &str, path: Option<&str>, root: &str, depth: Option<usize>) -> String {
     match action {
@@ -17,8 +26,8 @@ pub fn handle(action: &str, path: Option<&str>, root: &str, depth: Option<usize>
     }
 }
 
-fn open_graph(root: &str) -> Result<CodeGraph, String> {
-    CodeGraph::open(Path::new(root)).map_err(|e| format!("Failed to open graph: {e}"))
+fn open_graph(root: &str) -> ProjectIndex {
+    crate::core::graph_index::load_or_build(root)
 }
 
 fn handle_analyze(path: Option<&str>, root: &str, max_depth: usize) -> String {
@@ -27,40 +36,14 @@ fn handle_analyze(path: Option<&str>, root: &str, max_depth: usize) -> String {
         None => return "path is required for 'analyze' action".to_string(),
     };
 
-    let graph = match open_graph(root) {
-        Ok(g) => g,
-        Err(e) => return e,
-    };
-
+    let graph = open_graph(root);
     let rel_target = graph_target_key(target, root);
 
-    let node_count = graph.node_count().unwrap_or(0);
-    if node_count == 0 {
-        drop(graph);
-        let build_result = handle_build(root);
-        tracing::info!(
-            "Auto-built graph for impact analysis: {}",
-            &build_result[..build_result.len().min(100)]
-        );
-        let graph = match open_graph(root) {
-            Ok(g) => g,
-            Err(e) => return e,
-        };
-        if graph.node_count().unwrap_or(0) == 0 {
-            return "Graph is empty after auto-build. No supported source files found.".to_string();
-        }
-        let impact = match graph.impact_analysis(&rel_target, max_depth) {
-            Ok(r) => r,
-            Err(e) => return format!("Impact analysis failed: {e}"),
-        };
-        return format_impact(&impact, &rel_target);
+    if graph.file_count() == 0 {
+        return "Graph is empty after auto-build. No supported source files found.".to_string();
     }
 
-    let impact = match graph.impact_analysis(&rel_target, max_depth) {
-        Ok(r) => r,
-        Err(e) => return format!("Impact analysis failed: {e}"),
-    };
-
+    let impact = impact_from_index(&graph, &rel_target, max_depth);
     format_impact(&impact, &rel_target)
 }
 
@@ -93,7 +76,7 @@ fn handle_chain(path: Option<&str>, root: &str) -> String {
     let spec = match path {
         Some(p) => p,
         None => {
-            return "path is required for 'chain' action (format: from_file->to_file)".to_string()
+            return "path is required for 'chain' action (format: from_file->to_file)".to_string();
         }
     };
 
@@ -103,26 +86,21 @@ fn handle_chain(path: Option<&str>, root: &str) -> String {
             return format!(
                 "Invalid chain spec '{spec}'. Use format: from_file->to_file\n\
                  Example: src/server.rs->src/core/config.rs"
-            )
+            );
         }
     };
 
-    let graph = match open_graph(root) {
-        Ok(g) => g,
-        Err(e) => return e,
-    };
-
+    let graph = open_graph(root);
     let rel_from = graph_target_key(from, root);
     let rel_to = graph_target_key(to, root);
 
-    match graph.dependency_chain(&rel_from, &rel_to) {
-        Ok(Some(chain)) => format_chain(&chain),
-        Ok(None) => {
+    match dependency_chain_from_index(&graph, &rel_from, &rel_to) {
+        Some(chain) => format_chain(&chain),
+        None => {
             let result = format!("No dependency path from {rel_from} to {rel_to}");
             let tokens = count_tokens(&result);
             format!("{result}\n[ctx_impact chain: {tokens} tok]")
         }
-        Err(e) => format!("Chain analysis failed: {e}"),
     }
 }
 
@@ -151,135 +129,107 @@ fn graph_target_key(path: &str, root: &str) -> String {
     }
 }
 
+fn impact_from_index(index: &ProjectIndex, target: &str, max_depth: usize) -> ImpactResult {
+    use std::collections::{HashSet, VecDeque};
+
+    let mut affected_files = Vec::new();
+    let mut visited = HashSet::new();
+    let mut queue = VecDeque::from([(target.to_string(), 0usize)]);
+    let mut edges_traversed = 0usize;
+    let mut max_depth_reached = 0usize;
+
+    while let Some((current, depth)) = queue.pop_front() {
+        if depth > max_depth || !visited.insert(current.clone()) {
+            continue;
+        }
+
+        if current != target {
+            affected_files.push(current.clone());
+            max_depth_reached = max_depth_reached.max(depth);
+        }
+
+        for edge in index
+            .edges
+            .iter()
+            .filter(|edge| edge.kind == "import" && edge.to == current)
+        {
+            edges_traversed += 1;
+            if !visited.contains(&edge.from) {
+                queue.push_back((edge.from.clone(), depth + 1));
+            }
+        }
+    }
+
+    affected_files.sort();
+    affected_files.dedup();
+
+    ImpactResult {
+        max_depth_reached,
+        edges_traversed,
+        affected_files,
+    }
+}
+
+fn dependency_chain_from_index(index: &ProjectIndex, from: &str, to: &str) -> Option<DependencyChain> {
+    use std::collections::{HashSet, VecDeque};
+
+    let mut queue = VecDeque::from([(from.to_string(), vec![from.to_string()])]);
+    let mut visited = HashSet::new();
+
+    while let Some((current, path)) = queue.pop_front() {
+        if !visited.insert(current.clone()) {
+            continue;
+        }
+
+        if current == to {
+            return Some(DependencyChain {
+                depth: path.len().saturating_sub(1),
+                path,
+            });
+        }
+
+        for edge in index
+            .edges
+            .iter()
+            .filter(|edge| edge.kind == "import" && edge.from == current)
+        {
+            if visited.contains(&edge.to) {
+                continue;
+            }
+
+            let mut next_path = path.clone();
+            next_path.push(edge.to.clone());
+            queue.push_back((edge.to.clone(), next_path));
+        }
+    }
+
+    None
+}
+
 fn handle_build(root: &str) -> String {
-    let graph = match open_graph(root) {
-        Ok(g) => g,
-        Err(e) => return e,
-    };
-
-    if let Err(e) = graph.clear() {
-        return format!("Failed to clear graph: {e}");
-    }
-
-    let root_path = Path::new(root);
-    let walker = ignore::WalkBuilder::new(root_path)
-        .hidden(true)
-        .git_ignore(true)
-        .build();
-
-    let supported_exts = ["rs", "ts", "tsx", "js", "jsx", "py", "go", "java"];
-    let mut file_paths: Vec<String> = Vec::new();
-    let mut file_contents: Vec<(String, String, String)> = Vec::new();
-
-    for entry in walker.flatten() {
-        if !entry.file_type().map(|ft| ft.is_file()).unwrap_or(false) {
-            continue;
-        }
-
-        let path = entry.path();
-        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-
-        if !supported_exts.contains(&ext) {
-            continue;
-        }
-
-        let rel_path = path
-            .strip_prefix(root_path)
-            .unwrap_or(path)
-            .to_string_lossy()
-            .to_string();
-
-        file_paths.push(rel_path.clone());
-
-        if let Ok(content) = std::fs::read_to_string(path) {
-            file_contents.push((rel_path, content, ext.to_string()));
-        }
-    }
-
-    let _resolver_ctx =
-        crate::core::import_resolver::ResolverContext::new(root_path, file_paths.clone());
-
-    let mut total_nodes = 0usize;
-    let total_edges = 0usize;
-
-    for (rel_path, content, ext) in &file_contents {
-        let file_node_id = match graph.upsert_node(&Node::file(rel_path)) {
-            Ok(id) => id,
-            Err(_) => continue,
-        };
-        total_nodes += 1;
-
-        #[cfg(feature = "embeddings")]
-        {
-            let analysis = crate::core::deep_queries::analyze(content, ext);
-
-            for type_def in &analysis.types {
-                let kind = crate::core::property_graph::NodeKind::Symbol;
-                let sym_node = Node::symbol(&type_def.name, rel_path, kind)
-                    .with_lines(type_def.line, type_def.end_line);
-                if let Ok(sym_id) = graph.upsert_node(&sym_node) {
-                    total_nodes += 1;
-                    let _ = graph.upsert_edge(&Edge::new(file_node_id, sym_id, EdgeKind::Defines));
-                    total_edges += 1;
-                }
-            }
-
-            let resolved = crate::core::import_resolver::resolve_imports(
-                &analysis.imports,
-                rel_path,
-                ext,
-                &resolver_ctx,
-            );
-
-            for imp in &resolved {
-                if imp.is_external {
-                    continue;
-                }
-                if let Some(ref target_path) = imp.resolved_path {
-                    let target_id = match graph.upsert_node(&Node::file(target_path)) {
-                        Ok(id) => id,
-                        Err(_) => continue,
-                    };
-                    let _ =
-                        graph.upsert_edge(&Edge::new(file_node_id, target_id, EdgeKind::Imports));
-                    total_edges += 1;
-                }
-            }
-        }
-
-        #[cfg(not(feature = "embeddings"))]
-        {
-            let _ = (&content, &ext, file_node_id);
-        }
-    }
+    let index = crate::core::graph_index::scan(root);
 
     let result = format!(
-        "Graph built: {total_nodes} nodes, {total_edges} edges from {} files\n\
-         Stored at: {}",
-        file_contents.len(),
-        graph.db_path().display()
+        "Graph built: {} files, {} symbols, {} edges\n\
+         Stored in graph index cache",
+        index.file_count(),
+        index.symbol_count(),
+        index.edge_count()
     );
     let tokens = count_tokens(&result);
     format!("{result}\n[ctx_impact build: {tokens} tok]")
 }
 
 fn handle_status(root: &str) -> String {
-    let graph = match open_graph(root) {
-        Ok(g) => g,
-        Err(e) => return e,
-    };
-
-    let nodes = graph.node_count().unwrap_or(0);
-    let edges = graph.edge_count().unwrap_or(0);
+    let index = open_graph(root);
+    let nodes = index.file_count();
+    let edges = index.edge_count();
 
     if nodes == 0 {
         return "Graph is empty. Run ctx_impact action='build' to index.".to_string();
     }
 
-    format!(
-        "Property Graph: {nodes} nodes, {edges} edges\nStored: {}",
-        graph.db_path().display()
-    )
+    format!("Graph Index: {nodes} files, {edges} edges\nStored in graph index cache")
 }
 
 #[cfg(test)]
@@ -289,7 +239,6 @@ mod tests {
     #[test]
     fn format_impact_empty() {
         let impact = ImpactResult {
-            root_file: "a.rs".to_string(),
             affected_files: vec![],
             max_depth_reached: 0,
             edges_traversed: 0,
@@ -301,7 +250,6 @@ mod tests {
     #[test]
     fn format_impact_with_files() {
         let impact = ImpactResult {
-            root_file: "a.rs".to_string(),
             affected_files: vec!["b.rs".to_string(), "c.rs".to_string()],
             max_depth_reached: 2,
             edges_traversed: 3,
@@ -352,5 +300,30 @@ mod tests {
             "C:/repo/src/main.rs"
         };
         assert_eq!(target, expected);
+    }
+
+    #[test]
+    fn impact_from_index_reports_actual_depth_and_edges() {
+        let mut index = ProjectIndex::new("/test");
+        index.edges.push(crate::core::graph_index::IndexEdge {
+            from: "a.rs".to_string(),
+            to: "b.rs".to_string(),
+            kind: "import".to_string(),
+        });
+        index.edges.push(crate::core::graph_index::IndexEdge {
+            from: "b.rs".to_string(),
+            to: "c.rs".to_string(),
+            kind: "import".to_string(),
+        });
+        index.edges.push(crate::core::graph_index::IndexEdge {
+            from: "x.rs".to_string(),
+            to: "y.rs".to_string(),
+            kind: "import".to_string(),
+        });
+
+        let impact = impact_from_index(&index, "c.rs", 5);
+        assert_eq!(impact.affected_files, vec!["a.rs".to_string(), "b.rs".to_string()]);
+        assert_eq!(impact.max_depth_reached, 2);
+        assert_eq!(impact.edges_traversed, 2);
     }
 }

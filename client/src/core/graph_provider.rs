@@ -1,6 +1,5 @@
-use std::path::Path;
-
 use super::graph_index::ProjectIndex;
+#[cfg(feature = "property-graph")]
 use super::property_graph::CodeGraph;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -10,6 +9,7 @@ pub enum GraphProviderSource {
 }
 
 pub enum GraphProvider {
+    #[cfg(feature = "property-graph")]
     PropertyGraph(CodeGraph),
     GraphIndex(ProjectIndex),
 }
@@ -22,6 +22,7 @@ pub struct OpenGraphProvider {
 impl GraphProvider {
     pub fn node_count(&self) -> Option<usize> {
         match self {
+            #[cfg(feature = "property-graph")]
             GraphProvider::PropertyGraph(g) => g.node_count().ok(),
             GraphProvider::GraphIndex(i) => Some(i.file_count()),
         }
@@ -29,6 +30,7 @@ impl GraphProvider {
 
     pub fn edge_count(&self) -> Option<usize> {
         match self {
+            #[cfg(feature = "property-graph")]
             GraphProvider::PropertyGraph(g) => g.edge_count().ok(),
             GraphProvider::GraphIndex(i) => Some(i.edge_count()),
         }
@@ -36,6 +38,7 @@ impl GraphProvider {
 
     pub fn dependencies(&self, file_path: &str) -> Vec<String> {
         match self {
+            #[cfg(feature = "property-graph")]
             GraphProvider::PropertyGraph(g) => g.dependencies(file_path).unwrap_or_default(),
             GraphProvider::GraphIndex(i) => i
                 .edges
@@ -48,6 +51,7 @@ impl GraphProvider {
 
     pub fn dependents(&self, file_path: &str) -> Vec<String> {
         match self {
+            #[cfg(feature = "property-graph")]
             GraphProvider::PropertyGraph(g) => g.dependents(file_path).unwrap_or_default(),
             GraphProvider::GraphIndex(i) => i
                 .edges
@@ -60,6 +64,7 @@ impl GraphProvider {
 
     pub fn related(&self, file_path: &str, depth: usize) -> Vec<String> {
         match self {
+            #[cfg(feature = "property-graph")]
             GraphProvider::PropertyGraph(g) => g
                 .impact_analysis(file_path, depth)
                 .map(|r| r.affected_files)
@@ -70,14 +75,17 @@ impl GraphProvider {
 }
 
 pub fn open_best_effort(project_root: &str) -> Option<OpenGraphProvider> {
-    let root = Path::new(project_root);
-    if let Ok(pg) = CodeGraph::open(root) {
-        if let Ok(n) = pg.node_count() {
-            if n > 0 {
-                return Some(OpenGraphProvider {
-                    source: GraphProviderSource::PropertyGraph,
-                    provider: GraphProvider::PropertyGraph(pg),
-                });
+    #[cfg(feature = "property-graph")]
+    {
+        let root = std::path::Path::new(project_root);
+        if let Ok(pg) = CodeGraph::open(root) {
+            if let Ok(n) = pg.node_count() {
+                if n > 0 {
+                    return Some(OpenGraphProvider {
+                        source: GraphProviderSource::PropertyGraph,
+                        provider: GraphProvider::PropertyGraph(pg),
+                    });
+                }
             }
         }
     }

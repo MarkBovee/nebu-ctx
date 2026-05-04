@@ -1,12 +1,11 @@
 //! `ctx_architecture` — Graph-based architecture analysis tool.
 //!
 //! Discovers module clusters, dependency layers, entrypoints, cycles,
-//! and structural patterns from the Property Graph.
+//! and structural patterns from the best available graph index.
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::path::Path;
 
-use crate::core::property_graph::CodeGraph;
+use crate::core::graph_provider::{self, GraphProvider};
 use crate::core::tokens::count_tokens;
 
 pub fn handle(action: &str, path: Option<&str>, root: &str) -> String {
@@ -22,10 +21,6 @@ pub fn handle(action: &str, path: Option<&str>, root: &str) -> String {
     }
 }
 
-fn open_graph(root: &str) -> Result<CodeGraph, String> {
-    CodeGraph::open(Path::new(root)).map_err(|e| format!("Failed to open graph: {e}"))
-}
-
 struct GraphData {
     forward: HashMap<String, Vec<String>>,
     reverse: HashMap<String, Vec<String>>,
@@ -33,12 +28,14 @@ struct GraphData {
 }
 
 fn ensure_graph_built(root: &str) {
-    let graph = match CodeGraph::open(Path::new(root)) {
-        Ok(g) => g,
-        Err(_) => return,
-    };
-    if graph.node_count().unwrap_or(0) == 0 {
-        drop(graph);
+    let existing = graph_provider::open_best_effort(root);
+    if existing.is_none()
+        || existing
+            .as_ref()
+            .and_then(|open| open.provider.node_count())
+            .unwrap_or(0)
+            == 0
+    {
         let result = crate::tools::ctx_impact::handle("build", None, root, None);
         tracing::info!(
             "Auto-built graph for architecture: {}",
@@ -47,53 +44,71 @@ fn ensure_graph_built(root: &str) {
     }
 }
 
-fn load_graph_data(graph: &CodeGraph) -> Result<GraphData, String> {
-    let nodes = graph.node_count().map_err(|e| format!("{e}"))?;
-    if nodes == 0 {
-        return Err(
-            "Graph is empty after auto-build. No supported source files found.".to_string(),
-        );
-    }
-
-    let conn = &graph.connection();
-    let mut stmt = conn
-        .prepare(
-            "SELECT DISTINCT n_src.file_path, n_tgt.file_path
-         FROM edges e
-         JOIN nodes n_src ON e.source_id = n_src.id
-         JOIN nodes n_tgt ON e.target_id = n_tgt.id
-         WHERE e.kind = 'imports'
-           AND n_src.kind = 'file' AND n_tgt.kind = 'file'
-           AND n_src.file_path != n_tgt.file_path",
-        )
-        .map_err(|e| format!("{e}"))?;
-
+fn load_graph_data(provider: &GraphProvider) -> Result<GraphData, String> {
     let mut forward: HashMap<String, Vec<String>> = HashMap::new();
     let mut reverse: HashMap<String, Vec<String>> = HashMap::new();
     let mut all_files: HashSet<String> = HashSet::new();
 
-    let rows = stmt
-        .query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })
-        .map_err(|e| format!("{e}"))?;
+    match provider {
+        GraphProvider::GraphIndex(index) => {
+            for path in index.files.keys() {
+                all_files.insert(path.clone());
+            }
 
-    for row in rows {
-        let (src, tgt) = row.map_err(|e| format!("{e}"))?;
-        all_files.insert(src.clone());
-        all_files.insert(tgt.clone());
-        forward.entry(src.clone()).or_default().push(tgt.clone());
-        reverse.entry(tgt).or_default().push(src);
+            for edge in &index.edges {
+                if edge.kind != "import" || edge.from == edge.to {
+                    continue;
+                }
+
+                all_files.insert(edge.from.clone());
+                all_files.insert(edge.to.clone());
+                forward.entry(edge.from.clone()).or_default().push(edge.to.clone());
+                reverse.entry(edge.to.clone()).or_default().push(edge.from.clone());
+            }
+        }
+        #[cfg(feature = "property-graph")]
+        GraphProvider::PropertyGraph(graph) => {
+            let conn = &graph.connection();
+            let mut stmt = conn
+                .prepare(
+                    "SELECT DISTINCT n_src.file_path, n_tgt.file_path
+                 FROM edges e
+                 JOIN nodes n_src ON e.source_id = n_src.id
+                 JOIN nodes n_tgt ON e.target_id = n_tgt.id
+                 WHERE e.kind = 'imports'
+                   AND n_src.kind = 'file' AND n_tgt.kind = 'file'
+                   AND n_src.file_path != n_tgt.file_path",
+                )
+                .map_err(|e| format!("{e}"))?;
+
+            let rows = stmt
+                .query_map([], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                })
+                .map_err(|e| format!("{e}"))?;
+
+            for row in rows {
+                let (src, tgt) = row.map_err(|e| format!("{e}"))?;
+                all_files.insert(src.clone());
+                all_files.insert(tgt.clone());
+                forward.entry(src.clone()).or_default().push(tgt.clone());
+                reverse.entry(tgt).or_default().push(src);
+            }
+
+            let mut file_stmt = conn
+                .prepare("SELECT DISTINCT file_path FROM nodes WHERE kind = 'file'")
+                .map_err(|e| format!("{e}"))?;
+            let file_rows = file_stmt
+                .query_map([], |row| row.get::<_, String>(0))
+                .map_err(|e| format!("{e}"))?;
+            for f in file_rows.flatten() {
+                all_files.insert(f);
+            }
+        }
     }
 
-    let mut file_stmt = conn
-        .prepare("SELECT DISTINCT file_path FROM nodes WHERE kind = 'file'")
-        .map_err(|e| format!("{e}"))?;
-    let file_rows = file_stmt
-        .query_map([], |row| row.get::<_, String>(0))
-        .map_err(|e| format!("{e}"))?;
-    for f in file_rows.flatten() {
-        all_files.insert(f);
+    if all_files.is_empty() {
+        return Err("Graph is empty after auto-build. No supported source files found.".to_string());
     }
 
     Ok(GraphData {
@@ -103,15 +118,20 @@ fn load_graph_data(graph: &CodeGraph) -> Result<GraphData, String> {
     })
 }
 
+fn open_graph(root: &str) -> Result<graph_provider::OpenGraphProvider, String> {
+    graph_provider::open_best_effort(root)
+        .ok_or_else(|| "Graph is empty after auto-build. No supported source files found.".to_string())
+}
+
 fn handle_overview(root: &str) -> String {
     ensure_graph_built(root);
 
-    let graph = match open_graph(root) {
-        Ok(g) => g,
+    let open = match open_graph(root) {
+        Ok(open) => open,
         Err(e) => return e,
     };
 
-    let data = match load_graph_data(&graph) {
+    let data = match load_graph_data(&open.provider) {
         Ok(d) => d,
         Err(e) => return e,
     };
@@ -140,11 +160,7 @@ fn handle_overview(root: &str) -> String {
 
     result.push_str(&format!("\nLayers: {}\n", layers.len()));
     for layer in &layers {
-        result.push_str(&format!(
-            "  L{}: {} files\n",
-            layer.depth,
-            layer.files.len()
-        ));
+        result.push_str(&format!("  L{}: {} files\n", layer.depth, layer.files.len()));
     }
 
     result.push_str(&format!("\nEntrypoints: {}\n", entrypoints.len()));
@@ -163,12 +179,12 @@ fn handle_overview(root: &str) -> String {
 
 fn handle_clusters(root: &str) -> String {
     ensure_graph_built(root);
-    let graph = match open_graph(root) {
-        Ok(g) => g,
+    let open = match open_graph(root) {
+        Ok(open) => open,
         Err(e) => return e,
     };
 
-    let data = match load_graph_data(&graph) {
+    let data = match load_graph_data(&open.provider) {
         Ok(d) => d,
         Err(e) => return e,
     };
@@ -199,12 +215,12 @@ fn handle_clusters(root: &str) -> String {
 
 fn handle_layers(root: &str) -> String {
     ensure_graph_built(root);
-    let graph = match open_graph(root) {
-        Ok(g) => g,
+    let open = match open_graph(root) {
+        Ok(open) => open,
         Err(e) => return e,
     };
 
-    let data = match load_graph_data(&graph) {
+    let data = match load_graph_data(&open.provider) {
         Ok(d) => d,
         Err(e) => return e,
     };
@@ -213,11 +229,7 @@ fn handle_layers(root: &str) -> String {
     let mut result = format!("Dependency Layers ({}):\n", layers.len());
 
     for layer in &layers {
-        result.push_str(&format!(
-            "\nLayer {} ({} files):\n",
-            layer.depth,
-            layer.files.len()
-        ));
+        result.push_str(&format!("\nLayer {} ({} files):\n", layer.depth, layer.files.len()));
         for file in layer.files.iter().take(20) {
             result.push_str(&format!("  {file}\n"));
         }
@@ -232,12 +244,12 @@ fn handle_layers(root: &str) -> String {
 
 fn handle_cycles(root: &str) -> String {
     ensure_graph_built(root);
-    let graph = match open_graph(root) {
-        Ok(g) => g,
+    let open = match open_graph(root) {
+        Ok(open) => open,
         Err(e) => return e,
     };
 
-    let data = match load_graph_data(&graph) {
+    let data = match load_graph_data(&open.provider) {
         Ok(d) => d,
         Err(e) => return e,
     };
@@ -258,12 +270,12 @@ fn handle_cycles(root: &str) -> String {
 
 fn handle_entrypoints(root: &str) -> String {
     ensure_graph_built(root);
-    let graph = match open_graph(root) {
-        Ok(g) => g,
+    let open = match open_graph(root) {
+        Ok(open) => open,
         Err(e) => return e,
     };
 
-    let data = match load_graph_data(&graph) {
+    let data = match load_graph_data(&open.provider) {
         Ok(d) => d,
         Err(e) => return e,
     };
@@ -289,12 +301,12 @@ fn handle_module(path: Option<&str>, root: &str) -> String {
     };
 
     ensure_graph_built(root);
-    let graph = match open_graph(root) {
-        Ok(g) => g,
+    let open = match open_graph(root) {
+        Ok(open) => open,
         Err(e) => return e,
     };
 
-    let data = match load_graph_data(&graph) {
+    let data = match load_graph_data(&open.provider) {
         Ok(d) => d,
         Err(e) => return e,
     };
@@ -369,10 +381,7 @@ fn handle_module(path: Option<&str>, root: &str) -> String {
     }
 
     if !external_imports.is_empty() {
-        result.push_str(&format!(
-            "\nExternal imports ({}):\n",
-            external_imports.len()
-        ));
+        result.push_str(&format!("\nExternal imports ({}):\n", external_imports.len()));
         for imp in external_imports.iter().take(15) {
             result.push_str(&format!("  {imp}\n"));
         }
@@ -391,10 +400,6 @@ fn handle_module(path: Option<&str>, root: &str) -> String {
     let tokens = count_tokens(&result);
     format!("{result}[ctx_architecture module: {tokens} tok]")
 }
-
-// ---------------------------------------------------------------------------
-// Algorithms
-// ---------------------------------------------------------------------------
 
 #[derive(Debug)]
 struct Cluster {
@@ -447,12 +452,7 @@ fn compute_layers(data: &GraphData) -> Vec<Layer> {
     let leaf_files: HashSet<&String> = data
         .all_files
         .iter()
-        .filter(|f| {
-            data.forward
-                .get(*f)
-                .map(|deps| deps.is_empty())
-                .unwrap_or(true)
-        })
+        .filter(|f| data.forward.get(*f).map(|deps| deps.is_empty()).unwrap_or(true))
         .collect();
 
     let mut depth_map: HashMap<String, usize> = HashMap::new();
@@ -485,7 +485,7 @@ fn compute_layers(data: &GraphData) -> Vec<Layer> {
     for d in 0..=max_depth {
         let mut files: Vec<String> = depth_map
             .iter()
-            .filter(|(_, &depth)| depth == d)
+            .filter(|(_, depth)| **depth == d)
             .map(|(f, _)| f.clone())
             .collect();
         if !files.is_empty() {
@@ -512,7 +512,7 @@ fn find_cycles(data: &GraphData) -> Vec<Vec<String>> {
     let mut cycles: Vec<Vec<String>> = Vec::new();
     let mut visited: HashSet<String> = HashSet::new();
 
-    for start in data.all_files.iter() {
+    for start in &data.all_files {
         if visited.contains(start) {
             continue;
         }
@@ -677,10 +677,10 @@ mod tests {
         let layers = compute_layers(&data);
         assert!(layers.len() >= 2);
 
-        let layer0 = layers.iter().find(|l| l.depth == 0).unwrap();
+        let layer0 = layers.iter().find(|l| l.depth == 0).expect("layer 0");
         assert!(layer0.files.contains(&"c.rs".to_string()));
 
-        let layer2 = layers.iter().find(|l| l.depth == 2).unwrap();
+        let layer2 = layers.iter().find(|l| l.depth == 2).expect("layer 2");
         assert!(layer2.files.contains(&"a.rs".to_string()));
     }
 

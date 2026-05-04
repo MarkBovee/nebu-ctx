@@ -144,6 +144,35 @@ public sealed class PostgresKnowledgeStore : IKnowledgeStore
         return rows > 0;
     }
 
+    /// <inheritdoc />
+    public async Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        await using var cmd = new NpgsqlCommand(
+            "DELETE FROM knowledge_entries WHERE project_id = @project_id",
+            conn);
+        cmd.Parameters.AddWithValue("project_id", projectId);
+
+        return await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<int> ReassignProjectAsync(string fromProjectId, string toProjectId, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        await using var cmd = new NpgsqlCommand(
+            "UPDATE knowledge_entries SET project_id = @to_project_id WHERE project_id = @from_project_id",
+            conn);
+        cmd.Parameters.AddWithValue("from_project_id", fromProjectId);
+        cmd.Parameters.AddWithValue("to_project_id", toProjectId);
+
+        return await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     /// <summary>
     /// Reads knowledge entries from an open command's result set.
     /// </summary>

@@ -122,6 +122,15 @@ public sealed class PostgresProjectStore : IProjectStore
         return projects;
     }
 
+    /// <inheritdoc />
+    public async Task<bool> DeleteProjectAsync(string projectId, CancellationToken cancellationToken = default)
+    {
+        await using var conn = await OpenConnectionAsync(cancellationToken);
+        await using var cmd = new NpgsqlCommand("DELETE FROM projects WHERE project_id = @project_id", conn);
+        cmd.Parameters.AddWithValue("project_id", projectId);
+        return await cmd.ExecuteNonQueryAsync(cancellationToken) > 0;
+    }
+
     /// <summary>
     /// Opens a new Postgres connection.
     /// </summary>

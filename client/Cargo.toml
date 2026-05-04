@@ -22,10 +22,11 @@ name = "lean_ctx"
 path = "src/lib.rs"
 
 [features]
-default = ["tree-sitter"]
+default = []
 neural = ["dep:rten", "dep:rten-tensor"]
 embeddings = ["dep:rten", "dep:rten-tensor"]
 http-server = ["dep:axum", "dep:tower-http", "dep:reqwest"]
+property-graph = ["dep:rusqlite"]
 tree-sitter = [
 	"dep:tree-sitter",
 	"dep:tree-sitter-rust",
@@ -69,7 +70,7 @@ chrono = { version = "0.4", features = ["serde"] }
 toml = "0.8"
 similar = "2"
 flate2 = "1"
-rusqlite = { version = "0.39.0", features = ["bundled"] }
+rusqlite = { version = "0.39.0", features = ["bundled"], optional = true }
 tree-sitter = { version = "0.26", optional = true }
 tree-sitter-rust = { version = "0.24", optional = true }
 tree-sitter-typescript = { version = "0.23", optional = true }

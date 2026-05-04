@@ -37,12 +37,19 @@ public static class DashboardDataEndpoints
         knowledge.MapPost("/projects/{projectId}/clear", async (
             string projectId,
             ProjectRegistry projectRegistry,
+            IKnowledgeStore knowledgeStore,
             CancellationToken ct) =>
         {
+            await knowledgeStore.ClearProjectAsync(projectId, ct);
             var cleared = await projectRegistry.ClearProjectMetadataAsync(projectId, ct);
             return cleared
                 ? Results.Ok(new { cleared = true, project_id = projectId })
                 : Results.NotFound(new { cleared = false, project_id = projectId });
+        });
+
+        knowledge.MapPost("/repair", async (KnowledgeRepairService repairService, CancellationToken ct) =>
+        {
+            return Results.Ok(await repairService.RepairAsync(ct));
         });
 
         // Brain

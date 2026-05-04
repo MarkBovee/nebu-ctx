@@ -44,6 +44,11 @@ internal sealed class InMemoryProjectStore : IProjectStore
 
     public Task<IReadOnlyList<ProjectRecord>> ListProjectsAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<ProjectRecord>>(_projects.Values.ToList());
+
+    public Task<bool> DeleteProjectAsync(string projectId, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(_projects.TryRemove(projectId, out _));
+    }
 }
 
 internal sealed class InMemoryCheckoutBindingStore : ICheckoutBindingStore
@@ -194,6 +199,44 @@ internal sealed class InMemoryKnowledgeStore : IKnowledgeStore
             if (idx < 0) return Task.FromResult(false);
             _facts.RemoveAt(idx);
             return Task.FromResult(true);
+        }
+    }
+
+    public Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default)
+    {
+        lock (_lock)
+        {
+            var removed = _facts.RemoveAll(f => f.ProjectId == projectId);
+            return Task.FromResult(removed);
+        }
+    }
+
+    public Task<int> ReassignProjectAsync(string fromProjectId, string toProjectId, CancellationToken cancellationToken = default)
+    {
+        lock (_lock)
+        {
+            var moved = 0;
+            for (var i = 0; i < _facts.Count; i++)
+            {
+                var fact = _facts[i];
+                if (!string.Equals(fact.ProjectId, fromProjectId, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                _facts[i] = new KnowledgeEntry
+                {
+                    ProjectId = toProjectId,
+                    Category = fact.Category,
+                    Key = fact.Key,
+                    Value = fact.Value,
+                    Confidence = fact.Confidence,
+                    UpdatedAt = fact.UpdatedAt,
+                };
+                moved++;
+            }
+
+            return Task.FromResult(moved);
         }
     }
 }

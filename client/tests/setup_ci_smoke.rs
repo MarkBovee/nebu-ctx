@@ -5,26 +5,26 @@ use lean_ctx::status::StatusReport;
 use lean_ctx::token_report::TokenReport;
 
 #[test]
-fn windows_msvc_build_uses_rust_lld() {
+fn windows_msvc_build_uses_packaged_rust_lld_config() {
     let config = std::fs::read_to_string(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../.cargo/config.toml"),
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".cargo/config.toml"),
     )
     .expect("read cargo config");
 
     assert!(
         config.contains("x86_64-pc-windows-msvc") && config.contains("rust-lld"),
-        "Windows msvc builds should use rust-lld instead of requiring link.exe"
+        "The published crate should carry the Windows rust-lld linker override"
     );
 }
 
 #[test]
-fn windows_install_docs_mention_linker_fallback() {
-    let readme = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../README.md"))
+fn windows_install_docs_mention_no_build_tools_path() {
+    let readme = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("README.md"))
         .expect("read README");
 
     assert!(
-        readme.contains("rust-lld") && readme.contains("Visual C++ build tools"),
-        "Windows install docs should mention linker fallback and prerequisites"
+        readme.contains("rust-lld") && readme.contains("without Visual Studio Build Tools"),
+        "Windows install docs should describe the toolchain-free default install path"
     );
 }
 
@@ -47,7 +47,8 @@ fn cargo_install_defaults_do_not_enable_http_server() {
 fn cargo_install_defaults_are_minimal() {
     let manifest_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
     let manifest = std::fs::read_to_string(manifest_path).expect("read Cargo.toml");
-    assert!(manifest.contains("default = [\"tree-sitter\"]"));
+    assert!(manifest.contains("default = []"));
+    assert!(!manifest.contains("default = [\"tree-sitter\"]"));
 }
 
 fn run_json(bin: &str, args: &[&str], envs: &[(&str, &str)]) -> (i32, String) {

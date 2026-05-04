@@ -61,6 +61,7 @@ pub mod pop_pruning;
 pub mod portable_binary;
 pub mod preservation;
 pub mod project_hash;
+#[cfg(feature = "property-graph")]
 pub mod property_graph;
 pub mod prospective_memory;
 pub mod protocol;

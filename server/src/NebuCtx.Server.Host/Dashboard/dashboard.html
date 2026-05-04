@@ -1944,7 +1944,7 @@ function renderKnowledgeGraph(facts) {
     const projectName = f.project_name || 'unassigned';
     const projectId = f.project_id || `project-${projectName}`;
     const projectNodeId = `project:${projectId}`;
-    const categoryNodeId = `category:${projectName}:${cat}`;
+    const categoryNodeId = `category:${projectId}:${cat}`;
 
     if (!projectIndex.has(projectNodeId)) {
       const projectNode = {

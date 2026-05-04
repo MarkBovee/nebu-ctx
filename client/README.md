@@ -12,7 +12,7 @@ cargo install nebu-ctx
 
 This default install keeps the client lightweight. For a local source build, use:
 
-On Windows, the client is configured to prefer `rust-lld` for `x86_64-pc-windows-msvc` builds. If your local toolchain still lacks a linker, install Visual C++ build tools or switch to a GNU target.
+On Windows, the published crate carries a `rust-lld` override for `x86_64-pc-windows-msvc`, and the default `cargo install nebu-ctx` path is designed to work without Visual Studio Build Tools. Optional native features can still require extra toolchains when you explicitly enable them.
 
 ## Local install from source
 

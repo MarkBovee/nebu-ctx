@@ -16,7 +16,7 @@ pub fn discover_project_context(current_directory: &Path) -> ProjectContext {
     let project_slug = parsed_remote
         .as_ref()
         .map(|(_, _, repo_name)| repo_name.clone())
-        .or_else(|| local_root.file_name().map(|value| value.to_string_lossy().to_string()))
+        .or_else(|| fallback_project_slug(&local_root))
         .unwrap_or_else(|| "project".to_string());
 
     let fingerprint = RepositoryFingerprint {
@@ -109,9 +109,34 @@ fn detect_client_label() -> Option<String> {
         .or_else(|| std::env::var("HOSTNAME").ok().filter(|value| !value.trim().is_empty()))
 }
 
+fn fallback_project_slug(local_root: &Path) -> Option<String> {
+    let raw = local_root.file_name()?.to_string_lossy().trim().to_string();
+    if raw.is_empty() {
+        return None;
+    }
+
+    let sanitized = raw
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch.to_ascii_lowercase() } else { '-' })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string();
+
+    if sanitized.is_empty() {
+        return None;
+    }
+
+    if sanitized.len() <= 4 {
+        return Some(format!("project-{sanitized}"));
+    }
+
+    Some(sanitized)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::parse_remote_url;
+    use super::{fallback_project_slug, parse_remote_url};
+    use std::path::Path;
 
     #[test]
     fn parse_remote_url_supports_https_and_ssh_formats() {
@@ -123,6 +148,18 @@ mod tests {
         assert_eq!(
             parse_remote_url("git@github.com:MarkBovee/nebu-ctx.git"),
             Some(("github.com".to_string(), "MarkBovee".to_string(), "nebu-ctx".to_string()))
+        );
+    }
+
+    #[test]
+    fn fallback_project_slug_avoids_tiny_ambiguous_names() {
+        assert_eq!(
+            fallback_project_slug(Path::new("/home/mark")),
+            Some("project-mark".to_string())
+        );
+        assert_eq!(
+            fallback_project_slug(Path::new("/repo/nebu-ctx")),
+            Some("nebu-ctx".to_string())
         );
     }
 }

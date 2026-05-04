@@ -195,6 +195,12 @@ public class ProjectResolutionTests
             return Task.FromResult<IReadOnlyList<ProjectRecord>>(_projects.Values.ToList());
         }
 
+        /// <inheritdoc />
+        public Task<bool> DeleteProjectAsync(string projectId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(_projects.TryRemove(projectId, out _));
+        }
+
         /// <summary>
         /// Matches two repository fingerprints using the fields the registry depends on for identity.
         /// </summary>

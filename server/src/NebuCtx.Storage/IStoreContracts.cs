@@ -45,6 +45,14 @@ public interface IProjectStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>All project records.</returns>
     Task<IReadOnlyList<ProjectRecord>> ListProjectsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes a project record after its dependent data has been moved or cleared.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True when the project existed and was deleted.</returns>
+    Task<bool> DeleteProjectAsync(string projectId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -206,6 +214,23 @@ public interface IKnowledgeStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>True if the entry was found and deleted; false if it did not exist.</returns>
     Task<bool> RemoveFactAsync(string projectId, string category, string key, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes all persisted knowledge facts for a project.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of entries deleted.</returns>
+    Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reassigns all knowledge facts from one project to another.
+    /// </summary>
+    /// <param name="fromProjectId">Source project identifier.</param>
+    /// <param name="toProjectId">Destination project identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of entries moved.</returns>
+    Task<int> ReassignProjectAsync(string fromProjectId, string toProjectId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

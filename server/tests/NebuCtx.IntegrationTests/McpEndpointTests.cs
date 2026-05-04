@@ -438,9 +438,33 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
         var resolution = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
         Assert.NotNull(resolution?.Project?.ProjectId);
 
+        var rememberResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            ProjectSlug = resolution!.Project!.Slug,
+            RepositoryFingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/MarkBovee/stale-project.git",
+                Host = "github.com",
+                Owner = "MarkBovee",
+                RepoName = "stale-project",
+                DefaultBranch = "main",
+            },
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "remember",
+                ["category"] = "workflow:notes",
+                ["key"] = "stale-note",
+                ["value"] = "stale project persisted fact",
+                ["confidence"] = 0.95,
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, rememberResponse.StatusCode);
+
         var beforeResponse = await _client.GetAsync("/api/knowledge");
         var beforePayload = await beforeResponse.Content.ReadAsStringAsync();
         Assert.Contains(resolution!.Project!.ProjectId, beforePayload, StringComparison.Ordinal);
+        Assert.Contains("stale project persisted fact", beforePayload, StringComparison.Ordinal);
 
         var clearResponse = await _client.PostAsync($"/api/knowledge/projects/{resolution.Project.ProjectId}/clear", content: null);
         Assert.Equal(HttpStatusCode.OK, clearResponse.StatusCode);
@@ -448,6 +472,149 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
         var response = await _client.GetAsync("/api/knowledge");
         var payload = await response.Content.ReadAsStringAsync();
         Assert.DoesNotContain(resolution.Project.ProjectId, payload, StringComparison.Ordinal);
+        Assert.DoesNotContain("stale project persisted fact", payload, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Dashboard knowledge payload keeps projects with the same slug isolated by project identifier.
+    /// </summary>
+    [Fact]
+    public void DashboardKnowledgePayload_DoesNotConflateProjectsWithSameSlug()
+    {
+        var projects = new[]
+        {
+            new ProjectRecord
+            {
+                ProjectId = "proj_mark_a",
+                Slug = "mark",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                ProjectMetadata = new ProjectMetadataEnvelope
+                {
+                    SchemaVersion = 1,
+                    Summary = new ProjectMetadataSummary
+                    {
+                        TotalFileCount = 4,
+                        SourceFileCount = 2,
+                        Markers = [".git"],
+                        Languages = [new ProjectLanguageStat { Language = "rust", FileCount = 2 }],
+                    },
+                },
+            },
+            new ProjectRecord
+            {
+                ProjectId = "proj_mark_b",
+                Slug = "mark",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                ProjectMetadata = new ProjectMetadataEnvelope
+                {
+                    SchemaVersion = 1,
+                    Summary = new ProjectMetadataSummary
+                    {
+                        TotalFileCount = 9,
+                        SourceFileCount = 5,
+                        Markers = ["Cargo.toml"],
+                        Languages = [new ProjectLanguageStat { Language = "csharp", FileCount = 5 }],
+                    },
+                },
+            },
+        };
+
+        var payload = DashboardPayloadFactory.BuildKnowledgePayload(projects);
+        var payloadJson = System.Text.Json.JsonSerializer.Serialize(payload);
+
+        Assert.Contains("proj_mark_a", payloadJson, StringComparison.Ordinal);
+        Assert.Contains("proj_mark_b", payloadJson, StringComparison.Ordinal);
+        Assert.Contains("project:proj_mark_a:source-files", payloadJson, StringComparison.Ordinal);
+        Assert.Contains("project:proj_mark_b:source-files", payloadJson, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Knowledge repair clears ambiguous short-slug project facts so the graph can rebuild cleanly.
+    /// </summary>
+    [Fact]
+    public async Task DashboardKnowledge_Repair_ClearsAmbiguousShortSlugProjects()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "mark",
+            Fingerprint = new RepositoryFingerprint(),
+            ProjectMetadata = new ProjectMetadataEnvelope
+            {
+                SchemaVersion = 1,
+                Summary = new ProjectMetadataSummary
+                {
+                    TotalFileCount = 2,
+                    SourceFileCount = 1,
+                    Markers = ["README.md"],
+                    Languages = [new ProjectLanguageStat { Language = "rust", FileCount = 1 }],
+                },
+            },
+        });
+
+        var resolution = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolution?.Project?.ProjectId);
+
+        var rememberResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "remember",
+                ["category"] = "architecture:notes",
+                ["key"] = "ambiguous-mark",
+                ["value"] = "ambiguous short slug fact",
+                ["confidence"] = 0.9,
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, rememberResponse.StatusCode);
+
+        var repairResponse = await _client.PostAsync("/api/knowledge/repair", content: null);
+        Assert.Equal(HttpStatusCode.OK, repairResponse.StatusCode);
+
+        var knowledgeResponse = await _client.GetAsync("/api/knowledge");
+        var payload = await knowledgeResponse.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("ambiguous short slug fact", payload, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"project_name\":\"mark\"", payload, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Knowledge repair leaves unrelated short slugs alone when they are not part of the known legacy issue.
+    /// </summary>
+    [Fact]
+    public async Task DashboardKnowledge_Repair_DoesNotClearUnrelatedShortSlugProjects()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "api",
+            Fingerprint = new RepositoryFingerprint(),
+            ProjectMetadata = new ProjectMetadataEnvelope
+            {
+                SchemaVersion = 1,
+                Summary = new ProjectMetadataSummary
+                {
+                    TotalFileCount = 2,
+                    SourceFileCount = 1,
+                    Markers = ["README.md"],
+                    Languages = [new ProjectLanguageStat { Language = "rust", FileCount = 1 }],
+                },
+            },
+        });
+
+        var resolution = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolution?.Project?.ProjectId);
+
+        var beforeResponse = await _client.GetAsync("/api/knowledge");
+        var beforePayload = await beforeResponse.Content.ReadAsStringAsync();
+        Assert.Contains("\"project_name\":\"api\"", beforePayload, StringComparison.Ordinal);
+
+        var repairResponse = await _client.PostAsync("/api/knowledge/repair", content: null);
+        Assert.Equal(HttpStatusCode.OK, repairResponse.StatusCode);
+
+        var knowledgeResponse = await _client.GetAsync("/api/knowledge");
+        var payload = await knowledgeResponse.Content.ReadAsStringAsync();
+        Assert.Contains("\"project_name\":\"api\"", payload, StringComparison.Ordinal);
     }
 
     /// <summary>
