@@ -1,3 +1,15 @@
+// Local admin helper for direct Postgres project-identity repair work.
+//
+// Usage:
+//   Inspect only:
+//     set -a && . ./.env && dotnet run --project server/tools/NebuCtx.DataRepair/NebuCtx.DataRepair.csproj
+//
+//   Delete unresolved legacy mark/markb records with no repo identity:
+//     set -a && . ./.env && NEBU_REPAIR_DELETE_UNRESOLVED=1 dotnet run --project server/tools/NebuCtx.DataRepair/NebuCtx.DataRepair.csproj
+//
+// Safe workflow: inspect first, review the JSON output, then run the destructive mode only
+// when the target records are confirmed unresolved legacy data.
+
 using System.Diagnostics;
 using System.Text.Json;
 using NebuCtx.Contracts.Projects;
@@ -5,20 +17,11 @@ using NebuCtx.Server.Core;
 using NebuCtx.Storage;
 using Npgsql;
 
-var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
-if (string.IsNullOrWhiteSpace(databaseUrl))
-{
-    Console.Error.WriteLine("DATABASE_URL is required.");
-    return 1;
-}
-
-var connectionString = StoreFactory.NormalizePostgresConnectionString(databaseUrl);
 var deleteUnresolved = string.Equals(
     Environment.GetEnvironmentVariable("NEBU_REPAIR_DELETE_UNRESOLVED"),
     "1",
     StringComparison.Ordinal);
-await using var connection = new NpgsqlConnection(connectionString);
-await connection.OpenAsync();
+await using var connection = await OpenConnectionAsync();
 
 var candidates = await LoadCandidateProjectsAsync(connection);
 var beforeCounts = await LoadTableCountsAsync(connection, candidates.Select(project => project.ProjectId).ToArray());
@@ -34,17 +37,11 @@ WriteJson(new
 
 await using var transaction = await connection.BeginTransactionAsync();
 
-var deletedProjects = new List<object>();
+var deletedProjects = new List<DeletedProjectResult>();
 foreach (var project in candidates.Where(LegacyProjectCleanupRules.IsSafeToDelete))
 {
     var deletions = await DeleteProjectEverywhereAsync(connection, transaction, project.ProjectId);
-    deletedProjects.Add(new
-    {
-        project.ProjectId,
-        project.Slug,
-        deletions,
-        reason = "stale-legacy",
-    });
+    deletedProjects.Add(new DeletedProjectResult(project.ProjectId, project.Slug, deletions, "stale-legacy"));
 }
 
 if (deleteUnresolved)
@@ -54,17 +51,11 @@ if (deleteUnresolved)
                  && LegacyProjectCleanupRules.IsUnresolvedLegacyProject(project, inspection.Fingerprint)))
     {
         var deletions = await DeleteProjectEverywhereAsync(connection, transaction, project.ProjectId);
-        deletedProjects.Add(new
-        {
-            project.ProjectId,
-            project.Slug,
-            deletions,
-            reason = "unresolved-legacy-no-repo",
-        });
+        deletedProjects.Add(new DeletedProjectResult(project.ProjectId, project.Slug, deletions, "unresolved-legacy-no-repo"));
     }
 }
 
-var migratedProjects = new List<object>();
+var migratedProjects = new List<MigratedProjectResult>();
 foreach (var project in candidates.Where(project => !LegacyProjectCleanupRules.IsSafeToDelete(project)))
 {
     if (!inspections.TryGetValue(project.ProjectId, out var inspection)
@@ -83,23 +74,21 @@ foreach (var project in candidates.Where(project => !LegacyProjectCleanupRules.I
     var reassigned = await ReassignProjectScopedDataAsync(connection, transaction, project.ProjectId, targetProject.ProjectId);
     await DeleteByProjectIdAsync(connection, transaction, "projects", project.ProjectId);
 
-    migratedProjects.Add(new
-    {
-        from_project_id = project.ProjectId,
-        from_slug = project.Slug,
-        to_project_id = targetProject.ProjectId,
-        to_slug = targetProject.Slug,
-        local_root = inspection.LocalRoot,
-        remote_url = inspection.Fingerprint.RemoteUrl,
-        repo_name = inspection.Fingerprint.RepoName,
-        reassigned,
-    });
+    migratedProjects.Add(new MigratedProjectResult(
+        project.ProjectId,
+        project.Slug,
+        targetProject.ProjectId,
+        targetProject.Slug,
+        inspection.LocalRoot,
+        inspection.Fingerprint.RemoteUrl,
+        inspection.Fingerprint.RepoName,
+        reassigned));
 }
 
 await transaction.CommitAsync();
 
-var touchedProjectIds = deletedProjects.Select(item => (string)item.GetType().GetProperty("ProjectId")!.GetValue(item)!).ToList();
-touchedProjectIds.AddRange(migratedProjects.Select(item => (string)item.GetType().GetProperty("from_project_id")!.GetValue(item)!).ToList());
+var touchedProjectIds = deletedProjects.Select(item => item.ProjectId).ToList();
+touchedProjectIds.AddRange(migratedProjects.Select(item => item.FromProjectId));
 
 var afterCounts = touchedProjectIds.Count == 0
     ? new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase)
@@ -213,10 +202,7 @@ static object BuildProjectInspection(ProjectRecord project, IReadOnlyDictionary<
 
 static async Task<string?> DiscoverLocalRootAsync(string projectId)
 {
-    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
-    var connectionString = StoreFactory.NormalizePostgresConnectionString(databaseUrl!);
-    await using var connection = new NpgsqlConnection(connectionString);
-    await connection.OpenAsync();
+    await using var connection = await OpenConnectionAsync();
 
     await using var command = new NpgsqlCommand(
         "SELECT local_root FROM checkout_bindings WHERE project_id = @project_id AND local_root IS NOT NULL ORDER BY last_sync DESC NULLS LAST LIMIT 1",
@@ -228,10 +214,7 @@ static async Task<string?> DiscoverLocalRootAsync(string projectId)
 
 static async Task<object?> LoadBindingDetailsAsync(string projectId)
 {
-    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
-    var connectionString = StoreFactory.NormalizePostgresConnectionString(databaseUrl!);
-    await using var connection = new NpgsqlConnection(connectionString);
-    await connection.OpenAsync();
+    await using var connection = await OpenConnectionAsync();
 
     await using var command = new NpgsqlCommand(
         "SELECT local_root, branch, last_commit, client_label, last_sync FROM checkout_bindings WHERE project_id = @project_id ORDER BY last_sync DESC NULLS LAST LIMIT 1",
@@ -243,22 +226,17 @@ static async Task<object?> LoadBindingDetailsAsync(string projectId)
         return null;
     }
 
-    return new
-    {
-        local_root = reader.IsDBNull(0) ? null : reader.GetString(0),
-        branch = reader.IsDBNull(1) ? null : reader.GetString(1),
-        last_commit = reader.IsDBNull(2) ? null : reader.GetString(2),
-        client_label = reader.IsDBNull(3) ? null : reader.GetString(3),
-        last_sync = reader.IsDBNull(4) ? (DateTime?)null : reader.GetDateTime(4),
-    };
+    return new BindingDetails(
+        reader.IsDBNull(0) ? null : reader.GetString(0),
+        reader.IsDBNull(1) ? null : reader.GetString(1),
+        reader.IsDBNull(2) ? null : reader.GetString(2),
+        reader.IsDBNull(3) ? null : reader.GetString(3),
+        reader.IsDBNull(4) ? (DateTime?)null : reader.GetDateTime(4));
 }
 
 static async Task<string?> LoadSingleTextAsync(string sql, string projectId)
 {
-    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
-    var connectionString = StoreFactory.NormalizePostgresConnectionString(databaseUrl!);
-    await using var connection = new NpgsqlConnection(connectionString);
-    await connection.OpenAsync();
+    await using var connection = await OpenConnectionAsync();
 
     await using var command = new NpgsqlCommand(sql, connection);
     command.Parameters.AddWithValue("project_id", projectId);
@@ -608,6 +586,19 @@ static ProjectMetadataEnvelope? DeserializeMetadata(string? value)
     return string.IsNullOrWhiteSpace(value) ? null : JsonSerializer.Deserialize<ProjectMetadataEnvelope>(value);
 }
 
+static async Task<NpgsqlConnection> OpenConnectionAsync()
+{
+    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+    if (string.IsNullOrWhiteSpace(databaseUrl))
+    {
+        throw new InvalidOperationException("DATABASE_URL is required.");
+    }
+
+    var connection = new NpgsqlConnection(StoreFactory.NormalizePostgresConnectionString(databaseUrl));
+    await connection.OpenAsync();
+    return connection;
+}
+
 static string? SerializeMetadata(ProjectMetadataEnvelope? value)
 {
     return value is null ? null : JsonSerializer.Serialize(value);
@@ -732,3 +723,17 @@ file sealed class ProjectInspection
     public string? BrainSample { get; set; }
     public string? SessionSample { get; set; }
 }
+
+file sealed record BindingDetails(string? LocalRoot, string? Branch, string? LastCommit, string? ClientLabel, DateTime? LastSync);
+
+file sealed record DeletedProjectResult(string ProjectId, string Slug, Dictionary<string, int> Deletions, string Reason);
+
+file sealed record MigratedProjectResult(
+    string FromProjectId,
+    string FromSlug,
+    string ToProjectId,
+    string ToSlug,
+    string? LocalRoot,
+    string? RemoteUrl,
+    string? RepoName,
+    Dictionary<string, int> Reassigned);
