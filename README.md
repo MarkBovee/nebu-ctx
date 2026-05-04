@@ -265,6 +265,8 @@ cargo install nebu-ctx
 
 This installs the lightweight client-only build. If you want to build from the repo instead, use `cargo install --path client --bin nebu-ctx --force`.
 
+On Windows, `nebu-ctx` is configured to use `rust-lld` for MSVC linking. If your toolchain still reports a missing linker, install the Visual C++ build tools or use the `*-gnu` Rust target.
+
 ### 2. Start the host
 
 ```bash

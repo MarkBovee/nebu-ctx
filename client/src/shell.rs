@@ -849,7 +849,7 @@ fn windows_shell_flag_for_exe_basename(exe_basename: &str) -> &'static str {
     } else {
         // POSIX-style shells: Git Bash / MSYS (`bash`, `sh`, `zsh`, `fish`, …).
         // `/C` is only valid for `cmd.exe`; using it with bash produced
-        // `/C: Is a directory` and exit 126 (see github.com/yvgude/lean-ctx/issues/7).
+        // `/C: Is a directory` and exit 126 (see issue #7).
         "-c"
     }
 }

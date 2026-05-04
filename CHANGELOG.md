@@ -10,6 +10,11 @@
 - Fix client installs so `cargo install` stays lightweight and does not require a native C toolchain.
 - Improve OpenCode token savings reporting and context rules.
 
+## 0.7.6
+
+- Add a Windows MSVC linker fallback via `rust-lld` to reduce `link.exe` install failures.
+- Keep the client install path lightweight and document Windows prerequisites.
+
 ## 0.7.3
 
 - Add telemetry reporting for OpenCode shell compression.

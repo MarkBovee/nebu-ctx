@@ -5,6 +5,30 @@ use lean_ctx::status::StatusReport;
 use lean_ctx::token_report::TokenReport;
 
 #[test]
+fn windows_msvc_build_uses_rust_lld() {
+    let config = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../.cargo/config.toml"),
+    )
+    .expect("read cargo config");
+
+    assert!(
+        config.contains("x86_64-pc-windows-msvc") && config.contains("rust-lld"),
+        "Windows msvc builds should use rust-lld instead of requiring link.exe"
+    );
+}
+
+#[test]
+fn windows_install_docs_mention_linker_fallback() {
+    let readme = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../README.md"))
+        .expect("read README");
+
+    assert!(
+        readme.contains("rust-lld") && readme.contains("Visual C++ build tools"),
+        "Windows install docs should mention linker fallback and prerequisites"
+    );
+}
+
+#[test]
 fn cargo_install_defaults_do_not_enable_http_server() {
     let manifest_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
     let manifest = std::fs::read_to_string(manifest_path).expect("read Cargo.toml");
