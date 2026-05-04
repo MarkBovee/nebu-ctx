@@ -10,7 +10,11 @@ pub fn detect_project_root(file_path: &str) -> Option<String> {
 
     loop {
         if is_project_root_marker(dir) {
-            best = Some(dir.to_string_lossy().to_string());
+            best = Some(
+                crate::core::pathutil::safe_canonicalize_or_self(dir)
+                    .to_string_lossy()
+                    .to_string(),
+            );
         }
         match dir.parent() {
             Some(parent) if parent != dir => dir = parent,
@@ -305,6 +309,30 @@ mod tests {
         );
 
         let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn detect_project_root_canonicalizes_symlink_aliases() {
+        use std::os::unix::fs::symlink;
+
+        let tmp = tempfile::tempdir().unwrap();
+        let real_root = tmp.path().join("real-repo");
+        let alias_parent = tmp.path().join("alias-parent");
+        let alias_root = alias_parent.join("repo");
+        let nested = real_root.join("src");
+
+        std::fs::create_dir_all(real_root.join(".git")).unwrap();
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::create_dir_all(&alias_parent).unwrap();
+        symlink(&real_root, &alias_root).unwrap();
+
+        let detected = detect_project_root(alias_root.join("src/main.rs").to_str().unwrap());
+
+        assert_eq!(
+            detected.as_deref(),
+            Some(real_root.to_string_lossy().as_ref())
+        );
     }
 
     #[test]

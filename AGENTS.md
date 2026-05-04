@@ -30,6 +30,41 @@
 - `server/dist/` is gitignored — binaries are never committed; built in CI and published to GHCR.
 - Keep cross-stack and repo-level tests in top-level `tests/` only.
 
+## Coding Standards For Agents
+
+These rules mirror `coding.instructions.md` so agents that only ingest `AGENTS.md` still apply the same delivery standards automatically.
+
+### Applies To Rust And C#
+
+- Follow DRY and SOLID. Before adding code, check whether the behavior already exists and extract shared helpers instead of duplicating logic.
+- Prefer small, focused functions with clear names and a single level of abstraction. Use guard clauses and early returns to keep control flow flat.
+- Prefer pure functions when practical. Keep orchestration separate from object construction, formatting, or parsing helpers.
+- Fail fast on invalid input and return clear errors with enough context for diagnostics.
+- Keep code self-documenting. Add short intent comments only for non-obvious logic.
+- Keep builds warning-free and error-free, and keep the relevant tests passing before finishing a change.
+
+### Rust Client Rules
+
+- Prefer `match` or focused helper extraction over growing large conditional chains in CLI, MCP, and hook dispatch code.
+- Normalize and canonicalize filesystem paths at the boundary where paths enter the system so session state, caches, and path jail logic agree on the same real path.
+- Keep public API and tool behavior changes minimal and explicit. Avoid widening behavior accidentally when fixing path, session, or routing bugs.
+- Reuse existing helpers in `core/`, `hooks/`, and `tools/` before adding new utility layers.
+- Validate Rust changes with the narrowest relevant `cargo check` or `cargo test --manifest-path client/Cargo.toml` command first, then widen only if needed.
+
+### C# Server Rules
+
+- Do not use fully qualified type names unless required for disambiguation. Add `using` directives instead.
+- Do not use `dynamic`. Prefer concrete DTOs, `object` with safe casting, or explicit JSON types.
+- Add XML documentation comments to classes, records, methods, and helper functions. Keep them concise but useful.
+- Add a short inline why-comment for non-obvious handlers, protocol branches, or business logic.
+- For methods with 3 or more parameters, prefer a request/DTO model instead of long parameter lists.
+- Keep parameter lists and method invocations on one line when they fit. Break only at logical boundaries when needed.
+- Use descriptive variable names. Avoid generic names when the domain concept is known.
+- Prefer `switch` or pattern matching over long `if` / `else if` dispatch chains.
+- In integration tests, use real response models. Do not use `ApiJsonRequestAsync<object>` or `ApiJsonRequestAsync<JsonElement>` when a concrete model exists.
+- For required JSON/OpenAPI properties with non-public setters, add `[JsonInclude]` or make the setter public so schema/runtime generation stays valid.
+- For EF Core timestamps, centralize timestamp handling in the `DbContext` save pipeline instead of business logic.
+
 ## Storage Model
 
 - **Only supported store**: PostgreSQL via `NEBULA_STORE=postgres` and `DATABASE_URL`.
@@ -111,7 +146,7 @@ No `homeassistant/Dockerfile` at runtime — HA Supervisor pulls pre-built GHCR 
 
 1. `client/Cargo.toml` — `version = "x.y.z"`
 2. `homeassistant/config.yaml` — `version: "x.y.z"`
-3. `server/src/NebuCtx.Application/ToolRegistry.cs` — `ServerVersion.Current = "x.y.z"`
+3. `server/src/NebuCtx.Server.Core/ToolRegistry.cs` — `ServerVersion.Current = "x.y.z"`
 
 Also update `Cargo.lock` via `cargo update --manifest-path client/Cargo.toml` before committing.
 

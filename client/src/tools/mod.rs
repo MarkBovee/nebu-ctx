@@ -248,17 +248,16 @@ impl LeanCtxServer {
             Err(e) => {
                 if p.is_absolute() {
                     if let Some(new_root) = maybe_derive_project_root_from_absolute(&resolved) {
-                        let candidate_under_jail = resolved.starts_with(jail_root_path);
-                        let allow_reroot = if !candidate_under_jail {
-                            if let Some(ref trusted_root) = self.startup_project_root {
+                        let current_root_is_weak =
+                            !has_project_marker(jail_root_path)
+                                || is_suspicious_root(jail_root_path);
+                        let allow_reroot = self
+                            .startup_project_root
+                            .as_ref()
+                            .map(|trusted_root| {
                                 std::path::Path::new(trusted_root) == new_root.as_path()
-                            } else {
-                                !has_project_marker(jail_root_path)
-                                    || is_suspicious_root(jail_root_path)
-                            }
-                        } else {
-                            false
-                        };
+                            })
+                            .unwrap_or(current_root_is_weak);
 
                         if allow_reroot {
                             let mut session = self.session.write().await;
@@ -984,5 +983,41 @@ mod resolve_path_tests {
 
         let session = server.session.read().await;
         assert_eq!(session.project_root.as_deref(), Some(root_value.as_str()));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn resolve_path_reroots_symlinked_workspace_path_when_shell_root_is_not_a_project() {
+        use std::os::unix::fs::symlink;
+
+        let data = tempfile::tempdir().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path().join("home");
+        let mnt = tmp.path().join("mnt");
+        let real_repo = mnt.join("work").join("repo");
+        let symlink_root = home.join("Work");
+
+        let _lock = crate::core::data_dir::test_env_lock();
+        std::env::set_var("NEBU_CTX_DATA_DIR", data.path());
+
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::create_dir_all(real_repo.join(".git")).unwrap();
+        std::fs::write(real_repo.join("a.txt"), "ok").unwrap();
+        symlink(real_repo.parent().unwrap(), &symlink_root).unwrap();
+
+        let aliased_file = symlink_root.join("repo").join("a.txt");
+        let server = LeanCtxServer::new_with_startup(None, Some(home.clone()));
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
+
+        let out = server
+            .resolve_path(&aliased_file.to_string_lossy())
+            .await
+            .unwrap();
+
+        assert_eq!(out, real_repo.join("a.txt").to_string_lossy());
+
+        let session = server.session.read().await;
+        assert_eq!(session.project_root.as_deref(), Some(real_repo.to_string_lossy().as_ref()));
+        assert_eq!(session.shell_cwd.as_deref(), Some(real_repo.to_string_lossy().as_ref()));
     }
 }

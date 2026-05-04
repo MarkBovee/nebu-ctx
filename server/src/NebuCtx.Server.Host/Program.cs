@@ -1,3 +1,4 @@
+using System.Net;
 using NebuCtx.Contracts.Configuration;
 using NebuCtx.Server.Core;
 using NebuCtx.Server.Core.Configuration;
@@ -43,9 +44,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.WebHost.ConfigureKestrel(kestrel =>
 {
-    kestrel.Listen(System.Net.IPAddress.Parse(startupOptions.McpHost), startupOptions.McpPort);
+    kestrel.Listen(IPAddress.Parse(startupOptions.McpHost), startupOptions.McpPort);
     if (startupOptions.DashboardPort != startupOptions.McpPort)
-        kestrel.Listen(System.Net.IPAddress.Parse(startupOptions.DashboardHost), startupOptions.DashboardPort);
+        kestrel.Listen(IPAddress.Parse(startupOptions.DashboardHost), startupOptions.DashboardPort);
 
     kestrel.Limits.MaxRequestBodySize = startupOptions.MaxBodyBytes;
 });

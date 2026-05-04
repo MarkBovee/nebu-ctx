@@ -1,5 +1,6 @@
 namespace NebuCtx.ContractTests;
 
+using System.Text.Json;
 using NebuCtx.Contracts.Mcp;
 
 /// <summary>
@@ -19,8 +20,8 @@ public class McpContractTests
             Arguments = new Dictionary<string, object?> { ["action"] = "status" },
         };
 
-        var json = System.Text.Json.JsonSerializer.Serialize(request);
-        var deserialized = System.Text.Json.JsonSerializer.Deserialize<ToolCallRequest>(json);
+        var json = JsonSerializer.Serialize(request);
+        var deserialized = JsonSerializer.Deserialize<ToolCallRequest>(json);
 
         Assert.NotNull(deserialized);
         Assert.Equal("ctx_brain", deserialized.Name);

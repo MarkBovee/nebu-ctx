@@ -753,6 +753,7 @@ fn passthrough(command: &str) -> ! {
     std::process::exit(status);
 }
 
+#[cfg(feature = "http-server")]
 fn run_async<F: std::future::Future>(future: F) -> F::Output {
     tokio::runtime::Runtime::new()
         .expect("failed to create async runtime")

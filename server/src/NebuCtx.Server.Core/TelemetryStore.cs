@@ -1,6 +1,7 @@
 namespace NebuCtx.Server.Core;
 
 using System.Collections.Frozen;
+using System.Globalization;
 using System.Text.Json;
 using NebuCtx.Contracts.Telemetry;
 
@@ -315,7 +316,7 @@ public sealed class TelemetryStore
         var outputTokens = EstimateTokens(result);
         var tokensSaved = Math.Max(0, inputTokens - outputTokens);
         var sessionKey = BuildSessionKey(context.ProjectId, actorLabel);
-        var dateKey = now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        var dateKey = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
         TelemetryEventSnapshot newEvent;
         lock (_gate)
@@ -443,7 +444,7 @@ public sealed class TelemetryStore
         var outputTokens = Math.Max(0, request.TokensOriginal - request.TokensSaved);
         var actorLabel = "rust-client";
         var sessionKey = BuildSessionKey(projectId, actorLabel);
-        var dateKey = now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        var dateKey = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
         TelemetryEventSnapshot newEvent;
         lock (_gate)
@@ -767,7 +768,7 @@ public sealed class TelemetryStore
                 commandEntry.InputTokens += evt.TokensOriginal;
                 commandEntry.OutputTokens += evt.TokensOutput;
 
-                var dateKey = evt.OccurredAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+                var dateKey = evt.OccurredAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 var dailyEntry = GetOrCreateDaily(dateKey);
                 dailyEntry.InputTokens += evt.TokensOriginal;
                 dailyEntry.OutputTokens += evt.TokensOutput;

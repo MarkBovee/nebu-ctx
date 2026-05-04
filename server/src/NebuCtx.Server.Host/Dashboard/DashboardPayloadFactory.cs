@@ -1,5 +1,6 @@
 namespace NebuCtx.Server.Host.Dashboard;
 
+using System.Globalization;
 using NebuCtx.Contracts.Projects;
 using NebuCtx.Server.Core;
 using NebuCtx.Server.Core.Routing;
@@ -94,7 +95,7 @@ public static class DashboardPayloadFactory
         var facts = DeduplicateKnowledgeFacts(projects
             .SelectMany(BuildProjectFacts)
             .Concat(pgFacts))
-            .OrderByDescending(fact => Convert.ToDouble(fact["confidence"], System.Globalization.CultureInfo.InvariantCulture))
+            .OrderByDescending(fact => Convert.ToDouble(fact["confidence"], CultureInfo.InvariantCulture))
             .ThenBy(fact => fact["project_name"]?.ToString(), StringComparer.OrdinalIgnoreCase)
             .ThenBy(fact => fact["category"]?.ToString(), StringComparer.OrdinalIgnoreCase)
             .Cast<object>()
@@ -1136,7 +1137,7 @@ public static class DashboardPayloadFactory
                 fact.GetValueOrDefault("fact_name")?.ToString() ?? string.Empty,
                 fact.GetValueOrDefault("value")?.ToString() ?? string.Empty), StringComparer.OrdinalIgnoreCase)
             .Select(group => group
-                .OrderByDescending(fact => Convert.ToDouble(fact["confidence"], System.Globalization.CultureInfo.InvariantCulture))
+                .OrderByDescending(fact => Convert.ToDouble(fact["confidence"], CultureInfo.InvariantCulture))
                 .First());
     }
 
