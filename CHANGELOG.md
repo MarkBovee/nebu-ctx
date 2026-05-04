@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.8
+
+- Add target-named release archives, including a Windows client asset, so `cargo binstall nebu-ctx` can use published binaries instead of local builds.
+- Update client install docs and smoke coverage to prefer `cargo binstall`, keep release assets as the first fallback, and retain `cargo install` as the explicit source-build path.
+
 ## 0.7.5
 
 - Fix client MCP path resolution for symlinked workspace aliases such as `/home/.../Work` resolving to `/mnt/work`, so VS Code / Copilot `ctx_*` tools no longer fail with `path escapes project root`.

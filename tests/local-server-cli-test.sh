@@ -152,6 +152,7 @@ printf '%s' "$recall_json" | assert_json
 printf '%s' "$recall_json" | grep -q "$SMOKE_MARKER"
 
 printf '\n=== Installing CLI and connecting to the server ===\n'
+# Source-build smoke stays here; published-binary install validation lives in tests/local-binstall-smoke.sh.
 "$CARGO_BIN" install --path "$PROJECT_ROOT/client" --bin nebu-ctx --root "$CLI_ROOT" --force
 
 HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx" server connect --endpoint "http://127.0.0.1:${HOST_HTTP_PORT}" --token "$TOKEN" >/dev/null

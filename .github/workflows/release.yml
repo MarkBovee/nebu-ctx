@@ -20,11 +20,17 @@ jobs:
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
-            arch: amd64
+            artifact_suffix: x86_64-unknown-linux-gnu
+            archive_name: nebu-ctx-x86_64-unknown-linux-gnu.tar.gz
             container: rust:1.95-slim-bookworm
           - target: aarch64-unknown-linux-gnu
-            arch: arm64
+            artifact_suffix: aarch64-unknown-linux-gnu
+            archive_name: nebu-ctx-aarch64-unknown-linux-gnu.tar.gz
             runner: ubuntu-latest
+          - target: x86_64-pc-windows-msvc
+            artifact_suffix: x86_64-pc-windows-msvc
+            archive_name: nebu-ctx-x86_64-pc-windows-msvc.zip
+            runner: windows-latest
     runs-on: ${{ matrix.runner || 'ubuntu-latest' }}
     container: ${{ matrix.container || '' }}
     steps:
@@ -43,22 +49,41 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install cross
-        if: matrix.container == ''
+        if: matrix.container == '' && matrix.runner != 'windows-latest'
         run: cargo install cross --locked
 
       - name: Build (native in Bookworm)
         if: matrix.container != ''
-        run: cargo build --release --manifest-path ${{ env.CLIENT_MANIFEST_PATH }} --bin ${{ env.CLIENT_BINARY_NAME }}
+        run: cargo build --release --manifest-path ${{ env.CLIENT_MANIFEST_PATH }} --bin ${{ env.CLIENT_BINARY_NAME }} --target ${{ matrix.target }}
+
+      - name: Build (native on Windows)
+        if: matrix.runner == 'windows-latest'
+        run: cargo build --release --manifest-path ${{ env.CLIENT_MANIFEST_PATH }} --bin ${{ env.CLIENT_BINARY_NAME }} --target ${{ matrix.target }}
 
       - name: Build (cross for arm64)
-        if: matrix.container == ''
+        if: matrix.container == '' && matrix.runner != 'windows-latest'
         run: cross build --release --manifest-path ${{ env.CLIENT_MANIFEST_PATH }} --bin ${{ env.CLIENT_BINARY_NAME }} --target ${{ matrix.target }}
+
+      - name: Package artifact
+        shell: bash
+        run: |
+          mkdir -p "package/${{ matrix.artifact_suffix }}"
+          case "${{ matrix.target }}" in
+            x86_64-pc-windows-msvc)
+              cp "client/target/${{ matrix.target }}/release/${{ env.CLIENT_BINARY_NAME }}.exe" "package/${{ matrix.artifact_suffix }}/"
+              (cd "package/${{ matrix.artifact_suffix }}" && 7z a "../../${{ matrix.archive_name }}" "${{ env.CLIENT_BINARY_NAME }}.exe")
+              ;;
+            *)
+              cp "client/target/${{ matrix.target }}/release/${{ env.CLIENT_BINARY_NAME }}" "package/${{ matrix.artifact_suffix }}/"
+              tar -czf "${{ matrix.archive_name }}" -C "package/${{ matrix.artifact_suffix }}" "${{ env.CLIENT_BINARY_NAME }}"
+              ;;
+          esac
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: nebu-ctx-${{ matrix.arch }}
-          path: ${{ matrix.container != '' && format('client/target/release/{0}', env.CLIENT_BINARY_NAME) || format('client/target/{0}/release/{1}', matrix.target, env.CLIENT_BINARY_NAME) }}
+          name: ${{ matrix.artifact_suffix }}
+          path: ${{ matrix.archive_name }}
 
   release:
     needs: build
@@ -86,27 +111,24 @@ jobs:
         with:
           path: artifacts
 
-      - name: Rename binaries with arch suffix
-        run: |
-          mv artifacts/nebu-ctx-amd64/${{ env.CLIENT_BINARY_NAME }} artifacts/nebu-ctx-amd64/nebu-ctx-amd64
-          mv artifacts/nebu-ctx-arm64/${{ env.CLIENT_BINARY_NAME }} artifacts/nebu-ctx-arm64/nebu-ctx-arm64
-
       - name: Create release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           files: |
-            artifacts/nebu-ctx-amd64/nebu-ctx-amd64
-            artifacts/nebu-ctx-arm64/nebu-ctx-arm64
+            artifacts/x86_64-unknown-linux-gnu/nebu-ctx-x86_64-unknown-linux-gnu.tar.gz
+            artifacts/aarch64-unknown-linux-gnu/nebu-ctx-aarch64-unknown-linux-gnu.tar.gz
+            artifacts/x86_64-pc-windows-msvc/nebu-ctx-x86_64-pc-windows-msvc.zip
           body: |
             Pre-built thin client binaries for nebu-ctx ${{ steps.version.outputs.tag }}
 
             These binaries connect to the .NET nebu-ctx server and dashboard runtime.
 
-            | Arch | Binary |
-            |------|--------|
-            | amd64 | `nebu-ctx-amd64` |
-            | arm64 | `nebu-ctx-arm64` |
+            | Target | Archive |
+            |--------|---------|
+            | x86_64-unknown-linux-gnu | `nebu-ctx-x86_64-unknown-linux-gnu.tar.gz` |
+            | aarch64-unknown-linux-gnu | `nebu-ctx-aarch64-unknown-linux-gnu.tar.gz` |
+            | x86_64-pc-windows-msvc | `nebu-ctx-x86_64-pc-windows-msvc.zip` |
 
   publish-crate:
     needs: release

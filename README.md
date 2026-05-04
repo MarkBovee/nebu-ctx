@@ -260,12 +260,14 @@ The repo already includes agent/session-oriented surfaces such as `ctx_agent`, `
 ### 1. Install the Rust client
 
 ```bash
-cargo install nebu-ctx
+cargo binstall nebu-ctx
 ```
 
-This installs the lightweight client-only build. If you want to build from the repo instead, use `cargo install --path client --bin nebu-ctx --force`.
+This downloads the prebuilt lightweight client binary with `cargo-binstall` when available. If you do not have cargo-binstall yet, install it using the instructions at <https://github.com/cargo-bins/cargo-binstall>. If `cargo binstall nebu-ctx` is unavailable or no matching artifact exists, use the published release asset instead. If you prefer a source-build fallback, use `cargo install nebu-ctx`.
 
-On Windows, the packaged `nebu-ctx` crate uses `rust-lld` for MSVC linking and keeps the default `cargo install nebu-ctx` path free of Visual Studio Build Tools. Optional native features can still require extra toolchains when you enable them explicitly.
+If you want to build from the repo instead, use `cargo install --path client --bin nebu-ctx --force`.
+
+On Windows, the published crate keeps the `rust-lld` override so the packaged install path does not depend on Visual Studio Build Tools.
 
 ### 2. Start the host
 

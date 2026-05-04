@@ -7,12 +7,12 @@ Homepage: <https://nebu-ctx.com>
 ## Install
 
 ```bash
-cargo install nebu-ctx
+cargo binstall nebu-ctx
 ```
 
-This default install keeps the client lightweight. For a local source build, use:
+This downloads the prebuilt lightweight client binary with `cargo-binstall` when available. If you do not have cargo-binstall yet, install it using the instructions at <https://github.com/cargo-bins/cargo-binstall>. If `cargo binstall nebu-ctx` is unavailable or no matching artifact exists, use the published release asset instead. If you prefer a source-build fallback, use `cargo install nebu-ctx`.
 
-On Windows, the published crate carries a `rust-lld` override for `x86_64-pc-windows-msvc`, and the default `cargo install nebu-ctx` path is designed to work without Visual Studio Build Tools. Optional native features can still require extra toolchains when you explicitly enable them.
+On Windows, the published crate keeps the `rust-lld` override so the packaged install path does not depend on Visual Studio Build Tools.
 
 ## Local install from source
 

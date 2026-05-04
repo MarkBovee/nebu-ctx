@@ -5,7 +5,7 @@ use lean_ctx::status::StatusReport;
 use lean_ctx::token_report::TokenReport;
 
 #[test]
-fn windows_msvc_build_uses_packaged_rust_lld_config() {
+fn setup_ci_smoke_windows_packaging_keeps_rust_lld_override() {
     let config = std::fs::read_to_string(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".cargo/config.toml"),
     )
@@ -13,18 +13,87 @@ fn windows_msvc_build_uses_packaged_rust_lld_config() {
 
     assert!(
         config.contains("x86_64-pc-windows-msvc") && config.contains("rust-lld"),
-        "The published crate should carry the Windows rust-lld linker override"
+        "client/.cargo/config.toml should keep the Windows rust-lld override"
     );
 }
 
 #[test]
-fn windows_install_docs_mention_no_build_tools_path() {
-    let readme = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("README.md"))
-        .expect("read README");
+fn setup_ci_smoke_install_docs_prefer_binstall_with_cargo_install_fallback() {
+    let client_readme = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("README.md"),
+    )
+    .expect("read client README");
+    let root_readme = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../README.md"),
+    )
+    .expect("read root README");
 
+    fn install_section<'a>(readme: &'a str, start: &str, end: Option<&str>) -> &'a str {
+        let start_index = readme.find(start).expect("install section start") + start.len();
+        let rest = &readme[start_index..];
+
+        if let Some(end_marker) = end {
+            let end_index = rest.find(end_marker).expect("install section end");
+            &rest[..end_index]
+        } else {
+            rest
+        }
+    }
+
+    let client_install = install_section(client_readme.as_str(), "## Install", Some("## Local install from source"));
+    let root_install = install_section(root_readme.as_str(), "## Install And Run", Some("### 2. Start the host"));
+
+    for (name, readme) in [("client", client_install), ("root", root_install)] {
+        assert!(
+            readme.contains("cargo binstall nebu-ctx"),
+            "{name} README should mention cargo binstall nebu-ctx"
+        );
+        assert!(
+            readme.contains("cargo install nebu-ctx"),
+            "{name} README should mention cargo install nebu-ctx"
+        );
+        assert!(
+            readme.contains("cargo-binstall"),
+            "{name} README should note that cargo binstall requires cargo-binstall"
+        );
+        assert!(
+            readme.contains("If you do not have cargo-binstall yet"),
+            "{name} README should include an explicit cargo-binstall prerequisite sentence"
+        );
+        assert!(
+            readme.contains("https://github.com/cargo-bins/cargo-binstall"),
+            "{name} README should include the cargo-binstall install URL"
+        );
+        assert!(
+            readme.contains("release asset") || readme.contains("published release"),
+            "{name} README should mention release assets or a published release fallback"
+        );
+        assert!(
+            readme.contains("source build") || readme.contains("source-build"),
+            "{name} README should describe cargo install as a source build path"
+        );
+        assert!(
+            !readme.contains("cargo install cargo-binstall"),
+            "{name} README should not tell users to cargo install cargo-binstall in the install section"
+        );
+    }
+}
+
+#[test]
+fn setup_ci_smoke_windows_packaging_docs_still_mention_user_facing_promise() {
+    let client_readme = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("README.md"),
+    )
+    .expect("read client README");
+    let root_readme = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../README.md"),
+    )
+    .expect("read root README");
+
+    let combined = format!("{client_readme}\n{root_readme}");
     assert!(
-        readme.contains("rust-lld") && readme.contains("without Visual Studio Build Tools"),
-        "Windows install docs should describe the toolchain-free default install path"
+        combined.contains("rust-lld") && combined.contains("Visual Studio Build Tools"),
+        "user-facing docs should still mention the Windows rust-lld / Visual Studio Build Tools packaging promise"
     );
 }
 

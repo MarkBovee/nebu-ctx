@@ -1,6 +1,6 @@
 [package]
 name = "nebu-ctx"
-version = "0.7.7"
+version = "0.7.8"
 edition = "2021"
 autobins = false
 description = "Lean-ctx runtime adapted for the NebuCtx self-hosted client/server product."
@@ -20,6 +20,17 @@ path = "src/main.rs"
 [lib]
 name = "lean_ctx"
 path = "src/lib.rs"
+
+[package.metadata.binstall]
+bin-dir = "{ bin }{ binary-ext }"
+
+[package.metadata.binstall.overrides.'cfg(target_os = "linux")']
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }.tar.gz"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.'cfg(target_os = "windows")']
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }.zip"
+pkg-fmt = "zip"
 
 [features]
 default = []
