@@ -4,6 +4,28 @@ use lean_ctx::core::setup_report::SetupReport;
 use lean_ctx::status::StatusReport;
 use lean_ctx::token_report::TokenReport;
 
+#[test]
+fn cargo_install_defaults_do_not_enable_http_server() {
+    let manifest_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+    let manifest = std::fs::read_to_string(manifest_path).expect("read Cargo.toml");
+    let default_line = manifest
+        .lines()
+        .find(|line| line.starts_with("default = "))
+        .expect("default features line");
+
+    assert!(
+        !default_line.contains("http-server"),
+        "cargo install should not enable http-server by default"
+    );
+}
+
+#[test]
+fn cargo_install_defaults_are_minimal() {
+    let manifest_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+    let manifest = std::fs::read_to_string(manifest_path).expect("read Cargo.toml");
+    assert!(manifest.contains("default = [\"tree-sitter\"]"));
+}
+
 fn run_json(bin: &str, args: &[&str], envs: &[(&str, &str)]) -> (i32, String) {
     let mut cmd = Command::new(bin);
     cmd.args(args);

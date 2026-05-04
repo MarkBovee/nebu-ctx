@@ -22,7 +22,7 @@ name = "lean_ctx"
 path = "src/lib.rs"
 
 [features]
-default = ["tree-sitter", "http-server"]
+default = ["tree-sitter"]
 neural = ["dep:rten", "dep:rten-tensor"]
 embeddings = ["dep:rten", "dep:rten-tensor"]
 http-server = ["dep:axum", "dep:tower-http", "dep:reqwest"]
