@@ -263,6 +263,8 @@ The repo already includes agent/session-oriented surfaces such as `ctx_agent`, `
 cargo install nebu-ctx
 ```
 
+This installs the lightweight client-only build. If you want to build from the repo instead, use `cargo install --path client --bin nebu-ctx --force`.
+
 ### 2. Start the host
 
 ```bash

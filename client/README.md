@@ -10,6 +10,8 @@ Homepage: <https://nebu-ctx.com>
 cargo install nebu-ctx
 ```
 
+This default install keeps the client lightweight. For a local source build, use:
+
 ## Local install from source
 
 ```bash
