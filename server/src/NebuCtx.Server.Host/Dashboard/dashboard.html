@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nebu-ctx Observatory</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <style>
@@ -44,7 +45,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
   height:56px;display:flex;align-items:center;padding:0 16px;gap:8px;
   border-bottom:1px solid var(--border);flex-shrink:0;cursor:default;
 }
-.sidebar-logo svg{flex-shrink:0;width:24px;height:24px;overflow:visible}
+.sidebar-logo img{flex-shrink:0;width:28px;height:28px;object-fit:contain;display:block}
 .sidebar-logo-text{
   font-size:15px;font-weight:700;letter-spacing:-0.02em;white-space:nowrap;opacity:0;
   transition:opacity .2s .05s;
@@ -616,26 +617,7 @@ tr:hover td{background:var(--surface-2)}
 <div class="app-layout">
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <svg viewBox="0 0 64 64" fill="none" stroke="none" aria-hidden="true">
-        <circle cx="32" cy="32" r="27" stroke="url(#ring)" stroke-width="3" fill="rgba(99,102,241,0.06)"/>
-        <path d="M18 31c0-5 4-9 9-9c3.7 0 6.2 1.8 8 5c1.8-3.2 4.3-5 8-5c5 0 9 4 9 9s-4 9-9 9c-3.7 0-6.2-1.8-8-5c-1.8 3.2-4.3 5-8 5c-5 0-9-4-9-9Z" fill="url(#core)"/>
-        <circle cx="24" cy="24" r="2.5" fill="#ffffff" opacity="0.95"/>
-        <circle cx="40" cy="24" r="2.5" fill="#ffffff" opacity="0.95"/>
-        <circle cx="20" cy="36" r="2.5" fill="#e9d5ff" opacity="0.95"/>
-        <circle cx="44" cy="36" r="2.5" fill="#bfdbfe" opacity="0.95"/>
-        <path d="M28 46h8v7h-8z" fill="#4f46e5" opacity="0.9"/>
-        <defs>
-          <linearGradient id="ring" x1="12" y1="12" x2="52" y2="52" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#34d399"/>
-            <stop offset="1" stop-color="#818cf8"/>
-          </linearGradient>
-          <linearGradient id="core" x1="18" y1="22" x2="52" y2="42" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#34d399"/>
-            <stop offset="0.55" stop-color="#60a5fa"/>
-            <stop offset="1" stop-color="#818cf8"/>
-          </linearGradient>
-        </defs>
-      </svg>
+      <img src="/logo.png" alt="nebu-ctx logo" />
       <span class="sidebar-logo-text">nebu<span>-ctx</span> Observatory</span>
     </div>
     <nav class="sidebar-nav" id="sidebarNav"></nav>

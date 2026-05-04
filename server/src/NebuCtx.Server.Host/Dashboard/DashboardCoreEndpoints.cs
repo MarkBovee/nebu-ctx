@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Routing;
 using NebuCtx.Contracts.Dashboard;
 
 /// <summary>
-/// Core dashboard endpoints: HTML shell, health, version, pulse, auth-token, favicon.
+/// Core dashboard endpoints: HTML shell, health, version, pulse, auth-token, favicon, and logo.
 /// </summary>
 public static class DashboardCoreEndpoints
 {
@@ -41,7 +41,21 @@ public static class DashboardCoreEndpoints
             return Results.Ok(new AuthTokenResponse { Token = tokenValue });
         });
 
-        app.MapGet("/favicon.ico", () => Results.NoContent());
+        app.MapGet("/logo.png", () =>
+        {
+            var logoPath = DashboardHtmlProvider.ResolveLogoPath();
+            return logoPath is not null
+                ? Results.File(logoPath, "image/png")
+                : Results.NotFound();
+        });
+
+        app.MapGet("/favicon.ico", () =>
+        {
+            var faviconPath = DashboardHtmlProvider.ResolveFaviconPath();
+            return faviconPath is not null
+                ? Results.File(faviconPath, "image/x-icon")
+                : Results.NotFound();
+        });
 
         return app;
     }

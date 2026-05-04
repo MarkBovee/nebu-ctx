@@ -125,7 +125,7 @@ assert payload["token"] == expected, payload
 PY
 
 favicon_code="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${HOST_DASHBOARD_PORT}/favicon.ico")"
-[ "$favicon_code" = "204" ] || fail_msg "Expected /favicon.ico to return 204, got $favicon_code"
+[ "$favicon_code" = "200" ] || fail_msg "Expected /favicon.ico to return 200, got $favicon_code"
 
 printf '\n=== Validating MCP routes ===\n'
 unauthorized_code="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${HOST_MCP_PORT}/v1/tools")"
