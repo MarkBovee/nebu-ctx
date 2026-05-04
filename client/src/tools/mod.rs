@@ -391,7 +391,9 @@ impl LeanCtxServer {
             tokens_saved: saved as i64,
             duration_ms: duration_ms as i64,
             mode,
-            repository_fingerprint: project_context.as_ref().map(|c| c.fingerprint.clone()),
+            repository_fingerprint: project_context
+                .as_ref()
+                .and_then(|c| c.fingerprint.has_safe_identity().then(|| c.fingerprint.clone())),
             checkout_binding: project_context.as_ref().map(|c| c.checkout_binding.clone()),
             project_slug: project_context
                 .as_ref()

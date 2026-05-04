@@ -60,7 +60,10 @@ public static class McpEndpoints
                     request.RepositoryFingerprint,
                     request.ProjectSlug ?? "unknown",
                     cancellationToken: ct);
-                projectId = project?.ProjectId ?? string.Empty;
+                if (project is not null)
+                {
+                    projectId = project.ProjectId;
+                }
             }
 
             telemetryStore.IngestEvent(request, projectId);

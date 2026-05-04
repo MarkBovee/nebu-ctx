@@ -155,6 +155,39 @@ public class ProjectResolutionTests
     }
 
     /// <summary>
+    /// Unsafe fingerprints must not create canonical project records.
+    /// </summary>
+    [Fact]
+    public async Task UnsafeFingerprint_DoesNotResolveOrCreateProject()
+    {
+        var fingerprint = new RepositoryFingerprint();
+
+        var project = await _registry.ResolveOrCreateAsync(fingerprint, "project-markb");
+
+        Assert.Null(project);
+    }
+
+    /// <summary>
+    /// Safe repository fingerprints still create canonical project records.
+    /// </summary>
+    [Fact]
+    public async Task SafeFingerprint_StillCreatesProject()
+    {
+        var fingerprint = new RepositoryFingerprint
+        {
+            RemoteUrl = "https://github.com/MarkBovee/nebu-ctx.git",
+            Host = "github.com",
+            Owner = "MarkBovee",
+            RepoName = "nebu-ctx",
+        };
+
+        var project = await _registry.ResolveOrCreateAsync(fingerprint, "nebu-ctx");
+
+        Assert.NotNull(project);
+        Assert.Equal("nebu-ctx", project!.Slug);
+    }
+
+    /// <summary>
     /// In-memory project store used to keep the test independent from runtime database providers.
     /// </summary>
     private sealed class InMemoryProjectStore : IProjectStore

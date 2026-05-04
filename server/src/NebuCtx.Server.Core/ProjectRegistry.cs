@@ -34,6 +34,11 @@ public sealed class ProjectRegistry
     /// <returns>The resolved project record, or null if ambiguous.</returns>
     public async Task<ProjectRecord?> ResolveOrCreateAsync(RepositoryFingerprint fingerprint, string suggestedSlug, ProjectMetadataEnvelope? projectMetadata = null, CancellationToken cancellationToken = default)
     {
+        if (!HasSafeFingerprint(fingerprint))
+        {
+            return null;
+        }
+
         var existing = await _projectStore.FindByFingerprintAsync(fingerprint, cancellationToken);
         if (existing is not null)
         {
@@ -62,6 +67,17 @@ public sealed class ProjectRegistry
 
         await _projectStore.CreateProjectAsync(project, cancellationToken);
         return project;
+    }
+
+    /// <summary>
+    /// Returns true when the provided repository fingerprint is safe enough to use for canonical project identity.
+    /// </summary>
+    private static bool HasSafeFingerprint(RepositoryFingerprint fingerprint)
+    {
+        return !string.IsNullOrWhiteSpace(fingerprint.RemoteUrl)
+            || (!string.IsNullOrWhiteSpace(fingerprint.Host)
+                && !string.IsNullOrWhiteSpace(fingerprint.Owner)
+                && !string.IsNullOrWhiteSpace(fingerprint.RepoName));
     }
 
     /// <summary>

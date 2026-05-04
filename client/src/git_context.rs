@@ -162,4 +162,17 @@ mod tests {
             Some("nebu-ctx".to_string())
         );
     }
+
+    #[test]
+    fn empty_fingerprint_is_not_safe_repository_identity() {
+        let fingerprint = crate::models::RepositoryFingerprint {
+            remote_url: None,
+            host: None,
+            owner: None,
+            repo_name: None,
+            default_branch: None,
+        };
+
+        assert!(!fingerprint.has_safe_identity());
+    }
 }

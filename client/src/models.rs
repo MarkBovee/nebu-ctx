@@ -10,6 +10,26 @@ pub struct RepositoryFingerprint {
     pub default_branch: Option<String>,
 }
 
+impl RepositoryFingerprint {
+    pub fn has_safe_identity(&self) -> bool {
+        self.remote_url
+            .as_ref()
+            .is_some_and(|value| !value.trim().is_empty())
+            || (self
+                .host
+                .as_ref()
+                .is_some_and(|value| !value.trim().is_empty())
+                && self
+                    .owner
+                    .as_ref()
+                    .is_some_and(|value| !value.trim().is_empty())
+                && self
+                    .repo_name
+                    .as_ref()
+                    .is_some_and(|value| !value.trim().is_empty()))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CheckoutBinding {
     pub project_id: String,

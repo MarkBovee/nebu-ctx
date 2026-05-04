@@ -44,6 +44,12 @@ impl ServerClient {
         &self,
         project_context: &ProjectContext,
     ) -> Result<ProjectResolutionResponse> {
+        if !project_context.fingerprint.has_safe_identity() {
+            return Err(anyhow!(
+                "Project resolution requires a repository fingerprint with a remote URL or host/owner/repo."
+            ));
+        }
+
         self.post_json(
             "/v1/projects/resolve",
             &ProjectResolutionRequest {
@@ -61,6 +67,11 @@ impl ServerClient {
         arguments: Map<String, Value>,
         project_context: &ProjectContext,
     ) -> Result<Value> {
+        let repository_fingerprint = project_context
+            .fingerprint
+            .has_safe_identity()
+            .then(|| project_context.fingerprint.clone());
+
         let response: ToolCallResponse = self.post_json(
             "/v1/tools/call",
             &ToolCallRequest {
@@ -68,7 +79,7 @@ impl ServerClient {
                 arguments,
                 project_id: None,
                 project_slug: Some(project_context.project_slug.clone()),
-                repository_fingerprint: Some(project_context.fingerprint.clone()),
+                repository_fingerprint,
                 checkout_binding: Some(project_context.checkout_binding.clone()),
                 project_metadata: project_context.project_metadata.clone(),
             },
