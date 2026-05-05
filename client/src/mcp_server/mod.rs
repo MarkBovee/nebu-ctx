@@ -10,7 +10,7 @@ use rmcp::model::*;
 use rmcp::service::{RequestContext, RoleServer};
 use rmcp::ErrorData;
 
-use crate::tools::{CrpMode, LeanCtxServer};
+use crate::tools::{CrpMode, NebuCtxServer};
 
 /// Tools that ONLY exist on the configured server. No local fallback when offline.
 pub const SERVER_ONLY_TOOLS: &[&str] = &[
@@ -35,14 +35,14 @@ enum ServerRoutingResult {
     Error(String),
 }
 
-impl ServerHandler for LeanCtxServer {
+impl ServerHandler for NebuCtxServer {
     fn get_info(&self) -> ServerInfo {
         let capabilities = ServerCapabilities::builder().enable_tools().build();
 
         let instructions = crate::instructions::build_instructions(self.crp_mode);
 
         InitializeResult::new(capabilities)
-            .with_server_info(Implementation::new("lean-ctx", env!("CARGO_PKG_VERSION")))
+            .with_server_info(Implementation::new("nebu-ctx", env!("CARGO_PKG_VERSION")))
             .with_instructions(instructions)
     }
 
@@ -127,7 +127,7 @@ impl ServerHandler for LeanCtxServer {
         let capabilities = ServerCapabilities::builder().enable_tools().build();
 
         Ok(InitializeResult::new(capabilities)
-            .with_server_info(Implementation::new("lean-ctx", env!("CARGO_PKG_VERSION")))
+            .with_server_info(Implementation::new("nebu-ctx", env!("CARGO_PKG_VERSION")))
             .with_instructions(instructions))
     }
 
@@ -573,7 +573,7 @@ impl ServerHandler for LeanCtxServer {
 
         let tool_duration_ms = tool_start.elapsed().as_millis() as u64;
         if tool_duration_ms > 100 {
-            LeanCtxServer::append_tool_call_log(
+            NebuCtxServer::append_tool_call_log(
                 name,
                 tool_duration_ms,
                 0,

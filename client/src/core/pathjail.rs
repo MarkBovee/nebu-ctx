@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 const IDE_CONFIG_DIRS: &[&str] = &[
     ".nebu-ctx",
     ".lean-ctx",
+    ".copilot",
     ".cursor",
     ".claude",
     ".codex",
@@ -165,10 +166,37 @@ mod tests {
     #[test]
     fn ide_config_dirs_list_is_not_empty() {
         assert!(IDE_CONFIG_DIRS.len() >= 10);
+        assert!(IDE_CONFIG_DIRS.contains(&".copilot"));
         assert!(IDE_CONFIG_DIRS.contains(&".codex"));
         assert!(IDE_CONFIG_DIRS.contains(&".cursor"));
         assert!(IDE_CONFIG_DIRS.contains(&".claude"));
         assert!(IDE_CONFIG_DIRS.contains(&".gemini"));
+    }
+
+    #[test]
+    fn allows_copilot_session_state_under_home() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path().join("home");
+        let project = tmp.path().join("project");
+        let copilot_session = home
+            .join(".copilot")
+            .join("session-state")
+            .join("1234")
+            .join("plan.md");
+
+        std::fs::create_dir_all(project.join(".git")).unwrap();
+        std::fs::create_dir_all(copilot_session.parent().unwrap()).unwrap();
+        std::fs::write(&copilot_session, "plan").unwrap();
+
+        let _lock = crate::core::data_dir::test_env_lock();
+        std::env::set_var("HOME", &home);
+        std::env::set_var("USERPROFILE", &home);
+
+        let result = jail_path(&copilot_session, &project);
+        assert!(
+            result.is_ok(),
+            "copilot session-state under home should be allowed: {result:?}"
+        );
     }
 
     #[test]

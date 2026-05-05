@@ -22,7 +22,7 @@ cargo install --path client --bin nebu-ctx --force
 
 ## What it does
 
-- Started from the practical `lean-ctx` client surface and was reshaped into the current `nebu-ctx` runtime client.
+- Started from an earlier practical client surface and was reshaped into the current `nebu-ctx` runtime client.
 - Connects to a running `nebu-ctx` host over HTTP with `nebu-ctx connect`.
 - Supports local runtime tools plus server-backed tools such as `ctx_brain` against shared PostgreSQL-backed server state.
 

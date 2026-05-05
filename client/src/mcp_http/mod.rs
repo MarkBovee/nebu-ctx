@@ -19,7 +19,7 @@ use serde_json::Value;
 use tokio::time::{Duration, Instant};
 
 use crate::engine::ContextEngine;
-use crate::tools::LeanCtxServer;
+use crate::tools::NebuCtxServer;
 
 #[derive(Clone, Debug)]
 pub struct HttpServerConfig {
@@ -303,7 +303,7 @@ pub async fn serve(cfg: HttpServerConfig) -> Result<()> {
         .context("invalid host/port")?;
 
     let project_root = cfg.project_root.to_string_lossy().to_string();
-    let base = LeanCtxServer::new_with_project_root(Some(project_root));
+    let base = NebuCtxServer::new_with_project_root(Some(project_root));
     let engine = Arc::new(ContextEngine::from_server(base.clone()));
 
     let service_factory = move || Ok(base.clone());
@@ -349,7 +349,7 @@ pub async fn serve(cfg: HttpServerConfig) -> Result<()> {
         .with_context(|| format!("bind {addr}"))?;
 
     tracing::info!(
-        "lean-ctx Streamable HTTP server listening on http://{addr} (project_root={})",
+        "nebu-ctx Streamable HTTP server listening on http://{addr} (project_root={})",
         cfg.project_root.display()
     );
 
@@ -375,7 +375,7 @@ mod tests {
     async fn auth_token_blocks_requests_without_bearer_header() {
         let dir = tempfile::tempdir().expect("tempdir");
         let base =
-            LeanCtxServer::new_with_project_root(Some(dir.path().to_string_lossy().to_string()));
+            NebuCtxServer::new_with_project_root(Some(dir.path().to_string_lossy().to_string()));
         let service_factory = move || Ok(base.clone());
         let cfg = StreamableHttpServerConfig::default()
             .with_stateful_mode(false)
@@ -394,7 +394,7 @@ mod tests {
             concurrency: Arc::new(tokio::sync::Semaphore::new(4)),
             rate: Arc::new(RateLimiter::new(50, 100)),
             engine: Arc::new(ContextEngine::from_server(
-                LeanCtxServer::new_with_project_root(Some(
+                NebuCtxServer::new_with_project_root(Some(
                     dir.path().to_string_lossy().to_string(),
                 )),
             )),

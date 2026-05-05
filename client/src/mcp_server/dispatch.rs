@@ -3,9 +3,9 @@ use serde_json::Value;
 
 use super::execute::execute_command_in;
 use super::helpers::*;
-use crate::tools::LeanCtxServer;
+use crate::tools::NebuCtxServer;
 
-impl LeanCtxServer {
+impl NebuCtxServer {
     pub(super) async fn dispatch_tool(
         &self,
         name: &str,
@@ -39,7 +39,7 @@ impl LeanCtxServer {
                     mode = format!("lines:{sl}-999999");
                 }
                 let stale = self.is_prompt_cache_stale().await;
-                let effective_mode = LeanCtxServer::upgrade_mode_if_stale(&mode, stale).to_string();
+                let effective_mode = NebuCtxServer::upgrade_mode_if_stale(&mode, stale).to_string();
                 let read_start = std::time::Instant::now();
                 let mut cache = self.cache.write().await;
                 let (output, resolved_mode) = if fresh {

@@ -1,9 +1,9 @@
 [package]
 name = "nebu-ctx"
-version = "0.7.9"
+version = "0.7.10"
 edition = "2021"
 autobins = false
-description = "Lean-ctx runtime adapted for the NebuCtx self-hosted client/server product."
+description = "NebuCtx runtime for the nebu-ctx self-hosted client/server product."
 license = "Apache-2.0"
 homepage = "https://nebu-ctx.com"
 repository = "https://github.com/MarkBovee/nebu-ctx"
@@ -18,7 +18,7 @@ name = "nebu-ctx"
 path = "src/main.rs"
 
 [lib]
-name = "lean_ctx"
+name = "nebu_ctx"
 path = "src/lib.rs"
 
 [package.metadata.binstall]

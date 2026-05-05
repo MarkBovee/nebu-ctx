@@ -8,6 +8,8 @@ public static class DashboardHtmlProvider
     private const string DashboardHtmlFileName = "dashboard.html";
     private const string DashboardLogoFileName = "logo.png";
     private const string DashboardFaviconFileName = "favicon.ico";
+    private const string LogoPlaceholder = "{{LOGO_DATA_URL}}";
+    private const string FaviconPlaceholder = "{{FAVICON_DATA_URL}}";
 
     /// <summary>
     /// Loads the dashboard HTML payload from the application base directory.
@@ -19,7 +21,7 @@ public static class DashboardHtmlProvider
         {
             if (File.Exists(htmlPath))
             {
-                return File.ReadAllText(htmlPath);
+                return InjectEmbeddedAssets(File.ReadAllText(htmlPath));
             }
         }
 
@@ -37,6 +39,21 @@ public static class DashboardHtmlProvider
 </body>
 </html>
 """;
+    }
+
+    /// <summary>
+    /// Injects embedded dashboard asset data URLs into the shipped HTML shell.
+    /// </summary>
+    /// <param name="html">Dashboard HTML template content.</param>
+    /// <returns>HTML with inline data URLs for logo and favicon when available.</returns>
+    private static string InjectEmbeddedAssets(string html)
+    {
+        var logoDataUrl = BuildDataUrl(DashboardLogoFileName, "image/png");
+        var faviconDataUrl = BuildDataUrl(DashboardFaviconFileName, "image/x-icon");
+
+        return html
+            .Replace(LogoPlaceholder, logoDataUrl ?? "/logo.png", StringComparison.Ordinal)
+            .Replace(FaviconPlaceholder, faviconDataUrl ?? "/favicon.ico", StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -67,6 +84,23 @@ public static class DashboardHtmlProvider
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Builds a data URL for a shipped dashboard asset.
+    /// </summary>
+    /// <param name="assetFileName">Asset file name to read.</param>
+    /// <param name="contentType">MIME type for the asset.</param>
+    /// <returns>Base64 data URL when the asset exists; otherwise <see langword="null" />.</returns>
+    private static string? BuildDataUrl(string assetFileName, string contentType)
+    {
+        var assetPath = ResolveAssetPath(assetFileName);
+        if (assetPath is null)
+        {
+            return null;
+        }
+
+        return $"data:{contentType};base64,{Convert.ToBase64String(File.ReadAllBytes(assetPath))}";
     }
 
     /// <summary>

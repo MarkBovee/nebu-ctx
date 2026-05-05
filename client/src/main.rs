@@ -13,5 +13,5 @@ fn main() {
         }
     }));
 
-    lean_ctx::cli::run();
+    nebu_ctx::cli::run();
 }

@@ -99,7 +99,7 @@ pub fn handle_redirect() {
 
 fn codex_reroute_message(rewritten: &str) -> String {
     format!(
-        "Command should run via lean-ctx for compact output. Do not retry the original command. Re-run with: {rewritten}"
+        "Command should run via nebu-ctx for compact output. Do not retry the original command. Re-run with: {rewritten}"
     )
 }
 
@@ -125,7 +125,7 @@ pub fn handle_codex_pretooluse() {
 
 pub fn handle_codex_session_start() {
     println!(
-        "For shell commands matched by lean-ctx compression rules, prefer `lean-ctx -c \"<command>\"`. If a Bash call is blocked, rerun it with the exact command suggested by the hook."
+        "For shell commands matched by nebu-ctx compression rules, prefer `nebu-ctx -c \"<command>\"`. If a Bash call is blocked, rerun it with the exact command suggested by the hook."
     );
 }
 
@@ -593,11 +593,11 @@ mod tests {
     }
 
     #[test]
-    fn codex_reroute_message_includes_exact_rewritten_command() {
-        let message = codex_reroute_message("lean-ctx -c 'git status'");
+    fn codex_reroute_message_uses_nebu_ctx_binary_name() {
+        let message = codex_reroute_message("nebu-ctx -c 'git status'");
         assert_eq!(
             message,
-            "Command should run via lean-ctx for compact output. Do not retry the original command. Re-run with: lean-ctx -c 'git status'"
+            "Command should run via nebu-ctx for compact output. Do not retry the original command. Re-run with: nebu-ctx -c 'git status'"
         );
     }
 

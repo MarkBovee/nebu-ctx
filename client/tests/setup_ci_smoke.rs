@@ -1,8 +1,8 @@
 use std::process::Command;
 
-use lean_ctx::core::setup_report::SetupReport;
-use lean_ctx::status::StatusReport;
-use lean_ctx::token_report::TokenReport;
+use nebu_ctx::core::setup_report::SetupReport;
+use nebu_ctx::status::StatusReport;
+use nebu_ctx::token_report::TokenReport;
 
 #[test]
 fn setup_ci_smoke_windows_packaging_keeps_rust_lld_override() {

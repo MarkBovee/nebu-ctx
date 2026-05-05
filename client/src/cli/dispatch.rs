@@ -765,6 +765,7 @@ fn run_mcp_server() -> Result<()> {
     use tracing_subscriber::EnvFilter;
 
     std::env::set_var("NEBU_CTX_MCP_SERVER", "1");
+    ensure_mcp_host_connection_configured()?;
 
     let rt = tokio::runtime::Runtime::new()?;
     rt.block_on(async {
@@ -791,6 +792,20 @@ fn run_mcp_server() -> Result<()> {
 
         Ok(())
     })
+}
+
+fn ensure_mcp_host_connection_configured() -> Result<()> {
+    if crate::config::load_connection()?.is_some() {
+        return Ok(());
+    }
+
+    anyhow::bail!(
+        "nebu-ctx host connection is not configured yet.\n\
+Run: nebu-ctx status\n\
+Connect to a local host:   nebu-ctx connect --endpoint http://127.0.0.1:4242 --token <token>\n\
+Connect to a network host: nebu-ctx connect --endpoint http://192.168.1.50:4242 --token <token>\n\
+Port 4242 is the MCP/host port. After connecting, retry your editor or agent."
+    );
 }
 
 fn print_help() {

@@ -373,7 +373,7 @@ That add-on runs both host surfaces in one container:
 
 ## Project Origin
 
-The client side of `nebu-ctx` started from a fork and practical inspiration of `lean-ctx`, then was reshaped into a broader system that fits the rest of Mark's projects.
+The client side of `nebu-ctx` started from an earlier internal client foundation and was reshaped into a broader system that fits the rest of Mark's projects.
 
 The result is no longer just a token-compression client. It is a combined Rust client + .NET host + dashboard stack designed around persistent project context, observability, and agent-oriented workflows.
 

@@ -100,7 +100,7 @@ impl CrpMode {
 pub type SharedCache = Arc<RwLock<SessionCache>>;
 
 #[derive(Clone)]
-pub struct LeanCtxServer {
+pub struct NebuCtxServer {
     pub cache: SharedCache,
     pub session: Arc<RwLock<SessionState>>,
     pub tool_calls: Arc<RwLock<Vec<ToolCallRecord>>>,
@@ -130,13 +130,13 @@ pub struct ToolCallRecord {
     pub timestamp: String,
 }
 
-impl Default for LeanCtxServer {
+impl Default for NebuCtxServer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl LeanCtxServer {
+impl NebuCtxServer {
     pub fn new() -> Self {
         Self::new_with_project_root(None)
     }
@@ -680,8 +680,8 @@ struct StartupContext {
     shell_cwd: Option<String>,
 }
 
-pub fn create_server() -> LeanCtxServer {
-    LeanCtxServer::new()
+pub fn create_server() -> NebuCtxServer {
+    NebuCtxServer::new()
 }
 
 const PROJECT_ROOT_MARKERS: &[&str] = &[
@@ -837,7 +837,7 @@ mod resolve_path_tests {
         let real_root = create_git_root(&real);
         std::fs::write(real.join("a.txt"), "ok").unwrap();
 
-        let server = LeanCtxServer::new_with_startup(None, Some(real.clone()));
+        let server = NebuCtxServer::new_with_startup(None, Some(real.clone()));
         {
             let mut session = server.session.write().await;
             session.project_root = Some(stale.to_string_lossy().to_string());
@@ -867,7 +867,7 @@ mod resolve_path_tests {
         let _other_value = create_git_root(&other);
         std::fs::write(other.join("b.txt"), "no").unwrap();
 
-        let server = LeanCtxServer::new_with_startup(None, Some(root.clone()));
+        let server = NebuCtxServer::new_with_startup(None, Some(root.clone()));
         {
             let mut session = server.session.write().await;
             session.project_root = Some(stale.to_string_lossy().to_string());
@@ -913,7 +913,7 @@ mod resolve_path_tests {
             session_a.set_task("repo-a latest task", None);
             session_a.save().unwrap();
 
-            let server = LeanCtxServer::new_with_startup(None, Some(repo_b.clone()));
+            let server = NebuCtxServer::new_with_startup(None, Some(repo_b.clone()));
             std::env::remove_var("NEBU_CTX_DATA_DIR");
             (server, root_b)
         };
@@ -951,7 +951,7 @@ mod resolve_path_tests {
             let old_id = session_a.id.clone();
             session_a.save().unwrap();
 
-            let server = LeanCtxServer::new_with_startup(None, Some(repo_b_src.clone()));
+            let server = NebuCtxServer::new_with_startup(None, Some(repo_b_src.clone()));
             std::env::remove_var("NEBU_CTX_DATA_DIR");
             (server, root_b, repo_b_src_value, old_id)
         };
@@ -975,7 +975,7 @@ mod resolve_path_tests {
         create_git_root(&other);
         std::fs::write(other.join("b.txt"), "no").unwrap();
 
-        let server = LeanCtxServer::new_with_project_root(Some(root.to_string_lossy().to_string()));
+        let server = NebuCtxServer::new_with_project_root(Some(root.to_string_lossy().to_string()));
 
         let err = server
             .resolve_path(&other.join("b.txt").to_string_lossy())
@@ -1008,7 +1008,7 @@ mod resolve_path_tests {
         symlink(real_repo.parent().unwrap(), &symlink_root).unwrap();
 
         let aliased_file = symlink_root.join("repo").join("a.txt");
-        let server = LeanCtxServer::new_with_startup(None, Some(home.clone()));
+        let server = NebuCtxServer::new_with_startup(None, Some(home.clone()));
         std::env::remove_var("NEBU_CTX_DATA_DIR");
 
         let out = server

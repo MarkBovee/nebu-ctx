@@ -1,10 +1,23 @@
-use std::process::Command;
+use std::process::{Command, Output};
 
 fn nebula_ctx_bin() -> Command {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_nebu-ctx"));
     cmd.current_dir(env!("CARGO_MANIFEST_DIR"));
     cmd.env("LEAN_CTX_ACTIVE", "1");
     cmd
+}
+
+fn fresh_install_stdio_start_output() -> Output {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let home = temp.path().join("home");
+    std::fs::create_dir_all(&home).expect("home dir");
+
+    nebula_ctx_bin()
+        .env("HOME", &home)
+        .env("USERPROFILE", &home)
+        .env_remove("NEBU_CTX_HOME")
+        .output()
+        .expect("run nebu-ctx stdio startup")
 }
 
 #[test]
@@ -149,6 +162,55 @@ fn help_prefers_connect_over_cloud_wording() {
         !stdout.contains("CLOUD SERVER"),
         "help should not use cloud server heading: {stdout}"
     );
+}
+
+#[test]
+fn mcp_stdio_start_without_saved_connection_prints_connect_instructions() {
+    let output = fresh_install_stdio_start_output();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        !output.status.success(),
+        "fresh install stdio startup should exit non-zero"
+    );
+    assert!(
+        stderr.contains("nebu-ctx status"),
+        "stderr should point to status, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("http://127.0.0.1:4242"),
+        "stderr should include localhost example, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("http://192.168.1.50:4242"),
+        "stderr should include LAN example, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("serde error EOF"),
+        "stderr should not leak codec noise, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("initialize request"),
+        "stderr should not leak MCP initialize noise, got: {stderr}"
+    );
+}
+
+#[test]
+fn mcp_stdio_start_message_mentions_token_and_host_port() {
+    let output = fresh_install_stdio_start_output();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        !output.status.success(),
+        "fresh install stdio startup should exit non-zero"
+    );
+    assert!(
+        stderr.contains("--token <token>"),
+        "missing token hint: {stderr}"
+    );
+    assert!(stderr.contains("Port 4242"), "missing port note: {stderr}");
 }
 
 // ── Pipe Guard Tests ────────────────────────────────────────

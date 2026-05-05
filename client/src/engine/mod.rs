@@ -13,38 +13,38 @@ use rmcp::{
 };
 use serde_json::{Map, Value};
 
-use crate::tools::LeanCtxServer;
+use crate::tools::NebuCtxServer;
 
 pub struct ContextEngine {
-    server: LeanCtxServer,
+    server: NebuCtxServer,
     next_id: AtomicI64,
 }
 
 impl ContextEngine {
     pub fn new() -> Self {
         Self {
-            server: LeanCtxServer::new(),
+            server: NebuCtxServer::new(),
             next_id: AtomicI64::new(1),
         }
     }
 
     pub fn with_project_root(project_root: impl Into<PathBuf>) -> Self {
         Self {
-            server: LeanCtxServer::new_with_project_root(Some(
+            server: NebuCtxServer::new_with_project_root(Some(
                 project_root.into().to_string_lossy().to_string(),
             )),
             next_id: AtomicI64::new(1),
         }
     }
 
-    pub fn from_server(server: LeanCtxServer) -> Self {
+    pub fn from_server(server: NebuCtxServer) -> Self {
         Self {
             server,
             next_id: AtomicI64::new(1),
         }
     }
 
-    pub fn server(&self) -> &LeanCtxServer {
+    pub fn server(&self) -> &NebuCtxServer {
         &self.server
     }
 
