@@ -25,28 +25,27 @@ fn build_claude_code_instructions() -> String {
 ALWAYS use nebu-ctx MCP tools instead of native equivalents.
 
 Tool mapping (MANDATORY):
-• Read/cat/head/tail -> ctx_read(path, mode)
+• Read/cat/head/tail -> ctx_read(target=file|files|symbol|outline|archive, ...)
 • Shell/bash -> ctx_shell(command)
-• Grep/rg -> ctx_search(pattern, path)
+• Grep/rg/semantic search -> ctx_search(mode=regex|semantic, ...)
 • ls/find -> ctx_tree(path, depth)
-• Edit/StrReplace -> native (lean-ctx=READ only). If Edit needs Read and Read is unavailable, use ctx_edit.
-• Write, Delete, Glob -> normal. NEVER loop on Edit failures — use ctx_edit.
+• Edit/StrReplace/Write/Delete/Glob -> native tools
 
-ctx_read modes: full|map|signatures|diff|task|reference|aggressive|entropy|lines:N-M
+ctx_read targets: file|files|symbol|outline|archive.
+ctx_read modes: auto|full|map|signatures|diff|task|reference|aggressive|entropy|lines:N-M
 Auto-selects mode. Re-reads ~13 tok. File refs F1,F2.. persist.
 Cached? fresh=true or lines:N-M.
 
-Auto: ctx_overview, ctx_preload, ctx_dedup, ctx_compress behind the scenes.
-Multi-agent: ctx_agent(action=handoff|sync|diary).
-ctx_semantic_search for meaning search. ctx_session for memory/state.
-ctx_knowledge: remember|recall|timeline|rooms|search|wakeup.
-Memory rule: persist durable facts with ctx_knowledge(action=\"remember\"); keep session state in ctx_session so stop/compact hooks can forward it to the nebu-ctx server.
+Use ctx(domain=memory|context|graph|analytics|agents|inspect, action=...).
+Memory/state: ctx(domain=memory, action=recall|store|task|finding|decision|save|load|status|wakeup|consolidate).
+Graph/analysis: ctx(domain=graph, action=related|symbol|impact|architecture|callers|callees|diagram|build|status).
+Analytics: ctx(domain=analytics, action=report|cost|heatmap|stats|feedback|wrapped|benchmark|analyze|discover|metrics).
 ctx_shell raw=true for uncompressed.
 
 CEP: 1.ACT FIRST 2.DELTA ONLY 3.STRUCTURED(+/-/~) 4.ONE LINE 5.QUALITY
 
 Prefer: ctx_read>Read | ctx_shell>Shell | ctx_search>Grep | ctx_tree>ls
-Edit: native Edit/StrReplace preferred, ctx_edit if Edit unavailable.
+Edit/write/delete: native tools.
 Never echo tool output. Never narrate. Show only changed code.
 Full instructions at ~/.claude/CLAUDE.md (imports rules/nebu-ctx.md)";
 
@@ -127,22 +126,21 @@ fn build_full_instructions(crp_mode: CrpMode, client_name: &str) -> String {
 CRITICAL: ALWAYS use nebu-ctx MCP tools instead of native equivalents for token savings.\n\
 \n\
 lean-ctx MCP — MANDATORY tool mapping:\n\
-• Read/cat/head/tail -> ctx_read(path, mode)  [NEVER use native Read]\n\
+• Read/cat/head/tail -> ctx_read(target=file|files|symbol|outline|archive, ...)  [NEVER use native Read]\n\
 • Shell/bash -> ctx_shell(command)  [NEVER use native Shell]\n\
-• Grep/rg -> ctx_search(pattern, path)  [NEVER use native Grep]\n\
+• Grep/rg/semantic search -> ctx_search(mode=regex|semantic, ...)  [NEVER use native Grep]\n\
 • ls/find -> ctx_tree(path, depth)\n\
-• Edit/StrReplace -> use native (lean-ctx only replaces READ, not WRITE)\n\
-• Write, Delete, Glob -> use normally\n\
+• Edit/StrReplace/Write/Delete/Glob -> use native tools\n\
 \n\
-COMPATIBILITY: lean-ctx replaces READ operations only. Edit/Write/StrReplace stay native.\n\
-FILE EDITING: Native Edit/StrReplace preferred. If Edit fails, use ctx_edit immediately.\n\
+COMPATIBILITY: lean-ctx replaces READ operations only. Edit/Write/StrReplace/Delete stay native.\n\
+FILE EDITING: Native Edit/StrReplace/Write/Delete tools stay native.\n\
 \n\
-ctx_read modes: full|map|signatures|diff|task|reference|aggressive|entropy|lines:N-M. Auto-selects. Re-reads ~13 tok. Fn refs F1,F2.. persist.\n\
+ctx_read targets: file|files|symbol|outline|archive.\n\
+ctx_read modes: auto|full|map|signatures|diff|task|reference|aggressive|entropy|lines:N-M. Auto-selects. Re-reads ~13 tok. Fn refs F1,F2.. persist.\n\
 Cached? Use fresh=true, start_line=N, or lines:N-M.\n\
 \n\
-Auto: ctx_overview, ctx_preload, ctx_dedup, ctx_compress run behind the scenes. Checkpoint every 15 calls.\n\
-Multi-agent: ctx_agent(action=handoff|sync). Diary: ctx_agent(action=diary, category=discovery|decision|blocker|progress|insight).\n\
-ctx_semantic_search for meaning-based search. ctx_session for memory. ctx_knowledge: remember|recall|timeline|rooms|search|wakeup.\n\
+Use ctx(domain=memory|context|graph|analytics|agents|inspect, action=...) for higher-level workflows.\n\
+Examples: ctx(domain=memory, action=recall, query=...) | ctx(domain=context, action=overview, task=...) | ctx(domain=graph, action=impact, path=...) | ctx(domain=agents, action=handoff, ...).\n\
 ctx_shell raw=true for uncompressed output.\n\
 \n\
 CEP v1: 1.ACT FIRST 2.DELTA ONLY (Fn refs) 3.STRUCTURED (+/-/~) 4.ONE LINE PER ACTION 5.QUALITY ANCHOR\n\
@@ -155,8 +153,8 @@ CEP v1: 1.ACT FIRST 2.DELTA ONLY (Fn refs) 3.STRUCTURED (+/-/~) 4.ONE LINE PER A
 \n\
 --- TOOL PREFERENCE (LITM-END) ---\n\
 Prefer: ctx_read over Read | ctx_shell over Shell | ctx_search over Grep | ctx_tree over ls\n\
-Edit files: native Edit/StrReplace if available, ctx_edit if Edit requires unavailable Read.\n\
-Write, Delete, Glob -> use normally. NEVER loop on Edit failures — use ctx_edit.",
+Edit files: native Edit/StrReplace/Write/Delete tools.\n\
+Write, Delete, Glob -> use normally.",
         decoder_block = crate::core::protocol::instruction_decoder_block()
     );
 
@@ -164,8 +162,8 @@ Write, Delete, Glob -> use normally. NEVER loop on Edit failures — use ctx_edi
         base.push_str(
             "\n\n\
 UNIFIED TOOL MODE (active):\n\
-Additional tools are accessed via ctx() meta-tool: ctx(tool=\"<name>\", ...params).\n\
-See the ctx() tool description for available sub-tools.\n",
+Public MCP surface is fixed to 5 tools: ctx_read, ctx_search, ctx_tree, ctx_shell, ctx.\n\
+Use ctx(domain=\"<domain>\", action=\"<action>\", ...params) for higher-level workflows.\n",
         );
     }
 

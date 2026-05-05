@@ -1,54 +1,52 @@
-# lean-ctx — Token Optimization for Pi
+# nebu-ctx — Public MCP Guidance for Pi
 
-lean-ctx is installed as a Pi Package with first-class MCP support. All bash, read, grep, find, and ls calls are automatically routed through lean-ctx for 60-90% token savings. Additionally, 46 MCP tools are available for advanced operations.
+nebu-ctx is installed as a Pi Package with first-class MCP support. User-facing guidance should recommend only the public 5-tool MCP surface: `ctx_read`, `ctx_search`, `ctx_tree`, `ctx_shell`, and `ctx`.
 
-## How it works
+## Public MCP Surface
 
-- **bash** commands are compressed via lean-ctx's 90+ shell patterns
-- **read** uses 10 read modes (auto/full/map/signatures/diff/task/reference/aggressive/entropy/lines) based on file type + task
-- **grep** results are grouped and compressed
-- **find** and **ls** output is compressed and .gitignore-aware
+- `ctx_read(target="file"|"files"|"symbol"|"outline"|"archive", ...)`
+- `ctx_search(mode="regex"|"semantic", ...)`
+- `ctx_tree(path, depth)`
+- `ctx_shell(command)`
+- `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")`
 
-## MCP tools available
+## Guidance Rules
 
-In addition to the built-in tool overrides, lean-ctx provides these MCP tools:
+- Prefer the 5 public tools above in all visible instructions and examples.
+- Do not recommend direct private `ctx_*` tool names unless you are explicitly documenting internal implementation details.
+- Use native edit/write/delete tools for mutations; nebu-ctx's public surface is read/search/tree/shell/ctx.
 
-- **ctx_session** — Session state management
-- **ctx_knowledge** — Project knowledge graph (cross-session memory)
-- **ctx_semantic_search** — Find code by meaning
-- **ctx_overview** — Codebase overview
-- **ctx_compress** — Manual compression control
-- **ctx_metrics** — Token and workflow telemetry for server-side reporting
-- **ctx_cost** — Cost telemetry for server-side analytics
-- **ctx_heatmap** — File-access telemetry for server-side heatmaps
-- **ctx_agent** — Multi-agent coordination
-- **ctx_workflow** — State machine + evidence + tool gating
-- **ctx_graph** — Dependency analysis
-- **ctx_discover** — Code discovery
-- **ctx_context** — Context management
-- **ctx_preload** — Predictive preloading
-- **ctx_delta** — Changed-lines-only reads
-- **ctx_edit** — Read-modify-write in one call
+## Public Examples
+
+```text
+ctx_read(target="file", path="src/main.rs")
+ctx_read(target="symbol", name="main", file="src/main.rs")
+ctx_search(mode="regex", pattern="pub fn", path="src/")
+ctx_search(mode="semantic", query="session state persistence", path="src/")
+ctx_tree(".", 2)
+ctx_shell("git status")
+ctx(domain="memory", action="recall", query="session state decisions")
+```
 
 ## Memory policy
 
-- Use `ctx_session` for task state, findings, and decisions that should survive across chats.
-- Use `ctx_knowledge(action="remember")` for durable project facts.
+- Use `ctx(domain="memory", action="save"|"recall")` for task state, findings, and decisions that should survive across chats.
+- Use `ctx(domain="memory", action="store")` for durable project facts.
 - The stop/compact hooks already persist session state into the nebu-ctx server; rely on that instead of chat history for reusable memory.
 
 ## No manual prefixing needed
 
-The Pi extension handles routing automatically. Just use tools normally:
+The Pi extension handles routing automatically. Use the public nebu-ctx surface directly in guidance and examples:
 
-```bash
-git status          # automatically compressed
-cargo test          # automatically compressed
-kubectl get pods    # automatically compressed
+```text
+ctx_shell("git status")
+ctx_shell("cargo test")
+ctx_shell("kubectl get pods")
 ```
 
 ## Checking status
 
-Use `/lean-ctx` in Pi to verify which binary is active and see MCP bridge status.
+Use `/nebu-ctx` in Pi to verify which binary is active and see MCP bridge status.
 
 ## Dashboard
 

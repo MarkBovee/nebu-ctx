@@ -75,13 +75,16 @@ These rules mirror `coding.instructions.md` so agents that only ingest `AGENTS.m
 ## Tool Routing Architecture
 
 ```
-CLOUD_ONLY_TOOLS  = ["ctx_brain", "ctx_routes", "ctx_gain", "ctx_cost", "ctx_heatmap", "ctx_stats"]
-CLOUD_PREFERRED   = ["ctx_knowledge", "ctx_session"]
+Public MCP surface = ["ctx_read", "ctx_search", "ctx_tree", "ctx_shell", "ctx"]
+
+SERVER_ONLY_TOOLS      = ["ctx_brain", "ctx_routes", "ctx_gain", "ctx_cost", "ctx_heatmap", "ctx_stats"]
+SERVER_PREFERRED_TOOLS = ["ctx_knowledge", "ctx_session"]
 ```
 
-- `CLOUD_ONLY_TOOLS`: error if server unreachable — no local fallback.
-- `CLOUD_PREFERRED`: routes to cloud when configured; falls back to local JSON only when no cloud server is set up. If cloud is configured but unreachable → hard fail (no silent fallback).
-- All other tools: dispatched locally via `dispatch.rs`.
+- Public clients only see the 5-tool MCP contract.
+- The Rust client translates `ctx(domain, action)` into internal local or server-backed handlers.
+- `SERVER_ONLY_TOOLS`: error if server unreachable — no local fallback.
+- `SERVER_PREFERRED_TOOLS`: route to the host when configured; fall back locally only when no host is configured at all.
 
 ## Hook System (Claude Code / Copilot CLI)
 
@@ -106,7 +109,7 @@ CLOUD_PREFERRED   = ["ctx_knowledge", "ctx_session"]
 
 1. Create `server/src/NebuCtx.Tools/<ToolName>/<ToolName>ToolHandler.cs` implementing `IToolHandler`.
 2. Register in `server/src/NebuCtx.Tools/ToolRegistration.cs` via `AddToolHandlers()`.
-3. If cloud-only: add to `CLOUD_ONLY_TOOLS` in `client/src/mcp_server/mod.rs`.
+3. If server-only: add to `SERVER_ONLY_TOOLS` in `client/src/mcp_server/mod.rs`.
 4. Remove any local dispatch stub in `client/src/mcp_server/dispatch.rs`.
 5. Write integration tests in `server/tests/NebuCtx.IntegrationTests/` using direct handler instantiation (not `WebApplicationFactory`) where possible.
 
@@ -190,25 +193,25 @@ ADDON_DOCKERFILE=Dockerfile bash tests/local-addon-test.sh
 At the start of every session, retrieve project state before investigating:
 
 ```
-ctx_brain(action="recall", query="session state decisions")
-ctx_brain(action="recall", query="build commands version")
-ctx_knowledge(action="wakeup")
+ctx(domain="memory", action="recall", query="session state decisions")
+ctx(domain="memory", action="recall", query="build commands version")
+ctx(domain="memory", action="wakeup")
 ```
 
 Read [docs/DEVELOPER-KNOWLEDGE.md](docs/DEVELOPER-KNOWLEDGE.md) for non-trivial tasks.
 
-**Pull from brain before touching:**
-- Any unfamiliar file → `ctx_brain(action="recall", query="<topic>")`
-- Adding a new IToolHandler → `ctx_brain(action="recall", query="itoolhandler pattern")`
-- Version bump → `ctx_brain(action="recall", query="version sync rule")`
-- Hook system → `ctx_brain(action="recall", query="hook system")`
-- CLI routing → `ctx_brain(action="recall", query="mcp routing architecture")`
+**Pull from memory before touching:**
+- Any unfamiliar file → `ctx(domain="memory", action="recall", query="<topic>")`
+- Adding a new IToolHandler → `ctx(domain="memory", action="recall", query="itoolhandler pattern")`
+- Version bump → `ctx(domain="memory", action="recall", query="version sync rule")`
+- Hook system → `ctx(domain="memory", action="recall", query="hook system")`
+- CLI routing → `ctx(domain="memory", action="recall", query="mcp routing architecture")`
 
 **At session end:**
 ```
-ctx_session(action="save")
-ctx_knowledge(action="consolidate")
-ctx_brain(action="store", key="session-YYYY-MM-DD", value="<summary>")
+ctx(domain="memory", action="save")
+ctx(domain="memory", action="consolidate")
+ctx(domain="memory", action="store", key="session-YYYY-MM-DD", value="<summary>")
 ```
 
 ## Practical Guidance
@@ -216,7 +219,7 @@ ctx_brain(action="store", key="session-YYYY-MM-DD", value="<summary>")
 - Before writing a new tool handler, check if a similar one exists under `server/src/NebuCtx.Tools/`.
 - Before adding CLI dispatch arms, check `main.rs` and `cli/cloud.rs` for existing patterns.
 - Preserve LF line endings in shell scripts (`.gitattributes` handles this; container builds normalize defensively).
-- If a task touches Postgres-backed behavior, validate `ctx_brain` over HTTP before claiming the server path is healthy.
+- If a task touches Postgres-backed behavior, validate `ctx(domain="memory", action="recall", ...)` over HTTP before claiming the server path is healthy.
 - `dotnet test` requires no live Postgres — `NebuCtxTestFactory` handles all isolation.
 
 <!-- nebu-ctx -->
@@ -226,10 +229,11 @@ CRITICAL: ALWAYS use nebu-ctx MCP tools instead of native equivalents. This is N
 
 | ALWAYS USE | NEVER USE | Why |
 |------------|-----------|-----|
-| `ctx_read(path, mode)` | `Read` / `cat` | Cached, 10 read modes, re-reads ~13 tokens |
+| `ctx_read(target=file|files|symbol|outline|archive, ...)` | `Read` / `cat` | Cached, 10 read modes, re-reads ~13 tokens |
 | `ctx_shell(command)` | `Shell` / `bash` | Pattern compression for git/npm/cargo output |
-| `ctx_search(pattern, path)` | `Grep` / `rg` | Compact, token-efficient results |
+| `ctx_search(mode=regex|semantic, ...)` | `Grep` / `rg` | Compact, token-efficient results |
 | `ctx_tree(path, depth)` | `ls` / `find` | Compact directory maps |
+| `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")` | private `ctx_*` tool names | Stable public gateway for advanced operations |
 
 Full rules: @LEAN-CTX.md
 <!-- /nebu-ctx -->

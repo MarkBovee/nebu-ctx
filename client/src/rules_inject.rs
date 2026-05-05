@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 const MARKER: &str = "# nebu-ctx — Context Engineering Layer";
 const LEGACY_MARKER: &str = "# lean-ctx — Context Engineering Layer";
 const END_MARKER: &str = "<!-- /lean-ctx -->";
-const RULES_VERSION: &str = "nebu-ctx-rules-v10";
+const RULES_VERSION: &str = "nebu-ctx-rules-v11";
 const LEGACY_RULES_VERSION: &str = "lean-ctx-rules-v9";
 
 pub const RULES_MARKER: &str = MARKER;
@@ -21,25 +21,25 @@ pub fn rules_dedicated_markdown() -> &'static str {
 // Used for: CLAUDE.md, instructions.md, GEMINI.md, copilot-instructions.md
 // ---------------------------------------------------------------------------
 const RULES_SHARED: &str = r#"# nebu-ctx — Context Engineering Layer
-<!-- nebu-ctx-rules-v10 -->
+<!-- nebu-ctx-rules-v11 -->
 
-CRITICAL: ALWAYS use nebu-ctx MCP tools instead of native equivalents. This is NOT optional.
+CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalents. This is NOT optional.
 
 | ALWAYS USE | NEVER USE | Why |
 |------------|-----------|-----|
-| `ctx_read(path, mode)` | `Read` / `cat` / `head` / `tail` | Cached, 10 read modes, re-reads ~13 tokens |
+| `ctx_read(target="file"|"files"|"symbol"|"outline"|"archive", ...)` | `Read` / `cat` / `head` / `tail` | Public cached read API for files, symbols, outlines, and archives |
 | `ctx_shell(command)` | `Shell` / `bash` / terminal | Pattern compression for git/npm/cargo output |
-| `ctx_search(pattern, path)` | `Grep` / `rg` | Compact, token-efficient results |
+| `ctx_search(mode="regex"|"semantic", ...)` | `Grep` / `rg` | Compact regex and semantic search results |
 | `ctx_tree(path, depth)` | `ls` / `find` | Compact directory maps |
+| `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")` | private `ctx_*` implementation details | Stable public gateway for advanced operations |
 
-Compatibility: ctx_read replaces READ operations only. Your native Edit/Write/StrReplace tools remain unchanged — keep using them for editing. If your rules say "use Edit or Write tools only", that is compatible: lean-ctx only replaces how you READ files, not how you EDIT them.
+Public `ctx_read` targets: `file`, `files`, `symbol`, `outline`, `archive`.
+Public `ctx_search` modes: `regex`, `semantic`.
+Public `ctx` domains: `memory`, `context`, `graph`, `analytics`, `agents`, `inspect`.
 
-If Edit requires native Read and Read is unavailable, use `ctx_edit(path, old_string, new_string)` instead.
-Write, Delete, Glob → use normally. NEVER loop on Edit failures — switch to ctx_edit immediately.
+File mutation stays on native Edit/Write/Delete tools.
 
-Memory policy: persist durable project facts with `ctx_knowledge(action="remember")`, restore or record session state with `ctx_session`, and let the stop/compact hooks consolidate context into the nebu-ctx server automatically.
-
-Preferred workflow control: use `ctx_workflow` to track states + enforce tool gates + evidence.
+Use private tool names only when documenting nebu-ctx internals. User-facing guidance should recommend only the 5 public tools.
 
 Fallback only if a nebu-ctx tool is unavailable: use native equivalents.
 <!-- /lean-ctx -->"#;
@@ -50,41 +50,32 @@ Fallback only if a nebu-ctx tool is unavailable: use native equivalents.
 // Used for: Windsurf, Zed, Cline, Roo Code, OpenCode, Continue, Aider
 // ---------------------------------------------------------------------------
 const RULES_DEDICATED: &str = r#"# nebu-ctx — Context Engineering Layer
-<!-- nebu-ctx-rules-v10 -->
+<!-- nebu-ctx-rules-v11 -->
 
-CRITICAL: ALWAYS use nebu-ctx MCP tools instead of native equivalents. This is NOT optional.
+CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalents. This is NOT optional.
 
 ## Tool replacement:
 | ALWAYS USE | NEVER USE | Why |
 |------------|-----------|-----|
-| `ctx_read(path, mode)` | `Read` / `cat` / `head` / `tail` | Cached, 10 read modes, re-reads ~13 tokens |
+| `ctx_read(target="file"|"files"|"symbol"|"outline"|"archive", ...)` | `Read` / `cat` / `head` / `tail` | Public cached read API for files, symbols, outlines, and archives |
 | `ctx_shell(command)` | `Shell` / `bash` / terminal | Pattern compression for git/npm/cargo output |
-| `ctx_search(pattern, path)` | `Grep` / `rg` | Compact, token-efficient results |
+| `ctx_search(mode="regex"|"semantic", ...)` | `Grep` / `rg` | Compact regex and semantic search results |
 | `ctx_tree(path, depth)` | `ls` / `find` | Compact directory maps |
-| `ctx_edit(path, old_string, new_string)` | `Edit` (when Read unavailable) | Search-and-replace without native Read |
+| `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")` | private `ctx_*` implementation details | Stable public gateway for advanced operations |
 
-Compatibility: ctx_read replaces READ operations only. Your native Edit/Write/StrReplace tools remain unchanged — keep using them for editing.
+Public `ctx_read` targets: `file`, `files`, `symbol`, `outline`, `archive`.
+Public `ctx_search` modes: `regex`, `semantic`.
+Public `ctx` domains: `memory`, `context`, `graph`, `analytics`, `agents`, `inspect`.
 
-## ctx_read modes:
-- `auto` — auto-select optimal mode (recommended default)
-- `full` — cached read (files you edit)
-- `map` — deps + exports (context-only files)
-- `signatures` — API surface only
-- `diff` — changed lines after edits
-- `aggressive` — maximum compression (context only)
-- `entropy` — highlight high-entropy fragments
-- `task` — IB-filtered (task relevant)
-- `reference` — quote-friendly minimal excerpts
-- `lines:N-M` — specific range
+Use private tool names only when documenting nebu-ctx internals. User-facing guidance should recommend only the 5 public tools.
 
 ## File editing:
-Use native Edit/StrReplace if available. If Edit requires Read and Read is unavailable, use ctx_edit.
-Write, Delete, Glob → use normally. NEVER loop on Edit failures — switch to ctx_edit immediately.
+Use native Edit/StrReplace/Write/Delete tools for mutations.
 
 ## Proactive (use without being asked):
-- `ctx_overview(task)` at session start
-- `ctx_compress` when context grows large
-- `ctx_session` / `ctx_knowledge` when useful facts or session state should persist
+- `ctx(domain="context", action="overview", task="...")` at session start
+- `ctx(domain="context", action="compress")` when context grows large
+- `ctx(domain="memory", action="save"|"recall"|"store"|"consolidate")` when useful facts or session state should persist
 
 Fallback only if a nebu-ctx tool is unavailable: use native equivalents.
 <!-- /lean-ctx -->"#;
@@ -95,50 +86,41 @@ Fallback only if a nebu-ctx tool is unavailable: use native equivalents.
 // LITM-optimized: critical warning at top and bottom.
 // ---------------------------------------------------------------------------
 const RULES_CURSOR_MDC: &str = r#"---
-description: "nebu-ctx: ALWAYS use ctx_read/ctx_shell/ctx_search/ctx_tree instead of Read/Shell/Grep/ls — this is NOT optional"
+description: "nebu-ctx: ALWAYS use the public 5-tool MCP surface instead of native or private tool names"
 alwaysApply: true
 ---
 
 # nebu-ctx — Context Engineering Layer
-<!-- nebu-ctx-rules-v10 -->
+<!-- nebu-ctx-rules-v11 -->
 
-CRITICAL: ALWAYS use nebu-ctx MCP tools instead of native equivalents. This is NOT optional.
+CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalents. This is NOT optional.
 
 ## Tool Mapping
 
 | ALWAYS USE | NEVER USE | Why |
 |------------|-----------|-----|
-| `ctx_read` | `Read` | Session caching, 10 read modes, re-reads cost ~13 tokens |
+| `ctx_read(target="file"|"files"|"symbol"|"outline"|"archive", ...)` | `Read` | Public cached read API for files, symbols, outlines, and archives |
 | `ctx_shell` | `Shell` | Pattern-based compression for git, npm, cargo, docker, tsc |
-| `ctx_search` | `Grep` | Compact context, token-efficient results |
+| `ctx_search(mode="regex"|"semantic", ...)` | `Grep` | Compact regex and semantic search results |
 | `ctx_tree` | `ls`, `find` | Compact directory maps with file counts |
-| `ctx_edit` | `Edit` (when Read unavailable) | Search-and-replace without native Read dependency |
+| `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")` | private `ctx_*` implementation details | Stable public gateway for advanced operations |
+
+## Public Contract
+
+- `ctx_read` targets: `file`, `files`, `symbol`, `outline`, `archive`
+- `ctx_search` modes: `regex`, `semantic`
+- `ctx` domains: `memory`, `context`, `graph`, `analytics`, `agents`, `inspect`
 
 ## Memory
 
-- Use `ctx_session` to carry forward task state, findings, and decisions across chats.
-- Use `ctx_knowledge(action="remember")` for durable facts that should survive future sessions.
+- Use `ctx(domain="memory", action="save"|"recall")` to carry forward task state and working memory.
+- Use `ctx(domain="memory", action="store"|"recall"|"wakeup"|"consolidate")` for durable facts that should survive future sessions.
 - Stop/compact hooks already consolidate the current session into the nebu-ctx server; keep new facts there instead of relying on chat history.
-
-## ctx_read Modes
-
-- `auto` — auto-select optimal mode (recommended default)
-- `full` — cached read (use for files you will edit)
-- `map` — dependency graph + exports + key signatures (use for context-only files)
-- `signatures` — API surface only
-- `diff` — changed lines only (use after edits)
-- `aggressive` — maximum compression (context only)
-- `entropy` — highlight high-entropy fragments
-- `task` — IB-filtered (task relevant)
-- `reference` — quote-friendly minimal excerpts
-- `lines:N-M` — specific range
 
 ## File editing
 
-- Use native Edit/StrReplace when available.
-- If Edit requires native Read and Read is unavailable: use `ctx_edit(path, old_string, new_string)` instead.
-- NEVER loop trying to make Edit work. If it fails, switch to ctx_edit immediately.
-- Write, Delete, Glob → use normally.
+- Use native Edit/StrReplace/Write/Delete tools for mutations.
+- Use private tool names only when documenting nebu-ctx internals.
 - Fallback only if a nebu-ctx tool is unavailable: use native equivalents.
 <!-- /lean-ctx -->"#;
 
@@ -659,7 +641,7 @@ mod tests {
 
     #[test]
     fn cursor_mdc_has_markers_and_frontmatter() {
-        assert!(RULES_CURSOR_MDC.contains("lean-ctx"));
+        assert!(RULES_CURSOR_MDC.contains(MARKER));
         assert!(RULES_CURSOR_MDC.contains(END_MARKER));
         assert!(RULES_CURSOR_MDC.contains(RULES_VERSION));
         assert!(RULES_CURSOR_MDC.contains("alwaysApply: true"));
@@ -671,7 +653,7 @@ mod tests {
         assert!(RULES_SHARED.contains("ctx_shell"));
         assert!(RULES_SHARED.contains("ctx_search"));
         assert!(RULES_SHARED.contains("ctx_tree"));
-        assert!(RULES_SHARED.contains("Write"));
+        assert!(RULES_SHARED.contains("ctx(domain=\"memory\""));
     }
 
     #[test]
@@ -690,16 +672,12 @@ mod tests {
     }
 
     #[test]
-    fn dedicated_rules_contain_modes() {
-        assert!(RULES_DEDICATED.contains("auto"));
-        assert!(RULES_DEDICATED.contains("full"));
-        assert!(RULES_DEDICATED.contains("map"));
-        assert!(RULES_DEDICATED.contains("signatures"));
-        assert!(RULES_DEDICATED.contains("diff"));
-        assert!(RULES_DEDICATED.contains("aggressive"));
-        assert!(RULES_DEDICATED.contains("entropy"));
-        assert!(RULES_DEDICATED.contains("task"));
-        assert!(RULES_DEDICATED.contains("reference"));
+    fn dedicated_rules_contain_public_contract() {
+        assert!(RULES_DEDICATED.contains("target=\"file\""));
+        assert!(RULES_DEDICATED.contains("target=\"symbol\""));
+        assert!(RULES_DEDICATED.contains("mode=\"regex\""));
+        assert!(RULES_DEDICATED.contains("mode=\"semantic\""));
+        assert!(RULES_DEDICATED.contains("ctx(domain=\"memory\""));
         assert!(RULES_DEDICATED.contains("ctx_read"));
     }
 
@@ -713,7 +691,7 @@ mod tests {
         );
         let last_5 = lines[lines.len().saturating_sub(5)..].join("\n");
         assert!(
-            last_5.contains("fallback") || last_5.contains("ctx_compress"),
+            last_5.contains("fallback") || last_5.contains("ctx(domain=\"context\", action=\"compress\")"),
             "LITM: practical note must be near end"
         );
     }

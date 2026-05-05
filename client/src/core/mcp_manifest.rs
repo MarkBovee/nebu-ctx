@@ -63,19 +63,10 @@ pub fn default_manifest_path() -> PathBuf {
 }
 
 pub fn manifest_value() -> Value {
-    let mut granular_tools: Vec<Tool> = crate::tool_defs::granular_tool_defs();
-    granular_tools.sort_by(|a, b| a.name.as_ref().cmp(b.name.as_ref()));
+    let mut public_tools: Vec<Tool> = crate::tool_defs::unified_tool_defs();
+    public_tools.sort_by(|a, b| a.name.as_ref().cmp(b.name.as_ref()));
 
-    let mut unified_tools: Vec<Tool> = crate::tool_defs::unified_tool_defs();
-    unified_tools.sort_by(|a, b| a.name.as_ref().cmp(b.name.as_ref()));
-
-    let granular: Vec<Value> = granular_tools
-        .into_iter()
-        .filter_map(|t| serde_json::to_value(t).ok())
-        .map(normalize_tool_entry)
-        .collect();
-
-    let unified: Vec<Value> = unified_tools
+    let tools: Vec<Value> = public_tools
         .into_iter()
         .filter_map(|t| serde_json::to_value(t).ok())
         .map(normalize_tool_entry)
@@ -83,18 +74,12 @@ pub fn manifest_value() -> Value {
 
     json!({
         "schema_version": 1,
-        "counts": {
-            "granular": granular.len(),
-            "unified": unified.len()
-        },
+        "tool_count": tools.len(),
         "read_modes": {
             "count": READ_MODES.len(),
             "modes": READ_MODES
         },
-        "tools": {
-            "granular": granular,
-            "unified": unified
-        }
+        "tools": tools
     })
 }
 

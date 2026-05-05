@@ -6,42 +6,32 @@ CRITICAL: ALWAYS use nebu-ctx MCP tools instead of native equivalents. This is N
 
 | ALWAYS USE | NEVER USE | Why |
 |------------|-----------|-----|
-| `ctx_read(path, mode)` | `Read` / `cat` / `head` / `tail` | Cached, 10 read modes, re-reads ~13 tokens |
+| `ctx_read(target=file|files|symbol|outline|archive, ...)` | `Read` / `cat` / `head` / `tail` | Public cached read API for files, symbols, outlines, and archives |
 | `ctx_shell(command)` | `Shell` / `bash` / terminal | Pattern compression for git/npm/cargo output |
-| `ctx_search(pattern, path)` | `Grep` / `rg` | Compact, token-efficient results |
+| `ctx_search(mode=regex|semantic, ...)` | `Grep` / `rg` | Compact regex and semantic search results |
 | `ctx_tree(path, depth)` | `ls` / `find` | Compact directory maps |
-| `ctx_edit(path, old_string, new_string)` | `Edit` (when Read unavailable) | Search-and-replace without native Read |
+| `ctx(domain=memory|context|graph|analytics|agents|inspect, action="...")` | private `ctx_*` implementation details | Stable public gateway for advanced operations |
 
-Compatibility: ctx_read replaces READ operations only. Your native Edit/Write/StrReplace tools remain unchanged — keep using them for editing.
+Public `ctx_read` targets: `file`, `files`, `symbol`, `outline`, `archive`.
+Public `ctx_search` modes: `regex`, `semantic`.
+Public `ctx` domains: `memory`, `context`, `graph`, `analytics`, `agents`, `inspect`.
 
-## ctx_read modes:
-
-- `auto` — auto-select optimal mode (recommended default)
-- `full` — cached read (files you edit)
-- `map` — deps + exports (context-only files)
-- `signatures` — API surface only
-- `diff` — changed lines after edits
-- `aggressive` — maximum compression (context only)
-- `entropy` — highlight high-entropy fragments
-- `task` — IB-filtered (task relevant)
-- `reference` — quote-friendly minimal excerpts
-- `lines:N-M` — specific range
+Use private tool names only when documenting nebu-ctx internals. User-facing guidance should recommend only the 5 public tools.
 
 ## File editing:
 
-Use native Edit/StrReplace if available. If Edit requires Read and Read is unavailable, use ctx_edit.
-Write, Delete, Glob → use normally. NEVER loop on Edit failures — switch to ctx_edit immediately.
+Use native Edit/StrReplace/Write/Delete tools for mutations.
 
 ## Proactive (use without being asked):
 
-- `ctx_overview(task)` at session start
-- `ctx_compress` when context grows large
-- `ctx_session` / `ctx_knowledge` when useful facts or session state should persist
+- `ctx(domain="context", action="overview", task="...")` at session start
+- `ctx(domain="context", action="compress")` when context grows large
+- `ctx(domain="memory", action="save"|"recall"|"store"|"consolidate")` when useful facts or session state should persist
 
 ## Memory policy:
 
-- Use `ctx_session` for task state, findings, and decisions that should survive across chats.
-- Use `ctx_knowledge(action="remember")` for durable project facts.
+- Use `ctx(domain="memory", action="save"|"load"|"task"|"finding"|"decision")` for task state and working memory.
+- Use `ctx(domain="memory", action="store"|"recall"|"wakeup"|"consolidate")` for durable project facts.
 - Let the stop/compact hooks consolidate session context into the nebu-ctx server instead of relying on chat history.
 
 Fallback only if a nebu-ctx tool is unavailable: use native equivalents.

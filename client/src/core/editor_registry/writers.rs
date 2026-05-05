@@ -53,42 +53,6 @@ pub fn auto_approve_tools() -> Vec<&'static str> {
         "ctx_shell",
         "ctx_search",
         "ctx_tree",
-        "ctx_overview",
-        "ctx_preload",
-        "ctx_compress",
-        "ctx_metrics",
-        "ctx_session",
-        "ctx_knowledge",
-        "ctx_agent",
-        "ctx_share",
-        "ctx_analyze",
-        "ctx_benchmark",
-        "ctx_cache",
-        "ctx_discover",
-        "ctx_smart_read",
-        "ctx_delta",
-        "ctx_edit",
-        "ctx_dedup",
-        "ctx_fill",
-        "ctx_intent",
-        "ctx_response",
-        "ctx_context",
-        "ctx_graph",
-        "ctx_wrapped",
-        "ctx_multi_read",
-        "ctx_semantic_search",
-        "ctx_symbol",
-        "ctx_outline",
-        "ctx_callers",
-        "ctx_callees",
-        "ctx_routes",
-        "ctx_graph_diagram",
-        "ctx_cost",
-        "ctx_heatmap",
-        "ctx_task",
-        "ctx_impact",
-        "ctx_architecture",
-        "ctx_workflow",
         "ctx",
     ]
 }
@@ -1076,14 +1040,10 @@ mod tests {
             json["mcpServers"]["nebu-ctx"]["command"],
             "/new/path/nebu-ctx"
         );
-        assert!(json["mcpServers"]["nebu-ctx"]["autoApprove"].is_array());
-        assert!(
-            json["mcpServers"]["nebu-ctx"]["autoApprove"]
-                .as_array()
-                .unwrap()
-                .len()
-                > 5
-        );
+        let approved = json["mcpServers"]["nebu-ctx"]["autoApprove"]
+            .as_array()
+            .expect("autoApprove should be an array");
+        assert_eq!(approved.len(), 5);
     }
 
     #[test]
@@ -1141,8 +1101,9 @@ args = ["x"]
         assert!(tools.contains(&"ctx_read"));
         assert!(tools.contains(&"ctx_shell"));
         assert!(tools.contains(&"ctx_search"));
-        assert!(tools.contains(&"ctx_workflow"));
-        assert!(tools.contains(&"ctx_cost"));
+        assert!(tools.contains(&"ctx_tree"));
+        assert!(tools.contains(&"ctx"));
+        assert_eq!(tools.len(), 5);
     }
 
     #[test]

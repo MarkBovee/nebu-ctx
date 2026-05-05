@@ -893,16 +893,55 @@ pub fn unified_tool_defs() -> Vec<Tool> {
     vec![
         tool_def(
             "ctx_read",
-            "Read file (cached, compressed). Modes: full|map|signatures|diff|aggressive|entropy|task|reference|lines:N-M. fresh=true re-reads.",
+            "Read code and archived output. target=file|files|symbol|outline|archive. mode=auto|full|map|signatures|diff|aggressive|entropy|task|reference|lines:N-M.",
             json!({
                 "type": "object",
                 "properties": {
+                    "target": {
+                        "type": "string",
+                        "description": "file|files|symbol|outline|archive"
+                    },
                     "path": { "type": "string", "description": "File path" },
+                    "paths": { "type": "array", "items": { "type": "string" }, "description": "Multiple file paths when target=files" },
+                    "name": { "type": "string", "description": "Symbol name when target=symbol" },
+                    "kind": { "type": "string", "description": "Symbol kind or outline filter" },
                     "mode": { "type": "string" },
+                    "id": { "type": "string", "description": "Archive id when target=archive" },
+                    "action": { "type": "string", "description": "Archive retrieval action when target=archive" },
                     "start_line": { "type": "integer" },
                     "fresh": { "type": "boolean" }
                 },
-                "required": ["path"]
+                "required": []
+            }),
+        ),
+        tool_def(
+            "ctx_search",
+            "Search code by regex or semantics. mode=regex|semantic.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "mode": { "type": "string", "description": "regex|semantic" },
+                    "pattern": { "type": "string", "description": "Regex pattern when mode=regex" },
+                    "query": { "type": "string", "description": "Natural language query when mode=semantic" },
+                    "path": { "type": "string" },
+                    "ext": { "type": "string" },
+                    "top_k": { "type": "integer" },
+                    "path_glob": { "type": "string" },
+                    "ignore_gitignore": { "type": "boolean" }
+                },
+                "required": []
+            }),
+        ),
+        tool_def(
+            "ctx_tree",
+            "Directory listing with file counts.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string" },
+                    "depth": { "type": "integer" },
+                    "show_hidden": { "type": "boolean" }
+                }
             }),
         ),
         tool_def(
@@ -919,55 +958,21 @@ pub fn unified_tool_defs() -> Vec<Tool> {
             }),
         ),
         tool_def(
-            "ctx_search",
-            "Regex code search (.gitignore aware).",
-            json!({
-                "type": "object",
-                "properties": {
-                    "pattern": { "type": "string", "description": "Regex pattern" },
-                    "path": { "type": "string" },
-                    "ext": { "type": "string" },
-                    "max_results": { "type": "integer" },
-                    "ignore_gitignore": { "type": "boolean" }
-                },
-                "required": ["pattern"]
-            }),
-        ),
-        tool_def(
-            "ctx_tree",
-            "Directory listing with file counts.",
-            json!({
-                "type": "object",
-                "properties": {
-                    "path": { "type": "string" },
-                    "depth": { "type": "integer" },
-                    "show_hidden": { "type": "boolean" }
-                }
-            }),
-        ),
-        tool_def(
             "ctx",
-            "Meta-tool: set tool= to sub-tool name. Sub-tools: compress (checkpoint), metrics (stats), \
-analyze (entropy), cache (status|clear|invalidate), discover (missed patterns), smart_read (auto-mode), \
-delta (incremental diff), dedup (cross-file), fill (budget-aware batch read), intent (auto-read by task), \
-response (compress LLM text), context (session state), graph (build|related|symbol|impact|status), \
-session (load|save|task|finding|decision|status|reset|list|cleanup), \
-knowledge (remember|recall|pattern|consolidate|timeline|rooms|search|wakeup|status|remove|export|embeddings_status|embeddings_reset|embeddings_reindex), \
-agent (register|post|read|status|list|info|diary|recall_diary|diaries), overview (project map), \
-wrapped (savings report), benchmark (file|project), multi_read (batch), semantic_search (BM25), \
-cost (attribution), heatmap (file access), impact (graph impact), architecture (graph structure), \
-task (A2A tasks), workflow (state machine), expand (retrieve archived output).",
+            "High-level meta-tool. domain=memory|context|graph|analytics|agents|inspect with action selecting the operation inside that domain.",
             json!({
                 "type": "object",
                 "properties": {
-                    "tool": {
+                    "domain": {
                         "type": "string",
-                        "description": "compress|metrics|analyze|cache|discover|smart_read|delta|dedup|fill|intent|response|context|graph|session|knowledge|agent|overview|wrapped|benchmark|multi_read|semantic_search|cost|heatmap|impact|architecture|task|workflow|expand"
+                        "description": "memory|context|graph|analytics|agents|inspect"
                     },
                     "action": { "type": "string" },
+                    "view": { "type": "string" },
                     "path": { "type": "string" },
                     "paths": { "type": "array", "items": { "type": "string" } },
                     "query": { "type": "string" },
+                    "pattern": { "type": "string" },
                     "value": { "type": "string" },
                     "category": { "type": "string" },
                     "key": { "type": "string" },
@@ -999,7 +1004,7 @@ task (A2A tasks), workflow (state machine), expand (retrieve archived output).",
                     "depth": { "type": "integer" },
                     "show_hidden": { "type": "boolean" }
                 },
-                "required": ["tool"]
+                "required": ["domain", "action"]
             }),
         ),
     ]

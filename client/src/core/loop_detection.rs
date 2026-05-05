@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use super::config::LoopDetectionConfig;
 
-const SEARCH_TOOLS: &[&str] = &["ctx_search", "ctx_semantic_search"];
+const SEARCH_TOOLS: &[&str] = &["ctx_search"];
 
 const SEARCH_SHELL_PREFIXES: &[&str] = &["grep ", "rg ", "find ", "fd ", "ag ", "ack "];
 
@@ -477,9 +477,9 @@ mod tests {
     #[test]
     fn is_search_tool_detection() {
         assert!(LoopDetector::is_search_tool("ctx_search"));
-        assert!(LoopDetector::is_search_tool("ctx_semantic_search"));
         assert!(!LoopDetector::is_search_tool("ctx_read"));
         assert!(!LoopDetector::is_search_tool("ctx_shell"));
+        assert!(!LoopDetector::is_search_tool("ctx_semantic_search"));
     }
 
     #[test]

@@ -1146,7 +1146,7 @@ impl NebuCtxServer {
             "ctx_symbol" => {
                 let sym_name = get_str(args, "name")
                     .ok_or_else(|| ErrorData::invalid_params("name is required", None))?;
-                let file = get_str(args, "file");
+                let file = get_str(args, "file").or_else(|| get_str(args, "path"));
                 let kind = get_str(args, "kind");
                 let session = self.session.read().await;
                 let project_root = session

@@ -93,91 +93,35 @@ Production storage model:
 
 ## Tool Routing
 
-The current routing split is explicit in the client.
+The client now exposes exactly 5 public MCP tools.
 
-| Routing class | Tools | Behavior |
-|:---|:---|:---|
-| Server-only | `ctx_brain`, `ctx_routes`, `ctx_gain`, `ctx_cost`, `ctx_heatmap`, `ctx_stats` | Hard fail if the host is unreachable |
-| Server-preferred | `ctx_knowledge`, `ctx_session` | Use the host when configured; local fallback only when no host is configured |
-| Local | all other tools | Executed directly in the Rust client |
+| Public tool | Purpose |
+|:---|:---|
+| `ctx_read` | Read files, multiple files, symbols, outlines, and archived output |
+| `ctx_search` | Regex and semantic code search |
+| `ctx_tree` | Directory structure and file counts |
+| `ctx_shell` | Shell execution with compressed output |
+| `ctx` | Higher-level memory, context, graph, analytics, agent, and inspect workflows |
 
-The server currently registers 8 host-side tool handlers:
-
-- `Brain`
-- `Cost`
-- `Gain`
-- `Heatmap`
-- `Knowledge`
-- `Routes`
-- `Session`
-- `Stats`
+Internally, the Rust client still routes these public calls to local handlers or server-backed tool handlers as needed. That internal routing is deliberately hidden from the MCP contract so agents only learn one small surface.
 
 ## Current MCP Tool Surface
 
-The current granular client manifest exposes 48 `ctx_*` tools.
+The public MCP contract is intentionally small and fixed.
 
-### Core local context tools
+### `ctx_read`
 
-- `ctx_read`
-- `ctx_multi_read`
-- `ctx_shell`
-- `ctx_search`
-- `ctx_tree`
-- `ctx_edit`
-- `ctx_compress`
-- `ctx_cache`
-- `ctx_metrics`
-- `ctx_analyze`
+Use `ctx_read` for:
 
-### Project analysis and context shaping
+- single-file reads
+- multi-file reads
+- symbol reads
+- outline reads
+- archived output retrieval
 
-- `ctx_smart_read`
-- `ctx_delta`
-- `ctx_dedup`
-- `ctx_fill`
-- `ctx_intent`
-- `ctx_response`
-- `ctx_context`
-- `ctx_graph`
-- `ctx_overview`
-- `ctx_preload`
-- `ctx_prefetch`
-- `ctx_semantic_search`
-- `ctx_impact`
-- `ctx_architecture`
-- `ctx_symbol`
-- `ctx_outline`
-- `ctx_callers`
-- `ctx_callees`
-- `ctx_graph_diagram`
-- `ctx_expand`
-- `ctx_execute`
-- `ctx_benchmark`
+Representative `ctx_read` modes:
 
-### Memory, workflow, and agent coordination
-
-- `ctx_session`
-- `ctx_knowledge`
-- `ctx_brain`
-- `ctx_agent`
-- `ctx_share`
-- `ctx_task`
-- `ctx_handoff`
-- `ctx_workflow`
-- `ctx_feedback`
-- `ctx_wrapped`
-- `ctx_compress_memory`
-
-### Server analytics and host-backed surfaces
-
-- `ctx_gain`
-- `ctx_cost`
-- `ctx_heatmap`
-- `ctx_stats`
-- `ctx_routes`
-
-Representative read and context modes that exist today:
-
+- `auto`
 - `full`
 - `map`
 - `signatures`
@@ -187,6 +131,65 @@ Representative read and context modes that exist today:
 - `aggressive`
 - `entropy`
 - `lines:N-M`
+
+Representative targets:
+
+- `file`
+- `files`
+- `symbol`
+- `outline`
+- `archive`
+
+### `ctx_search`
+
+Use `ctx_search` for:
+
+- regex code search
+- semantic code search
+
+Modes:
+
+- `regex`
+- `semantic`
+
+### `ctx_tree`
+
+Use `ctx_tree` for:
+
+- directory listings
+- shallow project orientation
+- compact file-count views
+
+### `ctx_shell`
+
+Use `ctx_shell` for:
+
+- command execution
+- compressed CLI output
+- raw output when needed via `raw=true`
+
+### `ctx`
+
+Use `ctx` for high-level workflows via `domain` + `action`.
+
+Domains:
+
+- `memory`
+- `context`
+- `graph`
+- `analytics`
+- `agents`
+- `inspect`
+
+Examples:
+
+```json
+{ "name": "ctx", "arguments": { "domain": "memory", "action": "recall", "query": "session state decisions" } }
+```
+
+```json
+{ "name": "ctx", "arguments": { "domain": "graph", "action": "impact", "path": "client/src/mcp_server/mod.rs" } }
+```
 
 ## Hook System
 

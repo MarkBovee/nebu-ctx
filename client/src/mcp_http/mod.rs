@@ -250,7 +250,6 @@ async fn v1_tools(State(state): State<AppState>, Query(q): Query<ToolsQuery>) ->
     let v = state.engine.manifest();
     let tools = v
         .get("tools")
-        .and_then(|t| t.get("granular"))
         .cloned()
         .unwrap_or(Value::Array(vec![]));
 

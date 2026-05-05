@@ -2,9 +2,6 @@ mod dispatch;
 mod execute;
 pub mod helpers;
 
-use std::collections::BTreeMap;
-use std::sync::Arc;
-
 use rmcp::handler::server::ServerHandler;
 use rmcp::model::*;
 use rmcp::service::{RequestContext, RoleServer};
@@ -21,6 +18,8 @@ pub const SERVER_ONLY_TOOLS: &[&str] = &[
     "ctx_heatmap",
     "ctx_stats",
 ];
+
+const PUBLIC_TOOL_NAMES: &[&str] = &["ctx_read", "ctx_search", "ctx_tree", "ctx_shell", "ctx"];
 
 /// Tools that prefer server routing but fall back to local file storage when not configured.
 const SERVER_PREFERRED_TOOLS: &[&str] = &["ctx_knowledge", "ctx_session"];
@@ -136,15 +135,7 @@ impl ServerHandler for NebuCtxServer {
         _request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
-        let all_tools = if crate::tool_defs::is_lazy_mode() {
-            crate::tool_defs::lazy_tool_defs()
-        } else if std::env::var("NEBU_CTX_UNIFIED").is_ok()
-            && std::env::var("NEBU_CTX_FULL_TOOLS").is_err()
-        {
-            crate::tool_defs::unified_tool_defs()
-        } else {
-            crate::tool_defs::granular_tool_defs()
-        };
+        let all_tools = crate::tool_defs::unified_tool_defs();
 
         let disabled = crate::core::config::Config::load().disabled_tools_effective();
         let tools = if disabled.is_empty() {
@@ -178,8 +169,6 @@ impl ServerHandler for NebuCtxServer {
             tools
         };
 
-        let tools = merge_remote_tool_defs(tools).await;
-
         Ok(ListToolsResult {
             tools,
             ..Default::default()
@@ -194,26 +183,168 @@ impl ServerHandler for NebuCtxServer {
         self.check_idle_expiry().await;
 
         let original_name = request.name.as_ref().to_string();
-        let (resolved_name, resolved_args) = if original_name == "ctx" {
-            let sub = request
-                .arguments
-                .as_ref()
-                .and_then(|a| a.get("tool"))
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string())
-                .ok_or_else(|| {
-                    ErrorData::invalid_params("'tool' is required for ctx meta-tool", None)
-                })?;
-            let tool_name = if sub.starts_with("ctx_") {
-                sub
-            } else {
-                format!("ctx_{sub}")
-            };
-            let mut args = request.arguments.unwrap_or_default();
-            args.remove("tool");
-            (tool_name, Some(args))
-        } else {
-            (original_name, request.arguments)
+        if !PUBLIC_TOOL_NAMES.contains(&original_name.as_str()) {
+            return Err(ErrorData::invalid_params(
+                "Public MCP surface only supports: ctx_read, ctx_search, ctx_tree, ctx_shell, ctx",
+                None,
+            ));
+        }
+        let (resolved_name, resolved_args) = match original_name.as_str() {
+            "ctx" => {
+                let arguments = request.arguments.unwrap_or_default();
+                if arguments.get("tool").is_some() {
+                    return Err(ErrorData::invalid_params(
+                        "ctx now requires 'domain' + 'action'; 'tool' is no longer supported",
+                        None,
+                    ));
+                }
+                let domain = arguments
+                    .get("domain")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| ErrorData::invalid_params("'domain' is required for ctx meta-tool", None))?;
+                let action = arguments
+                    .get("action")
+                    .and_then(|v| v.as_str())
+                    .filter(|v| !v.trim().is_empty())
+                    .ok_or_else(|| ErrorData::invalid_params("'action' is required for ctx meta-tool", None))?;
+                let mut args = arguments.clone();
+                args.remove("domain");
+                let resolved = match domain {
+                    "memory" => match action {
+                        "task" | "finding" | "decision" | "save" | "load" | "status" | "reset" | "list" | "cleanup" => "ctx_session",
+                        "recall" | "pattern" | "consolidate" | "gotcha" | "timeline" | "rooms" | "search" | "wakeup" | "remove" | "export" | "embeddings_status" | "embeddings_reset" | "embeddings_reindex" => "ctx_knowledge",
+                        "store" => {
+                            args.insert("action".to_string(), serde_json::Value::String("remember".to_string()));
+                            "ctx_knowledge"
+                        }
+                        _ => return Err(ErrorData::invalid_params("Unknown memory action", None)),
+                    },
+                    "context" => match action {
+                        "overview" => "ctx_overview",
+                        "preload" => "ctx_preload",
+                        "prefetch" => "ctx_prefetch",
+                        "status" => "ctx_context",
+                        "compress" => "ctx_compress",
+                        "fill" => "ctx_fill",
+                        "intent" => "ctx_intent",
+                        "response" => "ctx_response",
+                        _ => return Err(ErrorData::invalid_params("Unknown context action", None)),
+                    },
+                    "graph" => match action {
+                        "build" | "related" | "symbol" | "status" => "ctx_graph",
+                        "impact" => {
+                            args.insert("action".to_string(), serde_json::Value::String("analyze".to_string()));
+                            "ctx_impact"
+                        }
+                        "chain" => "ctx_impact",
+                        "architecture" => {
+                            args.insert("action".to_string(), serde_json::Value::String("overview".to_string()));
+                            "ctx_architecture"
+                        }
+                        "callers" => "ctx_callers",
+                        "callees" => "ctx_callees",
+                        "diagram" => "ctx_graph_diagram",
+                        _ => return Err(ErrorData::invalid_params("Unknown graph action", None)),
+                    },
+                    "analytics" => match action {
+                        "report" => {
+                            args.insert("action".to_string(), serde_json::Value::String("report".to_string()));
+                            "ctx_gain"
+                        }
+                        "cost" => {
+                            args.insert("action".to_string(), serde_json::Value::String("report".to_string()));
+                            "ctx_cost"
+                        }
+                        "heatmap" => {
+                            args.insert("action".to_string(), serde_json::Value::String("status".to_string()));
+                            "ctx_heatmap"
+                        }
+                        "stats" => {
+                            args.insert("action".to_string(), serde_json::Value::String("report".to_string()));
+                            "ctx_stats"
+                        }
+                        "feedback" => {
+                            args.insert("action".to_string(), serde_json::Value::String("report".to_string()));
+                            "ctx_feedback"
+                        }
+                        "wrapped" => "ctx_wrapped",
+                        "metrics" => "ctx_metrics",
+                        "benchmark" => "ctx_benchmark",
+                        "analyze" => "ctx_analyze",
+                        "discover" => "ctx_discover",
+                        _ => return Err(ErrorData::invalid_params("Unknown analytics action", None)),
+                    },
+                    "agents" => match action {
+                        "register" | "post" | "read" | "status" | "handoff" | "sync" | "diary" | "recall_diary" | "diaries" | "list" | "info" => "ctx_agent",
+                        "push" | "pull" | "clear" => "ctx_share",
+                        "create" | "update" | "get" | "cancel" | "message" => "ctx_task",
+                        "start" | "transition" | "complete" | "evidence_add" | "evidence_list" | "stop" => "ctx_workflow",
+                        _ => return Err(ErrorData::invalid_params("Unknown agents action", None)),
+                    },
+                    "inspect" => match action {
+                        "routes" => "ctx_routes",
+                        "cache_status" => {
+                            args.insert("action".to_string(), serde_json::Value::String("status".to_string()));
+                            "ctx_cache"
+                        }
+                        "cache_clear" => {
+                            args.insert("action".to_string(), serde_json::Value::String("clear".to_string()));
+                            "ctx_cache"
+                        }
+                        "cache_invalidate" => {
+                            args.insert("action".to_string(), serde_json::Value::String("invalidate".to_string()));
+                            "ctx_cache"
+                        }
+                        "execute" => "ctx_execute",
+                        "dedup" => "ctx_dedup",
+                        _ => return Err(ErrorData::invalid_params("Unknown inspect action", None)),
+                    },
+                    _ => {
+                        return Err(ErrorData::invalid_params(
+                            "Unknown ctx domain. Use one of: memory, context, graph, analytics, agents, inspect",
+                            None,
+                        ))
+                    }
+                };
+                (resolved.to_string(), Some(args))
+            }
+            "ctx_read" => {
+                let mut args = request.arguments.unwrap_or_default();
+                let target = args
+                    .get("target")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("file");
+                let resolved = match target {
+                    "file" => "ctx_read",
+                    "files" => "ctx_multi_read",
+                    "symbol" => {
+                        if let Some(path) = args.remove("path") {
+                            args.entry("file".to_string()).or_insert(path);
+                        }
+                        "ctx_symbol"
+                    }
+                    "outline" => "ctx_outline",
+                    "archive" => "ctx_expand",
+                    _ => return Err(ErrorData::invalid_params("Unknown ctx_read target", None)),
+                };
+                args.remove("target");
+                (resolved.to_string(), Some(args))
+            }
+            "ctx_search" => {
+                let mut args = request.arguments.unwrap_or_default();
+                let mode = args
+                    .get("mode")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("regex");
+                let resolved = match mode {
+                    "regex" => "ctx_search",
+                    "semantic" => "ctx_semantic_search",
+                    _ => return Err(ErrorData::invalid_params("Unknown ctx_search mode", None)),
+                };
+                args.remove("mode");
+                (resolved.to_string(), Some(args))
+            }
+            _ => (original_name, request.arguments),
         };
         let name = resolved_name.as_str();
         let args = &resolved_args;
@@ -638,46 +769,6 @@ async fn route_to_server(
 /// Only tool names listed in [`SERVER_ONLY_TOOLS`] are pulled from the remote manifest, so the
 /// local definitions always win for [`SERVER_PREFERRED_TOOLS`]. When the server is unreachable the
 /// local manifest is returned unchanged.
-async fn merge_remote_tool_defs(local_tools: Vec<Tool>) -> Vec<Tool> {
-    let Some(remote_tools) = load_server_only_tool_defs().await else {
-        return local_tools;
-    };
-
-    let mut merged = BTreeMap::new();
-    for tool in local_tools {
-        merged.insert(tool.name.to_string(), tool);
-    }
-    for tool in remote_tools {
-        merged.insert(tool.name.to_string(), tool);
-    }
-    merged.into_values().collect()
-}
-
-/// Fetches tool definitions for [`SERVER_ONLY_TOOLS`] from the configured server.
-async fn load_server_only_tool_defs() -> Option<Vec<Tool>> {
-    tokio::task::spawn_blocking(|| {
-        let client = crate::server_client::ServerClient::load().ok()?;
-        let remote = client.list_tools().ok()?;
-        Some(
-            remote
-                .tools
-                .into_iter()
-                .filter(|tool| SERVER_ONLY_TOOLS.contains(&tool.name.as_str()))
-                .map(|tool| {
-                    let input_schema = match tool.input_schema {
-                        serde_json::Value::Object(map) => map,
-                        _ => serde_json::Map::new(),
-                    };
-                    Tool::new(tool.name, tool.description, Arc::new(input_schema))
-                })
-                .collect::<Vec<_>>(),
-        )
-    })
-    .await
-    .ok()
-    .flatten()
-}
-
 pub fn build_instructions_for_test(crp_mode: CrpMode) -> String {
     crate::instructions::build_instructions(crp_mode)
 }
@@ -805,6 +896,119 @@ mod tests {
     fn test_unified_tool_count() {
         let tools = crate::tool_defs::unified_tool_defs();
         assert_eq!(tools.len(), 5, "Expected 5 unified tools");
+    }
+
+    #[test]
+    fn public_tool_count_is_exactly_five() {
+        let tools = crate::tool_defs::unified_tool_defs();
+        let names: Vec<&str> = tools.iter().map(|t| t.name.as_ref()).collect();
+        assert_eq!(
+            names,
+            vec!["ctx_read", "ctx_search", "ctx_tree", "ctx_shell", "ctx"],
+            "Expected the canonical 5-tool public MCP surface"
+        );
+    }
+
+    #[test]
+    fn public_manifest_contains_only_public_tools() {
+        let manifest = crate::core::mcp_manifest::manifest_value();
+        let tools = manifest
+            .get("tools")
+            .and_then(|t| t.as_array())
+            .expect("manifest tools should be an array");
+
+        assert_eq!(tools.len(), 5, "Manifest should expose exactly 5 public tools");
+    }
+
+    #[test]
+    fn ctx_requires_domain_and_action_in_public_mode() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let engine = crate::engine::ContextEngine::new();
+        let err = rt
+            .block_on(engine.call_tool_text(
+                "ctx",
+                Some(serde_json::json!({ "tool": "knowledge", "action": "recall" })),
+            ))
+            .expect_err("ctx(tool=...) should be rejected");
+
+        assert!(
+            err.to_string().contains("domain") || err.to_string().contains("tool"),
+            "ctx should reject tool= style calls in favor of domain/action: {err}"
+        );
+    }
+
+    #[test]
+    fn claude_code_instructions_do_not_reference_ctx_edit() {
+        let instructions = build_claude_code_instructions_for_test();
+        assert!(
+            !instructions.contains("ctx_edit"),
+            "Public runtime instructions must not recommend private ctx_edit"
+        );
+    }
+
+    #[test]
+    fn ctx_read_symbol_target_honors_path_scope() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let engine = crate::engine::ContextEngine::new();
+        let text = rt
+            .block_on(engine.call_tool_text(
+                "ctx_read",
+                Some(serde_json::json!({
+                    "target": "symbol",
+                    "name": "handle",
+                    "path": "client/src/tools/ctx_symbol.rs"
+                })),
+            ))
+            .expect("ctx_read(symbol) with path scope should succeed");
+
+        assert!(
+            !text.contains("matches for 'handle'"),
+            "path-scoped symbol reads should not degrade into ambiguous multi-match output: {text}"
+        );
+    }
+
+    #[test]
+    fn analytics_report_is_accepted_in_public_mode() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let engine = crate::engine::ContextEngine::new();
+        rt.block_on(engine.call_tool_text(
+            "ctx",
+            Some(serde_json::json!({ "domain": "analytics", "action": "report" })),
+        ))
+        .expect("ctx(domain=analytics, action=report) should be part of the public contract");
+    }
+
+    #[test]
+    fn memory_recall_does_not_require_server_connection() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let engine = crate::engine::ContextEngine::new();
+        let text = rt
+            .block_on(engine.call_tool_text(
+                "ctx",
+                Some(serde_json::json!({
+                    "domain": "memory",
+                    "action": "recall",
+                    "query": "session state decisions"
+                })),
+            ))
+            .expect("ctx(domain=memory, action=recall) should succeed");
+
+        assert!(
+            !text.contains("requires a server connection"),
+            "Public memory recall should not hard-require the hosted ctx_brain path: {text}"
+        );
     }
 
     #[test]

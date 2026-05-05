@@ -3,9 +3,11 @@ namespace NebuCtx.IntegrationTests;
 using System.IO;
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.Extensions.DependencyInjection;
 using NebuCtx.Server.Host.Dashboard;
 using NebuCtx.Contracts.Mcp;
 using NebuCtx.Contracts.Projects;
+using NebuCtx.Storage;
 
 /// <summary>
 /// Integration tests for the MCP HTTP endpoints.
@@ -15,13 +17,28 @@ using NebuCtx.Contracts.Projects;
 public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
 {
     private readonly HttpClient _client;
+    private readonly NebuCtxTestFactory _factory;
 
     /// <summary>
     /// Initializes the test with an in-memory test server.
     /// </summary>
     public McpEndpointTests(NebuCtxTestFactory factory)
     {
+        _factory = factory;
         _client = factory.CreateClient();
+    }
+
+    private async Task SeedLegacyProjectAsync(ProjectRecord project, params KnowledgeEntry[] facts)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var projectStore = scope.ServiceProvider.GetRequiredService<IProjectStore>();
+        var knowledgeStore = scope.ServiceProvider.GetRequiredService<IKnowledgeStore>();
+
+        await projectStore.CreateProjectAsync(project);
+        foreach (var fact in facts)
+        {
+            await knowledgeStore.UpsertFactAsync(fact);
+        }
     }
 
     /// <summary>
@@ -536,39 +553,40 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     [Fact]
     public async Task DashboardKnowledge_Repair_ClearsAmbiguousShortSlugProjects()
     {
-        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
-        {
-            SuggestedSlug = "mark",
-            Fingerprint = new RepositoryFingerprint(),
-            ProjectMetadata = new ProjectMetadataEnvelope
+        var projectId = $"proj_{Guid.NewGuid():N}";
+        await SeedLegacyProjectAsync(
+            new ProjectRecord
             {
-                SchemaVersion = 1,
-                Summary = new ProjectMetadataSummary
+                ProjectId = projectId,
+                Slug = "mark",
+                Fingerprint = new RepositoryFingerprint(),
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                ProjectMetadata = new ProjectMetadataEnvelope
                 {
-                    TotalFileCount = 2,
-                    SourceFileCount = 1,
-                    Markers = ["README.md"],
-                    Languages = [new ProjectLanguageStat { Language = "rust", FileCount = 1 }],
+                    SchemaVersion = 1,
+                    Summary = new ProjectMetadataSummary
+                    {
+                        TotalFileCount = 2,
+                        SourceFileCount = 1,
+                        Markers = ["README.md"],
+                        Languages = [new ProjectLanguageStat { Language = "rust", FileCount = 1 }],
+                    },
                 },
             },
-        });
-
-        var resolution = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
-        Assert.NotNull(resolution?.Project?.ProjectId);
-
-        var rememberResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
-        {
-            Name = "ctx_knowledge",
-            Arguments = new Dictionary<string, object?>
+            new KnowledgeEntry
             {
-                ["action"] = "remember",
-                ["category"] = "architecture:notes",
-                ["key"] = "ambiguous-mark",
-                ["value"] = "ambiguous short slug fact",
-                ["confidence"] = 0.9,
-            },
-        });
-        Assert.Equal(HttpStatusCode.OK, rememberResponse.StatusCode);
+                ProjectId = projectId,
+                Category = "architecture:notes",
+                Key = "ambiguous-mark",
+                Value = "ambiguous short slug fact",
+                Confidence = 0.9f,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            });
+
+        var beforeResponse = await _client.GetAsync("/api/knowledge");
+        var beforePayload = await beforeResponse.Content.ReadAsStringAsync();
+        Assert.Contains("ambiguous short slug fact", beforePayload, StringComparison.Ordinal);
 
         var repairResponse = await _client.PostAsync("/api/knowledge/repair", content: null);
         Assert.Equal(HttpStatusCode.OK, repairResponse.StatusCode);
@@ -585,25 +603,27 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     [Fact]
     public async Task DashboardKnowledge_Repair_DoesNotClearUnrelatedShortSlugProjects()
     {
-        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
-        {
-            SuggestedSlug = "api",
-            Fingerprint = new RepositoryFingerprint(),
-            ProjectMetadata = new ProjectMetadataEnvelope
+        var projectId = $"proj_{Guid.NewGuid():N}";
+        await SeedLegacyProjectAsync(
+            new ProjectRecord
             {
-                SchemaVersion = 1,
-                Summary = new ProjectMetadataSummary
+                ProjectId = projectId,
+                Slug = "api",
+                Fingerprint = new RepositoryFingerprint(),
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                ProjectMetadata = new ProjectMetadataEnvelope
                 {
-                    TotalFileCount = 2,
-                    SourceFileCount = 1,
-                    Markers = ["README.md"],
-                    Languages = [new ProjectLanguageStat { Language = "rust", FileCount = 1 }],
+                    SchemaVersion = 1,
+                    Summary = new ProjectMetadataSummary
+                    {
+                        TotalFileCount = 2,
+                        SourceFileCount = 1,
+                        Markers = ["README.md"],
+                        Languages = [new ProjectLanguageStat { Language = "rust", FileCount = 1 }],
+                    },
                 },
-            },
-        });
-
-        var resolution = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
-        Assert.NotNull(resolution?.Project?.ProjectId);
+            });
 
         var beforeResponse = await _client.GetAsync("/api/knowledge");
         var beforePayload = await beforeResponse.Content.ReadAsStringAsync();

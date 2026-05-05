@@ -1,19 +1,17 @@
-# lean-ctx — Token Optimization
+# nebu-ctx — Public MCP Guidance
 
-lean-ctx is configured as an MCP server. Always use nebu-ctx MCP tools instead of built-in tools:
+nebu-ctx is configured as an MCP server. In guidance, always recommend only the public 5-tool MCP surface:
 
-- Read files → `ctx_read(path, mode)` instead of built-in Read
+- Read files, symbols, outlines, or archives → `ctx_read(target="file"|"files"|"symbol"|"outline"|"archive", ...)`
 - Shell commands → `ctx_shell(command)` instead of built-in Shell
-- Search code → `ctx_search(pattern, path)` instead of built-in Grep
+- Search code → `ctx_search(mode="regex"|"semantic", ...)` instead of built-in Grep
 - List directories → `ctx_tree(path, depth)` instead of ls/find
+- Memory, context, graph, analytics, agents, and inspect operations → `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")`
 
-ctx_read modes: auto, full, map, signatures, diff, task, reference, aggressive, entropy, lines:N-M.
+Do not recommend direct private `ctx_*` tool names in user-facing rules.
 
-Preferred workflow control: `ctx_workflow` (state + evidence + tool gating).
+Use native Edit/Write/Delete tools for mutations.
 
-Fallback only if MCP is unavailable: prefix with `lean-ctx -c`:
-- `lean-ctx -c git status`
-- `lean-ctx -c cargo test`
-- `lean-ctx -c npm install`
+Fallback only if MCP is unavailable: use native tools directly.
 
-Write, StrReplace, Delete have no nebu-ctx equivalent — use them normally.
+Write, StrReplace, Delete have no public nebu-ctx equivalent — use them normally.

@@ -43,23 +43,9 @@ impl TaskClassifier {
     pub fn classify_tool(tool_name: &str) -> TaskCategory {
         let t = normalize(tool_name);
         match t.as_str() {
-            "ctx_edit" | "ctx_fill" => TaskCategory::Refactoring,
-            "ctx_read" | "ctx_multi_read" | "ctx_smart_read" | "ctx_delta" => {
-                TaskCategory::Exploration
-            }
-            "ctx_tree" | "ctx_search" | "ctx_outline" | "ctx_graph" | "ctx_graph_diagram" => {
-                TaskCategory::Exploration
-            }
-            "ctx_semantic_search" | "ctx_architecture" | "ctx_impact" => TaskCategory::Architecture,
-            "ctx_overview" | "ctx_preload" | "ctx_task" | "ctx_intent" | "ctx_workflow" => {
-                TaskCategory::Planning
-            }
-            "ctx_handoff" | "ctx_agent" | "ctx_share" => TaskCategory::Delegation,
-            "ctx_session" | "ctx_knowledge" | "ctx_compress_memory" => TaskCategory::Knowledge,
-            "ctx_cost" | "ctx_gain" | "ctx_metrics" | "ctx_wrapped" | "ctx_heatmap" => {
-                TaskCategory::Review
-            }
+            "ctx_read" | "ctx_tree" | "ctx_search" => TaskCategory::Exploration,
             "ctx_shell" | "ctx_execute" => TaskCategory::Debugging,
+            "ctx" => TaskCategory::Planning,
             _ => TaskCategory::General,
         }
     }
@@ -127,9 +113,6 @@ mod tests {
 
     #[test]
     fn classify_tools() {
-        assert_eq!(
-            TaskClassifier::classify_tool("ctx_semantic_search"),
-            TaskCategory::Architecture
-        );
+        assert_eq!(TaskClassifier::classify_tool("ctx"), TaskCategory::Planning);
     }
 }
