@@ -261,7 +261,7 @@ fn extract_go_deps(content: &str) -> DepInfo {
 #[cfg(feature = "tree-sitter")]
 fn extract_kotlin_deps(content: &str) -> DepInfo {
     let analysis = deep_queries::analyze(content, "kt");
-    let imports = analysis
+    let imports: Vec<String> = analysis
         .imports
         .into_iter()
         .map(|import| match import.kind {
@@ -270,6 +270,10 @@ fn extract_kotlin_deps(content: &str) -> DepInfo {
         })
         .collect();
 
+    if imports.is_empty() && analysis.exports.is_empty() {
+        return extract_kotlin_deps_textual(content);
+    }
+
     DepInfo {
         imports,
         exports: analysis.exports,
@@ -277,10 +281,51 @@ fn extract_kotlin_deps(content: &str) -> DepInfo {
 }
 
 #[cfg(not(feature = "tree-sitter"))]
-fn extract_kotlin_deps(_content: &str) -> DepInfo {
+fn extract_kotlin_deps(content: &str) -> DepInfo {
+    extract_kotlin_deps_textual(content)
+}
+
+fn extract_kotlin_deps_textual(content: &str) -> DepInfo {
+    let mut imports = HashSet::new();
+    let mut exports = Vec::new();
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        if let Some(path) = trimmed.strip_prefix("import ") {
+            let path = path.trim();
+            if !path.is_empty() {
+                imports.insert(path.to_string());
+            }
+        }
+
+        if let Some(name) = trimmed
+            .strip_prefix("class ")
+            .and_then(|rest| rest.split(['(', ':', ' ', '<']).next())
+            .filter(|name| !name.is_empty())
+        {
+            exports.push(name.to_string());
+            continue;
+        }
+
+        if let Some(name) = trimmed
+            .strip_prefix("fun ")
+            .or_else(|| trimmed.strip_prefix("suspend fun "))
+            .or_else(|| trimmed.strip_prefix("private fun "))
+            .or_else(|| trimmed.strip_prefix("internal fun "))
+            .or_else(|| trimmed.strip_prefix("public fun "))
+            .and_then(|rest| rest.split('(').next())
+            .and_then(|rest| rest.split('<').next())
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+        {
+            exports.push(name.to_string());
+        }
+    }
+
     DepInfo {
-        imports: Vec::new(),
-        exports: Vec::new(),
+        imports: imports.into_iter().collect(),
+        exports,
     }
 }
 
