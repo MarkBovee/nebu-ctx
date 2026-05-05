@@ -36,7 +36,7 @@ public static class DashboardPayloadFactory
     /// <returns>Stats payload compatible with the legacy dashboard.</returns>
     public static object BuildStatsPayload(ToolRegistry toolRegistry, IReadOnlyList<ProjectRecord> projects, TelemetryStore telemetryStore)
     {
-        var tools = toolRegistry.GetTools().Tools;
+        var tools = toolRegistry.GetRegisteredTools().Tools;
         var telemetry = telemetryStore.GetSnapshot();
         var aggregatedLanguageCounts = AggregateLanguageCounts(projects);
         var totalSourceFiles = projects.Sum(project => project.ProjectMetadata?.Summary.SourceFileCount ?? 0);
@@ -497,7 +497,7 @@ public static class DashboardPayloadFactory
             is_exported = true,
         });
 
-        var toolSymbols = toolRegistry.GetTools().Tools.Select(tool => new
+        var toolSymbols = toolRegistry.GetRegisteredTools().Tools.Select(tool => new
         {
             name = tool.Name,
             kind = "tool",
@@ -517,7 +517,7 @@ public static class DashboardPayloadFactory
     /// <returns>Search index payload.</returns>
     public static object BuildSearchIndexPayload(ToolRegistry toolRegistry)
     {
-        var tools = toolRegistry.GetTools().Tools;
+        var tools = toolRegistry.GetRegisteredTools().Tools;
         var routes = RouteCatalog.GetAll();
         var topChunks = tools.Select(tool => new
         {
@@ -573,7 +573,7 @@ public static class DashboardPayloadFactory
                 snippet = $"{route.Method} {route.Path} handled by {route.Handler}",
             });
 
-        var toolResults = toolRegistry.GetTools().Tools
+        var toolResults = toolRegistry.GetRegisteredTools().Tools
             .Where(tool => tool.Name.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase)
                 || tool.Description.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase))
             .Select(tool => new
@@ -1314,8 +1314,8 @@ public static class DashboardPayloadFactory
     {
         if (string.Equals(path, "NebuCtx.Tools", StringComparison.OrdinalIgnoreCase))
         {
-            var lines = toolRegistry.GetTools().Tools.Select(tool => $"tool {tool.Name} => {tool.Description}").ToArray();
-            return (path, "csharp", string.Join(Environment.NewLine, lines), toolRegistry.GetTools().Tools.Select(tool => tool.Name).Take(8).ToArray());
+        var lines = toolRegistry.GetRegisteredTools().Tools.Select(tool => $"tool {tool.Name} => {tool.Description}").ToArray();
+        return (path, "csharp", string.Join(Environment.NewLine, lines), toolRegistry.GetRegisteredTools().Tools.Select(tool => tool.Name).Take(8).ToArray());
         }
 
         var matchingRoutes = RouteCatalog.GetAll()

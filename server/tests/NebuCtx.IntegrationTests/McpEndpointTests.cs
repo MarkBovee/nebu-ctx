@@ -60,8 +60,8 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
         var manifest = await _client.GetFromJsonAsync<ManifestResponse>("/v1/manifest");
         Assert.NotNull(manifest);
         Assert.Equal("nebu-ctx", manifest.Name);
-        Assert.NotEmpty(manifest.Tools);
-        Assert.Contains(manifest.Tools, tool => tool.Name == "ctx_routes");
+        Assert.Equal(5, manifest.Tools.Count);
+        Assert.Equal(["ctx", "ctx_read", "ctx_search", "ctx_shell", "ctx_tree"], manifest.Tools.Select(tool => tool.Name).OrderBy(name => name, StringComparer.Ordinal).ToArray());
     }
 
     /// <summary>
@@ -72,8 +72,9 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     {
         var toolList = await _client.GetFromJsonAsync<ToolListResponse>("/v1/tools");
         Assert.NotNull(toolList);
-        Assert.True(toolList.Total > 0);
-        Assert.NotEmpty(toolList.Tools);
+        Assert.Equal(5, toolList.Total);
+        Assert.Equal(5, toolList.Tools.Count);
+        Assert.Equal(["ctx", "ctx_read", "ctx_search", "ctx_shell", "ctx_tree"], toolList.Tools.Select(tool => tool.Name).OrderBy(name => name, StringComparer.Ordinal).ToArray());
     }
 
     /// <summary>

@@ -19,14 +19,78 @@
 </p>
 
 <p align="center">
+  <a href="#install">Install</a> ·
   <a href="#what-it-is">What It Is</a> ·
   <a href="#how-it-works">How It Works</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#tool-routing">Tool Routing</a> ·
   <a href="#dashboard">Dashboard</a> ·
-  <a href="#install-and-run">Install</a> ·
   <a href="#development">Development</a>
 </p>
+
+## Install
+
+Choose one path:
+
+- Rust client CLI on your machine
+- Home Assistant or self-hosted server with the dashboard and HTTP MCP host
+
+### Rust client CLI
+
+Install `cargo-binstall` first if you do not already have it:
+
+```bash
+curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+```
+
+Install the thin client:
+
+```bash
+cargo binstall nebu-ctx
+```
+
+Set up your editor and agent integrations:
+
+```bash
+nebu-ctx setup
+nebu-ctx doctor
+```
+
+If you want to build from source instead:
+
+```bash
+cargo install --path client --bin nebu-ctx --force
+```
+
+### Home Assistant or self-hosted server
+
+Run the published container:
+
+```bash
+podman run -d --name nebu-ctx \
+  -p 127.0.0.1:3333:3333 \
+  -p 127.0.0.1:4242:4242 \
+  --env-file .env \
+  ghcr.io/markbovee/nebu-ctx
+```
+
+Your `.env` should include at least:
+
+- `NEBULA_CTX_HTTP_TOKEN`
+- `NEBULA_CTX_HOST=0.0.0.0`
+- the PostgreSQL variables required by the host
+
+Then connect the client:
+
+```bash
+nebu-ctx connect --endpoint http://127.0.0.1:4242 --token <token>
+nebu-ctx doctor
+```
+
+Home Assistant users can use the packaged add-on under `homeassistant/`. The add-on runs both host surfaces in one container:
+
+- dashboard on `3333`
+- MCP HTTP on `4242`
 
 ## What It Is
 

@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 /// </summary>
 public sealed class ToolRegistry
 {
+    private static readonly string[] PublicToolNames = ["ctx", "ctx_read", "ctx_search", "ctx_shell", "ctx_tree"];
     private readonly FrozenDictionary<string, IToolHandler> _handlers;
     private readonly ILogger<ToolRegistry> _logger;
     private readonly TelemetryStore _telemetryStore;
@@ -61,7 +62,7 @@ public sealed class ToolRegistry
         {
             Name = "nebu-ctx",
             Version = ServerVersion.Current,
-            Tools = GetToolDefinitions(),
+            Tools = GetPublicToolDefinitions(),
         };
     }
 
@@ -72,6 +73,25 @@ public sealed class ToolRegistry
     /// <param name="limit">Maximum number of tools to return.</param>
     /// <returns>Paginated tool list response.</returns>
     public ToolListResponse GetTools(int offset = 0, int limit = 200)
+    {
+        var allTools = GetPublicToolDefinitions();
+        var paged = allTools.Skip(offset).Take(limit).ToList();
+
+        return new ToolListResponse
+        {
+            Tools = paged,
+            Total = allTools.Count,
+        };
+    }
+
+    /// <summary>
+    /// Gets paginated tool definitions for all registered internal handlers.
+    /// Dashboard views use this to show the full server capability set.
+    /// </summary>
+    /// <param name="offset">Number of tools to skip.</param>
+    /// <param name="limit">Maximum number of tools to return.</param>
+    /// <returns>Paginated tool list response.</returns>
+    public ToolListResponse GetRegisteredTools(int offset = 0, int limit = 200)
     {
         var allTools = GetToolDefinitions();
         var paged = allTools.Skip(offset).Take(limit).ToList();
@@ -97,6 +117,156 @@ public sealed class ToolRegistry
             })
             .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    /// <summary>
+    /// Builds the fixed public 5-tool MCP surface exposed over HTTP metadata.
+    /// </summary>
+    private List<ToolDefinition> GetPublicToolDefinitions()
+    {
+        var internalTools = GetToolDefinitions().ToDictionary(t => t.Name, StringComparer.OrdinalIgnoreCase);
+        return PublicToolNames
+            .Select(name => internalTools.TryGetValue(name, out var tool) ? tool : BuildPublicPlaceholder(name))
+            .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Builds placeholder metadata for public tools whose execution is routed by the client rather than implemented as host handlers.
+    /// </summary>
+    /// <param name="name">Public tool name.</param>
+    /// <returns>Tool definition aligned with the public contract.</returns>
+    private static ToolDefinition BuildPublicPlaceholder(string name)
+    {
+        return name switch
+        {
+            "ctx_read" => new ToolDefinition
+            {
+                Name = "ctx_read",
+                Description = "Read code and archived output. target=file|files|symbol|outline|archive. mode=auto|full|map|signatures|diff|aggressive|entropy|task|reference|lines:N-M.",
+                InputSchema = new Dictionary<string, object?>
+                {
+                    ["type"] = "object",
+                    ["properties"] = new Dictionary<string, object?>
+                    {
+                        ["target"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "file|files|symbol|outline|archive" },
+                        ["path"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "File path" },
+                        ["paths"] = new Dictionary<string, object?> { ["type"] = "array", ["items"] = new Dictionary<string, object?> { ["type"] = "string" }, ["description"] = "Multiple file paths when target=files" },
+                        ["name"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "Symbol name when target=symbol" },
+                        ["kind"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "Symbol kind or outline filter" },
+                        ["mode"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["id"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "Archive id when target=archive" },
+                        ["action"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "Archive retrieval action when target=archive" },
+                        ["start_line"] = new Dictionary<string, object?> { ["type"] = "integer" },
+                        ["fresh"] = new Dictionary<string, object?> { ["type"] = "boolean" },
+                    },
+                    ["required"] = Array.Empty<string>(),
+                },
+            },
+            "ctx_search" => new ToolDefinition
+            {
+                Name = "ctx_search",
+                Description = "Search code by regex or semantics. mode=regex|semantic.",
+                InputSchema = new Dictionary<string, object?>
+                {
+                    ["type"] = "object",
+                    ["properties"] = new Dictionary<string, object?>
+                    {
+                        ["mode"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "regex|semantic" },
+                        ["pattern"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "Regex pattern when mode=regex" },
+                        ["query"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "Natural language query when mode=semantic" },
+                        ["path"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["ext"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["top_k"] = new Dictionary<string, object?> { ["type"] = "integer" },
+                        ["path_glob"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["ignore_gitignore"] = new Dictionary<string, object?> { ["type"] = "boolean" },
+                    },
+                    ["required"] = Array.Empty<string>(),
+                },
+            },
+            "ctx_tree" => new ToolDefinition
+            {
+                Name = "ctx_tree",
+                Description = "Directory listing with file counts.",
+                InputSchema = new Dictionary<string, object?>
+                {
+                    ["type"] = "object",
+                    ["properties"] = new Dictionary<string, object?>
+                    {
+                        ["path"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["depth"] = new Dictionary<string, object?> { ["type"] = "integer" },
+                        ["show_hidden"] = new Dictionary<string, object?> { ["type"] = "boolean" },
+                    },
+                },
+            },
+            "ctx_shell" => new ToolDefinition
+            {
+                Name = "ctx_shell",
+                Description = "Run shell command (compressed output). raw=true skips compression. cwd sets working directory.",
+                InputSchema = new Dictionary<string, object?>
+                {
+                    ["type"] = "object",
+                    ["properties"] = new Dictionary<string, object?>
+                    {
+                        ["command"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "Shell command" },
+                        ["raw"] = new Dictionary<string, object?> { ["type"] = "boolean", ["description"] = "Skip compression for full output" },
+                        ["cwd"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "Working directory (defaults to last cd or project root)" },
+                    },
+                    ["required"] = new[] { "command" },
+                },
+            },
+            "ctx" => new ToolDefinition
+            {
+                Name = "ctx",
+                Description = "High-level meta-tool. domain=memory|context|graph|analytics|agents|inspect with action selecting the operation inside that domain.",
+                InputSchema = new Dictionary<string, object?>
+                {
+                    ["type"] = "object",
+                    ["properties"] = new Dictionary<string, object?>
+                    {
+                        ["domain"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "memory|context|graph|analytics|agents|inspect" },
+                        ["action"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["view"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["path"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["paths"] = new Dictionary<string, object?> { ["type"] = "array", ["items"] = new Dictionary<string, object?> { ["type"] = "string" } },
+                        ["query"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["pattern"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["value"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["category"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["key"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["to"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["spec"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["budget"] = new Dictionary<string, object?> { ["type"] = "integer" },
+                        ["task"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["mode"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["text"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["message"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["session_id"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["period"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["format"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["agent_type"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["role"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["status"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["pattern_type"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["examples"] = new Dictionary<string, object?> { ["type"] = "array", ["items"] = new Dictionary<string, object?> { ["type"] = "string" } },
+                        ["confidence"] = new Dictionary<string, object?> { ["type"] = "number" },
+                        ["project_root"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["include_signatures"] = new Dictionary<string, object?> { ["type"] = "boolean" },
+                        ["limit"] = new Dictionary<string, object?> { ["type"] = "integer" },
+                        ["to_agent"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["task_id"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["agent_id"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["description"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["state"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["root"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["depth"] = new Dictionary<string, object?> { ["type"] = "integer" },
+                        ["show_hidden"] = new Dictionary<string, object?> { ["type"] = "boolean" },
+                    },
+                    ["required"] = new[] { "domain", "action" },
+                },
+            },
+            _ => throw new ArgumentOutOfRangeException(nameof(name), name, "Unknown public tool name."),
+        };
     }
 }
 

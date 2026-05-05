@@ -122,18 +122,19 @@ fn build_full_instructions(crp_mode: CrpMode, client_name: &str) -> String {
         None => String::new(),
     };
 
-    let mut base = format!("\
-CRITICAL: ALWAYS use nebu-ctx MCP tools instead of native equivalents for token savings.\n\
+    let base = format!("\
+CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalents.\n\
 \n\
-lean-ctx MCP — MANDATORY tool mapping:\n\
-• Read/cat/head/tail -> ctx_read(target=file|files|symbol|outline|archive, ...)  [NEVER use native Read]\n\
-• Shell/bash -> ctx_shell(command)  [NEVER use native Shell]\n\
-• Grep/rg/semantic search -> ctx_search(mode=regex|semantic, ...)  [NEVER use native Grep]\n\
+Public MCP surface is fixed to 5 tools: ctx_read, ctx_search, ctx_tree, ctx_shell, ctx.\n\
+\n\
+MANDATORY tool mapping:\n\
+• Read/cat/head/tail -> ctx_read(target=file|files|symbol|outline|archive, ...)\n\
+• Shell/bash -> ctx_shell(command)\n\
+• Grep/rg/semantic search -> ctx_search(mode=regex|semantic, ...)\n\
 • ls/find -> ctx_tree(path, depth)\n\
 • Edit/StrReplace/Write/Delete/Glob -> use native tools\n\
 \n\
-COMPATIBILITY: lean-ctx replaces READ operations only. Edit/Write/StrReplace/Delete stay native.\n\
-FILE EDITING: Native Edit/StrReplace/Write/Delete tools stay native.\n\
+File mutation stays on native Edit/StrReplace/Write/Delete tools.\n\
 \n\
 ctx_read targets: file|files|symbol|outline|archive.\n\
 ctx_read modes: auto|full|map|signatures|diff|task|reference|aggressive|entropy|lines:N-M. Auto-selects. Re-reads ~13 tok. Fn refs F1,F2.. persist.\n\
@@ -157,15 +158,6 @@ Edit files: native Edit/StrReplace/Write/Delete tools.\n\
 Write, Delete, Glob -> use normally.",
         decoder_block = crate::core::protocol::instruction_decoder_block()
     );
-
-    if should_use_unified(client_name) {
-        base.push_str(
-            "\n\n\
-UNIFIED TOOL MODE (active):\n\
-Public MCP surface is fixed to 5 tools: ctx_read, ctx_search, ctx_tree, ctx_shell, ctx.\n\
-Use ctx(domain=\"<domain>\", action=\"<action>\", ...params) for higher-level workflows.\n",
-        );
-    }
 
     let intelligence_block = build_intelligence_block();
     let terse_block = build_terse_agent_block(&crp_mode);
@@ -246,13 +238,3 @@ OUTPUT EFFICIENCY:\n\
         .to_string()
 }
 
-fn should_use_unified(client_name: &str) -> bool {
-    if std::env::var("NEBU_CTX_FULL_TOOLS").is_ok() {
-        return false;
-    }
-    if std::env::var("NEBU_CTX_UNIFIED").is_ok() {
-        return true;
-    }
-    let _ = client_name;
-    false
-}

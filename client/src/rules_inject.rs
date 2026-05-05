@@ -673,12 +673,12 @@ mod tests {
 
     #[test]
     fn dedicated_rules_contain_public_contract() {
-        assert!(RULES_DEDICATED.contains("target=\"file\""));
-        assert!(RULES_DEDICATED.contains("target=\"symbol\""));
-        assert!(RULES_DEDICATED.contains("mode=\"regex\""));
-        assert!(RULES_DEDICATED.contains("mode=\"semantic\""));
+        assert!(RULES_DEDICATED.contains("public nebu-ctx MCP surface"));
+        assert!(RULES_DEDICATED.contains("ctx_read(target=\"file\"|\"files\"|\"symbol\"|\"outline\"|\"archive\", ...)"));
+        assert!(RULES_DEDICATED.contains("Public `ctx_read` targets: `file`, `files`, `symbol`, `outline`, `archive`."));
+        assert!(RULES_DEDICATED.contains("Public `ctx_search` modes: `regex`, `semantic`."));
         assert!(RULES_DEDICATED.contains("ctx(domain=\"memory\""));
-        assert!(RULES_DEDICATED.contains("ctx_read"));
+        assert!(RULES_DEDICATED.contains("only the 5 public tools"));
     }
 
     #[test]
@@ -784,7 +784,8 @@ mod tests {
 
         let content = std::fs::read_to_string(&path).unwrap();
         assert!(content.contains(MARKER));
-        assert!(content.contains("ctx_read modes"));
+        assert!(content.contains("Public `ctx_read` targets"));
+        assert!(content.contains("Public `ctx_search` modes"));
 
         std::fs::remove_file(&path).ok();
     }
