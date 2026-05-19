@@ -27,7 +27,7 @@
 ## 4. Production hardening
 
 - [x] Add focused tests for new offline and hook behavior
-- [ ] Expand typed dashboard contracts beyond the new top-level endpoints
+- [x] Expand typed dashboard contracts beyond the new top-level endpoints
 - [x] Add sync outbox doctor/status checks
 - [x] Add dashboard port/health doctor checks
 - [ ] Complete end-to-end offline-to-online replay validation

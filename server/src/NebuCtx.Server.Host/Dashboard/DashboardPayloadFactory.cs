@@ -17,15 +17,15 @@ public static class DashboardPayloadFactory
     /// Builds the version payload expected by the dashboard UI.
     /// </summary>
     /// <returns>Version payload with compatibility fields.</returns>
-    public static object BuildVersionPayload()
+    public static DashboardVersionPayload BuildVersionPayload()
     {
-        return new
+        return new DashboardVersionPayload
         {
-            name = "nebu-ctx",
-            version = ServerVersion.Current,
-            current = ServerVersion.Current,
-            latest = ServerVersion.Current,
-            update_available = false,
+            Name = "nebu-ctx",
+            Version = ServerVersion.Current,
+            Current = ServerVersion.Current,
+            Latest = ServerVersion.Current,
+            UpdateAvailable = false,
         };
     }
 
@@ -91,7 +91,7 @@ public static class DashboardPayloadFactory
     /// <param name="toolRegistry">Tool registry.</param>
     /// <param name="projects">Registered projects.</param>
     /// <returns>Stats payload compatible with the legacy dashboard.</returns>
-    public static object BuildStatsPayload(ToolRegistry toolRegistry, IReadOnlyList<ProjectRecord> projects, TelemetryStore telemetryStore)
+    public static DashboardStatsPayload BuildStatsPayload(ToolRegistry toolRegistry, IReadOnlyList<ProjectRecord> projects, TelemetryStore telemetryStore)
     {
         var tools = toolRegistry.GetRegisteredTools().Tools;
         var telemetry = telemetryStore.GetSnapshot();
@@ -99,31 +99,31 @@ public static class DashboardPayloadFactory
         var totalSourceFiles = projects.Sum(project => project.ProjectMetadata?.Summary.SourceFileCount ?? 0);
         var totalFiles = projects.Sum(project => project.ProjectMetadata?.Summary.TotalFileCount ?? 0);
         var commands = BuildCommandPayloads(tools, telemetry);
-        var daily = telemetry.Daily.Select(item => new
+        var daily = telemetry.Daily.Select(item => new DashboardDailyPayload
         {
-            date = item.Date,
-            input_tokens = item.InputTokens,
-            output_tokens = item.OutputTokens,
-            commands = item.Commands,
+            Date = item.Date,
+            InputTokens = item.InputTokens,
+            OutputTokens = item.OutputTokens,
+            Commands = item.Commands,
         }).ToArray();
 
-        return new
+        return new DashboardStatsPayload
         {
-            total_tokens_saved = Math.Max(0, telemetry.TotalInputTokens - telemetry.TotalOutputTokens),
-            total_tokens_input = telemetry.TotalInputTokens,
-            total_input_tokens = telemetry.TotalInputTokens,
-            total_output_tokens = telemetry.TotalOutputTokens,
-            cache_hits = telemetry.CacheHits,
-            total_tool_calls = telemetry.TotalToolCalls,
-            total_commands = telemetry.TotalToolCalls,
-            first_use = telemetry.FirstUse?.ToString("O") ?? (projects.Count > 0 ? projects.Min(project => project.CreatedAt).ToString("O") : null),
-            daily,
-            commands,
-            project_count = projects.Count,
-            registered_tool_count = tools.Count,
-            indexed_file_count = totalSourceFiles,
-            total_file_count = totalFiles,
-            language_distribution = aggregatedLanguageCounts,
+            TotalTokensSaved = Math.Max(0, telemetry.TotalInputTokens - telemetry.TotalOutputTokens),
+            TotalTokensInput = telemetry.TotalInputTokens,
+            TotalInputTokensLegacy = telemetry.TotalInputTokens,
+            TotalOutputTokens = telemetry.TotalOutputTokens,
+            CacheHits = telemetry.CacheHits,
+            TotalToolCalls = telemetry.TotalToolCalls,
+            TotalCommands = telemetry.TotalToolCalls,
+            FirstUse = telemetry.FirstUse?.ToString("O") ?? (projects.Count > 0 ? projects.Min(project => project.CreatedAt).ToString("O") : null),
+            Daily = daily,
+            Commands = commands,
+            ProjectCount = projects.Count,
+            RegisteredToolCount = tools.Count,
+            IndexedFileCount = totalSourceFiles,
+            TotalFileCount = totalFiles,
+            LanguageDistribution = aggregatedLanguageCounts.Select(item => new DashboardLanguagePayload { Language = item.Key, FileCount = item.Value }).ToArray(),
         };
     }
 
@@ -227,41 +227,41 @@ public static class DashboardPayloadFactory
     /// </summary>
     /// <param name="toolRegistry">Tool registry.</param>
     /// <returns>Gain payload expected by the overview view.</returns>
-    public static object BuildGainPayload(TelemetryStore telemetryStore)
+    public static DashboardGainPayload BuildGainPayload(TelemetryStore telemetryStore)
     {
         var telemetry = telemetryStore.GetSnapshot();
         var totalSaved = Math.Max(0, telemetry.TotalInputTokens - telemetry.TotalOutputTokens);
         var compressionRate = telemetry.TotalInputTokens > 0 ? (double)totalSaved / telemetry.TotalInputTokens : 0;
         var score = Math.Min(100, (int)Math.Round(compressionRate * 100));
 
-        return new
+        return new DashboardGainPayload
         {
-            summary = new
+            Summary = new DashboardGainSummaryPayload
             {
-                score = new
+                Score = new DashboardGainScorePayload
                 {
-                    total = score,
-                    compression = score,
-                    cost_efficiency = score,
-                    quality = telemetry.TotalToolCalls > 0 ? 60 : 0,
-                    consistency = telemetry.Sessions.Count > 1 ? 75 : telemetry.TotalToolCalls > 0 ? 50 : 0,
+                    Total = score,
+                    Compression = score,
+                    CostEfficiency = score,
+                    Quality = telemetry.TotalToolCalls > 0 ? 60 : 0,
+                    Consistency = telemetry.Sessions.Count > 1 ? 75 : telemetry.TotalToolCalls > 0 ? 50 : 0,
                 },
-                model = new
+                Model = new DashboardGainModelPayload
                 {
-                    cost = new
+                    Cost = new DashboardGainCostPayload
                     {
-                        input_per_m = 0.00,
-                        output_per_m = 0.00,
+                        InputPerMillion = 0.00m,
+                        OutputPerMillion = 0.00m,
                     },
                 },
             },
-            tasks = telemetry.Commands.Values
+            Tasks = telemetry.Commands.Values
                 .OrderByDescending(command => command.InputTokens - command.OutputTokens)
-                .Select(command => new
+                .Select(command => new DashboardGainTaskPayload
                 {
-                    category = command.Name,
-                    tokens_saved = Math.Max(0, command.InputTokens - command.OutputTokens),
-                    tool_spend_usd = EstimateSavedCost(command.InputTokens, command.OutputTokens),
+                    Category = command.Name,
+                    TokensSaved = Math.Max(0, command.InputTokens - command.OutputTokens),
+                    ToolSpendUsd = EstimateSavedCost(command.InputTokens, command.OutputTokens),
                 })
                 .ToArray(),
         };
@@ -964,25 +964,27 @@ public static class DashboardPayloadFactory
     /// <param name="tools">Registered tool definitions.</param>
     /// <param name="telemetry">Current telemetry snapshot.</param>
     /// <returns>Command payload dictionary keyed by tool name.</returns>
-    private static Dictionary<string, object> BuildCommandPayloads(IReadOnlyList<NebuCtx.Contracts.Mcp.ToolDefinition> tools, TelemetryStore.Snapshot telemetry)
+    private static Dictionary<string, DashboardCommandPayload> BuildCommandPayloads(IReadOnlyList<NebuCtx.Contracts.Mcp.ToolDefinition> tools, TelemetryStore.Snapshot telemetry)
     {
         var commands = tools.ToDictionary(
             tool => tool.Name,
-            tool => (object)new
+            tool => new DashboardCommandPayload
             {
-                count = 0,
-                input_tokens = 0L,
-                output_tokens = 0L,
+                Source = tool.Name.StartsWith("ctx_", StringComparison.OrdinalIgnoreCase) ? "mcp" : "tool",
+                Count = 0,
+                InputTokens = 0L,
+                OutputTokens = 0L,
             },
             StringComparer.OrdinalIgnoreCase);
 
         foreach (var command in telemetry.Commands.Values)
         {
-            commands[command.Name] = new
+            commands[command.Name] = new DashboardCommandPayload
             {
-                count = command.Count,
-                input_tokens = command.InputTokens,
-                output_tokens = command.OutputTokens,
+                Source = command.Source,
+                Count = command.Count,
+                InputTokens = command.InputTokens,
+                OutputTokens = command.OutputTokens,
             };
         }
 
@@ -995,10 +997,10 @@ public static class DashboardPayloadFactory
     /// <param name="inputTokens">Estimated input tokens.</param>
     /// <param name="outputTokens">Estimated output tokens.</param>
     /// <returns>Approximate USD saved.</returns>
-    private static double EstimateSavedCost(long inputTokens, long outputTokens)
+    private static decimal EstimateSavedCost(long inputTokens, long outputTokens)
     {
         var savedTokens = Math.Max(0, inputTokens - outputTokens);
-        return Math.Round(savedTokens / 1_000_000d * 2.50d, 4);
+        return Math.Round(savedTokens / 1_000_000m * 2.50m, 4);
     }
 
     /// <summary>

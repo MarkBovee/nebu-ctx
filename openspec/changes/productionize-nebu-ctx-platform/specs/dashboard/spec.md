@@ -10,6 +10,14 @@ The server MUST expose a single dashboard overview endpoint that aggregates the 
 - AND the payload SHALL include aggregated stats information
 - AND the payload SHALL include gain information
 
+### Requirement: Typed dashboard overview contracts
+The consolidated dashboard overview endpoint MUST use concrete response models for version, stats, and gain payloads.
+
+#### Scenario: Overview payload is deserialized by generated clients
+- WHEN a generated or strongly typed client reads `/api/dashboard/overview`
+- THEN the version, stats, and gain properties SHALL deserialize into concrete dashboard contract types
+- AND the legacy JSON property names required by the current dashboard UI SHALL remain available
+
 ### Requirement: Project memory inspection
 The server MUST expose per-project memory data for dashboard and admin workflows.
 

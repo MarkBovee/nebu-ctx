@@ -143,25 +143,271 @@ public sealed class DashboardOverviewResponse
     /// Version payload for the current server.
     /// </summary>
     [JsonPropertyName("version")]
-    public required object Version { get; set; }
+    public required DashboardVersionPayload Version { get; set; }
 
     /// <summary>
     /// Aggregated telemetry and project overview statistics.
     /// </summary>
     [JsonPropertyName("stats")]
-    public required object Stats { get; set; }
+    public required DashboardStatsPayload Stats { get; set; }
 
     /// <summary>
     /// Gain summary for the overview page.
     /// </summary>
     [JsonPropertyName("gain")]
-    public required object Gain { get; set; }
+    public required DashboardGainPayload Gain { get; set; }
 
     /// <summary>
     /// Token value for admin and setup workflows.
     /// </summary>
     [JsonPropertyName("auth_token")]
     public string? AuthToken { get; set; }
+}
+
+/// <summary>
+/// Dashboard version payload including legacy compatibility fields.
+/// </summary>
+public sealed class DashboardVersionPayload
+{
+    /// <summary>Server product name.</summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; set; }
+
+    /// <summary>Current server version.</summary>
+    [JsonPropertyName("version")]
+    public required string Version { get; set; }
+
+    /// <summary>Legacy current-version field used by dashboard update UI.</summary>
+    [JsonPropertyName("current")]
+    public required string Current { get; set; }
+
+    /// <summary>Latest known version.</summary>
+    [JsonPropertyName("latest")]
+    public required string Latest { get; set; }
+
+    /// <summary>Whether an update is available.</summary>
+    [JsonPropertyName("update_available")]
+    public bool UpdateAvailable { get; set; }
+}
+
+/// <summary>
+/// Aggregated overview stats payload used by the dashboard overview.
+/// </summary>
+public sealed class DashboardStatsPayload
+{
+    /// <summary>Total tokens saved.</summary>
+    [JsonPropertyName("total_tokens_saved")]
+    public long TotalTokensSaved { get; set; }
+
+    /// <summary>Total input tokens.</summary>
+    [JsonPropertyName("total_tokens_input")]
+    public long TotalTokensInput { get; set; }
+
+    /// <summary>Legacy alias for total input tokens.</summary>
+    [JsonPropertyName("total_input_tokens")]
+    public long TotalInputTokensLegacy { get; set; }
+
+    /// <summary>Total output tokens.</summary>
+    [JsonPropertyName("total_output_tokens")]
+    public long TotalOutputTokens { get; set; }
+
+    /// <summary>Total cache hits.</summary>
+    [JsonPropertyName("cache_hits")]
+    public int CacheHits { get; set; }
+
+    /// <summary>Total tool calls.</summary>
+    [JsonPropertyName("total_tool_calls")]
+    public int TotalToolCalls { get; set; }
+
+    /// <summary>Legacy alias for total tool calls.</summary>
+    [JsonPropertyName("total_commands")]
+    public int TotalCommands { get; set; }
+
+    /// <summary>First observed use timestamp.</summary>
+    [JsonPropertyName("first_use")]
+    public string? FirstUse { get; set; }
+
+    /// <summary>Daily token/call aggregates.</summary>
+    [JsonPropertyName("daily")]
+    public required IReadOnlyList<DashboardDailyPayload> Daily { get; set; }
+
+    /// <summary>Per-command aggregates.</summary>
+    [JsonPropertyName("commands")]
+    public required IReadOnlyDictionary<string, DashboardCommandPayload> Commands { get; set; }
+
+    /// <summary>Registered project count.</summary>
+    [JsonPropertyName("project_count")]
+    public int ProjectCount { get; set; }
+
+    /// <summary>Registered tool count.</summary>
+    [JsonPropertyName("registered_tool_count")]
+    public int RegisteredToolCount { get; set; }
+
+    /// <summary>Indexed source file count.</summary>
+    [JsonPropertyName("indexed_file_count")]
+    public long IndexedFileCount { get; set; }
+
+    /// <summary>Total known file count.</summary>
+    [JsonPropertyName("total_file_count")]
+    public long TotalFileCount { get; set; }
+
+    /// <summary>Aggregated language distribution.</summary>
+    [JsonPropertyName("language_distribution")]
+    public required IReadOnlyList<DashboardLanguagePayload> LanguageDistribution { get; set; }
+}
+
+/// <summary>
+/// Daily dashboard aggregate.
+/// </summary>
+public sealed class DashboardDailyPayload
+{
+    /// <summary>Date key.</summary>
+    [JsonPropertyName("date")]
+    public required string Date { get; set; }
+
+    /// <summary>Input tokens.</summary>
+    [JsonPropertyName("input_tokens")]
+    public long InputTokens { get; set; }
+
+    /// <summary>Output tokens.</summary>
+    [JsonPropertyName("output_tokens")]
+    public long OutputTokens { get; set; }
+
+    /// <summary>Command count.</summary>
+    [JsonPropertyName("commands")]
+    public int Commands { get; set; }
+}
+
+/// <summary>
+/// Per-command dashboard aggregate.
+/// </summary>
+public sealed class DashboardCommandPayload
+{
+    /// <summary>Display source bucket.</summary>
+    [JsonPropertyName("source")]
+    public required string Source { get; set; }
+
+    /// <summary>Call count.</summary>
+    [JsonPropertyName("count")]
+    public int Count { get; set; }
+
+    /// <summary>Input tokens.</summary>
+    [JsonPropertyName("input_tokens")]
+    public long InputTokens { get; set; }
+
+    /// <summary>Output tokens.</summary>
+    [JsonPropertyName("output_tokens")]
+    public long OutputTokens { get; set; }
+}
+
+/// <summary>
+/// Language distribution entry.
+/// </summary>
+public sealed class DashboardLanguagePayload
+{
+    /// <summary>Language name.</summary>
+    [JsonPropertyName("language")]
+    public required string Language { get; set; }
+
+    /// <summary>File count.</summary>
+    [JsonPropertyName("file_count")]
+    public long FileCount { get; set; }
+}
+
+/// <summary>
+/// Overview gain payload.
+/// </summary>
+public sealed class DashboardGainPayload
+{
+    /// <summary>Gain score summary.</summary>
+    [JsonPropertyName("summary")]
+    public required DashboardGainSummaryPayload Summary { get; set; }
+
+    /// <summary>Task/category gain list.</summary>
+    [JsonPropertyName("tasks")]
+    public required IReadOnlyList<DashboardGainTaskPayload> Tasks { get; set; }
+}
+
+/// <summary>
+/// Gain summary payload.
+/// </summary>
+public sealed class DashboardGainSummaryPayload
+{
+    /// <summary>Score breakdown.</summary>
+    [JsonPropertyName("score")]
+    public required DashboardGainScorePayload Score { get; set; }
+
+    /// <summary>Pricing model payload.</summary>
+    [JsonPropertyName("model")]
+    public required DashboardGainModelPayload Model { get; set; }
+}
+
+/// <summary>
+/// Gain score breakdown.
+/// </summary>
+public sealed class DashboardGainScorePayload
+{
+    /// <summary>Total score.</summary>
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
+
+    /// <summary>Compression score.</summary>
+    [JsonPropertyName("compression")]
+    public int Compression { get; set; }
+
+    /// <summary>Cost efficiency score.</summary>
+    [JsonPropertyName("cost_efficiency")]
+    public int CostEfficiency { get; set; }
+
+    /// <summary>Quality score.</summary>
+    [JsonPropertyName("quality")]
+    public int Quality { get; set; }
+
+    /// <summary>Consistency score.</summary>
+    [JsonPropertyName("consistency")]
+    public int Consistency { get; set; }
+}
+
+/// <summary>
+/// Gain model payload.
+/// </summary>
+public sealed class DashboardGainModelPayload
+{
+    /// <summary>Cost payload.</summary>
+    [JsonPropertyName("cost")]
+    public required DashboardGainCostPayload Cost { get; set; }
+}
+
+/// <summary>
+/// Gain model cost payload.
+/// </summary>
+public sealed class DashboardGainCostPayload
+{
+    /// <summary>Input price per million tokens.</summary>
+    [JsonPropertyName("input_per_m")]
+    public decimal InputPerMillion { get; set; }
+
+    /// <summary>Output price per million tokens.</summary>
+    [JsonPropertyName("output_per_m")]
+    public decimal OutputPerMillion { get; set; }
+}
+
+/// <summary>
+/// Gain task/category payload.
+/// </summary>
+public sealed class DashboardGainTaskPayload
+{
+    /// <summary>Task or command category.</summary>
+    [JsonPropertyName("category")]
+    public required string Category { get; set; }
+
+    /// <summary>Tokens saved.</summary>
+    [JsonPropertyName("tokens_saved")]
+    public long TokensSaved { get; set; }
+
+    /// <summary>Estimated tool spend saved.</summary>
+    [JsonPropertyName("tool_spend_usd")]
+    public decimal ToolSpendUsd { get; set; }
 }
 
 /// <summary>
