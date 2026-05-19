@@ -3,6 +3,12 @@ name: Build & Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to build and publish (for example v0.8.2)
+        required: true
+        type: string
 
 concurrency:
   group: release-${{ github.workflow }}-${{ github.ref }}
@@ -12,6 +18,7 @@ env:
   CARGO_BUILD_JOBS: 2
   CLIENT_MANIFEST_PATH: client/Cargo.toml
   CLIENT_BINARY_NAME: nebu-ctx
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   build:
@@ -34,6 +41,8 @@ jobs:
     container: ${{ matrix.container || '' }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Install build deps (Bookworm container)
         if: matrix.container != ''
@@ -92,11 +101,13 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Determine version
         id: version
         run: |
-          TAG="${{ github.ref_name }}"
+          TAG="${{ env.RELEASE_TAG }}"
           case "$TAG" in
             v*) ;;
             *) TAG="v$TAG" ;;
@@ -132,6 +143,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -149,6 +162,8 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -166,7 +181,7 @@ jobs:
       - name: Determine version
         id: version
         run: |
-          TAG="${{ github.ref_name }}"
+          TAG="${{ env.RELEASE_TAG }}"
           VERSION="${TAG#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
