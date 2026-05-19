@@ -685,13 +685,7 @@ pub fn configure_agent_mcp(agent: &str) -> Result<(), String> {
         ),
         "opencode" => {
             #[cfg(windows)]
-            let opencode_path = if let Ok(appdata) = std::env::var("APPDATA") {
-                std::path::PathBuf::from(appdata)
-                    .join("opencode")
-                    .join("opencode.json")
-            } else {
-                home.join(".config/opencode/opencode.json")
-            };
+            let opencode_path = home.join(".config/opencode/opencode.json");
             #[cfg(not(windows))]
             let opencode_path = home.join(".config/opencode/opencode.json");
             push(

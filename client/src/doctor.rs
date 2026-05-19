@@ -342,15 +342,9 @@ fn mcp_config_locations(home: &std::path::Path) -> Vec<McpLocation> {
         let opencode_display = "~/.config/opencode/opencode.json";
 
         #[cfg(windows)]
-        let opencode_cfg = if let Ok(appdata) = std::env::var("APPDATA") {
-            std::path::PathBuf::from(appdata)
-                .join("opencode")
-                .join("opencode.json")
-        } else {
-            home.join(".config").join("opencode").join("opencode.json")
-        };
+        let opencode_cfg = home.join(".config").join("opencode").join("opencode.json");
         #[cfg(windows)]
-        let opencode_display = "%APPDATA%/opencode/opencode.json";
+        let opencode_display = "~/.config/opencode/opencode.json";
 
         locations.push(McpLocation {
             name: "OpenCode",

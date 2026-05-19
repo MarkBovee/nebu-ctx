@@ -5,21 +5,12 @@ use super::types::{ConfigType, EditorTarget};
 
 pub fn build_targets(home: &Path) -> Vec<EditorTarget> {
     #[cfg(windows)]
-    let opencode_cfg = if let Ok(appdata) = std::env::var("APPDATA") {
-        PathBuf::from(appdata)
-            .join("opencode")
-            .join("opencode.json")
-    } else {
-        home.join(".config/opencode/opencode.json")
-    };
+    let opencode_cfg = home.join(".config/opencode/opencode.json");
     #[cfg(not(windows))]
     let opencode_cfg = home.join(".config/opencode/opencode.json");
 
     #[cfg(windows)]
-    let opencode_detect = opencode_cfg
-        .parent()
-        .map(|p| p.to_path_buf())
-        .unwrap_or_else(|| home.join(".config/opencode"));
+    let opencode_detect = home.join(".config/opencode");
     #[cfg(not(windows))]
     let opencode_detect = home.join(".config/opencode");
 

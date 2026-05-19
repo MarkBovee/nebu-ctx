@@ -1103,64 +1103,51 @@ pub(super) fn install_jetbrains_hook() {
 }
 
 pub(super) fn install_opencode_hook() {
-    let binary = resolve_binary_path();
     let home = dirs::home_dir().unwrap_or_default();
-    let config_path = home.join(".config/opencode/opencode.json");
-    let display_path = "~/.config/opencode/opencode.json";
+    let binary = resolve_binary_path();
+    let target = crate::core::editor_registry::EditorTarget {
+        name: "OpenCode",
+        agent_key: "opencode".to_string(),
+        config_path: home.join(".config/opencode/opencode.json"),
+        detect_path: home.join(".config/opencode"),
+        config_type: crate::core::editor_registry::ConfigType::OpenCode,
+    };
 
-    if let Some(parent) = config_path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-
-    let data_dir = crate::core::data_dir::nebu_ctx_data_dir()
-        .map(|d| d.to_string_lossy().to_string())
-        .unwrap_or_default();
-    let desired = serde_json::json!({
-        "type": "local",
-        "command": [&binary],
-        "enabled": true,
-        "environment": { "NEBU_CTX_DATA_DIR": data_dir }
-    });
-
-    if config_path.exists() {
-        let content = std::fs::read_to_string(&config_path).unwrap_or_default();
-        if let Ok(mut json) = serde_json::from_str::<serde_json::Value>(&content) {
-            if let Some(obj) = json.as_object_mut() {
-                let mcp = obj.entry("mcp").or_insert_with(|| serde_json::json!({}));
-                if let Some(mcp_obj) = mcp.as_object_mut() {
-                    let existing = mcp_obj.get("nebu-ctx").cloned();
-                    let legacy = mcp_obj.remove("lean-ctx");
-                    if existing.as_ref() == Some(&desired) {
-                        println!("OpenCode MCP already configured at {display_path}");
-                        install_opencode_plugin(&home);
-                        return;
-                    }
-                    let _ = legacy;
-                    mcp_obj.insert("nebu-ctx".to_string(), desired.clone());
+    match crate::core::editor_registry::write_config_with_options(
+        &target,
+        &binary,
+        crate::core::editor_registry::WriteOptions {
+            overwrite_invalid: true,
+        },
+    ) {
+        Ok(result) => {
+            let message = match result.action {
+                crate::core::editor_registry::WriteAction::Already => {
+                    "OpenCode MCP already configured at ~/.config/opencode/opencode.json"
                 }
-                if let Ok(formatted) = serde_json::to_string_pretty(&json) {
-                    let _ = std::fs::write(&config_path, formatted);
-                    println!("  \x1b[32m✓\x1b[0m OpenCode MCP configured at {display_path}");
-                }
-            }
+                _ => "  \x1b[32m✓\x1b[0m OpenCode MCP configured at ~/.config/opencode/opencode.json",
+            };
+            println!("{message}");
         }
-    } else {
-        let content = serde_json::to_string_pretty(&serde_json::json!({
-            "$schema": "https://opencode.ai/config.json",
-            "mcp": {
-                "nebu-ctx": desired
-            }
-        }));
-
-        if let Ok(json_str) = content {
-            let _ = std::fs::write(&config_path, json_str);
-            println!("  \x1b[32m✓\x1b[0m OpenCode MCP configured at {display_path}");
-        } else {
+        Err(_) => {
             eprintln!("  \x1b[31m✗\x1b[0m Failed to configure OpenCode");
         }
     }
 
+    install_opencode_rules_file(&home);
     install_opencode_plugin(&home);
+}
+
+fn install_opencode_rules_file(home: &std::path::Path) {
+    let rules_dir = home.join(".config/opencode/rules");
+    let _ = std::fs::create_dir_all(&rules_dir);
+    let rules_path = rules_dir.join("nebu-ctx.md");
+    let desired = crate::rules_inject::rules_dedicated_markdown();
+    let existing = std::fs::read_to_string(&rules_path).unwrap_or_default();
+
+    if existing.is_empty() || !existing.contains(crate::rules_inject::RULES_VERSION_STR) {
+        write_file(&rules_path, &desired);
+    }
 }
 
 fn install_opencode_plugin(home: &std::path::Path) {

@@ -477,6 +477,7 @@ fn write_opencode_config(
         "enabled": true,
         "environment": { "NEBU_CTX_DATA_DIR": data_dir }
     });
+    let desired_instruction = serde_json::json!("./rules/nebu-ctx.md");
 
     if target.config_path.exists() {
         let content = std::fs::read_to_string(&target.config_path).map_err(|e| e.to_string())?;
@@ -497,13 +498,27 @@ fn write_opencode_config(
         let obj = json
             .as_object_mut()
             .ok_or_else(|| "root JSON must be an object".to_string())?;
+        obj.entry("$schema")
+            .or_insert_with(|| serde_json::json!("https://opencode.ai/config.json"));
+
         let mcp = obj.entry("mcp").or_insert_with(|| serde_json::json!({}));
         let mcp_obj = mcp
             .as_object_mut()
             .ok_or_else(|| "\"mcp\" must be an object".to_string())?;
 
+        let instructions = obj
+            .entry("instructions")
+            .or_insert_with(|| serde_json::json!([]));
+        let instructions_arr = instructions
+            .as_array_mut()
+            .ok_or_else(|| "\"instructions\" must be an array".to_string())?;
+        let had_instruction = instructions_arr.iter().any(|item| item == &desired_instruction);
+        if !had_instruction {
+            instructions_arr.push(desired_instruction.clone());
+        }
+
         let existing = mcp_obj.get("nebu-ctx").cloned();
-        if existing.as_ref() == Some(&desired) {
+        if existing.as_ref() == Some(&desired) && had_instruction {
             return Ok(WriteResult {
                 action: WriteAction::Already,
                 note: None,
@@ -533,6 +548,7 @@ fn write_opencode_fresh(
         .unwrap_or_default();
     let content = serde_json::to_string_pretty(&serde_json::json!({
         "$schema": "https://opencode.ai/config.json",
+        "instructions": ["./rules/nebu-ctx.md"],
         "mcp": { "nebu-ctx": { "type": "local", "command": [binary], "enabled": true, "environment": { "NEBU_CTX_DATA_DIR": data_dir } } }
     }))
     .map_err(|e| e.to_string())?;
@@ -1155,7 +1171,7 @@ args = ["x"]
     fn opencode_plugin_template_uses_nebu_ctx() {
         let plugin = include_str!("../../templates/opencode-plugin.ts");
         assert!(plugin.contains("NebuCtxOpenCodePlugin"));
-        assert!(plugin.contains("which nebu-ctx"));
+        assert!(plugin.contains("where nebu-ctx"));
         assert!(plugin.contains("nebu-ctx hook rewrite-inline"));
         assert!(!plugin.contains("lean-ctx hook rewrite-inline"));
     }
