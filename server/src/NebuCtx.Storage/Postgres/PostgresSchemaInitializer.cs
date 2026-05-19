@@ -71,8 +71,6 @@ public static class PostgresSchemaInitializer
                OR source_scope = ''
                OR lifecycle_score = 0.0
                OR last_confirmed_at IS NULL;
-            CREATE INDEX IF NOT EXISTS idx_knowledge_entries_promotion_identity
-                ON knowledge_entries (project_id, promotion_identity);
             """,
             conn);
         await cmd.ExecuteNonQueryAsync(cancellationToken);
@@ -177,9 +175,6 @@ public static class PostgresSchemaInitializer
 
         CREATE INDEX IF NOT EXISTS idx_knowledge_entries_project
             ON knowledge_entries (project_id);
-
-        CREATE INDEX IF NOT EXISTS idx_knowledge_entries_promotion_identity
-            ON knowledge_entries (project_id, promotion_identity);
 
         CREATE TABLE IF NOT EXISTS session_state (
             project_id  TEXT NOT NULL,
