@@ -84,6 +84,7 @@ jobs:
         with:
           name: ${{ matrix.artifact_suffix }}
           path: ${{ matrix.archive_name }}
+          retention-days: 1
 
   release:
     needs: build
@@ -187,5 +188,5 @@ jobs:
             ghcr.io/markbovee/nebu-ctx:latest
           build-args: |
             GIT_COMMIT=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=server-image
+          cache-to: type=gha,mode=min,scope=server-image
