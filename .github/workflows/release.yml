@@ -9,6 +9,10 @@ on:
         description: "Version tag (e.g. v0.1.2)"
         required: true
 
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_BUILD_JOBS: 2
   CLIENT_MANIFEST_PATH: client/Cargo.toml
