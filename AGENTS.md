@@ -153,7 +153,7 @@ No `homeassistant/Dockerfile` at runtime — HA Supervisor pulls pre-built GHCR 
 
 Also update `Cargo.lock` via `cargo update --manifest-path client/Cargo.toml` before committing.
 
-- `auto-release.yml` verifies all three locations are in sync, then tags and triggers `release.yml`.
+- `auto-release.yml` verifies all three locations are in sync, then tags the release. The tag push triggers `release.yml`.
 - `release.yml` builds amd64+arm64 binaries, creates GitHub release, publishes crate to crates.io (no `--locked`), and builds+pushes multi-platform server image to `ghcr.io/markbovee/nebu-ctx`.
 - **Required secret:** `CARGO_REGISTRY_TOKEN` in GitHub Settings → Secrets → Actions.
 

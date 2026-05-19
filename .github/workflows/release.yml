@@ -3,11 +3,6 @@ name: Build & Release
 on:
   push:
     tags: ["v*"]
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Version tag (e.g. v0.1.2)"
-        required: true
 
 concurrency:
   group: release-${{ github.workflow }}-${{ github.ref }}
@@ -102,9 +97,6 @@ jobs:
         id: version
         run: |
           TAG="${{ github.ref_name }}"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ inputs.version }}"
-          fi
           case "$TAG" in
             v*) ;;
             *) TAG="v$TAG" ;;
@@ -175,9 +167,6 @@ jobs:
         id: version
         run: |
           TAG="${{ github.ref_name }}"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ inputs.version }}"
-          fi
           VERSION="${TAG#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
