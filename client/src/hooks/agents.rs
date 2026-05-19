@@ -51,6 +51,76 @@ Full rules: @rules/nebu-ctx.md
 Verify setup: run `/mcp` to check nebu-ctx is connected, `/memory` to confirm this file loaded.
 <!-- /nebu-ctx -->";
 
+fn claude_hook_payload(binary: &str, rewrite_cmd: String, redirect_cmd: String) -> serde_json::Value {
+    serde_json::json!({
+        "hooks": {
+            "PreToolUse": [
+                {
+                    "matcher": "Bash|bash",
+                    "hooks": [{
+                        "type": "command",
+                        "command": rewrite_cmd
+                    }]
+                },
+                {
+                    "matcher": "Read|read|ReadFile|read_file|View|view|Grep|grep|Search|search|ListFiles|list_files|ListDirectory|list_directory",
+                    "hooks": [{
+                        "type": "command",
+                        "command": redirect_cmd
+                    }]
+                }
+            ],
+            "PostToolUse": [
+                {
+                    "matcher": ".*",
+                    "hooks": [{
+                        "type": "command",
+                        "command": format!("{binary} hook post-tool-use"),
+                        "timeout": 10
+                    }]
+                }
+            ],
+            "SessionStart": [
+                {
+                    "matcher": "startup|resume|compact",
+                    "hooks": [{
+                        "type": "command",
+                        "command": format!("{binary} hook session-start"),
+                        "timeout": 10
+                    }]
+                }
+            ],
+            "UserPromptSubmit": [
+                {
+                    "hooks": [{
+                        "type": "command",
+                        "command": format!("{binary} hook user-prompt-submit"),
+                        "timeout": 5
+                    }]
+                }
+            ],
+            "PreCompact": [
+                {
+                    "hooks": [{
+                        "type": "command",
+                        "command": format!("{binary} hook pre-compact"),
+                        "timeout": 15
+                    }]
+                }
+            ],
+            "Stop": [
+                {
+                    "hooks": [{
+                        "type": "command",
+                        "command": format!("{binary} hook stop"),
+                        "timeout": 30
+                    }]
+                }
+            ]
+        }
+    })
+}
+
 fn claude_content_dirs(home: &std::path::Path) -> Vec<PathBuf> {
     let canonical = home.join(".claude");
     let state_dir = crate::core::editor_registry::claude_state_dir(home);
@@ -217,7 +287,10 @@ pub(super) fn install_claude_hook_config(home: &std::path::Path) {
 
     let needs_update =
         !settings_content.contains("hook rewrite") || !settings_content.contains("hook redirect")
-        || !settings_content.contains("hook stop") || !settings_content.contains("hook post-tool-use");
+        || !settings_content.contains("hook stop") || !settings_content.contains("hook post-tool-use")
+        || !settings_content.contains("hook session-start")
+        || !settings_content.contains("hook user-prompt-submit")
+        || !settings_content.contains("hook pre-compact");
     let has_old_hooks = settings_content.contains("nebu-ctx-rewrite.sh")
         || settings_content.contains("nebu-ctx-redirect.sh");
 
@@ -225,45 +298,7 @@ pub(super) fn install_claude_hook_config(home: &std::path::Path) {
         return;
     }
 
-    let hook_entry = serde_json::json!({
-        "hooks": {
-            "PreToolUse": [
-                {
-                    "matcher": "Bash|bash",
-                    "hooks": [{
-                        "type": "command",
-                        "command": rewrite_cmd
-                    }]
-                },
-                {
-                    "matcher": "Read|read|ReadFile|read_file|View|view|Grep|grep|Search|search|ListFiles|list_files|ListDirectory|list_directory",
-                    "hooks": [{
-                        "type": "command",
-                        "command": redirect_cmd
-                    }]
-                }
-            ],
-            "PostToolUse": [
-                {
-                    "matcher": ".*",
-                    "hooks": [{
-                        "type": "command",
-                        "command": format!("{binary} hook post-tool-use"),
-                        "timeout": 10
-                    }]
-                }
-            ],
-            "Stop": [
-                {
-                    "hooks": [{
-                        "type": "command",
-                        "command": format!("{binary} hook stop"),
-                        "timeout": 30
-                    }]
-                }
-            ]
-        }
-    });
+    let hook_entry = claude_hook_payload(&binary, rewrite_cmd, redirect_cmd);
 
     if settings_content.is_empty() {
         write_file(
@@ -294,49 +329,14 @@ pub(super) fn install_claude_project_hooks(cwd: &std::path::Path) {
 
     let existing = std::fs::read_to_string(&settings_path).unwrap_or_default();
     if existing.contains("hook rewrite") && existing.contains("hook redirect")
-        && existing.contains("hook stop") && existing.contains("hook post-tool-use") {
+        && existing.contains("hook stop") && existing.contains("hook post-tool-use")
+        && existing.contains("hook session-start")
+        && existing.contains("hook user-prompt-submit")
+        && existing.contains("hook pre-compact") {
         return;
     }
 
-    let hook_entry = serde_json::json!({
-        "hooks": {
-            "PreToolUse": [
-                {
-                    "matcher": "Bash|bash",
-                    "hooks": [{
-                        "type": "command",
-                        "command": rewrite_cmd
-                    }]
-                },
-                {
-                    "matcher": "Read|read|ReadFile|read_file|View|view|Grep|grep|Search|search|ListFiles|list_files|ListDirectory|list_directory",
-                    "hooks": [{
-                        "type": "command",
-                        "command": redirect_cmd
-                    }]
-                }
-            ],
-            "PostToolUse": [
-                {
-                    "matcher": ".*",
-                    "hooks": [{
-                        "type": "command",
-                        "command": format!("{binary} hook post-tool-use"),
-                        "timeout": 10
-                    }]
-                }
-            ],
-            "Stop": [
-                {
-                    "hooks": [{
-                        "type": "command",
-                        "command": format!("{binary} hook stop"),
-                        "timeout": 30
-                    }]
-                }
-            ]
-        }
-    });
+    let hook_entry = claude_hook_payload(&binary, rewrite_cmd, redirect_cmd);
 
     if existing.is_empty() {
         write_file(
@@ -1163,6 +1163,26 @@ fn install_opencode_plugin(home: &std::path::Path) {
             "  \x1b[32m✓\x1b[0m OpenCode plugin installed at {}",
             plugin_path.display()
         );
+    }
+}
+
+#[cfg(test)]
+mod memory_hook_tests {
+    use super::claude_hook_payload;
+
+    #[test]
+    fn claude_hook_payload_contains_memory_lifecycle_hooks() {
+        let payload = claude_hook_payload(
+            "nebu-ctx",
+            "nebu-ctx hook rewrite".to_string(),
+            "nebu-ctx hook redirect".to_string(),
+        );
+
+        let hooks = payload["hooks"].as_object().unwrap();
+        assert!(hooks.contains_key("SessionStart"));
+        assert!(hooks.contains_key("UserPromptSubmit"));
+        assert!(hooks.contains_key("PreCompact"));
+        assert!(hooks.contains_key("Stop"));
     }
 }
 

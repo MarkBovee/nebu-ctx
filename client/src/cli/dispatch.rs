@@ -1,6 +1,6 @@
 use crate::{
     core, doctor, hook_handlers, mcp_stdio, report, setup, shell,
-    status, token_report, tools, uninstall,
+    status, sync_cli, token_report, tools, uninstall,
 };
 use anyhow::Result;
 
@@ -509,6 +509,13 @@ pub fn run() {
                 }
                 return;
             }
+            "sync" => {
+                let code = sync_cli::run_cli(&rest);
+                if code != 0 {
+                    std::process::exit(code);
+                }
+                return;
+            }
             "read" => {
                 super::cmd_read(&rest);
                 return;
@@ -936,9 +943,11 @@ EVAL INIT (starship/zoxide style — always in sync with binary version):
     nebu-ctx-status                Show whether compression is active
     nebu-ctx init --agent pi       Install Pi Coding Agent extension
     nebu-ctx doctor                Check PATH, config, MCP, and local edge health
-    nebu-ctx doctor --fix --json   Repair + machine-readable report
-    nebu-ctx status --json         Machine-readable current status
-    nebu-ctx read src/main.rs -m map
+        nebu-ctx doctor --fix --json   Repair + machine-readable report
+        nebu-ctx status --json         Machine-readable current status
+        nebu-ctx sync status --json    Inspect queued offline sync items
+        nebu-ctx sync flush            Replay queued offline sync items once
+        nebu-ctx read src/main.rs -m map
     nebu-ctx grep \"pub fn\" src/
     nebu-ctx deps .
 

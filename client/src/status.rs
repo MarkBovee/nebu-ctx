@@ -18,6 +18,7 @@ pub struct StatusReport {
     pub mcp_targets: Vec<McpTargetStatus>,
     pub rules_targets: Vec<crate::rules_inject::RulesTargetStatus>,
     pub cloud_connection: Option<CloudConnectionStatus>,
+    pub sync_outbox: crate::sync_cli::SyncOutboxStatus,
     pub warnings: Vec<String>,
     pub errors: Vec<String>,
 }
@@ -147,6 +148,8 @@ fn build_status_report() -> Result<(StatusReport, std::path::PathBuf), String> {
             saved: true,
         });
 
+    let sync_outbox = build_sync_outbox_status(&mut warnings);
+
     let path = crate::core::setup_report::status_report_path()?;
 
     let report = StatusReport {
@@ -159,6 +162,7 @@ fn build_status_report() -> Result<(StatusReport, std::path::PathBuf), String> {
         mcp_targets,
         rules_targets,
         cloud_connection: host_connection,
+        sync_outbox,
         warnings,
         errors,
     };
@@ -207,6 +211,15 @@ fn print_human(report: &StatusReport, path: &std::path::Path) {
         println!("  host: not configured (run: nebu-ctx connect)");
     }
 
+    if report.sync_outbox.readable {
+        println!(
+            "  sync outbox: {} queued, {} failed",
+            report.sync_outbox.queued, report.sync_outbox.failed
+        );
+    } else {
+        println!("  sync outbox: unreadable ({})", report.sync_outbox.path);
+    }
+
     if !report.warnings.is_empty() {
         println!("  warnings: {}", report.warnings.len());
     }
@@ -240,4 +253,12 @@ pub fn print_on_brief() {
     println!(
         "  \x1b[36m◈\x1b[0m \x1b[1mnebu-ctx\x1b[0m \x1b[2mv{version}\x1b[0m  \x1b[2m·\x1b[0m  \x1b[32mON\x1b[0m{host_part}"
     );
+}
+
+fn build_sync_outbox_status(warnings: &mut Vec<String>) -> crate::sync_cli::SyncOutboxStatus {
+    let status = crate::sync_cli::build_outbox_status();
+    if !status.readable {
+        warnings.push("sync outbox read error".to_string());
+    }
+    status
 }

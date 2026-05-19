@@ -84,7 +84,7 @@ fn nebu_ctx_version_from_path() -> Outcome {
     }
 }
 
-fn rc_contains_lean_ctx(path: &PathBuf) -> bool {
+fn rc_contains_nebu_ctx(path: &PathBuf) -> bool {
     match std::fs::read_to_string(path) {
         Ok(s) => s.contains("nebu-ctx") || s.contains("lean-ctx"),
         Err(_) => false,
@@ -151,14 +151,14 @@ fn shell_aliases_outcome() -> Outcome {
     let mut needs_update = Vec::new();
 
     let zsh = home.join(".zshrc");
-    if rc_contains_lean_ctx(&zsh) {
+    if rc_contains_nebu_ctx(&zsh) {
         parts.push(format!("{DIM}~/.zshrc{RST}"));
         if !rc_has_pipe_guard(&zsh) && is_active_shell("~/.zshrc") {
             needs_update.push("~/.zshrc");
         }
     }
     let bash = home.join(".bashrc");
-    if rc_contains_lean_ctx(&bash) {
+    if rc_contains_nebu_ctx(&bash) {
         parts.push(format!("{DIM}~/.bashrc{RST}"));
         if !rc_has_pipe_guard(&bash) && is_active_shell("~/.bashrc") {
             needs_update.push("~/.bashrc");
@@ -166,7 +166,7 @@ fn shell_aliases_outcome() -> Outcome {
     }
 
     let fish = home.join(".config").join("fish").join("config.fish");
-    if rc_contains_lean_ctx(&fish) {
+    if rc_contains_nebu_ctx(&fish) {
         parts.push(format!("{DIM}~/.config/fish/config.fish{RST}"));
         if !rc_has_pipe_guard(&fish) && is_active_shell("~/.config/fish/config.fish") {
             needs_update.push("~/.config/fish/config.fish");
@@ -183,12 +183,12 @@ fn shell_aliases_outcome() -> Outcome {
             .join("Documents")
             .join("WindowsPowerShell")
             .join("Microsoft.PowerShell_profile.ps1");
-        if rc_contains_lean_ctx(&ps_profile) {
+        if rc_contains_nebu_ctx(&ps_profile) {
             parts.push(format!("{DIM}PowerShell profile{RST}"));
             if !rc_has_pipe_guard(&ps_profile) {
                 needs_update.push("PowerShell profile");
             }
-        } else if rc_contains_lean_ctx(&ps_profile_legacy) {
+        } else if rc_contains_nebu_ctx(&ps_profile_legacy) {
             parts.push(format!("{DIM}WindowsPowerShell profile{RST}"));
             if !rc_has_pipe_guard(&ps_profile_legacy) {
                 needs_update.push("WindowsPowerShell profile");
@@ -430,7 +430,7 @@ fn mcp_config_outcome() -> Outcome {
 
     for loc in &locations {
         if let Ok(content) = std::fs::read_to_string(&loc.path) {
-            if has_lean_ctx_mcp_entry(&content) {
+            if has_nebu_ctx_mcp_entry(&content) {
                 found.push(format!("{} {DIM}({}){RST}", loc.name, loc.display));
             } else {
                 exists_no_ref.push(loc.name.to_string());
@@ -480,7 +480,7 @@ fn mcp_config_outcome() -> Outcome {
     }
 }
 
-fn has_lean_ctx_mcp_entry(content: &str) -> bool {
+fn has_nebu_ctx_mcp_entry(content: &str) -> bool {
     if let Ok(json) = serde_json::from_str::<serde_json::Value>(content) {
         if let Some(servers) = json.get("mcpServers").and_then(|v| v.as_object()) {
             return servers.contains_key("nebu-ctx") || servers.contains_key("lean-ctx");
@@ -500,13 +500,33 @@ fn port_3333_outcome() -> Outcome {
     match TcpListener::bind("127.0.0.1:3333") {
         Ok(_listener) => Outcome {
             ok: true,
-            line: format!("{BOLD}Dashboard port 3333{RST}  {GREEN}available on 127.0.0.1{RST}"),
+            line: format!("{BOLD}Dashboard port 3333{RST}  {GREEN}available on 127.0.0.1{RST}  {DIM}(dashboard not running locally){RST}"),
         },
         Err(e) => Outcome {
-            ok: false,
-            line: format!("{BOLD}Dashboard port 3333{RST}  {RED}not available: {e}{RST}"),
+            ok: true,
+            line: format!("{BOLD}Dashboard port 3333{RST}  {GREEN}in use{RST}  {DIM}(dashboard may be running: {e}){RST}"),
         },
     }
+}
+
+fn dashboard_health_outcome() -> Option<Outcome> {
+    let connection = match crate::config::load_connection() {
+        Ok(Some(connection)) => connection,
+        _ => return None,
+    };
+    let endpoint = connection.endpoint.clone();
+    let client = crate::server_client::ServerClient::new(connection);
+
+    Some(match client.health() {
+        Ok(_) => Outcome {
+            ok: true,
+            line: format!("{BOLD}dashboard health{RST}  {GREEN}ok{RST}  {DIM}{endpoint}/health{RST}"),
+        },
+        Err(error) => Outcome {
+            ok: false,
+            line: format!("{BOLD}dashboard health{RST}  {RED}unreachable{RST}  {DIM}{endpoint}/health: {error}{RST}"),
+        },
+    })
 }
 
 fn pi_outcome() -> Option<Outcome> {
@@ -515,42 +535,101 @@ fn pi_outcome() -> Option<Outcome> {
     match pi_result {
         Ok(output) if output.status.success() => {
             let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            let has_plugin = std::process::Command::new("pi")
+            let plugin_list = std::process::Command::new("pi")
                 .args(["list"])
                 .output()
-                .map(|o| String::from_utf8_lossy(&o.stdout).contains("pi-lean-ctx"))
-                .unwrap_or(false);
+                .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+                .unwrap_or_default();
+            let has_plugin = plugin_list.contains("pi-nebu-ctx");
+            let has_legacy_plugin = plugin_list.contains("pi-lean-ctx");
 
             let has_mcp = dirs::home_dir()
                 .map(|h| h.join(".pi/agent/mcp.json"))
                 .and_then(|p| std::fs::read_to_string(p).ok())
-                .map(|c| c.contains("lean-ctx"))
+                .map(|c| c.contains("nebu-ctx") || c.contains("lean-ctx"))
                 .unwrap_or(false);
 
             if has_plugin && has_mcp {
                 Some(Outcome {
                     ok: true,
                     line: format!(
-                        "{BOLD}Pi Coding Agent{RST}  {GREEN}{version}, pi-lean-ctx + MCP configured{RST}"
+                        "{BOLD}Pi Coding Agent{RST}  {GREEN}{version}, pi-nebu-ctx + MCP configured{RST}"
                     ),
                 })
             } else if has_plugin {
                 Some(Outcome {
                     ok: true,
                     line: format!(
-                        "{BOLD}Pi Coding Agent{RST}  {GREEN}{version}, pi-lean-ctx installed{RST}  {DIM}(MCP not configured — embedded bridge active){RST}"
+                        "{BOLD}Pi Coding Agent{RST}  {GREEN}{version}, pi-nebu-ctx installed{RST}  {DIM}(MCP not configured — embedded bridge active){RST}"
+                    ),
+                })
+            } else if has_legacy_plugin {
+                Some(Outcome {
+                    ok: false,
+                    line: format!(
+                        "{BOLD}Pi Coding Agent{RST}  {YELLOW}{version}, legacy pi-lean-ctx installed{RST}  {DIM}(run: pi install npm:pi-nebu-ctx){RST}"
                     ),
                 })
             } else {
                 Some(Outcome {
                     ok: false,
                     line: format!(
-                        "{BOLD}Pi Coding Agent{RST}  {YELLOW}{version}, but pi-lean-ctx not installed{RST}  {DIM}(run: pi install npm:pi-lean-ctx){RST}"
+                        "{BOLD}Pi Coding Agent{RST}  {YELLOW}{version}, but pi-nebu-ctx not installed{RST}  {DIM}(run: pi install npm:pi-nebu-ctx){RST}"
                     ),
                 })
             }
         }
         _ => None,
+    }
+}
+
+fn sync_outbox_outcome(data_dir: Option<&PathBuf>) -> Outcome {
+    let Some(data_dir) = data_dir else {
+        return Outcome {
+            ok: false,
+            line: format!("{BOLD}sync outbox{RST}  {RED}could not resolve data directory{RST}"),
+        };
+    };
+
+    let outbox_dir = data_dir.join("sync/outbox");
+    if !outbox_dir.exists() {
+        return Outcome {
+            ok: true,
+            line: format!(
+                "{BOLD}sync outbox{RST}  {GREEN}empty{RST}  {DIM}(offline queue not created yet){RST}"
+            ),
+        };
+    }
+
+    if !outbox_dir.is_dir() {
+        return Outcome {
+            ok: false,
+            line: format!(
+                "{BOLD}sync outbox{RST}  {RED}not a directory{RST}  {DIM}{}{RST}",
+                outbox_dir.display()
+            ),
+        };
+    }
+
+    match crate::core::sync_outbox::load_entries() {
+        Ok(entries) if entries.is_empty() => Outcome {
+            ok: true,
+            line: format!("{BOLD}sync outbox{RST}  {GREEN}empty{RST}"),
+        },
+        Ok(entries) => {
+            let failed = entries.iter().filter(|entry| entry.last_error.is_some()).count();
+            Outcome {
+                ok: true,
+                line: format!(
+                    "{BOLD}sync outbox{RST}  {YELLOW}{} queued{RST}  {DIM}({failed} with last_error){RST}",
+                    entries.len()
+                ),
+            }
+        }
+        Err(error) => Outcome {
+            ok: false,
+            line: format!("{BOLD}sync outbox{RST}  {RED}unreadable: {error}{RST}"),
+        },
     }
 }
 
@@ -707,42 +786,12 @@ pub fn run() {
     };
     print_check(&dir_outcome);
 
-    // 4) stats.json + size
-    let stats_path = lean_dir.as_ref().map(|d| d.join("stats.json"));
-    let stats_outcome = match stats_path.as_ref().and_then(|p| std::fs::metadata(p).ok()) {
-        Some(m) if m.is_file() => {
-            passed += 1;
-            let size = m.len();
-            Outcome {
-                ok: true,
-                line: format!(
-                    "{BOLD}stats.json{RST}  {GREEN}exists{RST}  {WHITE}{size} bytes{RST}  {DIM}{}{RST}",
-                    stats_path.as_ref().unwrap().display()
-                ),
-            }
-        }
-        Some(_m) => Outcome {
-            ok: false,
-            line: format!(
-                "{BOLD}stats.json{RST}  {RED}not a file{RST}  {DIM}{}{RST}",
-                stats_path.as_ref().unwrap().display()
-            ),
-        },
-        None => {
-            passed += 1;
-            Outcome {
-                ok: true,
-                line: match &stats_path {
-                    Some(p) => format!(
-                        "{BOLD}stats.json{RST}  {YELLOW}not yet created{RST}  {DIM}(will appear after first use) {}{RST}",
-                        p.display()
-                    ),
-                    None => format!("{BOLD}stats.json{RST}  {RED}could not resolve path{RST}"),
-                },
-            }
-        }
-    };
-    print_check(&stats_outcome);
+    // 4) Sync outbox
+    let outbox = sync_outbox_outcome(lean_dir.as_ref());
+    if outbox.ok {
+        passed += 1;
+    }
+    print_check(&outbox);
 
     // 5) config.toml (missing is OK)
     let config_path = lean_dir.as_ref().map(|d| d.join("config.toml"));
@@ -804,6 +853,14 @@ pub fn run() {
     }
     print_check(&port);
 
+    let dashboard_health = dashboard_health_outcome();
+    if let Some(ref health) = dashboard_health {
+        if health.ok {
+            passed += 1;
+        }
+        print_check(health);
+    }
+
     // 9) Session state (project_root + shell_cwd)
     let session_outcome = session_state_outcome();
     if session_outcome.ok {
@@ -846,6 +903,9 @@ pub fn run() {
     if claude_truncation.is_some() {
         effective_total += 1;
     }
+    if dashboard_health.is_some() {
+        effective_total += 1;
+    }
     println!();
     println!("  {BOLD}{WHITE}Summary:{RST}  {GREEN}{passed}{RST}{DIM}/{effective_total}{RST} checks passed");
 }
@@ -880,7 +940,7 @@ fn claude_truncation_outcome() -> Option<Outcome> {
     }
 
     let rules_path = crate::core::editor_registry::claude_rules_dir(&home).join("nebu-ctx.md");
-    let skill_path = home.join(".claude/skills/lean-ctx/SKILL.md");
+    let skill_path = home.join(".claude/skills/nebu-ctx/SKILL.md");
 
     let has_rules = rules_path.exists();
     let has_skill = skill_path.exists();
@@ -1162,12 +1222,7 @@ pub fn compact_score() -> (u32, u32) {
     if lean_dir.as_ref().is_some_and(|p| p.is_dir()) {
         passed += 1;
     }
-    if lean_dir
-        .as_ref()
-        .map(|d| d.join("stats.json"))
-        .and_then(|p| std::fs::metadata(p).ok())
-        .is_some_and(|m| m.is_file())
-    {
+    if sync_outbox_outcome(lean_dir.as_ref()).ok {
         passed += 1;
     }
     if shell_aliases_outcome().ok {

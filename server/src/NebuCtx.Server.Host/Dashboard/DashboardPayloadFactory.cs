@@ -1,6 +1,7 @@
 namespace NebuCtx.Server.Host.Dashboard;
 
 using System.Globalization;
+using NebuCtx.Contracts.Dashboard;
 using NebuCtx.Contracts.Projects;
 using NebuCtx.Server.Core;
 using NebuCtx.Server.Core.Routing;
@@ -25,6 +26,62 @@ public static class DashboardPayloadFactory
             current = ServerVersion.Current,
             latest = ServerVersion.Current,
             update_available = false,
+        };
+    }
+
+    /// <summary>
+    /// Builds a consolidated overview payload for the simplified dashboard overview.
+    /// </summary>
+    /// <param name="toolRegistry">Tool registry.</param>
+    /// <param name="projects">Registered projects.</param>
+    /// <param name="telemetryStore">Telemetry aggregation store.</param>
+    /// <param name="authToken">Optional auth token for local admin workflows.</param>
+    /// <returns>Aggregated overview payload.</returns>
+    public static DashboardOverviewResponse BuildDashboardOverviewPayload(ToolRegistry toolRegistry, IReadOnlyList<ProjectRecord> projects, TelemetryStore telemetryStore, string? authToken)
+    {
+        return new DashboardOverviewResponse
+        {
+            Version = BuildVersionPayload(),
+            Stats = BuildStatsPayload(toolRegistry, projects, telemetryStore),
+            Gain = BuildGainPayload(telemetryStore),
+            AuthToken = authToken,
+        };
+    }
+
+    /// <summary>
+    /// Builds a per-project memory payload for dashboard and admin workflows.
+    /// </summary>
+    /// <param name="project">Resolved project record.</param>
+    /// <param name="knowledgeEntries">Knowledge entries for the project.</param>
+    /// <param name="brainEntries">Brain entries for the project.</param>
+    /// <returns>Project memory payload.</returns>
+    public static ProjectMemoryResponse BuildProjectMemoryPayload(ProjectRecord project, IReadOnlyList<KnowledgeEntry> knowledgeEntries, IReadOnlyList<BrainEntry> brainEntries)
+    {
+        return new ProjectMemoryResponse
+        {
+            ProjectId = project.ProjectId,
+            ProjectName = project.Slug,
+            Knowledge = knowledgeEntries
+                .OrderBy(entry => entry.Category, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(entry => new ProjectKnowledgeFactResponse
+                {
+                    Category = entry.Category,
+                    Key = entry.Key,
+                    Value = entry.Value,
+                    Confidence = entry.Confidence,
+                    UpdatedAt = entry.UpdatedAt,
+                })
+                .ToArray(),
+            Brain = brainEntries
+                .OrderByDescending(entry => entry.CreatedAt)
+                .Select(entry => new ProjectBrainEntryResponse
+                {
+                    Key = entry.Key,
+                    Value = entry.Value,
+                    CreatedAt = entry.CreatedAt,
+                })
+                .ToArray(),
         };
     }
 

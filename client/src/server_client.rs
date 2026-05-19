@@ -12,6 +12,46 @@ pub struct ServerClient {
     connection: ServerConnection,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct QueuedServerToolCall {
+    pub tool_name: String,
+    pub arguments: Map<String, Value>,
+    pub project_context: QueuedProjectContext,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct QueuedProjectContext {
+    pub project_slug: String,
+    pub project_root: String,
+    pub fingerprint: crate::models::RepositoryFingerprint,
+    pub checkout_binding: crate::models::CheckoutBinding,
+    pub project_metadata: Option<crate::models::ProjectMetadataEnvelope>,
+}
+
+impl From<&ProjectContext> for QueuedProjectContext {
+    fn from(value: &ProjectContext) -> Self {
+        Self {
+            project_slug: value.project_slug.clone(),
+            project_root: value.project_root.clone(),
+            fingerprint: value.fingerprint.clone(),
+            checkout_binding: value.checkout_binding.clone(),
+            project_metadata: value.project_metadata.clone(),
+        }
+    }
+}
+
+impl From<QueuedProjectContext> for ProjectContext {
+    fn from(value: QueuedProjectContext) -> Self {
+        Self {
+            project_slug: value.project_slug,
+            project_root: value.project_root,
+            fingerprint: value.fingerprint,
+            checkout_binding: value.checkout_binding,
+            project_metadata: value.project_metadata,
+        }
+    }
+}
+
 impl ServerClient {
     pub fn load() -> Result<Self> {
         let connection = config::load_connection()?.ok_or_else(|| {
@@ -193,9 +233,6 @@ pub struct IndexSyncEdge {
 /// `handle_stop()` to keep PostgreSQL in sync with the local session outcome.
 /// Silently returns if the server is not configured or any call fails.
 pub fn post_knowledge_to_server(project_root: &str) {
-    let Ok(client) = ServerClient::load() else {
-        return;
-    };
     let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));
     let knowledge = crate::core::knowledge::ProjectKnowledge::load_or_create(project_root);
 
@@ -213,16 +250,13 @@ pub fn post_knowledge_to_server(project_root: &str) {
             "confidence".to_string(),
             serde_json::json!(fact.confidence),
         );
-        let _ = client.call_tool("ctx_knowledge", args, &ctx);
+        let _ = queue_or_call_tool("ctx_knowledge", args, &ctx);
     }
 }
 
 /// Posts a session summary to `ctx_brain` when a session is saved.
 /// Silently returns if the server is not configured.
 pub fn post_session_to_brain(session: &crate::core::session::SessionState) {
-    let Ok(client) = ServerClient::load() else {
-        return;
-    };
     let current_dir = std::env::current_dir().unwrap_or_default();
     let ctx = crate::git_context::discover_project_context(&current_dir);
 
@@ -246,5 +280,38 @@ pub fn post_session_to_brain(session: &crate::core::session::SessionState) {
     args.insert("action".to_string(), Value::String("store".to_string()));
     args.insert("key".to_string(), Value::String(key));
     args.insert("value".to_string(), Value::String(summary));
-    let _ = client.call_tool("ctx_brain", args, &ctx);
+    let _ = queue_or_call_tool("ctx_brain", args, &ctx);
+}
+
+pub fn queue_or_call_tool(
+    tool_name: &str,
+    arguments: Map<String, Value>,
+    project_context: &ProjectContext,
+) -> Result<()> {
+    if let Ok(client) = ServerClient::load() {
+        if client.call_tool(tool_name, arguments.clone(), project_context).is_ok() {
+            return Ok(());
+        }
+    }
+
+    crate::core::sync_outbox::enqueue(
+        crate::core::sync_outbox::OutboxOperationKind::ServerToolCall,
+        serde_json::to_value(QueuedServerToolCall {
+            tool_name: tool_name.to_string(),
+            arguments,
+            project_context: project_context.into(),
+        })
+        .context("failed to serialize queued server tool call")?,
+    )
+    .map(|_| ())
+    .map_err(anyhow::Error::msg)
+}
+
+pub fn replay_queued_server_tool_call(payload: serde_json::Value) -> Result<()> {
+    let queued: QueuedServerToolCall = serde_json::from_value(payload)
+        .context("failed to deserialize queued server tool call")?;
+    let client = ServerClient::load()?;
+    let context: ProjectContext = queued.project_context.into();
+    client.call_tool(&queued.tool_name, queued.arguments, &context)?;
+    Ok(())
 }

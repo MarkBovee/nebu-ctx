@@ -2,6 +2,7 @@ use std::process::Command;
 
 use nebu_ctx::core::setup_report::SetupReport;
 use nebu_ctx::status::StatusReport;
+use nebu_ctx::sync_cli::SyncReport;
 use nebu_ctx::token_report::TokenReport;
 
 #[test]
@@ -15,6 +16,36 @@ fn setup_ci_smoke_windows_packaging_keeps_rust_lld_override() {
         config.contains("x86_64-pc-windows-msvc") && config.contains("rust-lld"),
         "client/.cargo/config.toml should keep the Windows rust-lld override"
     );
+}
+
+#[test]
+fn sync_status_json_reports_outbox_items() {
+    let _lock = nebu_ctx::core::data_dir::test_env_lock();
+    let bin = env!("CARGO_BIN_EXE_nebu-ctx");
+    let tmp = tempfile::tempdir().unwrap();
+    let home = tmp.path().join("home");
+    let data_dir = tmp.path().join("data");
+    std::fs::create_dir_all(&home).unwrap();
+    std::fs::create_dir_all(&data_dir).unwrap();
+
+    let home_str = home.to_string_lossy().to_string();
+    let data_str = data_dir.to_string_lossy().to_string();
+    let envs = [("HOME", home_str.as_str()), ("NEBU_CTX_DATA_DIR", data_str.as_str())];
+    std::env::set_var("NEBU_CTX_DATA_DIR", data_str.as_str());
+
+    nebu_ctx::core::sync_outbox::enqueue(
+        nebu_ctx::core::sync_outbox::OutboxOperationKind::TelemetryIngest,
+        serde_json::json!({"tool_name":"ctx_read"}),
+    )
+    .unwrap();
+
+    let (code, out) = run_json(bin, &["sync", "status", "--json"], &envs);
+    assert_eq!(code, 0, "sync status exit code");
+    let report: SyncReport = serde_json::from_str(&out).expect("sync status JSON parse");
+    assert_eq!(report.schema_version, 1);
+    assert_eq!(report.before.queued, 1);
+    assert_eq!(report.before.telemetry, 1);
+    assert!(report.before.readable);
 }
 
 #[test]
@@ -237,6 +268,8 @@ fn setup_bootstrap_doctor_status_json_smoke() {
     assert_eq!(code, 0, "status exit code");
     let status: StatusReport = serde_json::from_str(&out).expect("status JSON parse");
     assert_eq!(status.schema_version, 1);
+    assert!(status.sync_outbox.readable);
+    assert_eq!(status.sync_outbox.queued, 0);
 
     // token-report --json returns clean JSON
     let (code, out) = run_json(bin, &["token-report", "--json"], &envs);
@@ -322,6 +355,24 @@ fn claude_config_dir_fallback_writes_dot_claude_json() {
     assert!(
         stdout.contains("MCP config") && stdout.contains("nebu-ctx found"),
         "doctor should report nebu-ctx found in MCP config; got:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("sync outbox"),
+        "doctor should report current sync outbox status; got:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("Dashboard port 3333"),
+        "doctor should report dashboard port status; got:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("stats.json"),
+        "doctor should not report stale stats.json status; got:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("pi-lean-ctx not installed")
+            && !stdout.contains("npm:pi-lean-ctx")
+            && !stdout.contains(".claude/skills/lean-ctx"),
+        "doctor should not recommend old package or skill names; got:\n{stdout}"
     );
 }
 

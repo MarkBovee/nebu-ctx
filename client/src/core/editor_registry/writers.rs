@@ -501,11 +501,6 @@ fn write_opencode_config(
         obj.entry("$schema")
             .or_insert_with(|| serde_json::json!("https://opencode.ai/config.json"));
 
-        let mcp = obj.entry("mcp").or_insert_with(|| serde_json::json!({}));
-        let mcp_obj = mcp
-            .as_object_mut()
-            .ok_or_else(|| "\"mcp\" must be an object".to_string())?;
-
         let instructions = obj
             .entry("instructions")
             .or_insert_with(|| serde_json::json!([]));
@@ -516,6 +511,11 @@ fn write_opencode_config(
         if !had_instruction {
             instructions_arr.push(desired_instruction.clone());
         }
+
+        let mcp = obj.entry("mcp").or_insert_with(|| serde_json::json!({}));
+        let mcp_obj = mcp
+            .as_object_mut()
+            .ok_or_else(|| "\"mcp\" must be an object".to_string())?;
 
         let existing = mcp_obj.get("nebu-ctx").cloned();
         if existing.as_ref() == Some(&desired) && had_instruction {
@@ -1172,7 +1172,7 @@ args = ["x"]
         let plugin = include_str!("../../templates/opencode-plugin.ts");
         assert!(plugin.contains("NebuCtxOpenCodePlugin"));
         assert!(plugin.contains("where nebu-ctx"));
-        assert!(plugin.contains("nebu-ctx hook rewrite-inline"));
+        assert!(plugin.contains("runNebu([\"hook\", \"rewrite-inline\", command])"));
         assert!(!plugin.contains("lean-ctx hook rewrite-inline"));
     }
 

@@ -4,6 +4,7 @@ using System.IO;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
+using NebuCtx.Contracts.Dashboard;
 using NebuCtx.Server.Host.Dashboard;
 using NebuCtx.Contracts.Mcp;
 using NebuCtx.Contracts.Projects;
@@ -75,6 +76,19 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
         Assert.Equal(5, toolList.Total);
         Assert.Equal(5, toolList.Tools.Count);
         Assert.Equal(["ctx", "ctx_read", "ctx_search", "ctx_shell", "ctx_tree"], toolList.Tools.Select(tool => tool.Name).OrderBy(name => name, StringComparer.Ordinal).ToArray());
+    }
+
+    /// <summary>
+    /// Aggregated dashboard overview endpoint returns the simplified overview payload.
+    /// </summary>
+    [Fact]
+    public async Task DashboardOverview_ReturnsAggregatedPayload()
+    {
+        var payload = await _client.GetFromJsonAsync<DashboardOverviewResponse>("/api/dashboard/overview");
+        Assert.NotNull(payload);
+        Assert.NotNull(payload!.Version);
+        Assert.NotNull(payload.Stats);
+        Assert.NotNull(payload.Gain);
     }
 
     /// <summary>
@@ -179,6 +193,75 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
         Assert.True(payload.WorkspaceBound);
         Assert.NotNull(payload.Project.ProjectMetadata);
         Assert.Equal(7, payload.Project.ProjectMetadata!.Summary.SourceFileCount);
+    }
+
+    /// <summary>
+    /// Per-project dashboard memory endpoint returns project knowledge and brain entries.
+    /// </summary>
+    [Fact]
+    public async Task DashboardProjectMemory_ReturnsProjectScopedEntries()
+    {
+        var resolveRequest = new ProjectResolutionRequest
+        {
+            SuggestedSlug = "project-memory",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/example/project-memory.git",
+                Host = "github.com",
+                Owner = "example",
+                RepoName = "project-memory",
+                DefaultBranch = "main",
+            },
+        };
+
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", resolveRequest);
+        Assert.Equal(HttpStatusCode.OK, resolveResponse.StatusCode);
+
+        var resolved = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolved);
+
+        var knowledgeResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            ProjectId = resolved!.Project.ProjectId,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "remember",
+                ["category"] = "ARCHITECTURE",
+                ["key"] = "storage",
+                ["value"] = "postgres",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, knowledgeResponse.StatusCode);
+
+        var brainResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_brain",
+            ProjectId = resolved.Project.ProjectId,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "store",
+                ["key"] = "session-demo",
+                ["value"] = "dashboard memory smoke",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, brainResponse.StatusCode);
+
+        var payload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{resolved.Project.ProjectId}/memory");
+        Assert.NotNull(payload);
+        Assert.Equal(resolved.Project.ProjectId, payload!.ProjectId);
+        Assert.Contains(payload.Knowledge, item => item.Category == "ARCHITECTURE" && item.Key == "storage" && item.Value == "postgres");
+        Assert.Contains(payload.Brain, item => item.Key == "session-demo");
+    }
+
+    /// <summary>
+    /// Per-project dashboard memory endpoint returns not found for an unknown project.
+    /// </summary>
+    [Fact]
+    public async Task DashboardProjectMemory_Returns404ForUnknownProject()
+    {
+        var response = await _client.GetAsync("/api/dashboard/projects/missing/memory");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     /// <summary>

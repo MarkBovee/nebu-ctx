@@ -20,6 +20,10 @@ fn extract_tool_name(input: &str) -> Option<String> {
     extract_first_json_field(input, &["tool_name", "toolName"])
 }
 
+fn drain_sync_outbox() {
+    let _ = crate::core::telemetry_queue::flush_pending();
+}
+
 pub fn handle_rewrite() {
     let binary = resolve_binary();
     let Some(input) = read_stdin_string() else { return };
@@ -191,6 +195,7 @@ pub fn handle_rewrite_inline() {
 /// any facts were promoted.
 /// Wired to Claude Code `Stop` and Copilot CLI `postSession`.
 pub fn handle_stop() {
+    drain_sync_outbox();
     let project_root = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
@@ -227,6 +232,7 @@ pub fn handle_stop() {
 ///
 /// Wired to Claude Code `PreCompact`.
 pub fn handle_pre_compact() {
+    drain_sync_outbox();
     let project_root = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
@@ -274,8 +280,9 @@ pub fn handle_session_start() {
         let routing = session_start_routing_block();
         if snapshot.is_empty() { routing } else { format!("{routing}\n\n{snapshot}") }
     } else {
-        // Fresh startup: inject routing block only.
-        session_start_routing_block()
+        let snapshot = build_session_snapshot_xml(&project_root, &source);
+        let routing = session_start_routing_block();
+        if snapshot.is_empty() { routing } else { format!("{routing}\n\n{snapshot}") }
     };
 
     if !additional.is_empty() {
@@ -318,7 +325,6 @@ pub fn handle_user_prompt_submit() {
     if project_root.is_empty() {
         return;
     }
-    let Ok(client) = crate::server_client::ServerClient::load() else { return };
     let ctx = crate::git_context::discover_project_context(std::path::Path::new(&project_root));
     let mut args = serde_json::Map::new();
     args.insert("action".to_string(), serde_json::json!("store"));
@@ -326,7 +332,7 @@ pub fn handle_user_prompt_submit() {
     args.insert("key".to_string(), serde_json::Value::String(key));
     let value = format!("user_prompt: {}", &trimmed[..trimmed.len().min(400)]);
     args.insert("value".to_string(), serde_json::Value::String(value));
-    let _ = client.call_tool("ctx_brain", args, &ctx);
+    let _ = crate::server_client::queue_or_call_tool("ctx_brain", args, &ctx);
 }
 
 /// Builds a compact XML `<session_state>` block (≤2KB) from local session state
@@ -434,9 +440,6 @@ fn xml_escape(s: &str) -> String {
 /// Forwards the current knowledge facts for the project to the configured server
 /// via `ctx_knowledge(action="remember")` for each current, high-confidence fact.
 fn post_promoted_facts_to_server(project_root: &str) {
-    let Ok(client) = crate::server_client::ServerClient::load() else {
-        return;
-    };
     let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));
     let knowledge = crate::core::knowledge::ProjectKnowledge::load_or_create(project_root);
 
@@ -447,7 +450,7 @@ fn post_promoted_facts_to_server(project_root: &str) {
         args.insert("key".to_string(), serde_json::json!(fact.key));
         args.insert("value".to_string(), serde_json::json!(fact.value));
         args.insert("confidence".to_string(), serde_json::json!(fact.confidence));
-        let _ = client.call_tool("ctx_knowledge", args, &ctx);
+        let _ = crate::server_client::queue_or_call_tool("ctx_knowledge", args, &ctx);
     }
 }
 
@@ -532,6 +535,25 @@ fn extract_json_field(input: &str, field: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn session_start_includes_snapshot_on_startup_when_memory_exists() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", tmp.path());
+
+        let root = tmp.path().join("project");
+        std::fs::create_dir_all(&root).unwrap();
+
+        let mut session = crate::core::session::SessionState::new();
+        session.project_root = Some(root.to_string_lossy().to_string());
+        session.set_task("Tighten dashboard overview", None);
+        session.save().unwrap();
+
+        let xml = build_session_snapshot_xml(&root.to_string_lossy(), "startup");
+        assert!(xml.contains("current_task"));
+        assert!(xml.contains("Tighten dashboard overview"));
+    }
 
     #[test]
     fn is_rewritable_basic() {

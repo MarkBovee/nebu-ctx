@@ -79,6 +79,7 @@ pub mod signatures;
 pub mod signatures_ts;
 pub mod slow_log;
 pub mod stats;
+pub mod sync_outbox;
 pub mod telemetry_queue;
 pub mod surprise;
 pub mod symbol_map;

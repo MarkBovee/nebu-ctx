@@ -133,3 +133,123 @@ public sealed class HealthResponse
     [JsonPropertyName("status")]
     public required string Status { get; set; }
 }
+
+/// <summary>
+/// Aggregated dashboard overview payload used by the simplified overview UI.
+/// </summary>
+public sealed class DashboardOverviewResponse
+{
+    /// <summary>
+    /// Version payload for the current server.
+    /// </summary>
+    [JsonPropertyName("version")]
+    public required object Version { get; set; }
+
+    /// <summary>
+    /// Aggregated telemetry and project overview statistics.
+    /// </summary>
+    [JsonPropertyName("stats")]
+    public required object Stats { get; set; }
+
+    /// <summary>
+    /// Gain summary for the overview page.
+    /// </summary>
+    [JsonPropertyName("gain")]
+    public required object Gain { get; set; }
+
+    /// <summary>
+    /// Token value for admin and setup workflows.
+    /// </summary>
+    [JsonPropertyName("auth_token")]
+    public string? AuthToken { get; set; }
+}
+
+/// <summary>
+/// Project memory payload for dashboard and admin workflows.
+/// </summary>
+public sealed class ProjectMemoryResponse
+{
+    /// <summary>
+    /// Project identifier.
+    /// </summary>
+    [JsonPropertyName("project_id")]
+    public required string ProjectId { get; set; }
+
+    /// <summary>
+    /// Project display name.
+    /// </summary>
+    [JsonPropertyName("project_name")]
+    public required string ProjectName { get; set; }
+
+    /// <summary>
+    /// Persisted knowledge facts for the project.
+    /// </summary>
+    [JsonPropertyName("knowledge")]
+    public required IReadOnlyList<ProjectKnowledgeFactResponse> Knowledge { get; set; }
+
+    /// <summary>
+    /// Persisted brain entries for the project.
+    /// </summary>
+    [JsonPropertyName("brain")]
+    public required IReadOnlyList<ProjectBrainEntryResponse> Brain { get; set; }
+}
+
+/// <summary>
+/// Dashboard view model for a single persisted knowledge fact.
+/// </summary>
+public sealed class ProjectKnowledgeFactResponse
+{
+    /// <summary>
+    /// Fact category.
+    /// </summary>
+    [JsonPropertyName("category")]
+    public required string Category { get; set; }
+
+    /// <summary>
+    /// Fact key.
+    /// </summary>
+    [JsonPropertyName("key")]
+    public required string Key { get; set; }
+
+    /// <summary>
+    /// Fact value.
+    /// </summary>
+    [JsonPropertyName("value")]
+    public required string Value { get; set; }
+
+    /// <summary>
+    /// Confidence score.
+    /// </summary>
+    [JsonPropertyName("confidence")]
+    public float Confidence { get; set; }
+
+    /// <summary>
+    /// Last update time.
+    /// </summary>
+    [JsonPropertyName("updated_at")]
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// Dashboard view model for a single persisted brain entry.
+/// </summary>
+public sealed class ProjectBrainEntryResponse
+{
+    /// <summary>
+    /// Brain key.
+    /// </summary>
+    [JsonPropertyName("key")]
+    public required string Key { get; set; }
+
+    /// <summary>
+    /// Brain value.
+    /// </summary>
+    [JsonPropertyName("value")]
+    public required string Value { get; set; }
+
+    /// <summary>
+    /// Creation time.
+    /// </summary>
+    [JsonPropertyName("created_at")]
+    public DateTimeOffset CreatedAt { get; set; }
+}

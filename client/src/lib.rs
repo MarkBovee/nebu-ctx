@@ -28,6 +28,7 @@ pub mod setup;
 pub mod shell;
 pub mod shell_hook;
 pub mod status;
+pub mod sync_cli;
 pub mod terminal_ui;
 pub mod token_report;
 pub mod tool_defs;

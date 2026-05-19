@@ -3,6 +3,7 @@ namespace NebuCtx.Server.Host.Dashboard;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using NebuCtx.Contracts.Dashboard;
 using NebuCtx.Server.Core;
 
 /// <summary>
@@ -16,6 +17,20 @@ public static class DashboardAnalyticsEndpoints
     /// </summary>
     public static IEndpointRouteBuilder MapDashboardAnalytics(this IEndpointRouteBuilder app)
     {
+        app.MapGet("/dashboard/overview", async (
+            ToolRegistry toolRegistry,
+            ProjectRegistry projectRegistry,
+            TelemetryStore telemetryStore,
+            CancellationToken ct) =>
+        {
+            var projects = await projectRegistry.ListAsync(ct);
+            return Results.Ok(DashboardPayloadFactory.BuildDashboardOverviewPayload(
+                toolRegistry,
+                projects,
+                telemetryStore,
+                ReadAuthToken()));
+        });
+
         app.MapGet("/stats", async (
             ToolRegistry toolRegistry,
             ProjectRegistry projectRegistry,
@@ -110,5 +125,21 @@ public static class DashboardAnalyticsEndpoints
         });
 
         return app;
+    }
+
+    /// <summary>
+    /// Reads the configured dashboard auth token, when available.
+    /// </summary>
+    private static string? ReadAuthToken()
+    {
+        var tokenPath = Environment.GetEnvironmentVariable("NEBULA_CTX_TOKEN_FILE")
+            ?? Environment.GetEnvironmentVariable("NEBU_CTX_TOKEN_FILE");
+
+        if (string.IsNullOrWhiteSpace(tokenPath) || !File.Exists(tokenPath))
+        {
+            return null;
+        }
+
+        return File.ReadAllText(tokenPath).Trim();
     }
 }

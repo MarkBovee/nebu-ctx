@@ -213,11 +213,17 @@ impl ServerHandler for NebuCtxServer {
                     "memory" => match action {
                         "task" | "finding" | "decision" | "save" | "load" | "status" | "reset" | "list" | "cleanup" => "ctx_session",
                         "recall" | "pattern" | "consolidate" | "gotcha" | "timeline" | "rooms" | "search" | "wakeup" | "remove" | "export" | "embeddings_status" | "embeddings_reset" | "embeddings_reindex" => "ctx_knowledge",
-                        "store" => {
+                        "store" | "set" | "remember" => {
                             args.insert("action".to_string(), serde_json::Value::String("remember".to_string()));
+                            if !args.contains_key("category") {
+                                args.insert("category".to_string(), serde_json::Value::String("general".to_string()));
+                            }
                             "ctx_knowledge"
                         }
-                        _ => return Err(ErrorData::invalid_params("Unknown memory action", None)),
+                        _ => return Err(ErrorData::invalid_params(
+                            "Unknown memory action. Use one of: task, finding, decision, save, load, status, reset, list, cleanup, store, set, remember, recall, pattern, consolidate, gotcha, timeline, rooms, search, wakeup, remove, export",
+                            None,
+                        )),
                     },
                     "context" => match action {
                         "overview" => "ctx_overview",
@@ -1009,6 +1015,34 @@ mod tests {
             !text.contains("requires a server connection"),
             "Public memory recall should not hard-require the hosted ctx_brain path: {text}"
         );
+    }
+
+    #[test]
+    fn memory_write_aliases_do_not_require_category() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let engine = crate::engine::ContextEngine::new();
+
+        for action in ["store", "set", "remember"] {
+            let text = rt
+                .block_on(engine.call_tool_text(
+                    "ctx",
+                    Some(serde_json::json!({
+                        "domain": "memory",
+                        "action": action,
+                        "key": format!("alias-{action}"),
+                        "value": "memory alias smoke"
+                    })),
+                ))
+                .expect("memory write alias should succeed");
+
+            assert!(
+                text.contains("Remembered") || text.contains("remembered"),
+                "memory action {action} should store knowledge instead of failing: {text}"
+            );
+        }
     }
 
     #[test]

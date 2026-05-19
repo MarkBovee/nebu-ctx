@@ -46,6 +46,7 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $ }) => {
   return {
     "shell.env": async (_input, output) => {
       output.env["NEBU_CTX_DATA_DIR"] = dataDir
+      await runNebu(["hook", "session-start"], JSON.stringify({ source: "startup", editor: "opencode" }))
     },
 
     "tool.execute.before": async (input, output) => {
@@ -107,7 +108,7 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $ }) => {
         text.startsWith("<system-reminder>")
       ) return
 
-      const hookInput = JSON.stringify({ prompt: text.slice(0, 500) })
+      const hookInput = JSON.stringify({ prompt: text.slice(0, 500), source: "opencode" })
       await runNebu(["hook", "user-prompt-submit"], hookInput)
     },
   }

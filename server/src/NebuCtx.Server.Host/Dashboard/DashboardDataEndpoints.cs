@@ -129,6 +129,69 @@ public static class DashboardDataEndpoints
             return Results.Ok(new { projects = payload, total = payload.Length });
         });
 
+        app.MapGet("/dashboard/projects/{projectId}/memory", async (
+            string projectId,
+            ProjectRegistry projectRegistry,
+            IKnowledgeStore knowledgeStore,
+            IBrainStore brainStore,
+            CancellationToken ct) =>
+        {
+            var projects = await projectRegistry.ListAsync(ct);
+            var project = projects.FirstOrDefault(item => item.ProjectId == projectId);
+            if (project is null)
+            {
+                return Results.NotFound(new { error = "project not found", project_id = projectId });
+            }
+
+            var knowledgeEntries = await knowledgeStore.ListAllForProjectAsync(projectId, cancellationToken: ct);
+            var brainEntries = await brainStore.ListAllAsync(projectId, cancellationToken: ct);
+
+            return Results.Ok(DashboardPayloadFactory.BuildProjectMemoryPayload(project, knowledgeEntries, brainEntries));
+        });
+
+        app.MapDelete("/dashboard/projects/{projectId}/memory/brain/{key}", async (
+            string projectId,
+            string key,
+            IBrainStore brainStore,
+            CancellationToken ct) =>
+        {
+            var deleted = await brainStore.DeleteAsync(projectId, key, ct);
+            return deleted
+                ? Results.Ok(new { deleted = true, project_id = projectId, key })
+                : Results.NotFound(new { deleted = false, project_id = projectId, key });
+        });
+
+        app.MapDelete("/dashboard/projects/{projectId}/memory/brain", async (
+            string projectId,
+            IBrainStore brainStore,
+            CancellationToken ct) =>
+        {
+            var count = await brainStore.ClearProjectAsync(projectId, ct);
+            return Results.Ok(new { deleted = count, project_id = projectId });
+        });
+
+        app.MapDelete("/dashboard/projects/{projectId}/memory/knowledge/{category}/{key}", async (
+            string projectId,
+            string category,
+            string key,
+            IKnowledgeStore knowledgeStore,
+            CancellationToken ct) =>
+        {
+            var deleted = await knowledgeStore.RemoveFactAsync(projectId, category, key, ct);
+            return deleted
+                ? Results.Ok(new { deleted = true, project_id = projectId, category, key })
+                : Results.NotFound(new { deleted = false, project_id = projectId, category, key });
+        });
+
+        app.MapDelete("/dashboard/projects/{projectId}/memory/knowledge", async (
+            string projectId,
+            IKnowledgeStore knowledgeStore,
+            CancellationToken ct) =>
+        {
+            var count = await knowledgeStore.ClearProjectAsync(projectId, ct);
+            return Results.Ok(new { deleted = count, project_id = projectId });
+        });
+
         // Symbols
         app.MapGet("/symbols", async (
             string? q,

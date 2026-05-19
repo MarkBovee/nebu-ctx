@@ -687,6 +687,7 @@ window.fetch = function(url, opts) {
 
 const $ = id => document.getElementById(id);
 const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+const jsArg = s => JSON.stringify(String(s ?? ''));
 const fmt = n => { if (n >= 1e6) return (n/1e6).toFixed(1)+'M'; if (n >= 1e3) return (n/1e3).toFixed(1)+'K'; return String(n); };
 const ff = n => n.toLocaleString('en-US');
 const pc = (a,b) => b > 0 ? Math.round(a/b*100) : 0;
@@ -1238,13 +1239,11 @@ Chart.register(valueLabelPlugin);
 async function loadOverview() {
   const container = $('view-overview');
   try {
-    const [stats, gain, buddy, gotchas, version] = await Promise.all([
-      apiFetch('/api/stats').catch(() => null),
-      apiFetch('/api/gain').catch(() => null),
-      apiFetch('/api/buddy').catch(() => null),
-      apiFetch('/api/gotchas').catch(() => null),
-      apiFetch('/api/version').catch(() => null),
-    ]);
+    const overview = await apiFetch('/api/dashboard/overview').catch(() => null);
+    const stats = overview?.stats ?? null;
+    const gain = overview?.gain ?? null;
+    const version = overview?.version ?? null;
+    const buddy = null;
 
     if (version && version.current) {
       $('verBadge').textContent = 'v' + version.current;
@@ -1258,7 +1257,14 @@ async function loadOverview() {
 
     overviewRaw = stats;
     overviewGain = gain;
-    loadAuthToken();
+    if (overview?.auth_token && $('authTokenInput')) {
+      $('authTokenInput').value = overview.auth_token;
+      if ($('tokenPreview')) $('tokenPreview').textContent = overview.auth_token.substring(0, 16) + '...';
+      if ($('mcpEndpoint')) $('mcpEndpoint').textContent = window.location.origin + '/mcp';
+      if ($('tokenSection')) $('tokenSection').style.display = '';
+    } else {
+      loadAuthToken();
+    }
     if (!stats || !stats.total_commands) {
       showEmpty(container, 'Start using nebu-ctx tools (ctx_read, ctx_shell, etc.) in your IDE to see savings here.');
       overviewBuilt = false;
@@ -2498,7 +2504,7 @@ async function loadBugs() {
 async function deleteBrainEntry(projectId, key) {
   if (!confirm(`Delete memory "${key}"?`)) return;
   try {
-    await apiFetch(`/api/brain/${encodeURIComponent(projectId)}/${encodeURIComponent(key)}`, { method: 'DELETE' });
+    await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory/brain/${encodeURIComponent(key)}`, { method: 'DELETE' });
     loadBrain();
   } catch (e) { alert('Failed to delete entry.'); }
 }
@@ -2506,9 +2512,80 @@ async function deleteBrainEntry(projectId, key) {
 async function clearBrainProject(projectId, name) {
   if (!confirm(`Clear all memories for "${name}"? This cannot be undone.`)) return;
   try {
-    await apiFetch(`/api/brain/${encodeURIComponent(projectId)}`, { method: 'DELETE' });
+    await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory/brain`, { method: 'DELETE' });
     loadBrain();
   } catch (e) { alert('Failed to clear project memories.'); }
+}
+
+async function deleteKnowledgeFact(projectId, category, key) {
+  if (!confirm(`Delete knowledge fact "${key}"?`)) return;
+  try {
+    await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory/knowledge/${encodeURIComponent(category)}/${encodeURIComponent(key)}`, { method: 'DELETE' });
+    const select = $('memoryProjectSelect');
+    await loadProjectMemory(select ? select.value : projectId);
+  } catch (e) { alert('Failed to delete knowledge fact.'); }
+}
+
+async function clearKnowledgeProject(projectId, name) {
+  if (!confirm(`Clear all knowledge facts for "${name}"? This cannot be undone.`)) return;
+  try {
+    await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory/knowledge`, { method: 'DELETE' });
+    await loadProjectMemory(projectId);
+  } catch (e) { alert('Failed to clear project knowledge.'); }
+}
+
+async function loadProjectMemory(projectId) {
+  const host = $('memoryProjectDetail');
+  if (!host || !projectId) return;
+  host.innerHTML = '<div class="loading-state">Loading project memory...</div>';
+  try {
+    const payload = await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory`, { timeoutMs: 5000 });
+    const knowledge = payload.knowledge || [];
+    const brain = payload.brain || [];
+    const latestKnowledge = knowledge.length ? new Date(knowledge.reduce((latest, item) => item.updated_at > latest ? item.updated_at : latest, knowledge[0].updated_at)).toLocaleString() : '—';
+    const latestBrain = brain.length ? new Date(brain[0].created_at).toLocaleString() : '—';
+    host.innerHTML = `
+      <div class="row r4" style="margin-bottom:16px">
+        <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${knowledge.length}</div><div class="hl">Project Facts</div></div>
+        <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${brain.length}</div><div class="hl">Project Memories</div></div>
+        <div class="hc"><div class="hv" style="color:var(--blue);font-size:16px">${esc(latestKnowledge)}</div><div class="hl">Latest Fact</div></div>
+        <div class="hc"><div class="hv" style="color:var(--yellow);font-size:16px">${esc(latestBrain)}</div><div class="hl">Latest Memory</div></div>
+      </div>
+      <div class="row r11">
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <h3 style="margin:0">Knowledge Facts</h3>
+            ${knowledge.length ? `<button onclick="clearKnowledgeProject(${jsArg(payload.project_id)},${jsArg(payload.project_name)})" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear facts</button>` : ''}
+          </div>
+          ${knowledge.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Category</th><th>Key</th><th>Value</th><th class="r">Conf</th><th></th></tr></thead><tbody>${knowledge.slice(0, 100).map(f => `<tr>
+            <td><span class="tag tp">${esc(f.category)}</span></td>
+            <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(f.key)}</td>
+            <td style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(f.value)}">${esc(f.value)}</td>
+            <td class="r"><span class="tag ${(f.confidence || 0) >= 0.7 ? 'tg' : 'ty'}">${Math.round((f.confidence || 0) * 100)}%</span></td>
+            <td style="padding:4px 6px;width:28px"><button onclick="deleteKnowledgeFact(${jsArg(payload.project_id)},${jsArg(f.category)},${jsArg(f.key)})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px" title="Delete">×</button></td>
+          </tr>`).join('')}</tbody></table></div>` : '<div class="empty-state" style="padding:32px"><h2>No facts</h2><p>No project-scoped knowledge facts stored yet.</p></div>'}
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <h3 style="margin:0">Brain Memories</h3>
+            ${brain.length ? `<button onclick="clearBrainProject(${jsArg(payload.project_id)},${jsArg(payload.project_name)})" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear memories</button>` : ''}
+          </div>
+          ${brain.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Key</th><th>Value</th><th class="r">Stored</th><th></th></tr></thead><tbody>${brain.slice(0, 100).map(e => {
+            const d = new Date(e.created_at);
+            const ago = Math.round((Date.now() - d.getTime()) / 86400000);
+            const dateStr = ago === 0 ? 'today' : ago === 1 ? 'yesterday' : ago + 'd ago';
+            return `<tr>
+              <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(e.key)}</td>
+              <td style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.value)}">${esc(e.value)}</td>
+              <td class="r" style="font-size:11px;color:var(--muted)" title="${esc(e.created_at)}">${dateStr}</td>
+              <td style="padding:4px 6px;width:28px"><button onclick="deleteBrainEntry(${jsArg(payload.project_id)},${jsArg(e.key)})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px" title="Delete">×</button></td>
+            </tr>`;
+          }).join('')}</tbody></table></div>` : '<div class="empty-state" style="padding:32px"><h2>No memories</h2><p>No project-scoped brain memories stored yet.</p></div>'}
+        </div>
+      </div>`;
+  } catch (e) {
+    host.innerHTML = '<div class="empty-state"><h2>Could not load project memory</h2><p>Refresh the dashboard and try again.</p></div>';
+  }
 }
 
 async function loadBrain() {
@@ -2526,21 +2603,43 @@ async function loadBrain() {
       byProject[name].push(e);
     }
     const projectNames = Object.keys(byProject).sort();
+    const projects = await getProjectList();
+    const memoryProjects = projects.length
+      ? projects.map(project => {
+          const rows = byProject[project.slug] || byProject[project.project_id] || [];
+          return { project_id: project.project_id, project_name: project.slug || project.project_id, memory_count: rows.length };
+        })
+      : projectNames.map(proj => {
+          const rows = byProject[proj];
+          return { project_id: rows[0].project_id || '', project_name: proj, memory_count: rows.length };
+        });
+    const projectOptions = memoryProjects
+      .filter(project => project.project_id)
+      .map(project => `<option value="${esc(project.project_id)}">${esc(project.project_name)} (${project.memory_count})</option>`)
+      .join('');
 
     container.innerHTML = `
       <div class="row r3" style="margin-bottom:16px">
         <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${total}</div><div class="hl">Total Memories</div></div>
-        <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${projectNames.length}</div><div class="hl">Projects</div></div>
+        <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${memoryProjects.length}</div><div class="hl">Projects</div></div>
         <div class="hc"><div class="hv" style="color:var(--blue);font-size:24px">${entries.length > 0 ? new Date(entries[0].created_at).toLocaleDateString() : '—'}</div><div class="hl">Latest Entry</div></div>
       </div>
-      ${projectNames.length === 0 ? '<div class="card"><div class="empty-state" style="padding:40px"><h2>No memories stored</h2><p>Use <code>ctx_brain(action="store", key="...", value="...")</code> to persist long-term memories.</p></div></div>' : ''}
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header" style="margin-bottom:12px">
+          <h3>Memory Admin</h3>
+          ${projectOptions ? `<select id="memoryProjectSelect" class="graph-select" onchange="loadProjectMemory(this.value)">${projectOptions}</select>` : ''}
+        </div>
+        <div id="memoryProjectDetail">
+          ${memoryProjects.length === 0 ? '<div class="empty-state" style="padding:40px"><h2>No projects found</h2><p>Run tool calls from a project to register it, then store memory with <code>ctx(domain="memory", action="store", key="...", value="...")</code>.</p></div>' : '<div class="loading-state">Select a project to inspect memory...</div>'}
+        </div>
+      </div>
       ${projectNames.map(proj => {
         const rows = byProject[proj];
         const projId = rows[0].project_id || '';
         return `<div class="card" style="margin-bottom:16px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
             <h3 style="margin:0">${esc(proj)} <span class="tag tg" style="margin-left:6px">${rows.length} memories</span></h3>
-            ${projId ? `<button onclick="clearBrainProject('${esc(projId)}','${esc(proj)}')" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear all</button>` : ''}
+            ${projId ? `<button onclick="clearBrainProject(${jsArg(projId)},${jsArg(proj)})" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear all</button>` : ''}
           </div>
           <div style="overflow-x:auto">
           <table>
@@ -2553,7 +2652,7 @@ async function loadBrain() {
                 <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(e.key)}</td>
                 <td style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.value)}">${esc(e.value)}</td>
                 <td class="r" style="font-size:11px;color:var(--muted)" title="${esc(e.created_at)}">${dateStr}</td>
-                <td style="padding:4px 6px;width:28px">${e.project_id ? `<button onclick="deleteBrainEntry('${esc(e.project_id)}','${esc(e.key)}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px" title="Delete">×</button>` : ''}</td>
+                <td style="padding:4px 6px;width:28px">${e.project_id ? `<button onclick="deleteBrainEntry(${jsArg(e.project_id)},${jsArg(e.key)})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px" title="Delete">×</button>` : ''}</td>
               </tr>`;
             }).join('')}</tbody>
           </table>
@@ -2561,6 +2660,10 @@ async function loadBrain() {
         </div>`;
       }).join('')}
       ${howItWorks('Brain Memory', '<strong>ctx_brain</strong> is a persistent long-term memory store backed by Postgres. Each memory is scoped to a <strong>project</strong> and stored as a key/value pair. Use <code>ctx_brain(action="store", key="...", value="...")</code> to save facts and <code>ctx_brain(action="recall", query="...")</code> to retrieve them by semantic search. Memories survive context resets and are available across all sessions.')}`;
+    if (memoryProjects.length > 0) {
+      const select = $('memoryProjectSelect');
+      if (select && select.value) await loadProjectMemory(select.value);
+    }
   } catch (e) { showError(container, 'Could not load brain memory data.'); }
 }
 
