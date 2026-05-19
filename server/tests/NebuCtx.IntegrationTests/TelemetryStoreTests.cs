@@ -1,5 +1,6 @@
 namespace NebuCtx.IntegrationTests;
 
+using NebuCtx.Contracts.Telemetry;
 using NebuCtx.Server.Core;
 
 /// <summary>
@@ -95,5 +96,53 @@ public class TelemetryStoreTests
         Assert.Equal(2, snapshot.PerProject["proj-ingest"].TotalToolCalls);
         Assert.True(snapshot.PerProject["proj-ingest"].Commands.ContainsKey("ctx_read"));
         Assert.Equal(2, snapshot.PerProject["proj-ingest"].Commands["ctx_read"].Count);
+    }
+
+    [Fact]
+    public void Hydrate_PopulatesPerProjectDailyCounters()
+    {
+        var store = CreateStore();
+        var now = DateTimeOffset.UtcNow;
+
+        store.Hydrate(
+        [
+            new PersistedTelemetryEvent
+            {
+                OccurredAt = now.AddMinutes(-2),
+                EventType = "ToolCall",
+                ToolName = "ctx_read",
+                Mode = "mcp",
+                ProjectId = "proj-hydrate",
+                ActorLabel = "copilot",
+                Path = "/workspace/proj-hydrate",
+                TokensOriginal = 600,
+                TokensOutput = 300,
+                TokensSaved = 300,
+            },
+            new PersistedTelemetryEvent
+            {
+                OccurredAt = now.AddMinutes(-1),
+                EventType = "ToolCall",
+                ToolName = "ctx_search",
+                Mode = "mcp",
+                ProjectId = "proj-hydrate",
+                ActorLabel = "copilot",
+                Path = "/workspace/proj-hydrate",
+                TokensOriginal = 200,
+                TokensOutput = 150,
+                TokensSaved = 50,
+            },
+        ]);
+
+        var snapshot = store.GetSnapshot();
+        var project = snapshot.PerProject["proj-hydrate"];
+
+        Assert.Equal(2, project.TotalToolCalls);
+        Assert.Equal(800, project.TotalInputTokens);
+        Assert.Equal(450, project.TotalOutputTokens);
+        var daily = Assert.Single(project.Daily);
+        Assert.Equal(2, daily.Commands);
+        Assert.Equal(800, daily.InputTokens);
+        Assert.Equal(450, daily.OutputTokens);
     }
 }

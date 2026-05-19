@@ -300,6 +300,14 @@ public sealed class DashboardStatsPayload
     /// <summary>Aggregated language distribution.</summary>
     [JsonPropertyName("language_distribution")]
     public required IReadOnlyList<DashboardLanguagePayload> LanguageDistribution { get; set; }
+
+    /// <summary>Daily token savings grouped by project.</summary>
+    [JsonPropertyName("project_daily_savings")]
+    public required IReadOnlyList<DashboardProjectDailySavingsPayload> ProjectDailySavings { get; set; }
+
+    /// <summary>Current active sessions shown on the overview.</summary>
+    [JsonPropertyName("active_sessions")]
+    public required IReadOnlyList<DashboardActiveSessionPayload> ActiveSessions { get; set; }
 }
 
 /// <summary>
@@ -358,6 +366,74 @@ public sealed class DashboardLanguagePayload
     /// <summary>File count.</summary>
     [JsonPropertyName("file_count")]
     public long FileCount { get; set; }
+}
+
+/// <summary>
+/// Daily token savings entry for a single project.
+/// </summary>
+public sealed class DashboardProjectDailySavingsPayload
+{
+    /// <summary>Date key.</summary>
+    [JsonPropertyName("date")]
+    public required string Date { get; set; }
+
+    /// <summary>Project identifier.</summary>
+    [JsonPropertyName("project_id")]
+    public required string ProjectId { get; set; }
+
+    /// <summary>Project display name.</summary>
+    [JsonPropertyName("project_name")]
+    public required string ProjectName { get; set; }
+
+    /// <summary>Saved token count for the day.</summary>
+    [JsonPropertyName("tokens_saved")]
+    public long TokensSaved { get; set; }
+
+    /// <summary>Input token count for the day.</summary>
+    [JsonPropertyName("input_tokens")]
+    public long InputTokens { get; set; }
+
+    /// <summary>Output token count for the day.</summary>
+    [JsonPropertyName("output_tokens")]
+    public long OutputTokens { get; set; }
+
+    /// <summary>Recorded command count for the day.</summary>
+    [JsonPropertyName("commands")]
+    public int Commands { get; set; }
+}
+
+/// <summary>
+/// Compact active-session entry for the overview panel.
+/// </summary>
+public sealed class DashboardActiveSessionPayload
+{
+    /// <summary>Stable session identifier.</summary>
+    [JsonPropertyName("session_id")]
+    public required string SessionId { get; set; }
+
+    /// <summary>Project identifier.</summary>
+    [JsonPropertyName("project_id")]
+    public required string ProjectId { get; set; }
+
+    /// <summary>Project display name.</summary>
+    [JsonPropertyName("project_name")]
+    public required string ProjectName { get; set; }
+
+    /// <summary>Client or actor label.</summary>
+    [JsonPropertyName("client_id")]
+    public required string ClientId { get; set; }
+
+    /// <summary>Last-seen timestamp.</summary>
+    [JsonPropertyName("updated_at")]
+    public required string UpdatedAt { get; set; }
+
+    /// <summary>Number of tool calls in the session.</summary>
+    [JsonPropertyName("tool_calls")]
+    public int ToolCalls { get; set; }
+
+    /// <summary>Saved token count for the session.</summary>
+    [JsonPropertyName("tokens_saved")]
+    public long TokensSaved { get; set; }
 }
 
 /// <summary>

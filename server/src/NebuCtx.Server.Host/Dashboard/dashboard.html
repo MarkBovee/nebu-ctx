@@ -57,6 +57,18 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 }
 
 .sidebar-nav{flex:1;padding:8px;overflow-y:auto;overflow-x:hidden}
+.nav-domain{
+  margin:14px 10px 6px;padding:0 6px;opacity:0;transition:opacity .2s .05s;
+}
+.nav-domain:first-child{margin-top:2px}
+.sidebar:hover .nav-domain,.sidebar.pinned .nav-domain{opacity:1}
+.nav-domain-label{
+  color:var(--text-bright);font-size:10px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;display:block;
+}
+.nav-domain-desc{
+  color:var(--muted);font-size:10px;line-height:1.35;margin-top:2px;display:block;
+}
 .nav-item{
   display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;
   cursor:pointer;color:var(--muted);transition:all .15s;white-space:nowrap;
@@ -736,7 +748,17 @@ const VIEWS = [
   { id:'token',        label:'MCP Token',      icon:'<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>' },
 ];
 
+const DOMAIN_FALLBACKS = [
+  { id:'overview', label:'Overview', description:'System summary, live sessions, and token access.', views:['overview','live','token'] },
+  { id:'memory', label:'Memory', description:'Knowledge, brain, and bug memory surfaces.', views:['knowledge','brain','bugs'] },
+  { id:'code', label:'Code Intelligence', description:'Search, symbols, dependencies, call graphs, and routes.', views:['search','symbols','deps','callgraph','routes'] },
+  { id:'context', label:'Context', description:'Compression and context-layer pressure diagnostics.', views:['compression','contextlayer'] },
+  { id:'agents', label:'Agents', description:'Agent coordination and multi-actor activity.', views:['agents'] },
+  { id:'learning', label:'Learning', description:'Feedback loops and learned operating curves.', views:['learning'] },
+];
+
 let currentView = 'overview';
+let domainNav = DOMAIN_FALLBACKS;
 let charts = {};
 let overviewBuilt = false;
 let overviewRaw = null;
@@ -756,12 +778,21 @@ let liveFilter = 'all';
 
 function buildSidebar() {
   const nav = $('sidebarNav');
-  nav.innerHTML = VIEWS.map(v =>
-    `<div class="nav-item${v.id === currentView ? ' active' : ''}" data-view="${v.id}" tabindex="0" onclick="switchView('${v.id}')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${v.icon}</svg>
-      <span class="nav-label">${v.label}</span>
-    </div>`
-  ).join('');
+  nav.innerHTML = domainNav.map(domain => {
+    const items = (domain.views || []).map(viewId => {
+      const v = VIEWS.find(candidate => candidate.id === viewId);
+      if (!v) return '';
+      return `<div class="nav-item${v.id === currentView ? ' active' : ''}" data-view="${v.id}" tabindex="0" onclick="switchView('${v.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${v.icon}</svg>
+        <span class="nav-label">${v.label}</span>
+      </div>`;
+    }).join('');
+
+    return `<div class="nav-domain">
+      <span class="nav-domain-label">${esc(domain.label || domain.id || 'Domain')}</span>
+      <span class="nav-domain-desc">${esc(domain.description || '')}</span>
+    </div>${items}`;
+  }).join('');
   nav.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('keydown', e => {
       const items = [...nav.querySelectorAll('.nav-item')];
@@ -1297,25 +1328,11 @@ function buildOverview(container) {
       <div class="hero-main">
         <div class="hv" data-live id="vSaved"></div>
         <div class="hl">Total Tokens Saved</div>
-        <div class="hs"><b data-live id="vSavedIn"></b> input tokens compressed<br><b data-live id="vSavedOut"></b> output tokens reduced via Gain compression</div>
+        <div class="hs"><b data-live id="vSavedIn"></b> input tokens avoided<br><b data-live id="vSavedOut"></b> output tokens still sent</div>
       </div>
       <div class="hc"><div class="hv" data-live id="vCost" style="color:var(--yellow)"></div><div class="hl">Cost Saved</div><div class="hs" data-live id="vCostSub"></div></div>
       <div class="hc"><div class="hv" data-live id="vRate" style="color:var(--purple)"></div><div class="hl">Compression</div><div class="hs" data-live id="vRateSub"></div></div>
-      <div class="hc">
-        <div style="display:flex;align-items:center;gap:12px">
-          <div class="stat-gauge" style="width:42px;height:42px;margin:0">
-            <svg viewBox="0 0 36 36">
-              <circle class="bg" cx="18" cy="18" r="15.9"/>
-              <circle class="fg" id="gGainRing" cx="18" cy="18" r="15.9" stroke="var(--green)" stroke-dasharray="100" stroke-dashoffset="100"/>
-            </svg>
-          </div>
-          <div style="min-width:0">
-            <div class="hv" data-live id="vGain" style="color:var(--green)"></div>
-            <div class="hl">Gain Score</div>
-            <div class="hs" data-live id="vGainSub"></div>
-          </div>
-        </div>
-      </div>
+      <div class="hc"><div class="hv" data-live id="vProjects" style="color:var(--green)"></div><div class="hl">Active Projects</div><div class="hs" data-live id="vProjectsSub"></div></div>
       <div class="hc"><div class="hv" data-live id="vCalls" style="color:var(--blue)"></div><div class="hl">Total Calls</div><div class="hs" data-live id="vCallsSub"></div></div>
     </div>
     <div class="row r1" id="tokenSection" style="display:none">
@@ -1337,52 +1354,17 @@ function buildOverview(container) {
         </div>
       </div>
     </div>
-    <div class="row r1" id="buddySection" style="display:none">
-      <div class="buddy-card" id="buddyCard">
-        <div class="buddy-sprite" id="buddySpriteWrap"><pre id="buddyAscii"></pre></div>
-        <div class="buddy-info">
-          <div class="buddy-name"><span id="buddyName"></span><span class="rarity-badge" id="buddyRarityBadge"></span></div>
-          <div class="buddy-meta"><span id="buddySpecies"></span> &middot; Lv.<span id="buddyLevel"></span> &middot; <span class="mood-dot" id="buddyMoodDot"></span> <span id="buddyMood"></span> &middot; <span id="buddyStreak"></span> days streak</div>
-          <div class="xp-wrap"><div class="xp-label"><span>XP <span id="buddyXp">0</span></span><span>Next Lv. <span id="buddyXpNext">0</span></span></div><div class="xp-track"><div class="xp-fill" id="buddyXpBar" style="width:0%"></div></div></div>
-          <div class="buddy-stats-grid">
-            <div class="stat-cell"><div class="stat-label">CMP</div><div class="stat-gauge"><svg viewBox="0 0 36 36"><circle class="bg" cx="18" cy="18" r="15.9"/><circle class="fg" id="sgComp" cx="18" cy="18" r="15.9" stroke="var(--green)" stroke-dasharray="100" stroke-dashoffset="100"/></svg></div><div class="stat-val" style="color:var(--green)" id="bsComp">0</div></div>
-            <div class="stat-cell"><div class="stat-label">VIG</div><div class="stat-gauge"><svg viewBox="0 0 36 36"><circle class="bg" cx="18" cy="18" r="15.9"/><circle class="fg" id="sgVig" cx="18" cy="18" r="15.9" stroke="var(--yellow)" stroke-dasharray="100" stroke-dashoffset="100"/></svg></div><div class="stat-val" style="color:var(--yellow)" id="bsVig">0</div></div>
-            <div class="stat-cell"><div class="stat-label">END</div><div class="stat-gauge"><svg viewBox="0 0 36 36"><circle class="bg" cx="18" cy="18" r="15.9"/><circle class="fg" id="sgEnd" cx="18" cy="18" r="15.9" stroke="var(--purple)" stroke-dasharray="100" stroke-dashoffset="100"/></svg></div><div class="stat-val" style="color:var(--purple)" id="bsEnd">0</div></div>
-            <div class="stat-cell"><div class="stat-label">WIS</div><div class="stat-gauge"><svg viewBox="0 0 36 36"><circle class="bg" cx="18" cy="18" r="15.9"/><circle class="fg" id="sgWis" cx="18" cy="18" r="15.9" stroke="var(--blue)" stroke-dasharray="100" stroke-dashoffset="100"/></svg></div><div class="stat-val" style="color:var(--blue)" id="bsWis">0</div></div>
-            <div class="stat-cell"><div class="stat-label">EXP</div><div class="stat-gauge"><svg viewBox="0 0 36 36"><circle class="bg" cx="18" cy="18" r="15.9"/><circle class="fg" id="sgExp" cx="18" cy="18" r="15.9" stroke="var(--text)" stroke-dasharray="100" stroke-dashoffset="100"/></svg></div><div class="stat-val" id="bsExp">0</div></div>
-          </div>
-          <div class="buddy-speech" id="buddySpeech"></div>
-        </div>
-      </div>
-    </div>
     <div class="row r21">
-      <div class="card"><h3>Cumulative Token Savings</h3><canvas id="cCum"></canvas></div>
+      <div class="card"><h3>Daily Token Savings By Project</h3><canvas id="cProjectDaily"></canvas></div>
       <div class="card">
-        <h3>Cost Analysis <span class="badge" data-live id="vCostBadge"></span></h3>
-        <div class="cost-row">
-          <div class="cost-box bad"><div class="amt" data-live id="vCW" style="color:var(--red)"></div><div class="lb">Without</div></div>
-          <div class="cost-arrow">&#8594;</div>
-          <div class="cost-box good"><div class="amt" data-live id="vCC" style="color:var(--green)"></div><div class="lb">With</div></div>
-        </div>
-        <div class="cost-detail">
-          <div class="cd-item"><div class="v" data-live id="vIS" style="color:var(--purple)"></div><div class="l">Input Saved</div></div>
-          <div class="cd-item"><div class="v" data-live id="vOS" style="color:var(--pink)"></div><div class="l">Output Saved</div></div>
-        </div>
-        <div style="text-align:center;margin-top:8px;font-size:8px;color:var(--muted)">~<span data-live id="vOT"></span> output tokens reduced via Gain compression</div>
-      </div>
-    </div>
-    <div class="row r4">
-      <div class="card"><h3>Daily Activity</h3><canvas id="cDay"></canvas></div>
-      <div class="card"><h3>Savings Rate</h3><canvas id="cRate"></canvas></div>
-      <div class="card">
-        <h3>MCP vs Shell Hook</h3>
-        <canvas id="cPie" style="max-height:140px"></canvas>
-        <div class="src-grid" style="margin-top:10px">
-          <div class="src-item"><h4><span class="d" style="background:var(--purple)"></span>MCP Tools</h4><div class="sr"><span class="sl">Calls</span><span class="sv" data-live id="vMC"></span></div><div class="sr"><span class="sl">Saved</span><span class="sv" style="color:var(--green)" data-live id="vMS"></span></div><div class="sr"><span class="sl">Rate</span><span class="sv" style="color:var(--purple)" data-live id="vMR"></span></div></div>
-          <div class="src-item"><h4><span class="d" style="background:var(--blue)"></span>Shell Hook</h4><div class="sr"><span class="sl">Calls</span><span class="sv" data-live id="vHC"></span></div><div class="sr"><span class="sl">Saved</span><span class="sv" style="color:var(--green)" data-live id="vHS"></span></div><div class="sr"><span class="sl">Rate</span><span class="sv" style="color:var(--blue)" data-live id="vHR"></span></div></div>
+        <h3>Live Sessions <span class="badge" data-live id="vActiveSessions"></span></h3>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>Project</th><th>Client</th><th class="r">Calls</th><th class="r">Saved</th><th class="r">Updated</th></tr></thead>
+            <tbody id="tSessions"></tbody>
+          </table>
         </div>
       </div>
-      <div class="card"><h3>Task Breakdown</h3><canvas id="cTasks" style="max-height:140px"></canvas></div>
     </div>
     <div class="row r1">
       <div class="card">
@@ -1405,6 +1387,9 @@ function filterDailyByDays(daily, days) {
 function updateOverview(d, gain) {
   const allDaily = d.daily || [];
   const daily = overviewTF ? filterDailyByDays(allDaily, overviewTF) : fd(allDaily, overviewCR);
+  const projectDailyAll = d.project_daily_savings || [];
+  const projectDaily = overviewTF ? filterDailyByDays(projectDailyAll, overviewTF) : projectDailyAll;
+  const activeSessions = Array.isArray(d.active_sessions) ? d.active_sessions : [];
 
   const tfInp = daily.reduce((a, x) => a + (x.input_tokens || 0), 0);
   const tfOut = daily.reduce((a, x) => a + (x.output_tokens || 0), 0);
@@ -1416,78 +1401,91 @@ function updateOverview(d, gain) {
   cmds.sort((a,b) => (b[1].input_tokens-b[1].output_tokens) - (a[1].input_tokens-a[1].output_tokens));
   const sp = ss(cmds);
   let fu1 = '---'; if (d.first_use) fu1 = d.first_use.substring(0,10);
+  const activeProjectCount = new Set(activeSessions.map(session => session.project_id || session.project_name || 'unknown')).size;
 
-  lv('vSaved', fmt(iSv)); lv('vSavedIn', ff(iSv)); lv('vSavedOut', '~'+fmt(co.os));
+  lv('vSaved', fmt(iSv)); lv('vSavedIn', ff(iSv)); lv('vSavedOut', fmt(tfOut));
   lv('vCost', fu(co.sv)); lv('vCostSub', 'input '+fu(co.iW-co.iC)+' · output '+fu(co.oW-co.oC));
   lv('vRate', rate+'%'); lv('vRateSub', fmt(tfInp)+' → '+fmt(tfOut));
   lv('vCalls', ff(tfCmds)); lv('vCallsSub', daily.length+' days · since '+fu1);
-  if (gain && gain.summary && gain.summary.score) {
-    const s = gain.summary;
-    lv('vGain', String(s.score.total));
-    lv('vGainSub', 'cmp '+s.score.compression+' · cost '+s.score.cost_efficiency+' · qual '+s.score.quality+' · cons '+s.score.consistency);
-    const ring = $('gGainRing');
-    if (ring) ring.style.strokeDashoffset = String(Math.max(0, 100 - Number(s.score.total||0)));
-    if (s.model && s.model.cost) {
-      lv('vCostBadge', `$${(s.model.cost.input_per_m||0).toFixed(2)}/M in · $${(s.model.cost.output_per_m||0).toFixed(2)}/M out`);
-    }
-  } else {
-    lv('vGain', '—');
-    lv('vGainSub', 'no gain data yet');
-    lv('vCostBadge', '$2.50/M in · $10/M out');
-    const ring = $('gGainRing');
-    if (ring) ring.style.strokeDashoffset = '100';
-  }
-  lv('vCW', fu(co.tW)); lv('vCC', fu(co.tC));
-  lv('vIS', fu(co.iW-co.iC)); lv('vOS', fu(co.oW-co.oC)); lv('vOT', fmt(co.os));
-  lv('vMC', ff(sp.m.c)); lv('vMS', fmt(sp.m.s)); lv('vMR', pc(sp.m.s,sp.m.i)+'%');
-  lv('vHC', ff(sp.h.c)); lv('vHS', fmt(sp.h.s)); lv('vHR', pc(sp.h.s,sp.h.i)+'%');
+  lv('vProjects', ff(activeProjectCount));
+  lv('vProjectsSub', ff(activeSessions.length) + ' live clients');
+  lv('vActiveSessions', ff(activeSessions.length));
 
   const dh = JSON.stringify(daily.map(x => x.date+x.commands));
   const chh = JSON.stringify(cmds.map(c => c[0]+c[1].count));
-  const gh = JSON.stringify(((gain && gain.tasks) ? gain.tasks : []).map(x => (x.category||'') + (x.tokens_saved||0) + (x.tool_spend_usd||0)));
-  if (dh+chh+gh !== overviewPH) { updateOverviewCharts(daily, cmds, sp, gain); renderCmds(cmds); overviewPH = dh+chh+gh; }
+  const pdh = JSON.stringify(projectDaily.map(x => (x.date||'') + (x.project_id||'') + (x.tokens_saved||0)));
+  const sh = JSON.stringify(activeSessions.map(x => (x.session_id||'') + (x.updated_at||'') + (x.tool_calls||0)));
+  if (dh+chh+pdh+sh !== overviewPH) { updateOverviewCharts(daily, projectDaily); renderCmds(cmds); renderOverviewSessions(activeSessions); overviewPH = dh+chh+pdh+sh; }
 }
 
-function updateOverviewCharts(daily, cmds, sp, gain) {
-  const lb = daily.map(d => d.date.substring(5));
-  const sv = daily.map(d => d.input_tokens - d.output_tokens);
-  const ot = daily.map(d => d.output_tokens);
-  const rt = daily.map(d => d.input_tokens > 0 ? Math.round((d.input_tokens-d.output_tokens)/d.input_tokens*100) : 0);
-  let cum = [], s = 0; for (const x of sv) { s += x; cum.push(s); }
-  const sm = daily.length > 30;
+function updateOverviewCharts(daily, projectDaily) {
   const df = chartDefaults;
-
-  if (charts.cum) { charts.cum.data.labels = lb; charts.cum.data.datasets[0].data = cum; charts.cum.update('none'); }
-  else { charts.cum = new Chart($('cCum'), { type:'line', data:{ labels:lb, datasets:[{ data:cum, fill:true, borderColor:'#6366f1', backgroundColor:'rgba(99,102,241,.04)', borderWidth:2, pointRadius:sm?0:3, pointBackgroundColor:'#6366f1', tension:.4 }] }, options:{ ...df(), plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>`${fmt(c.parsed.y)} tokens saved`}} } } }); }
-
-  if (charts.day) { charts.day.data.labels = lb; charts.day.data.datasets[0].data = sv; charts.day.data.datasets[1].data = ot; charts.day.update('none'); }
-  else { charts.day = new Chart($('cDay'), { type:'bar', data:{ labels:lb, datasets:[ {label:'Saved',data:sv,backgroundColor:'rgba(99,102,241,.4)',borderRadius:3,borderSkipped:false}, {label:'Sent',data:ot,backgroundColor:'rgba(129,140,248,.15)',borderRadius:3,borderSkipped:false} ] }, options:{ ...df(), plugins:{legend:{display:true,position:'bottom',labels:{color:'#6b6b88',font:{size:9},usePointStyle:true,pointStyle:'circle',padding:12}}}, scales:{...df().scales,x:{...df().scales.x,stacked:true},y:{...df().scales.y,stacked:true}} } }); }
-
-  if (charts.rate) { charts.rate.data.labels = lb; charts.rate.data.datasets[0].data = rt; charts.rate.update('none'); }
-  else { charts.rate = new Chart($('cRate'), { type:'line', data:{ labels:lb, datasets:[{ data:rt, fill:true, borderColor:'#818cf8', backgroundColor:'rgba(129,140,248,.04)', borderWidth:2, pointRadius:sm?0:3, pointBackgroundColor:'#818cf8', tension:.4 }] }, options:{ ...df(), scales:{...df().scales,y:{...df().scales.y,ticks:{...df().scales.y.ticks,callback:v=>v+'%'},suggestedMin:0,suggestedMax:100}}, plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y+'% savings rate'}}} } }); }
-
-  if (charts.pie) { charts.pie.data.datasets[0].data = [sp.m.s, sp.h.s]; charts.pie.update('none'); }
-  else { charts.pie = new Chart($('cPie'), { type:'doughnut', data:{ labels:['MCP Tools','Shell Hook'], datasets:[{data:[sp.m.s,sp.h.s],backgroundColor:['#818cf8','#38bdf8'],borderWidth:0,hoverOffset:4,borderRadius:3}] }, options:{ responsive:true, maintainAspectRatio:true, cutout:'70%', plugins:{legend:{position:'bottom',labels:{color:'#6b6b88',font:{size:9},padding:10,usePointStyle:true,pointStyle:'circle'}},tooltip:{callbacks:{label:c=>`${c.label}: ${fmt(c.parsed)} tokens`}}} } }); }
-
-  const rows = (gain && gain.tasks) ? gain.tasks.slice(0) : [];
-  if (rows.length > 0) {
-    rows.sort((a,b) => (b.tokens_saved||0) - (a.tokens_saved||0));
-    const top = rows.slice(0, 8);
-    const labels = top.map(r => String(r.category||'General'));
-    const data = top.map(r => Number(r.tokens_saved||0));
-    const colors = ['#6366f1','#818cf8','#38bdf8','#fbbf24','#f472b6','#f87171','#a78bfa','#818cf8'];
-    if (charts.tasks) {
-      charts.tasks.data.labels = labels;
-      charts.tasks.data.datasets[0].data = data;
-      charts.tasks.update('none');
-    } else {
-      charts.tasks = new Chart($('cTasks'), {
-        type:'doughnut',
-        data:{ labels, datasets:[{ data, backgroundColor: colors.slice(0, labels.length), borderWidth:0, hoverOffset:4, borderRadius:3 }] },
-        options:{ responsive:true, maintainAspectRatio:true, cutout:'70%', plugins:{ legend:{ position:'bottom', labels:{ color:'#6b6b88', font:{size:9}, padding:10, usePointStyle:true, pointStyle:'circle' } }, tooltip:{ callbacks:{ label:c=>`${c.label}: ${fmt(c.parsed)} tok saved` } } } }
-      });
-    }
+  const groupedByProject = new Map();
+  for (const row of projectDaily) {
+    const projectName = row.project_name || row.project_id || 'unknown';
+    if (!groupedByProject.has(projectName)) groupedByProject.set(projectName, new Map());
+    groupedByProject.get(projectName).set(row.date, row.tokens_saved || 0);
   }
+  const labels = [...new Set(projectDaily.map(item => item.date || ''))].sort().map(date => date.slice(5));
+  const dates = [...new Set(projectDaily.map(item => item.date || ''))].sort();
+  const palette = ['#6366f1','#818cf8','#38bdf8','#f472b6','#fbbf24','#f87171','#a78bfa','#22c55e'];
+  const datasets = [...groupedByProject.entries()]
+    .sort((a, b) => {
+      const totalA = [...a[1].values()].reduce((sum, value) => sum + value, 0);
+      const totalB = [...b[1].values()].reduce((sum, value) => sum + value, 0);
+      return totalB - totalA;
+    })
+    .slice(0, 6)
+    .map(([projectName, items], index) => ({
+      label: projectName,
+      data: dates.map(date => items.get(date) || 0),
+      backgroundColor: palette[index % palette.length] + '88',
+      borderColor: palette[index % palette.length],
+      borderWidth: 1,
+      borderRadius: 4,
+      borderSkipped: false,
+    }));
+
+  if (charts.projectDaily) {
+    charts.projectDaily.data.labels = labels;
+    charts.projectDaily.data.datasets = datasets;
+    charts.projectDaily.update('none');
+  } else {
+    charts.projectDaily = new Chart($('cProjectDaily'), {
+      type:'bar',
+      data:{ labels, datasets },
+      options:{
+        ...df(),
+        plugins:{
+          legend:{ display:true, position:'bottom', labels:{ color:'#6b6b88', font:{size:9}, usePointStyle:true, pointStyle:'circle', padding:12 } },
+          tooltip:{ callbacks:{ label:c=>`${c.dataset.label}: ${fmt(c.parsed.y)} tokens saved` } },
+          valueLabel:{ enabled:false }
+        },
+        scales:{ ...df().scales, x:{ ...df().scales.x, stacked:true }, y:{ ...df().scales.y, stacked:true } }
+      }
+    });
+  }
+}
+
+function renderOverviewSessions(sessions) {
+  const table = $('tSessions');
+  if (!table) return;
+  if (!sessions.length) {
+    table.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">No live sessions yet</td></tr>';
+    return;
+  }
+
+  table.innerHTML = sessions.map(session => {
+    const updated = session.updated_at ? new Date(session.updated_at) : null;
+    const updatedLabel = updated ? updated.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '—';
+    return `<tr>
+      <td style="color:var(--text-bright)">${esc(session.project_name || session.project_id || 'unknown')}</td>
+      <td>${esc(session.client_id || 'unknown')}</td>
+      <td class="r">${ff(session.tool_calls || 0)}</td>
+      <td class="r"><span class="tag tg">${fmt(session.tokens_saved || 0)}</span></td>
+      <td class="r" style="color:var(--muted)">${esc(updatedLabel)}</td>
+    </tr>`;
+  }).join('');
 }
 
 function toggleCmds() {
@@ -1574,7 +1572,7 @@ async function loadTokenView() {
 }
 
 function renderBuddy(b) {
-  if (!b || !b.name) return;
+  if (!b || !b.name || !$('buddySection')) return;
   $('buddySection').style.display = '';
   const lvlTier = (b.level >= 75) ? 't4' : (b.level >= 50) ? 't3' : (b.level >= 25) ? 't2' : (b.level >= 10) ? 't1' : 't0';
   $('buddyCard').className = 'buddy-card rarity-' + b.rarity + ' lvl-' + lvlTier;
@@ -2509,6 +2507,28 @@ async function deleteBrainEntry(projectId, key) {
   } catch (e) { alert('Failed to delete entry.'); }
 }
 
+async function loadDomainNav() {
+  try {
+    const res = await fetch(resolveDashboardUrl('/api/dashboard/domains'));
+    if (!res.ok) return;
+    const payload = await res.json();
+    if (!payload || !Array.isArray(payload.domains) || !payload.domains.length) return;
+
+    const normalized = payload.domains
+      .map(domain => ({
+        id: String(domain.id || ''),
+        label: String(domain.label || domain.id || ''),
+        description: String(domain.description || ''),
+        views: Array.isArray(domain.views)
+          ? domain.views.map(view => String(view.id || '')).filter(Boolean)
+          : [],
+      }))
+      .filter(domain => domain.views.length > 0);
+
+    if (normalized.length) domainNav = normalized;
+  } catch {}
+}
+
 async function clearBrainProject(projectId, name) {
   if (!confirm(`Clear all memories for "${name}"? This cannot be undone.`)) return;
   try {
@@ -3290,10 +3310,12 @@ async function loadContextLayer() {
   } catch (e) { showError(container, 'Could not load Context Layer data.'); }
 }
 
-buildSidebar();
-loadCurrentView();
-checkPulse();
-startPulsePolling();
+loadDomainNav().finally(() => {
+  buildSidebar();
+  loadCurrentView();
+  checkPulse();
+  startPulsePolling();
+});
 </script>
 </body>
 </html>

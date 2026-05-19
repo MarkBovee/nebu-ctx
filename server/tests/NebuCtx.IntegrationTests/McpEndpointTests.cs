@@ -92,6 +92,64 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     }
 
     /// <summary>
+    /// Dashboard overview returns daily savings grouped per project plus active session data.
+    /// </summary>
+    [Fact]
+    public async Task DashboardOverview_ReturnsProjectDailySavingsAndActiveSessions()
+    {
+        var projectId = $"proj_{Guid.NewGuid():N}";
+        await SeedLegacyProjectAsync(new ProjectRecord
+        {
+            ProjectId = projectId,
+            Slug = "overview-project",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            ProjectMetadata = new ProjectMetadataEnvelope
+            {
+                SchemaVersion = 1,
+                Summary = new ProjectMetadataSummary
+                {
+                    TotalFileCount = 5,
+                    SourceFileCount = 3,
+                    Markers = [".git", "Cargo.toml"],
+                    Languages = [new ProjectLanguageStat { Language = "rust", FileCount = 3 }],
+                },
+            },
+        });
+
+        var ingestResponse = await _client.PostAsJsonAsync("/v1/telemetry/ingest", new TelemetryIngestRequest
+        {
+            ToolName = "ctx_read",
+            TokensOriginal = 1200,
+            TokensSaved = 500,
+            Mode = "map",
+            ProjectSlug = "overview-project",
+            CheckoutBinding = new CheckoutBinding
+            {
+                ProjectId = projectId,
+                LocalRoot = "/workspace/overview-project",
+                Branch = "main",
+                ClientLabel = "integration-client-1",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, ingestResponse.StatusCode);
+
+        var payload = await _client.GetFromJsonAsync<DashboardOverviewResponse>("/api/dashboard/overview");
+        Assert.NotNull(payload);
+
+        var dailySavings = Assert.Single(payload!.Stats.ProjectDailySavings);
+        Assert.Equal(projectId, dailySavings.ProjectId);
+        Assert.Equal("overview-project", dailySavings.ProjectName);
+        Assert.Equal(500, dailySavings.TokensSaved);
+        Assert.True(payload.Stats.ActiveSessions.Count >= 1);
+
+        var session = Assert.Single(payload.Stats.ActiveSessions, item => item.ProjectId == projectId);
+        Assert.Equal("overview-project", session.ProjectName);
+        Assert.Equal("integration-client-1", session.ClientId);
+        Assert.Equal(1, session.ToolCalls);
+    }
+
+    /// <summary>
     /// Dashboard domain endpoint groups the detailed panels into fewer operator areas.
     /// </summary>
     [Fact]

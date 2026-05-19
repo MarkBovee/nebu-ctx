@@ -25,6 +25,8 @@ public sealed class TelemetryStore
     private readonly List<TelemetryEventSnapshot> _events = [];
     private readonly Dictionary<string, Dictionary<string, CommandTelemetrySnapshot>> _projectCommands
         = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Dictionary<string, ProjectDailyTelemetrySnapshot>> _projectDaily
+        = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<(string ProjectId, string Path), int> _fileAccessCounts = new();
     private DateTimeOffset? _firstUse;
     private DateTimeOffset? _lastUpdated;
@@ -160,6 +162,27 @@ public sealed class TelemetryStore
         /// <summary>File-access counts for this project (path → count).</summary>
         public IReadOnlyDictionary<string, int> FileAccess { get; init; }
             = new Dictionary<string, int>();
+
+        /// <summary>Daily token activity for this project.</summary>
+        public IReadOnlyList<ProjectDailyTelemetrySnapshot> Daily { get; init; } = [];
+    }
+
+    /// <summary>
+    /// Daily telemetry aggregation entry for a single project.
+    /// </summary>
+    public sealed class ProjectDailyTelemetrySnapshot
+    {
+        /// <summary>UTC date key in yyyy-MM-dd format.</summary>
+        public required string Date { get; init; }
+
+        /// <summary>Total estimated input tokens for the day.</summary>
+        public long InputTokens { get; set; }
+
+        /// <summary>Total estimated output tokens for the day.</summary>
+        public long OutputTokens { get; set; }
+
+        /// <summary>Total recorded commands for the day.</summary>
+        public int Commands { get; set; }
     }
 
     /// <summary>
@@ -343,6 +366,11 @@ public sealed class TelemetryStore
             projCommandEntry.InputTokens += inputTokens;
             projCommandEntry.OutputTokens += outputTokens;
 
+            var projectDailyEntry = GetOrCreateProjectDaily(context.ProjectId, dateKey);
+            projectDailyEntry.InputTokens += inputTokens;
+            projectDailyEntry.OutputTokens += outputTokens;
+            projectDailyEntry.Commands++;
+
             // File-access tracking
             if (FileAccessTools.Contains(toolName)
                 && arguments.TryGetValue("path", out var pathArg)
@@ -424,6 +452,9 @@ public sealed class TelemetryStore
                         FileAccess = _fileAccessCounts
                             .Where(fa => fa.Key.ProjectId == kvp.Key)
                             .ToDictionary(fa => fa.Key.Path, fa => fa.Value),
+                        Daily = _projectDaily.TryGetValue(kvp.Key, out var projectDaily)
+                            ? projectDaily.Values.OrderBy(item => item.Date, StringComparer.Ordinal).Select(CloneProjectDaily).ToArray()
+                            : [],
                     },
                     StringComparer.OrdinalIgnoreCase),
             };
@@ -442,7 +473,10 @@ public sealed class TelemetryStore
         var source = InferSource(request.ToolName);
         var inputTokens = request.TokensOriginal;
         var outputTokens = Math.Max(0, request.TokensOriginal - request.TokensSaved);
-        var actorLabel = "rust-client";
+        var actorLabel = string.IsNullOrWhiteSpace(request.CheckoutBinding?.ClientLabel)
+            ? "rust-client"
+            : request.CheckoutBinding.ClientLabel!;
+        var projectRoot = request.CheckoutBinding?.LocalRoot;
         var sessionKey = BuildSessionKey(projectId, actorLabel);
         var dateKey = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
@@ -472,6 +506,11 @@ public sealed class TelemetryStore
                 projCommandEntry.Count++;
                 projCommandEntry.InputTokens += inputTokens;
                 projCommandEntry.OutputTokens += outputTokens;
+
+                var projectDailyEntry = GetOrCreateProjectDaily(projectId, dateKey);
+                projectDailyEntry.InputTokens += inputTokens;
+                projectDailyEntry.OutputTokens += outputTokens;
+                projectDailyEntry.Commands++;
             }
 
             var dailyEntry = GetOrCreateDaily(dateKey);
@@ -479,8 +518,9 @@ public sealed class TelemetryStore
             dailyEntry.OutputTokens += outputTokens;
             dailyEntry.Commands++;
 
-            var sessionEntry = GetOrCreateSession(sessionKey, projectId, actorLabel, now, null);
+            var sessionEntry = GetOrCreateSession(sessionKey, projectId, actorLabel, now, projectRoot);
             sessionEntry.UpdatedAt = now;
+            sessionEntry.ProjectRoot = projectRoot ?? sessionEntry.ProjectRoot;
             sessionEntry.ToolCalls++;
             sessionEntry.TokensOriginal += inputTokens;
             sessionEntry.TokensOutput += outputTokens;
@@ -494,6 +534,7 @@ public sealed class TelemetryStore
                 Mode = request.Mode ?? source,
                 ProjectId = projectId,
                 ActorLabel = actorLabel,
+                Path = projectRoot,
                 TokensOriginal = inputTokens,
                 TokensOutput = outputTokens,
                 TokensSaved = request.TokensSaved,
@@ -565,6 +606,33 @@ public sealed class TelemetryStore
             Date = dateKey,
         };
         _daily[dateKey] = entry;
+        return entry;
+    }
+
+    /// <summary>
+    /// Gets or creates a project-scoped daily telemetry aggregate.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="dateKey">UTC date key.</param>
+    /// <returns>Mutable project daily telemetry aggregate.</returns>
+    private ProjectDailyTelemetrySnapshot GetOrCreateProjectDaily(string projectId, string dateKey)
+    {
+        if (!_projectDaily.TryGetValue(projectId, out var daily))
+        {
+            daily = new Dictionary<string, ProjectDailyTelemetrySnapshot>(StringComparer.OrdinalIgnoreCase);
+            _projectDaily[projectId] = daily;
+        }
+
+        if (daily.TryGetValue(dateKey, out var entry))
+        {
+            return entry;
+        }
+
+        entry = new ProjectDailyTelemetrySnapshot
+        {
+            Date = dateKey,
+        };
+        daily[dateKey] = entry;
         return entry;
     }
 
@@ -681,6 +749,22 @@ public sealed class TelemetryStore
     }
 
     /// <summary>
+    /// Clones a project daily telemetry entry for snapshot export.
+    /// </summary>
+    /// <param name="entry">Mutable telemetry entry.</param>
+    /// <returns>Detached project daily telemetry snapshot.</returns>
+    private static ProjectDailyTelemetrySnapshot CloneProjectDaily(ProjectDailyTelemetrySnapshot entry)
+    {
+        return new ProjectDailyTelemetrySnapshot
+        {
+            Date = entry.Date,
+            InputTokens = entry.InputTokens,
+            OutputTokens = entry.OutputTokens,
+            Commands = entry.Commands,
+        };
+    }
+
+    /// <summary>
     /// Clones a session telemetry entry for snapshot export.
     /// </summary>
     /// <param name="entry">Mutable telemetry entry.</param>
@@ -767,8 +851,27 @@ public sealed class TelemetryStore
                 commandEntry.Count++;
                 commandEntry.InputTokens += evt.TokensOriginal;
                 commandEntry.OutputTokens += evt.TokensOutput;
-
                 var dateKey = evt.OccurredAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+                if (!string.IsNullOrWhiteSpace(evt.ProjectId))
+                {
+                    if (!_projectCommands.TryGetValue(evt.ProjectId, out var projCmds))
+                    {
+                        projCmds = new Dictionary<string, CommandTelemetrySnapshot>(StringComparer.OrdinalIgnoreCase);
+                        _projectCommands[evt.ProjectId] = projCmds;
+                    }
+
+                    var projCommandEntry = GetOrCreateProjectCommand(projCmds, evt.ToolName, source);
+                    projCommandEntry.Count++;
+                    projCommandEntry.InputTokens += evt.TokensOriginal;
+                    projCommandEntry.OutputTokens += evt.TokensOutput;
+
+                    var projectDailyEntry = GetOrCreateProjectDaily(evt.ProjectId, dateKey);
+                    projectDailyEntry.InputTokens += evt.TokensOriginal;
+                    projectDailyEntry.OutputTokens += evt.TokensOutput;
+                    projectDailyEntry.Commands++;
+                }
+
                 var dailyEntry = GetOrCreateDaily(dateKey);
                 dailyEntry.InputTokens += evt.TokensOriginal;
                 dailyEntry.OutputTokens += evt.TokensOutput;

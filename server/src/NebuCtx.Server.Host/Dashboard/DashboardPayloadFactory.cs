@@ -132,6 +132,7 @@ public static class DashboardPayloadFactory
             OutputTokens = item.OutputTokens,
             Commands = item.Commands,
         }).ToArray();
+        var projectDailySavings = BuildProjectDailySavingsPayloads(projects, telemetry);
 
         return new DashboardStatsPayload
         {
@@ -150,6 +151,8 @@ public static class DashboardPayloadFactory
             IndexedFileCount = totalSourceFiles,
             TotalFileCount = totalFiles,
             LanguageDistribution = aggregatedLanguageCounts.Select(item => new DashboardLanguagePayload { Language = item.Key, FileCount = item.Value }).ToArray(),
+            ProjectDailySavings = projectDailySavings,
+            ActiveSessions = BuildActiveSessionPayloads(projects, telemetry),
         };
     }
 
@@ -1015,6 +1018,56 @@ public static class DashboardPayloadFactory
         }
 
         return commands;
+    }
+
+    /// <summary>
+    /// Builds daily token savings grouped by project for the overview chart.
+    /// </summary>
+    /// <param name="projects">Registered projects.</param>
+    /// <param name="telemetry">Current telemetry snapshot.</param>
+    /// <returns>Per-project daily savings payloads ordered by date and project.</returns>
+    private static DashboardProjectDailySavingsPayload[] BuildProjectDailySavingsPayloads(IReadOnlyList<ProjectRecord> projects, TelemetryStore.Snapshot telemetry)
+    {
+        return telemetry.PerProject.Values
+            .SelectMany(project => project.Daily.Select(day => new DashboardProjectDailySavingsPayload
+            {
+                Date = day.Date,
+                ProjectId = project.ProjectId,
+                ProjectName = projects.FirstOrDefault(item => item.ProjectId == project.ProjectId)?.Slug ?? project.ProjectId,
+                TokensSaved = Math.Max(0, day.InputTokens - day.OutputTokens),
+                InputTokens = day.InputTokens,
+                OutputTokens = day.OutputTokens,
+                Commands = day.Commands,
+            }))
+            .OrderBy(item => item.Date, StringComparer.Ordinal)
+            .ThenBy(item => item.ProjectName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Builds compact active-session entries for the overview surface.
+    /// </summary>
+    /// <param name="projects">Registered projects.</param>
+    /// <param name="telemetry">Current telemetry snapshot.</param>
+    /// <returns>Ordered list of active session payloads.</returns>
+    private static DashboardActiveSessionPayload[] BuildActiveSessionPayloads(IReadOnlyList<ProjectRecord> projects, TelemetryStore.Snapshot telemetry)
+    {
+        var cutoff = DateTimeOffset.UtcNow.AddHours(-12);
+        return telemetry.Sessions
+            .Where(session => session.UpdatedAt >= cutoff)
+            .OrderByDescending(session => session.UpdatedAt)
+            .Take(8)
+            .Select(session => new DashboardActiveSessionPayload
+            {
+                SessionId = session.SessionKey,
+                ProjectId = session.ProjectId,
+                ProjectName = ResolveProjectLabel(projects, session.ProjectId),
+                ClientId = session.ActorLabel,
+                UpdatedAt = session.UpdatedAt.ToString("O"),
+                ToolCalls = session.ToolCalls,
+                TokensSaved = session.TokensSaved,
+            })
+            .ToArray();
     }
 
     /// <summary>

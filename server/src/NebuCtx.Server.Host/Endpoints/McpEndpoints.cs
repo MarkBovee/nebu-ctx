@@ -53,7 +53,7 @@ public static class McpEndpoints
             ProjectRegistry projectRegistry,
             CancellationToken ct) =>
         {
-            var projectId = string.Empty;
+            var projectId = request.CheckoutBinding?.ProjectId ?? string.Empty;
             if (request.RepositoryFingerprint is not null)
             {
                 var project = await projectRegistry.ResolveOrCreateAsync(
