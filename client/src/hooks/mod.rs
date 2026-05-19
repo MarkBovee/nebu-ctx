@@ -414,7 +414,7 @@ The workspace has the `nebu-ctx` MCP server installed. You MUST prefer nebu-ctx 
 | Use this | Instead of | Why |
 |----------|-----------|-----|
 | `mcp_lean_ctx_ctx_read` | `readFile`, `readCode` | Cached reads, 10 compression modes, re-reads cost ~13 tokens |
-| `mcp_lean_ctx_ctx_multi_read` | `readMultipleFiles` | Batch cached reads in one call |
+| `mcp_lean_ctx_ctx_read` with `target: \"files\"` | `readMultipleFiles` | Batch cached reads in one public call |
 | `mcp_lean_ctx_ctx_shell` | `executeBash` | Pattern compression for git/npm/test output |
 | `mcp_lean_ctx_ctx_search` | `grepSearch` | Compact, .gitignore-aware results |
 | `mcp_lean_ctx_ctx_tree` | `listDirectory` | Compact directory maps with file counts |

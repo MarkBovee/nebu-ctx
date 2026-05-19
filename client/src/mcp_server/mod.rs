@@ -1021,6 +1021,25 @@ mod tests {
     }
 
     #[test]
+    fn ctx_read_files_target_remains_the_public_batch_read_entrypoint() {
+        let tools = crate::tool_defs::unified_tool_defs();
+        let read = tools
+            .iter()
+            .find(|tool| tool.name.as_ref() == "ctx_read")
+            .expect("ctx_read should remain public");
+        let schema = serde_json::to_string(&*read.input_schema).unwrap();
+
+        assert!(
+            schema.contains("target") && schema.contains("files") && schema.contains("paths"),
+            "ctx_read public schema must continue to advertise target=files batch reads: {schema}"
+        );
+        assert!(
+            !schema.contains("ctx_multi_read"),
+            "public ctx_read schema should not leak private ctx_multi_read details: {schema}"
+        );
+    }
+
+    #[test]
     fn analytics_report_is_accepted_in_public_mode() {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()

@@ -222,7 +222,7 @@ impl NebuCtxServer {
                 .unwrap_or(".")
                 .to_string();
 
-            let resolved = if p.is_absolute() || p.exists() {
+            let resolved = if p.is_absolute() || looks_like_windows_absolute_path(&normalized) || p.exists() {
                 std::path::PathBuf::from(&normalized)
             } else if let Some(ref root) = session.project_root {
                 let joined = std::path::Path::new(root).join(&normalized);
@@ -821,6 +821,13 @@ fn auto_consolidate_knowledge(project_root: &str) {
     let _ = knowledge.save();
 }
 
+fn looks_like_windows_absolute_path(path: &str) -> bool {
+    path.len() >= 3
+        && path.as_bytes()[0].is_ascii_alphabetic()
+        && path.as_bytes()[1] == b':'
+        && path.as_bytes()[2] == b'/'
+}
+
 #[cfg(test)]
 mod resolve_path_tests {
     use super::*;
@@ -1029,5 +1036,13 @@ mod resolve_path_tests {
             session.shell_cwd.as_deref(),
             Some(real_repo.to_string_lossy().as_ref())
         );
+    }
+
+    #[test]
+    fn recognizes_windows_absolute_paths_even_off_windows() {
+        assert!(looks_like_windows_absolute_path("C:/Users/markb/Projects/Spotify/package.json"));
+        assert!(looks_like_windows_absolute_path("c:/Users/markb/Projects/Spotify/package.json"));
+        assert!(!looks_like_windows_absolute_path("/mnt/work/Projects/Spotify/package.json"));
+        assert!(!looks_like_windows_absolute_path("src/package.json"));
     }
 }

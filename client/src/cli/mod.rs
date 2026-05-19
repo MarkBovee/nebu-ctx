@@ -695,7 +695,7 @@ pub fn cmd_cheatsheet() {
   ctx_read mode=map     \x1b[2m# context-only files (~93% saved)\x1b[0m
   ctx_read mode=diff    \x1b[2m# after editing (~98% saved)\x1b[0m
   ctx_read mode=sigs    \x1b[2m# API surface of large files (~95%)\x1b[0m
-  ctx_multi_read        \x1b[2m# read multiple files at once\x1b[0m
+  ctx_read target=files \x1b[2m# read multiple files at once\x1b[0m
   ctx_search            \x1b[2m# search with compressed results (~70%)\x1b[0m
   ctx_shell             \x1b[2m# run CLI with compressed output (~60-90%)\x1b[0m
 
