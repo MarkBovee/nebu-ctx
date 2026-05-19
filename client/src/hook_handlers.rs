@@ -506,7 +506,7 @@ pub fn handle_post_tool_use() {
 
 fn resolve_binary() -> String {
     let path = crate::core::portable_binary::resolve_portable_binary();
-    crate::hooks::to_bash_compatible_path(&path)
+    crate::hooks::to_host_compatible_path(&path)
 }
 
 fn extract_json_field(input: &str, field: &str) -> Option<String> {
@@ -739,6 +739,18 @@ mod tests {
     fn to_bash_compatible_path_backslashes() {
         let p = crate::hooks::to_bash_compatible_path(r"C:\Users\test\bin\lean-ctx.exe");
         assert_eq!(p, "/c/Users/test/bin/lean-ctx.exe");
+    }
+
+    #[test]
+    fn normalize_host_binary_path_preserves_windows_path() {
+        let p = crate::hooks::to_host_compatible_path(r"C:\Users\test\bin\nebu-ctx.exe");
+        assert_eq!(p, r"C:\Users\test\bin\nebu-ctx.exe");
+    }
+
+    #[test]
+    fn normalize_host_binary_path_strips_verbatim_prefix() {
+        let p = crate::hooks::to_host_compatible_path(r"\\?\C:\Users\test\bin\nebu-ctx.exe");
+        assert_eq!(p, "C:/Users/test/bin/nebu-ctx.exe");
     }
 
     #[test]

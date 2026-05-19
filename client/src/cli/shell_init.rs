@@ -8,7 +8,7 @@ macro_rules! qprintln {
 
 pub fn print_hook_stdout(shell: &str) {
     let binary = crate::core::portable_binary::resolve_portable_binary();
-    let binary = crate::hooks::to_bash_compatible_path(&binary);
+    let binary = hook_binary_for_shell(shell, &binary);
 
     let code = match shell {
         "bash" => generate_hook_posix(&binary),
@@ -22,6 +22,14 @@ pub fn print_hook_stdout(shell: &str) {
         }
     };
     print!("{code}");
+}
+
+fn hook_binary_for_shell(shell: &str, binary: &str) -> String {
+    match shell {
+        "bash" | "zsh" | "fish" => crate::hooks::to_bash_compatible_path(binary),
+        "powershell" | "pwsh" => crate::hooks::to_host_compatible_path(binary),
+        _ => crate::hooks::to_host_compatible_path(binary),
+    }
 }
 
 fn backup_shell_config(path: &std::path::Path) {
@@ -707,6 +715,31 @@ nebu-ctx-mode() {{
         assert!(
             hook.contains("IsOutputRedirected"),
             "PowerShell hook must contain pipe guard ([Console]::IsOutputRedirected)"
+        );
+    }
+
+    #[test]
+    fn test_hook_binary_for_bash_converts_windows_path() {
+        let binary = hook_binary_for_shell("bash", r"C:\Users\Fraser\bin\nebu-ctx.exe");
+        assert_eq!(binary, "/c/Users/Fraser/bin/nebu-ctx.exe");
+    }
+
+    #[test]
+    fn test_hook_binary_for_powershell_keeps_windows_path() {
+        let binary = hook_binary_for_shell("powershell", r"C:\Users\Fraser\bin\nebu-ctx.exe");
+        assert_eq!(binary, r"C:\Users\Fraser\bin\nebu-ctx.exe");
+    }
+
+    #[test]
+    fn test_generate_hook_powershell_keeps_native_windows_path() {
+        let hook = generate_hook_powershell(r"C:\Users\Fraser\bin\nebu-ctx.exe");
+        assert!(
+            hook.contains("$NebuCtxBin = \"C:\\\\Users\\\\Fraser\\\\bin\\\\nebu-ctx.exe\""),
+            "PowerShell hook should keep a native Windows path"
+        );
+        assert!(
+            !hook.contains("/c/Users/Fraser/bin/nebu-ctx.exe"),
+            "PowerShell hook must not emit a bash-style Windows path"
         );
     }
 

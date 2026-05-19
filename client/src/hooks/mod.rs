@@ -95,6 +95,10 @@ fn resolve_binary_path_for_bash() -> String {
     to_bash_compatible_path(&path)
 }
 
+pub fn to_host_compatible_path(path: &str) -> String {
+    crate::core::pathutil::strip_verbatim_str(path).unwrap_or_else(|| path.to_string())
+}
+
 pub fn to_bash_compatible_path(path: &str) -> String {
     let path = match crate::core::pathutil::strip_verbatim_str(path) {
         Some(stripped) => stripped,
@@ -583,6 +587,22 @@ mod tests {
     #[test]
     fn bash_path_bare_name_unchanged() {
         assert_eq!(to_bash_compatible_path("nebu-ctx"), "nebu-ctx");
+    }
+
+    #[test]
+    fn host_path_windows_preserved() {
+        assert_eq!(
+            to_host_compatible_path(r"C:\Users\Fraser\bin\nebu-ctx.exe"),
+            r"C:\Users\Fraser\bin\nebu-ctx.exe"
+        );
+    }
+
+    #[test]
+    fn host_path_verbatim_stripped() {
+        assert_eq!(
+            to_host_compatible_path(r"\\?\C:\Users\Fraser\bin\nebu-ctx.exe"),
+            "C:/Users/Fraser/bin/nebu-ctx.exe"
+        );
     }
 
     #[test]
