@@ -3,6 +3,7 @@ namespace NebuCtx.IntegrationTests;
 using System.IO;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using NebuCtx.Contracts.Dashboard;
 using NebuCtx.Server.Host.Dashboard;
@@ -124,6 +125,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
             TokensSaved = 500,
             Mode = "map",
             ProjectSlug = "overview-project",
+            CommandPreview = "ctx_read src/main.rs",
             CheckoutBinding = new CheckoutBinding
             {
                 ProjectId = projectId,
@@ -448,6 +450,390 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
         Assert.NotNull(payload);
         Assert.Contains(payload!.Knowledge, item => item.Category == "decision" && item.Key == "memory-owner");
         Assert.Contains(payload.Knowledge, item => item.Category == "finding" && item.Key == "hook-surface");
+        Assert.Contains(payload.Knowledge, item => item.PromotionIdentity.Contains("promote", StringComparison.Ordinal));
+        Assert.All(payload.Knowledge, item =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(item.LogicalKey));
+            Assert.False(string.IsNullOrWhiteSpace(item.PromotionIdentity));
+            Assert.True(item.CreatedAt <= item.UpdatedAt);
+        });
+    }
+
+    /// <summary>
+    /// Re-promoting the same candidate keeps a stable promotion identity and retains historical revisions.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_KnowledgePromote_ReusesIdentityAndPreservesHistory()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "knowledge-promote-history",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/example/knowledge-promote-history.git",
+                Host = "github.com",
+                Owner = "example",
+                RepoName = "knowledge-promote-history",
+                DefaultBranch = "main",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, resolveResponse.StatusCode);
+
+        var resolved = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolved?.Project?.ProjectId);
+        var projectId = resolved!.Project!.ProjectId;
+
+        foreach (var value in new[] { "server owns canonical knowledge", "server owns hosted canonical knowledge" })
+        {
+            var promoteResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+            {
+                Name = "ctx_knowledge",
+                ProjectId = projectId,
+                Arguments = new Dictionary<string, object?>
+                {
+                    ["action"] = "promote",
+                    ["items"] = new object?[]
+                    {
+                        new Dictionary<string, object?>
+                        {
+                            ["category"] = "decision",
+                            ["key"] = "memory-owner",
+                            ["value"] = value,
+                            ["confidence"] = 0.95,
+                            ["source_type"] = "promote",
+                            ["source_scope"] = "session-123",
+                            ["promotion_identity"] = "promote:session-123:decision:decision-memory-owner",
+                        },
+                    },
+                },
+            });
+            Assert.Equal(HttpStatusCode.OK, promoteResponse.StatusCode);
+        }
+
+        var payload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
+        Assert.NotNull(payload);
+
+        var fact = Assert.Single(payload!.Knowledge, item => item.Category == "decision" && item.Key == "memory-owner");
+        Assert.Equal("promote:session-123:decision:decision-memory-owner", fact.PromotionIdentity);
+        var history = Assert.Single(fact.History);
+        Assert.Equal("server owns canonical knowledge", history.Value);
+        Assert.Equal("current", fact.LifecycleStatus);
+        Assert.True(payload.Health?.HistoryEntries >= 1);
+    }
+
+    /// <summary>
+    /// Knowledge upkeep rescales lifecycle state and surfaces wake-up candidates in status.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_KnowledgeUpkeep_ReturnsLifecycleSummary()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "knowledge-upkeep",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/example/knowledge-upkeep.git",
+                Host = "github.com",
+                Owner = "example",
+                RepoName = "knowledge-upkeep",
+                DefaultBranch = "main",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, resolveResponse.StatusCode);
+
+        var resolved = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolved?.Project?.ProjectId);
+        var projectId = resolved!.Project!.ProjectId;
+
+        var promoteResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            ProjectId = projectId,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "promote",
+                ["items"] = new object?[]
+                {
+                    new Dictionary<string, object?>
+                    {
+                        ["category"] = "decision",
+                        ["key"] = "hosted-owner",
+                        ["value"] = "server owns canonical memory",
+                        ["confidence"] = 0.95,
+                        ["source_type"] = "promote",
+                        ["source_scope"] = "session-keep",
+                    },
+                    new Dictionary<string, object?>
+                    {
+                        ["category"] = "finding",
+                        ["key"] = "warmup",
+                        ["value"] = "bounded wake-up should stay compact",
+                        ["confidence"] = 0.72,
+                        ["source_type"] = "promote",
+                        ["source_scope"] = "session-keep",
+                    },
+                },
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, promoteResponse.StatusCode);
+
+        var upkeepResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            ProjectId = projectId,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "upkeep",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, upkeepResponse.StatusCode);
+
+        var upkeepPayload = await upkeepResponse.Content.ReadFromJsonAsync<ToolCallResponse>();
+        Assert.NotNull(upkeepPayload);
+        var upkeepJson = Assert.IsAssignableFrom<JsonElement>(upkeepPayload!.Result);
+        Assert.True(upkeepJson.TryGetProperty("rescored", out var rescored));
+        Assert.True(rescored.GetInt32() >= 2);
+        Assert.True(upkeepJson.TryGetProperty("top_wakeup", out var wakeup));
+        Assert.True(wakeup.GetArrayLength() >= 1);
+
+        var statusResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            ProjectId = projectId,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "status",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, statusResponse.StatusCode);
+
+        var statusPayload = await statusResponse.Content.ReadFromJsonAsync<ToolCallResponse>();
+        Assert.NotNull(statusPayload);
+        var statusJson = Assert.IsAssignableFrom<JsonElement>(statusPayload!.Result);
+        Assert.True(statusJson.TryGetProperty("average_lifecycle_score", out _));
+        Assert.True(statusJson.TryGetProperty("current_fact_count", out var currentFactCount));
+        Assert.Equal(2, currentFactCount.GetInt32());
+    }
+
+    /// <summary>
+    /// Hosted wake-up returns a bounded memory briefing built from current canonical facts.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_KnowledgeWakeup_ReturnsBoundedBriefing()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "knowledge-wakeup",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/example/knowledge-wakeup.git",
+                Host = "github.com",
+                Owner = "example",
+                RepoName = "knowledge-wakeup",
+                DefaultBranch = "main",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, resolveResponse.StatusCode);
+
+        var resolved = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolved?.Project?.ProjectId);
+        var projectId = resolved!.Project!.ProjectId;
+
+        var promoteResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            ProjectId = projectId,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "promote",
+                ["items"] = Enumerable.Range(1, 10).Select(index => (object?)new Dictionary<string, object?>
+                {
+                    ["category"] = index <= 5 ? "decision" : "finding",
+                    ["key"] = $"fact-{index}",
+                    ["value"] = $"memory item {index}",
+                    ["confidence"] = 0.9 - (index * 0.02),
+                    ["source_type"] = "promote",
+                    ["source_scope"] = "session-wakeup",
+                }).ToArray(),
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, promoteResponse.StatusCode);
+
+        var wakeupResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            ProjectId = projectId,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "wakeup",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, wakeupResponse.StatusCode);
+
+        var wakeupPayload = await wakeupResponse.Content.ReadFromJsonAsync<ToolCallResponse>();
+        Assert.NotNull(wakeupPayload);
+        var wakeupJson = Assert.IsAssignableFrom<JsonElement>(wakeupPayload!.Result);
+        Assert.Equal(8, wakeupJson.GetProperty("budget").GetInt32());
+        Assert.True(wakeupJson.GetProperty("selected_count").GetInt32() <= 8);
+        Assert.Contains("WAKE-UP BRIEFING", wakeupJson.GetProperty("briefing").GetString(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Hosted triage previews duplicate and junk-like candidates without mutating canonical memory by default.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_KnowledgeTriage_PreviewsCandidates()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "knowledge-triage",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/example/knowledge-triage.git",
+                Host = "github.com",
+                Owner = "example",
+                RepoName = "knowledge-triage",
+                DefaultBranch = "main",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, resolveResponse.StatusCode);
+
+        var resolved = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolved?.Project?.ProjectId);
+        var projectId = resolved!.Project!.ProjectId;
+
+        var promoteResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            ProjectId = projectId,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "promote",
+                ["items"] = new object?[]
+                {
+                    new Dictionary<string, object?>
+                    {
+                        ["category"] = "decision",
+                        ["key"] = "dup-a",
+                        ["value"] = "server owns canonical memory",
+                        ["confidence"] = 0.95,
+                    },
+                    new Dictionary<string, object?>
+                    {
+                        ["category"] = "decision",
+                        ["key"] = "dup-b",
+                        ["value"] = "server owns canonical memory",
+                        ["confidence"] = 0.82,
+                    },
+                    new Dictionary<string, object?>
+                    {
+                        ["category"] = "testing:demo",
+                        ["key"] = "demo-placeholder",
+                        ["value"] = "demo placeholder memory",
+                        ["confidence"] = 0.6,
+                    },
+                },
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, promoteResponse.StatusCode);
+
+        var triageResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            ProjectId = projectId,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "triage",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, triageResponse.StatusCode);
+
+        var triagePayload = await triageResponse.Content.ReadFromJsonAsync<ToolCallResponse>();
+        Assert.NotNull(triagePayload);
+        var triageJson = Assert.IsAssignableFrom<JsonElement>(triagePayload!.Result);
+        Assert.Equal("preview", triageJson.GetProperty("mode").GetString());
+        Assert.True(triageJson.GetProperty("duplicate_groups").GetArrayLength() >= 1);
+        Assert.True(triageJson.GetProperty("junk_candidates").GetArrayLength() >= 1);
+
+        var memoryPayload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
+        Assert.NotNull(memoryPayload);
+        Assert.NotNull(memoryPayload!.Triage);
+        Assert.Equal("preview", memoryPayload.Triage!.Mode);
+    }
+
+    /// <summary>
+    /// Dashboard triage apply returns applied-action summaries and mutates canonical memory safely.
+    /// </summary>
+    [Fact]
+    public async Task DashboardProjectMemoryTriage_Apply_ReturnsAppliedActions()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "knowledge-triage-apply",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/example/knowledge-triage-apply.git",
+                Host = "github.com",
+                Owner = "example",
+                RepoName = "knowledge-triage-apply",
+                DefaultBranch = "main",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, resolveResponse.StatusCode);
+
+        var resolved = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolved?.Project?.ProjectId);
+        var projectId = resolved!.Project!.ProjectId;
+
+        var promoteResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            ProjectId = projectId,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "promote",
+                ["items"] = new object?[]
+                {
+                    new Dictionary<string, object?>
+                    {
+                        ["category"] = "decision",
+                        ["key"] = "dup-a",
+                        ["value"] = "server owns canonical memory",
+                        ["confidence"] = 0.95,
+                    },
+                    new Dictionary<string, object?>
+                    {
+                        ["category"] = "decision",
+                        ["key"] = "dup-b",
+                        ["value"] = "server owns canonical memory",
+                        ["confidence"] = 0.82,
+                    },
+                    new Dictionary<string, object?>
+                    {
+                        ["category"] = "testing:demo",
+                        ["key"] = "demo-placeholder",
+                        ["value"] = "demo placeholder memory",
+                        ["confidence"] = 0.6,
+                    },
+                },
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, promoteResponse.StatusCode);
+
+        var triageApplyResponse = await _client.PostAsync($"/api/dashboard/projects/{projectId}/memory/triage?mode=apply", content: null);
+        Assert.Equal(HttpStatusCode.OK, triageApplyResponse.StatusCode);
+
+        using var triageDoc = JsonDocument.Parse(await triageApplyResponse.Content.ReadAsStringAsync());
+        Assert.Equal("apply", triageDoc.RootElement.GetProperty("mode").GetString());
+        Assert.True(triageDoc.RootElement.GetProperty("applied_actions").GetArrayLength() >= 2);
+
+        var payload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
+        Assert.NotNull(payload);
+        Assert.NotNull(payload!.Triage);
+        Assert.Equal("preview", payload.Triage!.Mode);
+        Assert.Single(payload.Knowledge, item => item.Category == "decision" && item.LifecycleStatus == "current");
+        Assert.Contains(payload.Knowledge, item => item.Key == "dup-b" && item.LifecycleStatus == "merged");
+        Assert.Contains(payload.Knowledge, item => item.Key == "demo-placeholder" && item.LifecycleStatus == "junk");
     }
 
     /// <summary>
@@ -1023,6 +1409,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
         Assert.Contains(actorB, mcpPayload, StringComparison.Ordinal);
         Assert.Contains("ToolCall", eventsPayload, StringComparison.Ordinal);
         Assert.Contains(actorA, eventsPayload, StringComparison.Ordinal);
+        Assert.Contains("command_preview", eventsPayload, StringComparison.Ordinal);
         Assert.Contains("runs", pipelinePayload, StringComparison.Ordinal);
         Assert.Contains("entries_count", ledgerPayload, StringComparison.Ordinal);
         Assert.Contains(actorB, ledgerPayload, StringComparison.Ordinal);

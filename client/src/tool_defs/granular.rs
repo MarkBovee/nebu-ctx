@@ -348,7 +348,7 @@ reset, list (show sessions), cleanup.",
         tool_def(
             "ctx_knowledge",
             "Persistent project knowledge (survives sessions). Actions: remember (store fact with temporal tracking + contradiction detection), \
-recall (search), pattern (record convention), consolidate (extract session findings), \
+recall (search), pattern (record convention), consolidate (extract session findings), promote (batch hosted promotion), upkeep (recompute hosted lifecycle ranking when supported), triage (preview/apply cleanup candidates when supported), \
 gotcha (record a bug/mistake to never repeat — trigger+resolution required), \
 timeline (view fact history for a category), rooms (list knowledge categories), \
 search (cross-session search across ALL projects), wakeup (compact AAAK briefing), \
@@ -358,8 +358,8 @@ status (list all), remove, export, embeddings_status|embeddings_reset|embeddings
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["remember", "recall", "pattern", "consolidate", "gotcha", "status", "remove", "export", "timeline", "rooms", "search", "wakeup", "embeddings_status", "embeddings_reset", "embeddings_reindex"],
-                        "description": "Knowledge operation. remember: auto-detects contradictions + tracks temporal validity. timeline: view version history. rooms: list categories. search: cross-project search. wakeup: compact AAAK briefing. embeddings_*: manage local semantic index for recall."
+                        "enum": ["remember", "recall", "pattern", "consolidate", "promote", "upkeep", "triage", "gotcha", "status", "remove", "export", "timeline", "rooms", "search", "wakeup", "embeddings_status", "embeddings_reset", "embeddings_reindex"],
+                        "description": "Knowledge operation. remember: auto-detects contradictions + tracks temporal validity. promote: batch hosted promotion. upkeep: recompute hosted lifecycle ranking when available. triage: preview or apply cleanup candidates when available. timeline: view version history. rooms: list categories. search: cross-project search. wakeup: compact AAAK briefing. embeddings_*: manage local semantic index for recall."
                     },
                     "trigger": {
                         "type": "string",
@@ -385,6 +385,15 @@ status (list all), remove, export, embeddings_status|embeddings_reset|embeddings
                     "value": {
                         "type": "string",
                         "description": "Fact value or pattern description"
+                    },
+                    "mode": {
+                        "type": "string",
+                        "description": "Optional triage mode. Use 'apply' to confirm triage changes; default is preview."
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": { "type": "object" },
+                        "description": "Promotion batch for action=promote. Each item can include category, key, value, confidence, source_type, source_scope, and promotion_identity."
                     },
                     "query": {
                         "type": "string",
@@ -1039,9 +1048,9 @@ symbol (lookup definition/usages as file::name), impact (blast radius of changes
 save, status, task (set current task), finding (record discovery), decision (record choice), \
 reset, list (show sessions), cleanup, snapshot (build compaction snapshot ~2KB), \
 restore (rebuild state from snapshot after context compaction).", json!({"type": "object", "properties": {"action": {"type": "string"}, "value": {"type": "string"}, "session_id": {"type": "string"}}, "required": ["action"]})),
-        ("ctx_knowledge", "Persistent project knowledge with temporal facts + contradiction detection. Actions: remember (auto-tracks validity + detects contradictions), recall, pattern, consolidate, \
-gotcha (record a bug to never repeat — trigger+resolution), timeline (fact version history), rooms (list knowledge categories), \
-search (cross-session/cross-project), wakeup (compact AAAK briefing), status, remove, export, embeddings_status|embeddings_reset|embeddings_reindex.", json!({"type": "object", "properties": {"action": {"type": "string"}, "category": {"type": "string"}, "key": {"type": "string"}, "value": {"type": "string"}, "query": {"type": "string"}, "trigger": {"type": "string"}, "resolution": {"type": "string"}, "severity": {"type": "string"}}, "required": ["action"]})),
+        ("ctx_knowledge", "Persistent project knowledge with temporal facts + contradiction detection. Actions: remember (auto-tracks validity + detects contradictions), recall, pattern, consolidate, promote, upkeep, triage, \
+ gotcha (record a bug to never repeat — trigger+resolution), timeline (fact version history), rooms (list knowledge categories), \
+ search (cross-session/cross-project), wakeup (compact AAAK briefing), status, remove, export, embeddings_status|embeddings_reset|embeddings_reindex.", json!({"type": "object", "properties": {"action": {"type": "string"}, "category": {"type": "string"}, "key": {"type": "string"}, "value": {"type": "string"}, "query": {"type": "string"}, "mode": {"type": "string"}, "items": {"type": "array", "items": {"type": "object"}}, "trigger": {"type": "string"}, "resolution": {"type": "string"}, "severity": {"type": "string"}}, "required": ["action"]})),
         ("ctx_agent", "Multi-agent coordination with persistent diaries. Actions: register, \
 post, read, status, handoff, sync, diary (log discovery/decision/blocker/progress/insight — persisted), \
 recall_diary (read diary), diaries (list all), list, info.", json!({"type": "object", "properties": {"action": {"type": "string"}, "agent_type": {"type": "string"}, "role": {"type": "string"}, "message": {"type": "string"}, "to_agent": {"type": "string"}, "status": {"type": "string"}}, "required": ["action"]})),

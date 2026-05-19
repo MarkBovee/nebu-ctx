@@ -759,8 +759,10 @@ impl NebuCtxServer {
                 let key = get_str(args, "key");
                 let value = get_str(args, "value");
                 let query = get_str(args, "query");
+                let mode = get_str(args, "mode");
                 let pattern_type = get_str(args, "pattern_type");
                 let examples = get_str_array(args, "examples");
+                let raw_items = args.as_ref().and_then(|map| map.get("items"));
                 let confidence: Option<f32> = args
                     .as_ref()
                     .and_then(|a| a.get("confidence"))
@@ -823,6 +825,8 @@ impl NebuCtxServer {
                     pattern_type.as_deref(),
                     examples,
                     confidence,
+                    mode.as_deref(),
+                    raw_items,
                 );
                 self.record_call("ctx_knowledge", 0, 0, Some(action)).await;
                 result

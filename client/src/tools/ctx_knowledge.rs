@@ -1,4 +1,5 @@
 use chrono::Utc;
+use serde_json::Value;
 
 #[cfg(feature = "embeddings")]
 use crate::core::embeddings::EmbeddingEngine;
@@ -18,6 +19,8 @@ pub fn handle(
     pattern_type: Option<&str>,
     examples: Option<Vec<String>>,
     confidence: Option<f32>,
+    mode: Option<&str>,
+    raw_items: Option<&Value>,
 ) -> String {
     match action {
         "remember" => handle_remember(project_root, category, key, value, session_id, confidence),
@@ -27,6 +30,9 @@ pub fn handle(
         "remove" => handle_remove(project_root, category, key),
         "export" => handle_export(project_root),
         "consolidate" => handle_consolidate(project_root),
+        "promote" => handle_promote_batch(project_root, raw_items, session_id),
+        "upkeep" => handle_upkeep(project_root),
+        "triage" => handle_triage(project_root, mode),
         "timeline" => handle_timeline(project_root, category),
         "rooms" => handle_rooms(project_root),
         "search" => handle_search(query),
@@ -35,9 +41,59 @@ pub fn handle(
         "embeddings_reset" => handle_embeddings_reset(project_root),
         "embeddings_reindex" => handle_embeddings_reindex(project_root),
         _ => format!(
-            "Unknown action: {action}. Use: remember, recall, pattern, status, remove, export, consolidate, timeline, rooms, search, wakeup, embeddings_status, embeddings_reset, embeddings_reindex"
+            "Unknown action: {action}. Use: remember, recall, pattern, status, remove, export, consolidate, promote, upkeep, triage, timeline, rooms, search, wakeup, embeddings_status, embeddings_reset, embeddings_reindex"
         ),
     }
+}
+
+pub fn handle_promote_batch(
+    project_root: &str,
+    raw_items: Option<&Value>,
+    session_id: &str,
+) -> String {
+    let Some(Value::Array(items)) = raw_items else {
+        return "No promotion items supplied.".to_string();
+    };
+
+    let mut knowledge = ProjectKnowledge::load_or_create(project_root);
+    let mut promoted = 0usize;
+    let mut skipped = 0usize;
+
+    for item in items {
+        let Some(obj) = item.as_object() else {
+            skipped += 1;
+            continue;
+        };
+
+        let category = obj
+            .get("category")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim();
+        let key = obj.get("key").and_then(|v| v.as_str()).unwrap_or("").trim();
+        let value = obj
+            .get("value")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim();
+        let confidence = obj
+            .get("confidence")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.8) as f32;
+
+        if category.is_empty() || key.is_empty() || value.is_empty() {
+            skipped += 1;
+            continue;
+        }
+
+        let _ = knowledge.remember(category, key, value, session_id, confidence);
+        promoted += 1;
+    }
+
+    let _ = knowledge.run_memory_lifecycle();
+    let _ = knowledge.save();
+
+    format!("Promoted {promoted} items into local knowledge ({skipped} skipped).")
 }
 
 #[cfg(feature = "embeddings")]
@@ -904,6 +960,194 @@ fn handle_wakeup(project_root: &str) -> String {
         return "No knowledge yet. Start using ctx_knowledge(action=\"remember\") to build project memory.".to_string();
     }
     format!("WAKE-UP BRIEFING:\n{aaak}")
+}
+
+fn handle_upkeep(project_root: &str) -> String {
+    let mut knowledge = match ProjectKnowledge::load(project_root) {
+        Some(k) => k,
+        None => return "No knowledge available for upkeep.".to_string(),
+    };
+
+    let report = knowledge.run_memory_lifecycle();
+    let _ = knowledge.save();
+
+    format!(
+        "Lifecycle upkeep complete: decayed={}, consolidated={}, archived={}, compacted={}, remaining={}",
+        report.decayed_count,
+        report.consolidated_count,
+        report.archived_count,
+        report.compacted_count,
+        report.remaining_facts
+    )
+}
+
+fn handle_triage(project_root: &str, mode: Option<&str>) -> String {
+    let mut knowledge = match ProjectKnowledge::load(project_root) {
+        Some(k) => k,
+        None => return "No knowledge available for triage.".to_string(),
+    };
+
+    let current_indices: Vec<usize> = knowledge
+        .facts
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, fact)| fact.is_current().then_some(idx))
+        .collect();
+
+    let mut duplicate_like = Vec::new();
+    for (idx, fact_idx) in current_indices.iter().enumerate() {
+        for other_idx in current_indices.iter().skip(idx + 1) {
+            let fact = &knowledge.facts[*fact_idx];
+            let other = &knowledge.facts[*other_idx];
+            if fact.category != other.category {
+                continue;
+            }
+
+            let similarity = triage_similarity(&fact.value, &other.value);
+            if similarity >= 0.8 {
+                duplicate_like.push((*fact_idx, *other_idx, similarity));
+            }
+        }
+    }
+
+    let junk_like = current_indices
+        .iter()
+        .copied()
+        .filter(|idx| is_triage_junk_candidate(&knowledge.facts[*idx]))
+        .collect::<Vec<_>>();
+
+    if matches!(mode, Some(mode) if mode.eq_ignore_ascii_case("apply")) {
+        let now = Utc::now();
+        let mut merged = 0usize;
+        let mut junk_marked = 0usize;
+        let mut applied = Vec::new();
+        let mut touched = false;
+        let mut retired = std::collections::HashSet::new();
+
+        for (keep_idx, duplicate_idx, similarity) in &duplicate_like {
+            if retired.contains(duplicate_idx) || !knowledge.facts[*duplicate_idx].is_current() {
+                continue;
+            }
+
+            let keep = &knowledge.facts[*keep_idx];
+            let keep_ref = format!("{}/{}", keep.category, keep.key);
+            let duplicate_category = knowledge.facts[*duplicate_idx].category.clone();
+            let duplicate_key = knowledge.facts[*duplicate_idx].key.clone();
+            let duplicate = &mut knowledge.facts[*duplicate_idx];
+            duplicate.valid_until = Some(now);
+            duplicate.supersedes = Some(format!("merged-into:{keep_ref}"));
+            retired.insert(*duplicate_idx);
+            touched = true;
+            merged += 1;
+            applied.push(format!(
+                "merge [{duplicate_category}/{duplicate_key}] -> [{keep_ref}] ({:.0}%)",
+                similarity * 100.0
+            ));
+        }
+
+        for idx in &junk_like {
+            if retired.contains(idx) || !knowledge.facts[*idx].is_current() {
+                continue;
+            }
+
+            let category = knowledge.facts[*idx].category.clone();
+            let key = knowledge.facts[*idx].key.clone();
+            let fact = &mut knowledge.facts[*idx];
+            fact.valid_until = Some(now);
+            fact.supersedes = Some("triage:junk".to_string());
+            retired.insert(*idx);
+            touched = true;
+            junk_marked += 1;
+            applied.push(format!("mark_junk [{category}/{key}]"));
+        }
+
+        if touched {
+            knowledge.updated_at = now;
+            let _ = knowledge.run_memory_lifecycle();
+            let _ = knowledge.save();
+        }
+
+        let mut lines = vec![format!(
+            "TRIAGE APPLY: current_facts={}, merged={}, junk_marked={}",
+            current_indices.len(),
+            merged,
+            junk_marked
+        )];
+        if applied.is_empty() {
+            lines.push("applied_actions: none".to_string());
+        } else {
+            lines.push(format!("applied_actions: {}", applied.join(" | ")));
+        }
+        return lines.join("\n");
+    }
+
+    let duplicate_lines = duplicate_like
+        .iter()
+        .map(|(fact_idx, other_idx, similarity)| {
+            let fact = &knowledge.facts[*fact_idx];
+            let other = &knowledge.facts[*other_idx];
+            format!(
+                "[{}/{}] ~ [{}/{}] ({:.0}%)",
+                fact.category,
+                fact.key,
+                other.category,
+                other.key,
+                similarity * 100.0
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let junk_lines = junk_like
+        .iter()
+        .map(|idx| {
+            let fact = &knowledge.facts[*idx];
+            format!("[{}/{}] {}", fact.category, fact.key, fact.value)
+        })
+        .collect::<Vec<_>>();
+
+    let mut lines = vec![format!(
+        "TRIAGE PREVIEW: current_facts={}",
+        current_indices.len()
+    )];
+    if duplicate_lines.is_empty() {
+        lines.push("duplicates: none".to_string());
+    } else {
+        lines.push(format!("duplicates: {}", duplicate_lines.join(" | ")));
+    }
+    if junk_lines.is_empty() {
+        lines.push("junk_candidates: none".to_string());
+    } else {
+        lines.push(format!("junk_candidates: {}", junk_lines.join(" | ")));
+    }
+    lines.join("\n")
+}
+
+fn is_triage_junk_candidate(fact: &crate::core::knowledge::KnowledgeFact) -> bool {
+    let key = fact.key.to_lowercase();
+    let value = fact.value.to_lowercase();
+    key.contains("demo")
+        || key.contains("test")
+        || value.contains("demo")
+        || value.contains("placeholder")
+}
+
+fn triage_similarity(a: &str, b: &str) -> f32 {
+    let a_lower = a.to_lowercase();
+    let b_lower = b.to_lowercase();
+    let a_words: std::collections::HashSet<&str> = a_lower.split_whitespace().collect();
+    let b_words: std::collections::HashSet<&str> = b_lower.split_whitespace().collect();
+
+    if a_words.is_empty() && b_words.is_empty() {
+        return 1.0;
+    }
+
+    let intersection = a_words.intersection(&b_words).count();
+    let union = a_words.union(&b_words).count();
+    if union == 0 {
+        return 0.0;
+    }
+
+    intersection as f32 / union as f32
 }
 
 #[cfg(feature = "embeddings")]

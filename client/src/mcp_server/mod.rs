@@ -32,6 +32,9 @@ const SERVER_KNOWLEDGE_ACTIONS: &[&str] = &[
     "categories",
     "consolidate",
     "promote",
+    "upkeep",
+    "wakeup",
+    "triage",
 ];
 
 /// Outcome of attempting to route a tool call to the server.
@@ -44,7 +47,10 @@ enum ServerRoutingResult {
     Error(String),
 }
 
-fn prefers_server_route(name: &str, args: &Option<serde_json::Map<String, serde_json::Value>>) -> bool {
+fn prefers_server_route(
+    name: &str,
+    args: &Option<serde_json::Map<String, serde_json::Value>>,
+) -> bool {
     if !SERVER_PREFERRED_TOOLS.contains(&name) {
         return false;
     }
@@ -228,18 +234,22 @@ impl ServerHandler for NebuCtxServer {
                 let domain = arguments
                     .get("domain")
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| ErrorData::invalid_params("'domain' is required for ctx meta-tool", None))?;
+                    .ok_or_else(|| {
+                        ErrorData::invalid_params("'domain' is required for ctx meta-tool", None)
+                    })?;
                 let action = arguments
                     .get("action")
                     .and_then(|v| v.as_str())
                     .filter(|v| !v.trim().is_empty())
-                    .ok_or_else(|| ErrorData::invalid_params("'action' is required for ctx meta-tool", None))?;
+                    .ok_or_else(|| {
+                        ErrorData::invalid_params("'action' is required for ctx meta-tool", None)
+                    })?;
                 let mut args = arguments.clone();
                 args.remove("domain");
                 let resolved = match domain {
                     "memory" => match action {
                         "task" | "finding" | "decision" | "save" | "load" | "status" | "reset" | "list" | "cleanup" => "ctx_session",
-                        "recall" | "pattern" | "consolidate" | "gotcha" | "timeline" | "rooms" | "search" | "wakeup" | "remove" | "export" | "embeddings_status" | "embeddings_reset" | "embeddings_reindex" => "ctx_knowledge",
+                        "recall" | "pattern" | "consolidate" | "promote" | "upkeep" | "triage" | "gotcha" | "timeline" | "rooms" | "search" | "wakeup" | "remove" | "export" | "embeddings_status" | "embeddings_reset" | "embeddings_reindex" => "ctx_knowledge",
                         "store" | "set" | "remember" => {
                             args.insert("action".to_string(), serde_json::Value::String("remember".to_string()));
                             if !args.contains_key("category") {
@@ -248,7 +258,7 @@ impl ServerHandler for NebuCtxServer {
                             "ctx_knowledge"
                         }
                         _ => return Err(ErrorData::invalid_params(
-                            "Unknown memory action. Use one of: task, finding, decision, save, load, status, reset, list, cleanup, store, set, remember, recall, pattern, consolidate, gotcha, timeline, rooms, search, wakeup, remove, export",
+                            "Unknown memory action. Use one of: task, finding, decision, save, load, status, reset, list, cleanup, store, set, remember, recall, pattern, consolidate, promote, upkeep, triage, gotcha, timeline, rooms, search, wakeup, remove, export",
                             None,
                         )),
                     },
@@ -365,10 +375,7 @@ impl ServerHandler for NebuCtxServer {
             }
             "ctx_search" => {
                 let mut args = request.arguments.unwrap_or_default();
-                let mode = args
-                    .get("mode")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("regex");
+                let mode = args.get("mode").and_then(|v| v.as_str()).unwrap_or("regex");
                 let resolved = match mode {
                     "regex" => "ctx_search",
                     "semantic" => "ctx_semantic_search",
@@ -683,7 +690,9 @@ impl ServerHandler for NebuCtxServer {
                             if crate::core::consolidation_engine::consolidate_latest(
                                 &root_clone,
                                 crate::core::consolidation_engine::ConsolidationBudgets::default(),
-                            ).is_ok() {
+                            )
+                            .is_ok()
+                            {
                                 crate::server_client::post_knowledge_to_server(&root_clone);
                             }
                         });
@@ -781,7 +790,9 @@ async fn route_to_server(
             Ok(value) => {
                 let text = match &value {
                     serde_json::Value::String(s) => s.clone(),
-                    other => serde_json::to_string_pretty(other).unwrap_or_else(|_| other.to_string()),
+                    other => {
+                        serde_json::to_string_pretty(other).unwrap_or_else(|_| other.to_string())
+                    }
                 };
                 ServerRoutingResult::Success(text)
             }
@@ -792,9 +803,8 @@ async fn route_to_server(
     })
     .await;
 
-    result.unwrap_or_else(|_| {
-        ServerRoutingResult::Error("Server routing task panicked".to_string())
-    })
+    result
+        .unwrap_or_else(|_| ServerRoutingResult::Error("Server routing task panicked".to_string()))
 }
 
 /// Merges tool definitions fetched from the configured server into the local manifest.
@@ -950,7 +960,11 @@ mod tests {
             .and_then(|t| t.as_array())
             .expect("manifest tools should be an array");
 
-        assert_eq!(tools.len(), 5, "Manifest should expose exactly 5 public tools");
+        assert_eq!(
+            tools.len(),
+            5,
+            "Manifest should expose exactly 5 public tools"
+        );
     }
 
     #[test]
@@ -1073,6 +1087,114 @@ mod tests {
     }
 
     #[test]
+    fn memory_promote_falls_back_locally_without_server() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let data = tempfile::tempdir().unwrap();
+        let repo = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", data.path());
+        std::env::set_var("NEBU_CTX_HOME", data.path());
+        std::env::remove_var("NEBU_CTX_HTTP_TOKEN");
+        std::fs::create_dir(repo.path().join(".git")).unwrap();
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let engine = crate::engine::ContextEngine::with_project_root(repo.path());
+        let text = rt
+            .block_on(engine.call_tool_text(
+                "ctx",
+                Some(serde_json::json!({
+                    "domain": "memory",
+                    "action": "promote",
+                    "items": [
+                        {
+                            "category": "decision",
+                            "key": "memory-owner",
+                            "value": "server owns canonical knowledge",
+                            "confidence": 0.95
+                        }
+                    ]
+                })),
+            ))
+            .expect("memory promote should succeed locally");
+
+        assert!(text.contains("Promoted 1 items into local knowledge"), "unexpected promote text: {text}");
+
+        let knowledge = crate::core::knowledge::ProjectKnowledge::load(&repo.path().to_string_lossy())
+            .expect("local knowledge should exist after promote");
+        assert!(knowledge.facts.iter().any(|fact|
+            fact.category == "decision"
+                && fact.key == "memory-owner"
+                && fact.value == "server owns canonical knowledge"
+                && fact.is_current()
+        ));
+
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
+        std::env::remove_var("NEBU_CTX_HOME");
+    }
+
+    #[test]
+    fn memory_triage_apply_marks_local_duplicates_non_current() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let data = tempfile::tempdir().unwrap();
+        let repo = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", data.path());
+        std::env::set_var("NEBU_CTX_HOME", data.path());
+        std::env::remove_var("NEBU_CTX_HTTP_TOKEN");
+        std::fs::create_dir(repo.path().join(".git")).unwrap();
+
+        let repo_root = repo.path().to_string_lossy().to_string();
+        let mut knowledge = crate::core::knowledge::ProjectKnowledge::load_or_create(&repo_root);
+        let _ = knowledge.remember("decision", "dup-a", "server owns canonical memory", "session-1", 0.95);
+        let _ = knowledge.remember("decision", "dup-b", "server owns canonical memory", "session-2", 0.82);
+        let _ = knowledge.remember("testing", "demo-placeholder", "demo placeholder memory", "session-3", 0.60);
+        knowledge.save().unwrap();
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let engine = crate::engine::ContextEngine::with_project_root(repo.path());
+        let text = rt
+            .block_on(engine.call_tool_text(
+                "ctx",
+                Some(serde_json::json!({
+                    "domain": "memory",
+                    "action": "triage",
+                    "mode": "apply"
+                })),
+            ))
+            .expect("memory triage apply should succeed locally");
+
+        assert!(text.contains("TRIAGE APPLY:"), "unexpected triage text: {text}");
+        assert!(text.contains("merged=1"), "unexpected triage merge summary: {text}");
+        assert!(text.contains("junk_marked=1"), "unexpected triage junk summary: {text}");
+
+        let knowledge = crate::core::knowledge::ProjectKnowledge::load(&repo_root)
+            .expect("knowledge should still exist after triage apply");
+        let current_decisions: Vec<_> = knowledge
+            .facts
+            .iter()
+            .filter(|fact| fact.category == "decision" && fact.is_current())
+            .collect();
+        assert_eq!(current_decisions.len(), 1, "expected one current decision after merge");
+        assert!(knowledge.facts.iter().any(|fact|
+            fact.key == "dup-b"
+                && !fact.is_current()
+                && fact.supersedes.as_deref() == Some("merged-into:decision/dup-a")
+        ));
+        assert!(knowledge.facts.iter().any(|fact|
+            fact.key == "demo-placeholder"
+                && !fact.is_current()
+                && fact.supersedes.as_deref() == Some("triage:junk")
+        ));
+
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
+        std::env::remove_var("NEBU_CTX_HOME");
+    }
+
+    #[test]
     fn test_granular_tool_count() {
         let tools = crate::tool_defs::granular_tool_defs();
         assert!(tools.len() >= 25, "Expected at least 25 granular tools");
@@ -1152,7 +1274,9 @@ mod tests {
         assert!(prefers_server_route("ctx_knowledge", &args("remember")));
         assert!(prefers_server_route("ctx_knowledge", &args("consolidate")));
         assert!(prefers_server_route("ctx_knowledge", &args("promote")));
-        assert!(!prefers_server_route("ctx_knowledge", &args("wakeup")));
+        assert!(prefers_server_route("ctx_knowledge", &args("upkeep")));
+        assert!(prefers_server_route("ctx_knowledge", &args("triage")));
+        assert!(prefers_server_route("ctx_knowledge", &args("wakeup")));
         assert!(!prefers_server_route("ctx_knowledge", &args("timeline")));
         assert!(!prefers_server_route("ctx_knowledge", &args("rooms")));
         assert!(prefers_server_route("ctx_session", &args("status")));
@@ -1178,11 +1302,23 @@ mod tests {
     #[test]
     fn ctx_brain_stub_has_required_actions() {
         let tools = crate::tool_defs::granular_tool_defs();
-        let brain = tools.iter().find(|t| t.name.as_ref() == "ctx_brain").unwrap();
+        let brain = tools
+            .iter()
+            .find(|t| t.name.as_ref() == "ctx_brain")
+            .unwrap();
         let schema = serde_json::to_string(&*brain.input_schema).unwrap();
-        assert!(schema.contains("store"), "ctx_brain schema must include 'store' action");
-        assert!(schema.contains("recall"), "ctx_brain schema must include 'recall' action");
-        assert!(schema.contains("forget"), "ctx_brain schema must include 'forget' action");
+        assert!(
+            schema.contains("store"),
+            "ctx_brain schema must include 'store' action"
+        );
+        assert!(
+            schema.contains("recall"),
+            "ctx_brain schema must include 'recall' action"
+        );
+        assert!(
+            schema.contains("forget"),
+            "ctx_brain schema must include 'forget' action"
+        );
     }
 
     #[test]
