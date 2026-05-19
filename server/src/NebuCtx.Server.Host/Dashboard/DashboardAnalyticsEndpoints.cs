@@ -31,6 +31,9 @@ public static class DashboardAnalyticsEndpoints
                 ReadAuthToken()));
         });
 
+        app.MapGet("/dashboard/domains", () =>
+            Results.Ok(DashboardPayloadFactory.BuildDashboardDomainsPayload()));
+
         app.MapGet("/stats", async (
             ToolRegistry toolRegistry,
             ProjectRegistry projectRegistry,

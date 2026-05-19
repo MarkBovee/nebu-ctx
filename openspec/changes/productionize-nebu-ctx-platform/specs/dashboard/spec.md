@@ -18,6 +18,15 @@ The consolidated dashboard overview endpoint MUST use concrete response models f
 - THEN the version, stats, and gain properties SHALL deserialize into concrete dashboard contract types
 - AND the legacy JSON property names required by the current dashboard UI SHALL remain available
 
+### Requirement: Dashboard domain consolidation
+The dashboard MUST expose a typed domain map that groups detailed panels into fewer operator areas without removing the existing panel identifiers.
+
+#### Scenario: Domain map is requested
+- WHEN a caller requests `/api/dashboard/domains`
+- THEN the server SHALL return domain groups in display order
+- AND each domain SHALL include stable view identifiers for its detailed panels
+- AND the map SHALL include memory, code, context, agents, learning, and overview areas
+
 ### Requirement: Project memory inspection
 The server MUST expose per-project memory data for dashboard and admin workflows.
 

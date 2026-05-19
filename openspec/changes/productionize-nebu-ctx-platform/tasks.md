@@ -6,7 +6,7 @@
 - [x] Add per-project dashboard memory endpoint and admin delete/clear routes
 - [x] Start moving overview loading to the aggregated API
 - [x] Add dashboard Memory Admin on top of project-scoped memory endpoints
-- [ ] Consolidate the remaining dashboard screens into fewer domain views
+- [x] Consolidate the remaining dashboard screens into fewer domain views
 
 ## 2. Editor memory activation
 

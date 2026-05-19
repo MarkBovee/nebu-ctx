@@ -49,6 +49,32 @@ public static class DashboardPayloadFactory
     }
 
     /// <summary>
+    /// Builds the dashboard domain map used to consolidate detailed screens into operator areas.
+    /// </summary>
+    /// <returns>Dashboard domain payload.</returns>
+    public static DashboardDomainsResponse BuildDashboardDomainsPayload()
+    {
+        return new DashboardDomainsResponse
+        {
+            Domains =
+            [
+                CreateDomain("overview", "Overview", "System summary, live sessions, and token access.",
+                    ("overview", "Overview"), ("live", "Live Observatory"), ("token", "MCP Token")),
+                CreateDomain("memory", "Memory", "Knowledge, brain, and bug memory surfaces.",
+                    ("knowledge", "Knowledge Graph"), ("brain", "Brain Memory"), ("bugs", "Bug Memory")),
+                CreateDomain("code", "Code Intelligence", "Search, symbols, dependencies, call graphs, and routes.",
+                    ("search", "Search Explorer"), ("symbols", "Symbol Explorer"), ("deps", "Dependency Map"), ("callgraph", "Call Graph"), ("routes", "Route Map")),
+                CreateDomain("context", "Context", "Compression and context-layer pressure diagnostics.",
+                    ("compression", "Compression Lab"), ("contextlayer", "Context Layer")),
+                CreateDomain("agents", "Agents", "Agent coordination and multi-actor activity.",
+                    ("agents", "Agent World")),
+                CreateDomain("learning", "Learning", "Feedback loops and learned operating curves.",
+                    ("learning", "Learning Curves")),
+            ],
+        };
+    }
+
+    /// <summary>
     /// Builds a per-project memory payload for dashboard and admin workflows.
     /// </summary>
     /// <param name="project">Resolved project record.</param>
@@ -989,6 +1015,25 @@ public static class DashboardPayloadFactory
         }
 
         return commands;
+    }
+
+    /// <summary>
+    /// Creates one dashboard domain group.
+    /// </summary>
+    /// <param name="id">Stable domain identifier.</param>
+    /// <param name="label">Domain display label.</param>
+    /// <param name="description">Domain description.</param>
+    /// <param name="views">Views assigned to the domain.</param>
+    /// <returns>Domain payload.</returns>
+    private static DashboardDomainPayload CreateDomain(string id, string label, string description, params (string Id, string Label)[] views)
+    {
+        return new DashboardDomainPayload
+        {
+            Id = id,
+            Label = label,
+            Description = description,
+            Views = views.Select(view => new DashboardDomainViewPayload { Id = view.Id, Label = view.Label }).ToArray(),
+        };
     }
 
     /// <summary>

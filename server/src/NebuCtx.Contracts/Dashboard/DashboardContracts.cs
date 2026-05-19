@@ -165,6 +165,52 @@ public sealed class DashboardOverviewResponse
 }
 
 /// <summary>
+/// Dashboard domain navigation payload used to group detailed screens into fewer operator areas.
+/// </summary>
+public sealed class DashboardDomainsResponse
+{
+    /// <summary>Dashboard domain groups in display order.</summary>
+    [JsonPropertyName("domains")]
+    public required IReadOnlyList<DashboardDomainPayload> Domains { get; set; }
+}
+
+/// <summary>
+/// Dashboard domain group containing related legacy views.
+/// </summary>
+public sealed class DashboardDomainPayload
+{
+    /// <summary>Stable domain identifier.</summary>
+    [JsonPropertyName("id")]
+    public required string Id { get; set; }
+
+    /// <summary>Domain display label.</summary>
+    [JsonPropertyName("label")]
+    public required string Label { get; set; }
+
+    /// <summary>Short explanation of what the domain contains.</summary>
+    [JsonPropertyName("description")]
+    public required string Description { get; set; }
+
+    /// <summary>Detailed dashboard views assigned to this domain.</summary>
+    [JsonPropertyName("views")]
+    public required IReadOnlyList<DashboardDomainViewPayload> Views { get; set; }
+}
+
+/// <summary>
+/// Reference to an existing dashboard view inside a domain group.
+/// </summary>
+public sealed class DashboardDomainViewPayload
+{
+    /// <summary>Stable view identifier used by the dashboard UI.</summary>
+    [JsonPropertyName("id")]
+    public required string Id { get; set; }
+
+    /// <summary>View display label.</summary>
+    [JsonPropertyName("label")]
+    public required string Label { get; set; }
+}
+
+/// <summary>
 /// Dashboard version payload including legacy compatibility fields.
 /// </summary>
 public sealed class DashboardVersionPayload

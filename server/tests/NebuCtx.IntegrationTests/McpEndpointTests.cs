@@ -92,6 +92,26 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     }
 
     /// <summary>
+    /// Dashboard domain endpoint groups the detailed panels into fewer operator areas.
+    /// </summary>
+    [Fact]
+    public async Task DashboardDomains_ReturnsConsolidatedViewGroups()
+    {
+        var payload = await _client.GetFromJsonAsync<DashboardDomainsResponse>("/api/dashboard/domains");
+        Assert.NotNull(payload);
+        Assert.Equal(6, payload!.Domains.Count);
+
+        var memoryDomain = Assert.Single(payload.Domains, domain => domain.Id == "memory");
+        Assert.Contains(memoryDomain.Views, view => view.Id == "knowledge");
+        Assert.Contains(memoryDomain.Views, view => view.Id == "brain");
+
+        var allViewIds = payload.Domains.SelectMany(domain => domain.Views).Select(view => view.Id).ToArray();
+        Assert.Contains("overview", allViewIds);
+        Assert.Contains("routes", allViewIds);
+        Assert.Contains("contextlayer", allViewIds);
+    }
+
+    /// <summary>
     /// Tool call with ctx_brain status action returns successfully.
     /// </summary>
     [Fact]
