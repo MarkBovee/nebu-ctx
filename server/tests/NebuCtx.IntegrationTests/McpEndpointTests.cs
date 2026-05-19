@@ -335,6 +335,122 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     }
 
     /// <summary>
+    /// Knowledge consolidate promotes the latest server session findings and decisions into project knowledge.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_KnowledgeConsolidate_PromotesLatestSessionState()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "knowledge-consolidate",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/example/knowledge-consolidate.git",
+                Host = "github.com",
+                Owner = "example",
+                RepoName = "knowledge-consolidate",
+                DefaultBranch = "main",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, resolveResponse.StatusCode);
+
+        var resolved = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolved?.Project?.ProjectId);
+        var projectId = resolved!.Project!.ProjectId;
+
+        foreach (var action in new[]
+                 {
+                     new Dictionary<string, object?> { ["action"] = "task", ["value"] = "stabilize hosted memory" },
+                     new Dictionary<string, object?> { ["action"] = "finding", ["value"] = "dashboard domain map is now overview/memory/agents" },
+                     new Dictionary<string, object?> { ["action"] = "decision", ["value"] = "server owns canonical project knowledge" },
+                 })
+        {
+            var sessionResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+            {
+                Name = "ctx_session",
+                ProjectId = projectId,
+                Arguments = action,
+            });
+            Assert.Equal(HttpStatusCode.OK, sessionResponse.StatusCode);
+        }
+
+        var consolidateResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            ProjectId = projectId,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "consolidate",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, consolidateResponse.StatusCode);
+
+        var payload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
+        Assert.NotNull(payload);
+        Assert.Contains(payload!.Knowledge, item => item.Category == "finding" && item.Value.Contains("dashboard domain map", StringComparison.Ordinal));
+        Assert.Contains(payload.Knowledge, item => item.Category == "decision" && item.Value.Contains("canonical project knowledge", StringComparison.Ordinal));
+        Assert.Contains(payload.Knowledge, item => item.Category == "session" && item.Value.Contains("stabilize hosted memory", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Knowledge promote ingests explicit client-side memory candidates into canonical server knowledge.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_KnowledgePromote_IngestsCandidates()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "knowledge-promote",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/example/knowledge-promote.git",
+                Host = "github.com",
+                Owner = "example",
+                RepoName = "knowledge-promote",
+                DefaultBranch = "main",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, resolveResponse.StatusCode);
+
+        var resolved = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolved?.Project?.ProjectId);
+        var projectId = resolved!.Project!.ProjectId;
+
+        var promoteResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            ProjectId = projectId,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "promote",
+                ["items"] = new object?[]
+                {
+                    new Dictionary<string, object?>
+                    {
+                        ["category"] = "decision",
+                        ["key"] = "memory-owner",
+                        ["value"] = "server owns canonical knowledge",
+                        ["confidence"] = 0.95,
+                    },
+                    new Dictionary<string, object?>
+                    {
+                        ["category"] = "finding",
+                        ["key"] = "hook-surface",
+                        ["value"] = "OpenCode exposes system transform and compacting hooks",
+                        ["confidence"] = 0.85,
+                    },
+                },
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, promoteResponse.StatusCode);
+
+        var payload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
+        Assert.NotNull(payload);
+        Assert.Contains(payload!.Knowledge, item => item.Category == "decision" && item.Key == "memory-owner");
+        Assert.Contains(payload.Knowledge, item => item.Category == "finding" && item.Key == "hook-surface");
+    }
+
+    /// <summary>
     /// Per-project dashboard memory endpoint returns not found for an unknown project.
     /// </summary>
     [Fact]

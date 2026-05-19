@@ -244,22 +244,28 @@ pub fn post_knowledge_to_server(project_root: &str) {
     let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));
     let knowledge = crate::core::knowledge::ProjectKnowledge::load_or_create(project_root);
 
-    for fact in knowledge
+    let items: Vec<Value> = knowledge
         .facts
         .iter()
         .filter(|f| f.is_current() && f.confidence >= 0.7)
-    {
-        let mut args = Map::new();
-        args.insert("action".to_string(), Value::String("remember".to_string()));
-        args.insert("category".to_string(), Value::String(fact.category.clone()));
-        args.insert("key".to_string(), Value::String(fact.key.clone()));
-        args.insert("value".to_string(), Value::String(fact.value.clone()));
-        args.insert(
-            "confidence".to_string(),
-            serde_json::json!(fact.confidence),
-        );
-        let _ = queue_or_call_tool("ctx_knowledge", args, &ctx);
+        .map(|fact| {
+            serde_json::json!({
+                "category": fact.category,
+                "key": fact.key,
+                "value": fact.value,
+                "confidence": fact.confidence,
+            })
+        })
+        .collect();
+
+    if items.is_empty() {
+        return;
     }
+
+    let mut args = Map::new();
+    args.insert("action".to_string(), Value::String("promote".to_string()));
+    args.insert("items".to_string(), Value::Array(items));
+    let _ = queue_or_call_tool("ctx_knowledge", args, &ctx);
 }
 
 /// Posts a session summary to `ctx_brain` when a session is saved.

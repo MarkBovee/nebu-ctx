@@ -2,10 +2,11 @@ namespace NebuCtx.Tools.Knowledge;
 
 using NebuCtx.Server.Core;
 using NebuCtx.Server.Core.Services;
+using System.Text.Json;
 
 /// <summary>
 /// Tool handler for ctx_knowledge — project-scoped categorized knowledge store.
-/// Actions: remember, recall, status, remove, categories.
+/// Actions: remember, recall, status, remove, categories, consolidate, promote.
 /// </summary>
 public sealed class KnowledgeToolHandler : IToolHandler
 {
@@ -24,7 +25,7 @@ public sealed class KnowledgeToolHandler : IToolHandler
     public string Name => "ctx_knowledge";
 
     /// <inheritdoc />
-    public string Description => "Project-scoped categorized knowledge store. Actions: remember, recall, status, remove, categories.";
+    public string Description => "Project-scoped categorized knowledge store. Actions: remember, recall, status, remove, categories, consolidate, promote.";
 
     /// <inheritdoc />
     public Dictionary<string, object?> InputSchema => new()
@@ -35,8 +36,8 @@ public sealed class KnowledgeToolHandler : IToolHandler
             ["action"] = new Dictionary<string, object?>
             {
                 ["type"] = "string",
-                ["description"] = "Action: remember, recall, status, remove, categories",
-                ["enum"] = new[] { "remember", "recall", "status", "remove", "categories" },
+                ["description"] = "Action: remember, recall, status, remove, categories, consolidate, promote",
+                ["enum"] = new[] { "remember", "recall", "status", "remove", "categories", "consolidate", "promote" },
             },
             ["category"] = new Dictionary<string, object?>
             {
@@ -68,6 +69,22 @@ public sealed class KnowledgeToolHandler : IToolHandler
                 ["type"] = "integer",
                 ["description"] = "Maximum results for recall (default: 10).",
             },
+            ["items"] = new Dictionary<string, object?>
+            {
+                ["type"] = "array",
+                ["description"] = "Explicit memory candidates for promote.",
+                ["items"] = new Dictionary<string, object?>
+                {
+                    ["type"] = "object",
+                    ["properties"] = new Dictionary<string, object?>
+                    {
+                        ["category"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["key"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["value"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["confidence"] = new Dictionary<string, object?> { ["type"] = "number" },
+                    },
+                },
+            },
         },
         ["required"] = new[] { "action" },
     };
@@ -84,7 +101,9 @@ public sealed class KnowledgeToolHandler : IToolHandler
             "status"     => await _knowledgeService.GetStatusAsync(context.ProjectId, cancellationToken),
             "remove"     => await ExecuteRemoveAsync(arguments, context, cancellationToken),
             "categories" => await ExecuteCategoriesAsync(context, cancellationToken),
-            _            => throw new ArgumentException($"Unknown knowledge action: '{action}'. Use: remember, recall, status, remove, categories"),
+            "consolidate" => await _knowledgeService.ConsolidateAsync(context.ProjectId, cancellationToken),
+            "promote"     => await ExecutePromoteAsync(arguments, context, cancellationToken),
+            _             => throw new ArgumentException($"Unknown knowledge action: '{action}'. Use: remember, recall, status, remove, categories, consolidate, promote"),
         };
     }
 
@@ -144,6 +163,16 @@ public sealed class KnowledgeToolHandler : IToolHandler
         };
     }
 
+    /// <summary>
+    /// Promotes explicit memory candidates into canonical project knowledge.
+    /// </summary>
+    private async Task<object> ExecutePromoteAsync(Dictionary<string, object?> arguments, ToolExecutionContext context, CancellationToken cancellationToken)
+    {
+        arguments.TryGetValue("items", out var rawItems);
+        var items = KnowledgeService.ParsePromotionItems(rawItems);
+        return await _knowledgeService.PromoteAsync(context.ProjectId, items, cancellationToken);
+    }
+
     /// <summary>Extracts a string argument.</summary>
     private static string? GetStringArg(Dictionary<string, object?> arguments, string key)
         => arguments.TryGetValue(key, out var v) ? v?.ToString() : null;
@@ -159,6 +188,13 @@ public sealed class KnowledgeToolHandler : IToolHandler
     private static float? GetFloatArg(Dictionary<string, object?> arguments, string key)
     {
         if (!arguments.TryGetValue(key, out var v)) return null;
-        return v is double d ? (float)d : v is float f ? f : (float.TryParse(v?.ToString(), out var parsed) ? parsed : null);
+        return v switch
+        {
+            double d => (float)d,
+            float f => f,
+            JsonElement { ValueKind: JsonValueKind.Number } json when json.TryGetDouble(out var dbl) => (float)dbl,
+            JsonElement { ValueKind: JsonValueKind.String } json when float.TryParse(json.GetString(), out var parsedJson) => parsedJson,
+            _ => float.TryParse(v?.ToString(), out var parsed) ? parsed : null,
+        };
     }
 }

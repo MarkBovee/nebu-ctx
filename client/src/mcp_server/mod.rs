@@ -24,6 +24,16 @@ const PUBLIC_TOOL_NAMES: &[&str] = &["ctx_read", "ctx_search", "ctx_tree", "ctx_
 /// Tools that prefer server routing but fall back to local file storage when not configured.
 const SERVER_PREFERRED_TOOLS: &[&str] = &["ctx_knowledge", "ctx_session"];
 
+const SERVER_KNOWLEDGE_ACTIONS: &[&str] = &[
+    "remember",
+    "recall",
+    "status",
+    "remove",
+    "categories",
+    "consolidate",
+    "promote",
+];
+
 /// Outcome of attempting to route a tool call to the server.
 enum ServerRoutingResult {
     /// Server responded successfully; return this text to the caller.
@@ -32,6 +42,23 @@ enum ServerRoutingResult {
     NotConfigured,
     /// Connection is configured but the call failed; return this error text to the caller.
     Error(String),
+}
+
+fn prefers_server_route(name: &str, args: &Option<serde_json::Map<String, serde_json::Value>>) -> bool {
+    if !SERVER_PREFERRED_TOOLS.contains(&name) {
+        return false;
+    }
+
+    if name != "ctx_knowledge" {
+        return true;
+    }
+
+    let action = args
+        .as_ref()
+        .and_then(|map| map.get("action"))
+        .and_then(|value| value.as_str())
+        .unwrap_or_default();
+    SERVER_KNOWLEDGE_ACTIONS.contains(&action)
 }
 
 impl ServerHandler for NebuCtxServer {
@@ -371,7 +398,7 @@ impl ServerHandler for NebuCtxServer {
                     return Ok(CallToolResult::success(vec![Content::text(e)]));
                 }
             }
-        } else if SERVER_PREFERRED_TOOLS.contains(&name) {
+        } else if prefers_server_route(name, args) {
             // When a server is configured, fail hard rather than silently
             // writing to local JSON. Local fallback only applies when no server
             // server has been set up at all.
@@ -1111,6 +1138,24 @@ mod tests {
         assert!(SERVER_PREFERRED_TOOLS.contains(&"ctx_session"));
         assert!(!SERVER_ONLY_TOOLS.contains(&"ctx_knowledge"));
         assert!(!SERVER_ONLY_TOOLS.contains(&"ctx_session"));
+    }
+
+    #[test]
+    fn knowledge_server_route_only_for_supported_actions() {
+        let args = |action: &str| {
+            Some(serde_json::Map::from_iter([(
+                "action".to_string(),
+                serde_json::Value::String(action.to_string()),
+            )]))
+        };
+
+        assert!(prefers_server_route("ctx_knowledge", &args("remember")));
+        assert!(prefers_server_route("ctx_knowledge", &args("consolidate")));
+        assert!(prefers_server_route("ctx_knowledge", &args("promote")));
+        assert!(!prefers_server_route("ctx_knowledge", &args("wakeup")));
+        assert!(!prefers_server_route("ctx_knowledge", &args("timeline")));
+        assert!(!prefers_server_route("ctx_knowledge", &args("rooms")));
+        assert!(prefers_server_route("ctx_session", &args("status")));
     }
 
     #[test]
