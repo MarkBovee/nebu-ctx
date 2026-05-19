@@ -5,12 +5,22 @@ import { join } from "path"
 
 const NEBU = "nebu-ctx"
 
+function resolveWindowsNebuExe() {
+  const homeDir = process.env["USERPROFILE"] ?? process.env["HOME"] ?? ""
+  return join(homeDir, ".cargo", "bin", "nebu-ctx.exe")
+}
+
+function resolveNebuBinary() {
+  if (process.platform !== "win32") return NEBU
+
+  return process.env["NEBU_CTX_BIN"] ?? process.env["NEBU_CTX_EXE"] ?? resolveWindowsNebuExe()
+}
+
 export const NebuCtxOpenCodePlugin: Plugin = async ({ $ }) => {
   try {
-    if (process.platform === "win32") {
-      await $`where nebu-ctx`.quiet()
-    } else {
-      await $`which nebu-ctx`.quiet()
+    const result = await runNebu(["--version"])
+    if (!result || result.exitCode !== 0) {
+      throw new Error(result?.stderr || "nebu-ctx --version failed")
     }
   } catch {
     console.warn("[nebu-ctx] nebu-ctx binary not found in PATH - plugin disabled")
@@ -22,7 +32,7 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $ }) => {
 
   async function runNebu(args: string[], stdinText?: string) {
     try {
-      const command = process.platform === "win32" ? "nebu-ctx.exe" : NEBU
+      const command = resolveNebuBinary()
       const proc = Bun.spawn([command, ...args], {
         env: { ...process.env, NEBU_CTX_DATA_DIR: dataDir },
         stdin: stdinText ? new Response(stdinText) : null,
@@ -46,6 +56,7 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $ }) => {
   return {
     "shell.env": async (_input, output) => {
       output.env["NEBU_CTX_DATA_DIR"] = dataDir
+      output.env["NEBU_CTX_BIN"] = resolveNebuBinary()
     },
 
     "tool.execute.before": async (input, output) => {
