@@ -7,6 +7,11 @@ The system MUST prefer durable retry behavior over silent data loss for client-o
 - WHEN a retryable client-originated sync operation fails because the server is unavailable
 - THEN the operation SHALL be queued for later replay
 
+#### Scenario: Queued production data is replayed
+- WHEN the server becomes reachable after telemetry, memory tool calls, or code index syncs were queued
+- THEN the client SHALL be able to replay the queued data to the server
+- AND successful replay SHALL remove the queued entries
+
 ### Requirement: Dashboard migration safety
 The system MUST allow the new dashboard API shape to coexist with legacy endpoints during migration.
 

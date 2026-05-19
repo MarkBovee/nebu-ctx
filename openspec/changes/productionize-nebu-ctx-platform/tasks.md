@@ -30,4 +30,4 @@
 - [x] Expand typed dashboard contracts beyond the new top-level endpoints
 - [x] Add sync outbox doctor/status checks
 - [x] Add dashboard port/health doctor checks
-- [ ] Complete end-to-end offline-to-online replay validation
+- [x] Complete end-to-end offline-to-online replay validation

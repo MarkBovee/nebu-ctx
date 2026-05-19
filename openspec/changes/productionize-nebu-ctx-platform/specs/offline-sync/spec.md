@@ -16,6 +16,12 @@ The client MUST retry queued sync work during normal runtime.
 - THEN queued outbox entries SHALL be retried automatically
 - AND successful entries SHALL be removed from the outbox
 
+#### Scenario: Mixed outbox replay succeeds
+- WHEN telemetry, server tool calls, and code index sync entries are queued while offline
+- AND a reachable server later accepts their corresponding API calls
+- THEN a flush SHALL replay each operation type
+- AND the outbox SHALL be empty after successful replay
+
 ### Requirement: Ordered replay metadata
 The sync outbox MUST retain enough metadata to support retries and inspection.
 
