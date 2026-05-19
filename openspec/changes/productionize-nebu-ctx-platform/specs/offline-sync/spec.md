@@ -23,3 +23,12 @@ The sync outbox MUST retain enough metadata to support retries and inspection.
 - WHEN an outbox entry fails during replay
 - THEN the client SHALL record the attempt count
 - AND it SHALL keep the entry available for future retries
+
+### Requirement: Code index replay
+The client MUST queue code index sync payloads when the server cannot accept them immediately.
+
+#### Scenario: Code index sync cannot reach the server
+- WHEN a project code index is built
+- AND the server is unavailable or not configured
+- THEN the index sync payload SHALL be stored in the local outbox
+- AND it SHALL be replayable by the normal outbox drain path

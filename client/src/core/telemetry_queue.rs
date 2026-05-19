@@ -120,6 +120,9 @@ fn drain_persisted() {
             crate::core::sync_outbox::OutboxOperationKind::ServerToolCall => {
                 crate::server_client::replay_queued_server_tool_call(entry.payload.clone())
             }
+            crate::core::sync_outbox::OutboxOperationKind::CodeIndexSync => {
+                crate::server_client::replay_queued_index_sync(entry.payload.clone())
+            }
         };
 
         match result {

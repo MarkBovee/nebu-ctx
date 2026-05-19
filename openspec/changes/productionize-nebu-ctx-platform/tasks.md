@@ -21,7 +21,8 @@
 - [x] Drain pending items during MCP runtime and startup hooks
 - [x] Add status/reporting CLI for outbox inspection
 - [x] Add one-shot outbox flush/replay command
-- [ ] Extend replay to sessions and code index snapshots
+- [x] Extend replay to code index snapshots
+- [x] Queue session summaries through server tool-call outbox
 
 ## 4. Production hardening
 

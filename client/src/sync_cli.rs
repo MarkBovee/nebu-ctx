@@ -7,6 +7,7 @@ pub struct SyncOutboxStatus {
     pub failed: usize,
     pub telemetry: usize,
     pub server_tool_calls: usize,
+    pub code_index_syncs: usize,
     pub path: String,
     pub readable: bool,
 }
@@ -68,6 +69,10 @@ pub fn build_outbox_status() -> SyncOutboxStatus {
                 .iter()
                 .filter(|entry| entry.kind == crate::core::sync_outbox::OutboxOperationKind::ServerToolCall)
                 .count(),
+            code_index_syncs: entries
+                .iter()
+                .filter(|entry| entry.kind == crate::core::sync_outbox::OutboxOperationKind::CodeIndexSync)
+                .count(),
             path: path.to_string_lossy().to_string(),
             readable: true,
         },
@@ -76,6 +81,7 @@ pub fn build_outbox_status() -> SyncOutboxStatus {
             failed: 0,
             telemetry: 0,
             server_tool_calls: 0,
+            code_index_syncs: 0,
             path: path.to_string_lossy().to_string(),
             readable: false,
         },
@@ -125,8 +131,12 @@ fn print_report(report: SyncReport, json: bool) -> i32 {
 fn print_human(report: &SyncReport) {
     println!("nebu-ctx sync {}", report.action);
     println!(
-        "  before: {} queued, {} failed ({} telemetry, {} server calls)",
-        report.before.queued, report.before.failed, report.before.telemetry, report.before.server_tool_calls
+        "  before: {} queued, {} failed ({} telemetry, {} server calls, {} index syncs)",
+        report.before.queued,
+        report.before.failed,
+        report.before.telemetry,
+        report.before.server_tool_calls,
+        report.before.code_index_syncs
     );
     if let Some(after) = &report.after {
         println!(
@@ -163,11 +173,17 @@ mod tests {
             serde_json::json!({"tool_name":"ctx_brain"}),
         )
         .unwrap();
+        crate::core::sync_outbox::enqueue(
+            crate::core::sync_outbox::OutboxOperationKind::CodeIndexSync,
+            serde_json::json!({"project_id":"proj_test"}),
+        )
+        .unwrap();
 
         let status = build_outbox_status();
         assert!(status.readable);
-        assert_eq!(status.queued, 2);
+        assert_eq!(status.queued, 3);
         assert_eq!(status.telemetry, 1);
         assert_eq!(status.server_tool_calls, 1);
+        assert_eq!(status.code_index_syncs, 1);
     }
 }

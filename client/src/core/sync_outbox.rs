@@ -12,6 +12,7 @@ const OUTBOX_DIR: &str = "sync/outbox";
 pub enum OutboxOperationKind {
     TelemetryIngest,
     ServerToolCall,
+    CodeIndexSync,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

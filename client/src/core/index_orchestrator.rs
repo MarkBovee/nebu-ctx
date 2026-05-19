@@ -218,17 +218,11 @@ pub fn status_json(project_root: &str) -> String {
     serde_json::to_string(&res).unwrap_or_else(|_| "{}".to_string())
 }
 
-/// Syncs a freshly built `ProjectIndex` to the configured server in a best-effort manner.
-/// Silently returns if the server is not configured or unreachable.
+/// Syncs a freshly built `ProjectIndex` to the configured server or durable outbox.
 fn fire_sync_index(project_root: &str, idx: &ProjectIndex) {
-    use crate::server_client::{
-        IndexSyncEdge, IndexSyncFile, IndexSyncPayload, IndexSyncSymbol, ServerClient,
-    };
+    use crate::server_client::{IndexSyncEdge, IndexSyncFile, IndexSyncSymbol};
 
-    let Ok(client) = ServerClient::load() else { return };
     let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));
-    let Ok(resolved) = client.resolve_project(&ctx) else { return };
-    let project_id = resolved.project.project_id;
 
     let files: Vec<IndexSyncFile> = idx.files.values().map(|f| IndexSyncFile {
         path: f.path.clone(),
@@ -255,8 +249,7 @@ fn fire_sync_index(project_root: &str, idx: &ProjectIndex) {
         kind: e.kind.clone(),
     }).collect();
 
-    let payload = IndexSyncPayload { project_id, files, symbols, edges };
-    let _ = client.sync_index(&payload);
+    let _ = crate::server_client::queue_or_sync_index(&ctx, files, symbols, edges);
 }
 
 #[cfg(test)]

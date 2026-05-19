@@ -28,6 +28,14 @@ pub struct QueuedProjectContext {
     pub project_metadata: Option<crate::models::ProjectMetadataEnvelope>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueuedIndexSync {
+    pub project_context: QueuedProjectContext,
+    pub files: Vec<IndexSyncFile>,
+    pub symbols: Vec<IndexSyncSymbol>,
+    pub edges: Vec<IndexSyncEdge>,
+}
+
 impl From<&ProjectContext> for QueuedProjectContext {
     fn from(value: &ProjectContext) -> Self {
         Self {
@@ -189,7 +197,7 @@ impl ServerClient {
 }
 
 /// Payload for syncing a project's code index to the server.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IndexSyncPayload {
     pub project_id: String,
     pub files: Vec<IndexSyncFile>,
@@ -198,7 +206,7 @@ pub struct IndexSyncPayload {
 }
 
 /// A single file entry in the index sync payload.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IndexSyncFile {
     pub path: String,
     pub hash: String,
@@ -210,7 +218,7 @@ pub struct IndexSyncFile {
 }
 
 /// A single symbol entry in the index sync payload.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IndexSyncSymbol {
     pub file_path: String,
     pub name: String,
@@ -221,7 +229,7 @@ pub struct IndexSyncSymbol {
 }
 
 /// A single call edge in the index sync payload.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IndexSyncEdge {
     pub from_symbol: String,
     pub to_symbol: String,
@@ -314,4 +322,114 @@ pub fn replay_queued_server_tool_call(payload: serde_json::Value) -> Result<()> 
     let context: ProjectContext = queued.project_context.into();
     client.call_tool(&queued.tool_name, queued.arguments, &context)?;
     Ok(())
+}
+
+pub fn queue_or_sync_index(
+    project_context: &ProjectContext,
+    files: Vec<IndexSyncFile>,
+    symbols: Vec<IndexSyncSymbol>,
+    edges: Vec<IndexSyncEdge>,
+) -> Result<()> {
+    if let Ok(client) = ServerClient::load() {
+        if let Ok(resolved) = client.resolve_project(project_context) {
+            let payload = IndexSyncPayload {
+                project_id: resolved.project.project_id,
+                files: files.clone(),
+                symbols: symbols.clone(),
+                edges: edges.clone(),
+            };
+            if client.sync_index(&payload).is_ok() {
+                return Ok(());
+            }
+        }
+    }
+
+    crate::core::sync_outbox::enqueue(
+        crate::core::sync_outbox::OutboxOperationKind::CodeIndexSync,
+        serde_json::to_value(QueuedIndexSync {
+            project_context: project_context.into(),
+            files,
+            symbols,
+            edges,
+        })
+        .context("failed to serialize queued index sync")?,
+    )
+    .map(|_| ())
+    .map_err(anyhow::Error::msg)
+}
+
+pub fn replay_queued_index_sync(payload: serde_json::Value) -> Result<()> {
+    let queued: QueuedIndexSync = serde_json::from_value(payload)
+        .context("failed to deserialize queued index sync")?;
+    let client = ServerClient::load()?;
+    let context: ProjectContext = queued.project_context.into();
+    let resolved = client.resolve_project(&context)?;
+    client.sync_index(&IndexSyncPayload {
+        project_id: resolved.project.project_id,
+        files: queued.files,
+        symbols: queued.symbols,
+        edges: queued.edges,
+    })?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_project_context(root: &std::path::Path) -> ProjectContext {
+        ProjectContext {
+            project_slug: "sync-test".to_string(),
+            project_root: root.to_string_lossy().to_string(),
+            fingerprint: crate::models::RepositoryFingerprint {
+                remote_url: Some("https://github.com/example/sync-test.git".to_string()),
+                host: Some("github.com".to_string()),
+                owner: Some("example".to_string()),
+                repo_name: Some("sync-test".to_string()),
+                default_branch: Some("main".to_string()),
+            },
+            checkout_binding: crate::models::CheckoutBinding::default(),
+            project_metadata: None,
+        }
+    }
+
+    #[test]
+    fn queue_or_sync_index_persists_when_server_unconfigured() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", tmp.path());
+        std::env::set_var("NEBU_CTX_HOME", tmp.path().join("home"));
+
+        queue_or_sync_index(
+            &test_project_context(tmp.path()),
+            vec![IndexSyncFile {
+                path: "src/lib.rs".to_string(),
+                hash: "abc".to_string(),
+                language: "rust".to_string(),
+                line_count: 10,
+                token_count: 50,
+                exports: vec!["run".to_string()],
+                summary: "library".to_string(),
+            }],
+            vec![IndexSyncSymbol {
+                file_path: "src/lib.rs".to_string(),
+                name: "run".to_string(),
+                kind: "function".to_string(),
+                start_line: 1,
+                end_line: 5,
+                is_exported: true,
+            }],
+            vec![IndexSyncEdge {
+                from_symbol: "run".to_string(),
+                to_symbol: "helper".to_string(),
+                kind: "calls".to_string(),
+            }],
+        )
+        .unwrap();
+
+        let entries = crate::core::sync_outbox::load_entries().unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].kind, crate::core::sync_outbox::OutboxOperationKind::CodeIndexSync);
+        assert_eq!(entries[0].payload["files"][0]["path"], "src/lib.rs");
+    }
 }
