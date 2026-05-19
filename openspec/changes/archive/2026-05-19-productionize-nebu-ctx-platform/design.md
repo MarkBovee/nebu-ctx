@@ -17,10 +17,9 @@ The current dashboard is a single large HTML shell that hydrates itself with man
 
 - `Overview`
 - `Live`
-- `Projects`
-- `Code Intelligence`
 - `Memory`
-- `Admin`
+
+This change narrows the operator surface to the views that are still actively useful: overview, live status, memory, agents, and token access. Legacy code-intelligence, context-pressure, and learning panels are removed from the primary navigation instead of being kept as dead weight.
 
 This change begins that migration by introducing:
 
@@ -43,6 +42,7 @@ This change improves activation first:
 
 - Claude setup now installs all relevant hooks
 - `SessionStart` now injects startup memory, not only routing
+- OpenCode now uses plugin hooks for startup system injection, shell interception, output compression, prompt capture, pre-compaction context injection, and idle-time session persistence
 - prompt and session memory writes are queued when the server is offline
 
 ### Offline sync

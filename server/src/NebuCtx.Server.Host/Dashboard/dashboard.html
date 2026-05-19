@@ -35,22 +35,19 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .app-layout{display:flex;min-height:100vh}
 
 .sidebar{
-  position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-w);
+  position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-exp);
   background:var(--surface);border-right:1px solid var(--border);
   display:flex;flex-direction:column;z-index:200;
-  transition:width .25s cubic-bezier(.22,1,.36,1);overflow:hidden;
+  overflow:hidden;
 }
-.sidebar:hover,.sidebar.pinned{width:var(--sidebar-exp)}
 .sidebar-logo{
   height:56px;display:flex;align-items:center;padding:0 16px;gap:8px;
   border-bottom:1px solid var(--border);flex-shrink:0;cursor:default;
 }
 .sidebar-logo img{flex-shrink:0;width:28px;height:28px;object-fit:contain;display:block}
 .sidebar-logo-text{
-  font-size:15px;font-weight:700;letter-spacing:-0.02em;white-space:nowrap;opacity:0;
-  transition:opacity .2s .05s;
+  font-size:15px;font-weight:700;letter-spacing:-0.02em;white-space:nowrap;opacity:1;
 }
-.sidebar:hover .sidebar-logo-text,.sidebar.pinned .sidebar-logo-text{opacity:1}
 .sidebar-logo-text span{
   background:linear-gradient(135deg,var(--green),#818cf8);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:300;
@@ -58,10 +55,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 
 .sidebar-nav{flex:1;padding:8px;overflow-y:auto;overflow-x:hidden}
 .nav-domain{
-  margin:14px 10px 6px;padding:0 6px;opacity:0;transition:opacity .2s .05s;
+  margin:14px 10px 6px;padding:0 6px;opacity:1;
 }
 .nav-domain:first-child{margin-top:2px}
-.sidebar:hover .nav-domain,.sidebar.pinned .nav-domain{opacity:1}
 .nav-domain-label{
   color:var(--text-bright);font-size:10px;font-weight:700;letter-spacing:.08em;
   text-transform:uppercase;display:block;
@@ -82,19 +78,16 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 }
 .nav-item:focus{outline:none;color:var(--text);background:var(--surface-2);box-shadow:0 0 0 2px rgba(99,102,241,0.2) inset}
 .nav-item svg{flex-shrink:0;width:18px;height:18px}
-.nav-label{opacity:0;transition:opacity .2s .05s}
-.sidebar:hover .nav-label,.sidebar.pinned .nav-label{opacity:1}
+.nav-label{opacity:1}
 
 .sidebar-footer{
   padding:12px 16px;border-top:1px solid var(--border);font-size:10px;
   color:var(--muted);font-family:var(--mono);white-space:nowrap;
-  opacity:0;transition:opacity .2s .05s;
+  opacity:1;
 }
-.sidebar:hover .sidebar-footer,.sidebar.pinned .sidebar-footer{opacity:1}
 
 .main{
-  flex:1;margin-left:var(--sidebar-w);padding:24px 32px 80px;
-  transition:all .25s cubic-bezier(.22,1,.36,1);
+  flex:1;margin-left:var(--sidebar-exp);padding:24px 32px 80px;
   min-width: 0;
 }
 .content-container{
@@ -113,10 +106,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 }
 .topbar-title{font-size:22px;font-weight:700;letter-spacing:-0.03em}
 .topbar-actions{display:flex;align-items:center;gap:8px}
-.pulse{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
-.dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:p 2s ease infinite}
-@keyframes p{0%,100%{opacity:1}50%{opacity:.3}}
-.dot.off{background:var(--muted);animation:none}
 .btn{
   background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 14px;
   border-radius:8px;font-size:11px;font-family:var(--font);cursor:pointer;transition:.15s;
@@ -132,13 +121,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .refresh-btn.has-update{
   border-color:var(--green);color:var(--green);
   box-shadow:0 0 12px rgba(99,102,241,0.3),0 0 4px rgba(99,102,241,0.2);
-  animation:refreshGlow 2s ease infinite;
 }
 .refresh-btn.spinning svg{animation:spin .6s linear}
-@keyframes refreshGlow{
-  0%,100%{box-shadow:0 0 12px rgba(99,102,241,0.3)}
-  50%{box-shadow:0 0 20px rgba(99,102,241,0.5),0 0 8px rgba(99,102,241,0.3)}
-}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .ver-badge{
   color:var(--muted);font-size:9px;font-family:var(--mono);
@@ -302,81 +286,10 @@ tr:hover td{background:var(--surface-2)}
   padding:1px 5px;font-family:var(--mono);font-size:11px;
 }
 
-.buddy-card{
-  position:relative;background:rgba(10,10,18,0.6);backdrop-filter:blur(24px);
-  border:1px solid var(--border-light);border-radius:var(--r);padding:28px;overflow:hidden;
-  display:flex;gap:28px;align-items:center;flex-wrap:wrap;transition:all .3s ease;
-}
-.buddy-card:hover{transform:translateY(-2px);border-color:rgba(255,255,255,0.15)}
-.buddy-card::before{
-  content:'';position:absolute;top:-40%;right:-20%;width:300px;height:300px;
-  border-radius:50%;pointer-events:none;transition:opacity .3s;
-}
-.buddy-card.rarity-Uncommon::before{background:radial-gradient(circle,rgba(99,102,241,0.1),transparent 60%)}
-.buddy-card.rarity-Rare::before{background:radial-gradient(circle,rgba(56,189,248,0.12),transparent 60%)}
-.buddy-card.rarity-Epic::before{background:radial-gradient(circle,rgba(192,132,252,0.15),transparent 60%);animation:glow-pulse 3s ease infinite}
-.buddy-card.rarity-Legendary::before{background:radial-gradient(circle,rgba(251,191,36,0.18),transparent 60%);animation:shimmer 2s ease infinite}
-.buddy-card.lvl-t1{--lvlGlow:rgba(56,189,248,0.10)}
-.buddy-card.lvl-t2{--lvlGlow:rgba(99,102,241,0.12)}
-.buddy-card.lvl-t3{--lvlGlow:rgba(192,132,252,0.16)}
-.buddy-card.lvl-t4{--lvlGlow:rgba(251,191,36,0.20)}
-.buddy-card.lvl-t1::after,
-.buddy-card.lvl-t2::after,
-.buddy-card.lvl-t3::after,
-.buddy-card.lvl-t4::after{content:'';position:absolute;inset:-1px;border-radius:14px;pointer-events:none;opacity:0.0;background:radial-gradient(circle at 20% 20%,var(--lvlGlow),transparent 55%),radial-gradient(circle at 80% 70%,var(--lvlGlow),transparent 60%);transition:opacity .2s ease}
-.buddy-card.lvl-t1:hover::after,
-.buddy-card.lvl-t2:hover::after,
-.buddy-card.lvl-t3:hover::after,
-.buddy-card.lvl-t4:hover::after{opacity:1}
-.buddy-sprite.lvl-t1 pre{animation:buddyFloat 3.2s ease-in-out infinite}
-.buddy-sprite.lvl-t2 pre{animation:buddyFloat 2.6s ease-in-out infinite}
-.buddy-sprite.lvl-t3 pre{animation:buddyFloat 2.1s ease-in-out infinite}
-.buddy-sprite.lvl-t4 pre{animation:buddyFloat 1.8s ease-in-out infinite}
-@keyframes buddyFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-@keyframes glow-pulse{0%,100%{opacity:0.7}50%{opacity:1}}
-@keyframes shimmer{0%{transform:translate(0,0) scale(1);opacity:0.7}50%{transform:translate(5%,-5%) scale(1.1);opacity:1}100%{transform:translate(0,0) scale(1);opacity:0.7}}
-.buddy-sprite{position:relative;z-index:1}
-.buddy-sprite pre{font-family:var(--mono);font-size:14px;line-height:1.35;margin:0;white-space:pre;letter-spacing:0.05em}
-.buddy-sprite.rarity-Uncommon pre{color:var(--green);text-shadow:0 0 12px rgba(99,102,241,0.3)}
-.buddy-sprite.rarity-Rare pre{color:var(--blue);text-shadow:0 0 12px rgba(56,189,248,0.3)}
-.buddy-sprite.rarity-Epic pre{color:var(--purple);text-shadow:0 0 16px rgba(192,132,252,0.4)}
-.buddy-sprite.rarity-Legendary pre{color:var(--yellow);text-shadow:0 0 20px rgba(251,191,36,0.5)}
-.buddy-sprite pre{color:var(--text)}
-.buddy-info{flex:1;min-width:240px;position:relative;z-index:1}
-.buddy-name{font-size:20px;font-weight:700;letter-spacing:-0.02em;margin-bottom:2px;display:flex;align-items:center;gap:8px}
-.buddy-meta{font-size:11px;color:var(--muted);margin-bottom:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.rarity-badge{font-size:9px;padding:2px 8px;border-radius:4px;font-weight:700;font-family:var(--mono);letter-spacing:.05em;text-transform:uppercase}
-.rarity-badge.r-Uncommon{background:var(--green-dim);color:var(--green);border:1px solid rgba(99,102,241,0.2)}
-.rarity-badge.r-Rare{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(56,189,248,0.2)}
-.rarity-badge.r-Epic{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(192,132,252,0.2)}
-.rarity-badge.r-Legendary{background:var(--yellow-dim);color:var(--yellow);border:1px solid rgba(251,191,36,0.2);animation:glow-pulse 2s ease infinite}
-.mood-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
-.mood-Ecstatic{background:var(--yellow);box-shadow:0 0 6px var(--yellow)}
-.mood-Happy{background:var(--green);box-shadow:0 0 6px var(--green)}
-.mood-Content{background:var(--blue)}
-.mood-Worried{background:var(--red);box-shadow:0 0 6px var(--red)}
-.mood-Sleeping{background:var(--muted)}
-.xp-wrap{margin-bottom:14px}
-.xp-label{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);font-family:var(--mono);margin-bottom:4px;letter-spacing:.05em}
-.xp-track{background:var(--surface-2);border-radius:6px;height:8px;overflow:hidden;border:1px solid var(--border)}
-.xp-fill{height:100%;border-radius:5px;transition:width 1s cubic-bezier(.22,1,.36,1);background:linear-gradient(90deg,var(--green),var(--blue))}
-.buddy-stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:14px}
-.stat-cell{text-align:center;background:var(--surface-2);border-radius:8px;padding:8px 4px;border:1px solid var(--border);transition:border-color .2s}
-.stat-cell:hover{border-color:var(--border-light)}
-.stat-label{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-weight:600;margin-bottom:4px}
-.stat-gauge{position:relative;width:36px;height:36px;margin:0 auto 4px}
-.stat-gauge svg{transform:rotate(-90deg)}
-.stat-gauge circle{fill:none;stroke-width:3}
-.stat-gauge .bg{stroke:var(--surface-3)}
-.stat-gauge .fg{stroke-linecap:round;transition:stroke-dashoffset 1s ease}
-.stat-val{font-size:13px;font-weight:700;letter-spacing:-0.02em}
-.buddy-speech{font-size:11px;color:var(--muted);font-style:italic;padding:10px 14px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border);position:relative;margin-top:2px}
-.buddy-speech::before{content:'';position:absolute;left:16px;top:-5px;width:10px;height:10px;background:var(--surface-2);border-left:1px solid var(--border);border-top:1px solid var(--border);transform:rotate(45deg)}
-
 .event-card{
   background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
   padding:16px 20px;display:flex;align-items:center;gap:16px;transition:all .25s cubic-bezier(.22,1,.36,1);
-  animation:fadeUp .35s ease both;position:relative;overflow:hidden;
+  position:relative;overflow:hidden;
 }
 .event-card::before{
   content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px;
@@ -591,11 +504,7 @@ tr:hover td{background:var(--surface-2)}
   font-variant-numeric:tabular-nums;line-height:1;
 }
 
-[data-live]{transition:opacity .15s}[data-live].flash{opacity:.6}
-@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-.hero>*,.card{animation:fadeUp .4s ease both}
-.hero>:nth-child(1){animation-delay:.03s}.hero>:nth-child(2){animation-delay:.06s}
-.hero>:nth-child(3){animation-delay:.09s}.hero>:nth-child(4){animation-delay:.12s}
+[data-live]{transition:none}[data-live].flash{opacity:1}
 
 .update-banner{
   display:none;background:linear-gradient(135deg,#f59e0b22,#f59e0b11);
@@ -611,17 +520,13 @@ tr:hover td{background:var(--surface-2)}
   .hero{grid-template-columns:1fr 1fr}
   .r21,.r12,.r11,.r3{grid-template-columns:1fr}
   .r4{grid-template-columns:1fr 1fr}
-  .buddy-card{flex-direction:column;text-align:center}
-  .buddy-stats-grid{grid-template-columns:repeat(5,1fr)}
   .split-pane{grid-template-columns:1fr}
 }
 @media(max-width:768px){
   .sidebar{width:0;border:none}
-  .sidebar:hover,.sidebar.pinned{width:var(--sidebar-exp)}
   .main{margin-left:0}
   .hero{grid-template-columns:1fr}
   .r4{grid-template-columns:1fr}
-  .buddy-stats-grid{grid-template-columns:repeat(3,1fr)}
 }
 </style>
 </head>
@@ -658,17 +563,9 @@ tr:hover td{background:var(--surface-2)}
     <section id="view-overview" class="view active"></section>
     <section id="view-live" class="view"></section>
     <section id="view-knowledge" class="view"></section>
-    <section id="view-deps" class="view"></section>
-    <section id="view-compression" class="view"></section>
     <section id="view-agents" class="view"></section>
     <section id="view-bugs" class="view"></section>
     <section id="view-brain" class="view"></section>
-    <section id="view-search" class="view"></section>
-    <section id="view-learning" class="view"></section>
-    <section id="view-symbols" class="view"></section>
-    <section id="view-callgraph" class="view"></section>
-    <section id="view-routes" class="view"></section>
-    <section id="view-contextlayer" class="view"></section>
     <section id="view-token" class="view"></section>
       </div>
   </main>
@@ -722,39 +619,27 @@ function ss(cmds) {
   for (const [n,s] of cmds) { const t = isM(n)?m:h; t.c+=s.count; t.i+=s.input_tokens; t.o+=s.output_tokens; t.s+=s.input_tokens-s.output_tokens; }
   return { m, h };
 }
-function fd(d,r) { return (!r || r===0) ? d : d.slice(-r); }
 
 function lv(id, val) {
   const el = $(id); if (!el) return;
   const s = String(val); if (el.textContent === s) return;
-  el.textContent = s; el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 200);
+  el.textContent = s;
 }
 
 const VIEWS = [
   { id:'overview',    label:'Overview',        icon:'<path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1"/>' },
   { id:'live',        label:'Live Observatory', icon:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>' },
   { id:'knowledge',   label:'Knowledge Graph', icon:'<circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><line x1="12" y1="8" x2="5" y2="16"/><line x1="12" y1="8" x2="19" y2="16"/>' },
-  { id:'deps',        label:'Dependency Map',  icon:'<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/><line x1="14" y1="4" x2="10" y2="20"/>' },
-  { id:'compression', label:'Compression Lab', icon:'<rect x="4" y="4" width="16" height="16" rx="2"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="10" y1="4" x2="10" y2="20"/>' },
   { id:'agents',      label:'Agent World',     icon:'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>' },
   { id:'bugs',        label:'Bug Memory',      icon:'<path d="M12 2a3 3 0 00-3 3v1H6a2 2 0 00-2 2v1h16V8a2 2 0 00-2-2h-3V5a3 3 0 00-3-3z"/><rect x="4" y="9" width="16" height="12" rx="2"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/>' },
   { id:'brain',       label:'Brain Memory',    icon:'<path d="M9.5 2C7 2 5 4 5 6.5c0 .8.2 1.5.5 2.1C4 9.4 3 10.9 3 12.5 3 15.5 5.5 18 8.5 18H9v2a1 1 0 002 0v-2h2v2a1 1 0 002 0v-2h.5c3 0 5.5-2.5 5.5-5.5 0-1.6-1-3.1-2.5-3.9.3-.6.5-1.3.5-2.1C17 4 15 2 12.5 2c-1.2 0-2.3.5-3 1.3C8.8 2.5 7.7 2 6.5 2"/>' },
-  { id:'search',      label:'Search Explorer', icon:'<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>' },
-  { id:'learning',    label:'Learning Curves', icon:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>' },
-  { id:'symbols',     label:'Symbol Explorer', icon:'<path d="M20 7h-7L10 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/>' },
-  { id:'callgraph',   label:'Call Graph',      icon:'<circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><line x1="8.5" y1="7.5" x2="15.5" y2="16.5"/><line x1="8.5" y1="6" x2="15.5" y2="6"/>' },
-  { id:'routes',      label:'Route Map',       icon:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>' },
-  { id:'contextlayer', label:'Context Layer',  icon:'<path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>' },
   { id:'token',        label:'MCP Token',      icon:'<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>' },
 ];
 
 const DOMAIN_FALLBACKS = [
   { id:'overview', label:'Overview', description:'System summary, live sessions, and token access.', views:['overview','live','token'] },
   { id:'memory', label:'Memory', description:'Knowledge, brain, and bug memory surfaces.', views:['knowledge','brain','bugs'] },
-  { id:'code', label:'Code Intelligence', description:'Search, symbols, dependencies, call graphs, and routes.', views:['search','symbols','deps','callgraph','routes'] },
-  { id:'context', label:'Context', description:'Compression and context-layer pressure diagnostics.', views:['compression','contextlayer'] },
   { id:'agents', label:'Agents', description:'Agent coordination and multi-actor activity.', views:['agents'] },
-  { id:'learning', label:'Learning', description:'Feedback loops and learned operating curves.', views:['learning'] },
 ];
 
 let currentView = 'overview';
@@ -765,10 +650,6 @@ let overviewRaw = null;
 let pulseHash = null;
 let pulseInterval = null;
 let knowledgeShowValues = true;
-let depsShowValues = true;
-let callGraphShowValues = true;
-let overviewGain = null;
-let overviewCR = 0;
 let overviewTF = 0;
 let overviewShowAll = false;
 let overviewPH = '';
@@ -806,9 +687,6 @@ function buildSidebar() {
 
 function stopActiveSimulations() {
   if (knowledgeSimulation) { knowledgeSimulation.stop(); }
-  if (depsSimulation) { depsSimulation.stop(); }
-  const cgViz = $('cgViz');
-  if (cgViz && cgViz._sim) { cgViz._sim.stop(); }
 }
 
 function switchView(name) {
@@ -831,17 +709,9 @@ function loadCurrentView() {
     overview: loadOverview,
     live: loadLive,
     knowledge: loadKnowledge,
-    deps: loadDeps,
-    compression: loadCompression,
     agents: loadAgents,
     bugs: loadBugs,
     brain: loadBrain,
-    search: loadSearch,
-    learning: loadLearning,
-    symbols: loadSymbols,
-    callgraph: loadCallGraph,
-    routes: loadRoutes,
-    contextlayer: loadContextLayer,
     token: loadTokenView,
   };
   if (loaders[currentView]) {
@@ -1082,36 +952,6 @@ function updateMinimap(containerId) {
   });
 }
 
-function toggleCallGraphValues() {
-  callGraphShowValues = !callGraphShowValues;
-  applyCallGraphValuesState();
-}
-
-function applyCallGraphValuesState() {
-  const host = $('cgViz');
-  if (!host) return;
-  host.querySelectorAll('.cg-node-count,.cg-edge-label').forEach(n => {
-    n.style.display = callGraphShowValues ? '' : 'none';
-  });
-  const btn = host.querySelector('#cgValBtn');
-  if (btn) btn.classList.toggle('active', callGraphShowValues);
-}
-
-function toggleDepsValues() {
-  depsShowValues = !depsShowValues;
-  applyDepsValuesState();
-}
-
-function applyDepsValuesState() {
-  const host = $('depsGraph');
-  if (!host) return;
-  host.querySelectorAll('.deps-node-val').forEach(n => {
-    n.style.display = depsShowValues ? '' : 'none';
-  });
-  const btn = host.querySelector('#depsValBtn');
-  if (btn) btn.classList.toggle('active', depsShowValues);
-}
-
 function toggleKnowledgeValues() {
   knowledgeShowValues = !knowledgeShowValues;
   applyKnowledgeValuesState();
@@ -1272,9 +1112,7 @@ async function loadOverview() {
   try {
     const overview = await apiFetch('/api/dashboard/overview').catch(() => null);
     const stats = overview?.stats ?? null;
-    const gain = overview?.gain ?? null;
     const version = overview?.version ?? null;
-    const buddy = null;
 
     if (version && version.current) {
       $('verBadge').textContent = 'v' + version.current;
@@ -1284,18 +1122,11 @@ async function loadOverview() {
       $('ubCur').textContent = 'v' + version.current;
       $('ubNew').textContent = 'v' + version.latest;
       $('updateBanner').style.display = 'block';
+    } else {
+      $('updateBanner').style.display = 'none';
     }
 
     overviewRaw = stats;
-    overviewGain = gain;
-    if (overview?.auth_token && $('authTokenInput')) {
-      $('authTokenInput').value = overview.auth_token;
-      if ($('tokenPreview')) $('tokenPreview').textContent = overview.auth_token.substring(0, 16) + '...';
-      if ($('mcpEndpoint')) $('mcpEndpoint').textContent = window.location.origin + '/mcp';
-      if ($('tokenSection')) $('tokenSection').style.display = '';
-    } else {
-      loadAuthToken();
-    }
     if (!stats || !stats.total_commands) {
       showEmpty(container, 'Start using nebu-ctx tools (ctx_read, ctx_shell, etc.) in your IDE to see savings here.');
       overviewBuilt = false;
@@ -1303,8 +1134,9 @@ async function loadOverview() {
     }
 
     if (!overviewBuilt) buildOverview(container);
-    updateOverview(stats, gain);
-    renderBuddy(buddy);
+    if (overview?.auth_token) showOverviewAuthToken(overview.auth_token);
+    else loadAuthToken();
+    updateOverview(stats);
   } catch (e) {
     showError(container, 'Dashboard API not responding. Make sure nebu-ctx dashboard is running.');
   }
@@ -1313,7 +1145,7 @@ async function loadOverview() {
 function setOverviewTF(days) {
   overviewTF = days;
   document.querySelectorAll('.tf-btn').forEach(b => b.classList.toggle('active', Number(b.dataset.tf) === days));
-  if (overviewRaw) { overviewPH = ''; updateOverview(overviewRaw, overviewGain); }
+  if (overviewRaw) { overviewPH = ''; updateOverview(overviewRaw); }
 }
 
 function buildOverview(container) {
@@ -1384,9 +1216,9 @@ function filterDailyByDays(daily, days) {
   return daily.filter(d => d.date >= cutStr);
 }
 
-function updateOverview(d, gain) {
+function updateOverview(d) {
   const allDaily = d.daily || [];
-  const daily = overviewTF ? filterDailyByDays(allDaily, overviewTF) : fd(allDaily, overviewCR);
+  const daily = overviewTF ? filterDailyByDays(allDaily, overviewTF) : allDaily;
   const projectDailyAll = d.project_daily_savings || [];
   const projectDaily = overviewTF ? filterDailyByDays(projectDailyAll, overviewTF) : projectDailyAll;
   const activeSessions = Array.isArray(d.active_sessions) ? d.active_sessions : [];
@@ -1399,7 +1231,6 @@ function updateOverview(d, gain) {
   const rate = pc(iSv, tfInp);
   const cmds = Object.entries(d.commands || {});
   cmds.sort((a,b) => (b[1].input_tokens-b[1].output_tokens) - (a[1].input_tokens-a[1].output_tokens));
-  const sp = ss(cmds);
   let fu1 = '---'; if (d.first_use) fu1 = d.first_use.substring(0,10);
   const activeProjectCount = new Set(activeSessions.map(session => session.project_id || session.project_name || 'unknown')).size;
 
@@ -1506,14 +1337,24 @@ function renderCmds(cmds) {
   if (b) { if (hid === 0 && !overviewShowAll) b.style.display = 'none'; else { b.style.display = ''; b.textContent = overviewShowAll ? 'Show active only' : 'Show all ('+hid+' hidden)'; } }
 }
 
+function showOverviewAuthToken(token) {
+  if (!token) return;
+  const input = $('authTokenInput');
+  const preview = $('tokenPreview');
+  const endpoint = $('mcpEndpoint');
+  const section = $('tokenSection');
+  if (!input || !preview || !endpoint || !section) return;
+  input.value = token;
+  preview.textContent = token.substring(0, 16) + '...';
+  endpoint.textContent = window.location.origin + '/mcp';
+  section.style.display = '';
+}
+
 async function loadAuthToken() {
   try {
     const data = await apiFetch('/api/auth-token');
     if (data && data.token) {
-      $('authTokenInput').value = data.token;
-      $('tokenPreview').textContent = data.token.substring(0, 16) + '...';
-      $('mcpEndpoint').textContent = window.location.origin + '/mcp';
-      $('tokenSection').style.display = '';
+      showOverviewAuthToken(data.token);
     }
   } catch {}
 }
@@ -1569,44 +1410,6 @@ async function loadTokenView() {
   } catch (e) {
     showError(container, 'Could not load authentication token.');
   }
-}
-
-function renderBuddy(b) {
-  if (!b || !b.name || !$('buddySection')) return;
-  $('buddySection').style.display = '';
-  const lvlTier = (b.level >= 75) ? 't4' : (b.level >= 50) ? 't3' : (b.level >= 25) ? 't2' : (b.level >= 10) ? 't1' : 't0';
-  $('buddyCard').className = 'buddy-card rarity-' + b.rarity + ' lvl-' + lvlTier;
-  $('buddyName').textContent = b.name; $('buddySpecies').textContent = b.species;
-  $('buddyLevel').textContent = b.level; $('buddyMood').textContent = b.mood;
-  $('buddyStreak').textContent = b.streak_days || 0;
-  $('buddySpeech').textContent = '"' + b.speech + '"';
-  $('buddyRarityBadge').textContent = b.rarity; $('buddyRarityBadge').className = 'rarity-badge r-' + b.rarity;
-  $('buddyMoodDot').className = 'mood-dot mood-' + b.mood;
-  $('buddySpriteWrap').className = 'buddy-sprite rarity-' + b.rarity + ' lvl-' + lvlTier;
-
-  if (window.__buddyAnimTimer) { clearInterval(window.__buddyAnimTimer); window.__buddyAnimTimer = null; }
-  const frames = (b.ascii_frames && b.ascii_frames.length) ? b.ascii_frames : (b.ascii_art ? [b.ascii_art] : []);
-  if (frames.length) $('buddyAscii').textContent = frames[0].join('\n');
-  if (frames.length > 1) {
-    let i = 0;
-    const ms = b.anim_ms || 850;
-    window.__buddyAnimTimer = setInterval(() => {
-      i = (i + 1) % frames.length;
-      $('buddyAscii').textContent = frames[i].join('\n');
-    }, ms);
-  }
-  const xpPct = b.xp_next_level > 0 ? Math.min(100, Math.round(b.xp/b.xp_next_level*100)) : 0;
-  $('buddyXp').textContent = fmt(b.xp); $('buddyXpNext').textContent = fmt(b.xp_next_level);
-  $('buddyXpBar').style.width = xpPct + '%';
-  if (b.stats) {
-    const st = b.stats;
-    setBuddyStat('Comp', st.compression); setBuddyStat('Vig', st.vigilance);
-    setBuddyStat('End', st.endurance); setBuddyStat('Wis', st.wisdom); setBuddyStat('Exp', st.experience);
-  }
-}
-function setBuddyStat(id, val) {
-  const el = $('bs'+id); if (el) el.textContent = val;
-  const c = $('sg'+id); if (c) c.setAttribute('stroke-dashoffset', 100 - val);
 }
 
 let liveProjectMap = {}; // project_id → slug
@@ -2129,291 +1932,6 @@ function showKnowledgeDetail(d) {
   $('detailPanel').classList.add('open');
 }
 
-let depsSimulation = null;
-async function loadDeps() {
-  const container = $('view-deps');
-  if (!container.dataset.built) showLoading(container);
-  try {
-    if (inFlight.get('deps')) return;
-    inFlight.set('deps', true);
-    const data = await apiFetch('/api/graph', { timeoutMs: 8000 });
-    if (isBuildingData(data)) {
-      showIndexing(container, 'Dependency graph is building in the background. This view will refresh automatically in a few seconds.', 'deps', loadDeps);
-      return;
-    }
-    resetRetry('deps');
-    const files = data.files ? Object.values(data.files) : [];
-    const edges = data.edges || [];
-    if (!files.length) { showEmpty(container, 'No dependency data yet. Nebu-CTX builds a dependency graph using tree-sitter parsing.'); return; }
-
-    const totalTokens = files.reduce((s,f) => s + (f.token_count||0), 0);
-    const langSet = new Set(files.map(f => f.language || f.path.split('.').pop() || ''));
-    container.innerHTML = `
-      <div class="row r4" style="margin-bottom:16px">
-        <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${files.length}</div><div class="hl">Files</div></div>
-        <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${edges.length}</div><div class="hl">Dependencies</div></div>
-        <div class="hc"><div class="hv" style="color:var(--blue);font-size:24px">${ff(totalTokens)}</div><div class="hl">Total Tokens</div></div>
-        <div class="hc"><div class="hv" style="color:var(--yellow);font-size:24px">${langSet.size}</div><div class="hl">Languages</div></div>
-      </div>
-      <div class="d3-container" id="depsGraph"></div>
-      ${howItWorks('Dependency Map', 'Nebu-CTX uses <strong>tree-sitter</strong> to parse source files and extract import/export relationships. Files become nodes sized by their <strong>token count</strong> (larger = more tokens). Edges represent import dependencies. Nodes are colored by <strong>language</strong>. Directory clusters are formed by grouping files in the same folder. The force-directed layout naturally clusters tightly-coupled modules together.')}`;
-    container.dataset.built = 'true';
-    renderDepsGraph(files, edges);
-  } catch (e) {
-    showError(container, (e && e.message === 'timeout')
-      ? 'Dependency graph is still indexing. Try again in a few seconds.'
-      : 'Could not load dependency graph.'
-    );
-  } finally { inFlight.delete('deps'); }
-}
-
-function renderDepsGraph(files, edges) {
-  const graphEl = $('depsGraph');
-  if (!graphEl) return;
-  graphEl.innerHTML = '';
-  const width = graphEl.clientWidth || graphEl.offsetWidth || 800;
-  const height = graphEl.clientHeight || graphEl.offsetHeight || 500;
-
-  const langColors = {
-    'rust': '#f87171', 'rs': '#f87171', 'javascript': '#fbbf24', 'js': '#fbbf24',
-    'typescript': '#38bdf8', 'ts': '#38bdf8', 'tsx': '#38bdf8', 'python': '#6366f1', 'py': '#6366f1',
-    'go': '#818cf8', 'toml': '#f472b6', 'json': '#6b6b88', 'yaml': '#6b6b88', 'md': '#6b6b88',
-    'html': '#f97316', 'css': '#06b6d4', 'sh': '#a3e635', 'bash': '#a3e635',
-  };
-
-  const maxTokens = Math.max(...files.map(f => f.token_count || 1), 1);
-  const nodeMap = {};
-  const nodes = files.map((f, i) => {
-    const ext = f.path.split('.').pop() || '';
-    const lang = f.language || ext;
-    const n = { id: f.path, label: f.path.split('/').pop(), tokens: f.token_count || 0, language: lang, color: langColors[lang.toLowerCase()] || langColors[ext] || '#6b6b88', file: f, radius: 4 + Math.sqrt(f.token_count || 0) / Math.sqrt(maxTokens) * 18 };
-    nodeMap[f.path] = n;
-    return n;
-  });
-
-  const resolveEdgeTarget = (t) => {
-    if (nodeMap[t]) return t;
-    const normalized = t.replace(/::/g, '/');
-    const candidates = Object.keys(nodeMap);
-    const byModule = candidates.find(p => p.includes(normalized) || p.includes(normalized.split('/')[0]));
-    if (byModule) return byModule;
-    const byName = candidates.find(p => { const exps = (nodeMap[p].file.exports || []); return exps.some(ex => t.includes(ex) || ex.includes(t.split('::').pop())); });
-    return byName || null;
-  };
-  const validEdges = edges.map(e => { const src = resolveEdgeTarget(e.from); const tgt = resolveEdgeTarget(e.to); return (src && tgt && src !== tgt) ? { source: src, target: tgt } : null; }).filter(Boolean);
-
-  const usedLangs = [...new Set(nodes.map(n => n.language.toLowerCase()))];
-  const legendHtml = usedLangs.slice(0,10).map(l => `<div class="graph-legend-item"><div class="graph-legend-dot" style="background:${langColors[l]||'#6b6b88'}"></div>${l}</div>`).join('');
-  graphEl.innerHTML = `<div class="graph-stats"><span>${nodes.length}</span> files &middot; <span>${validEdges.length}</span> deps</div><div class="graph-toolbar"><button id="depsValBtn" class="${depsShowValues ? 'active' : ''}" onclick="toggleDepsValues()" title="Toggle values">123</button><div class="tb-sep"></div><button onclick="zoomGraph(depsSimulation,'depsGraph',1.3)" title="Zoom In">+</button><button onclick="zoomGraph(depsSimulation,'depsGraph',0.7)" title="Zoom Out">−</button><button onclick="resetGraph(depsSimulation,'depsGraph')" title="Reset">⟲</button><div class="tb-sep"></div><button class="fs-toggle-btn" onclick="toggleGraphFullscreen('depsGraph')" title="Fullscreen (F)">⛶</button></div><div class="graph-legend">${legendHtml}</div><div class="graph-breadcrumb">Dependency Map · <span style="color:var(--green)">Press Esc to exit</span></div><div class="graph-minimap"><canvas></canvas></div>`;
-
-  const svg = d3.select(graphEl).append('svg').attr('class', 'd3-graph').attr('width', width).attr('height', height);
-  const g = svg.append('g');
-  const zoomBehavior = d3.zoom().scaleExtent([0.1, 8]).on('zoom', e => g.attr('transform', e.transform));
-  svg.call(zoomBehavior);
-  graphEl._zoom = zoomBehavior; graphEl._svg = svg;
-
-  const simulation = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(validEdges).id(d => d.id).distance(70))
-    .force('charge', d3.forceManyBody().strength(-120))
-    .force('center', d3.forceCenter(width/2, height/2))
-    .force('collision', d3.forceCollide().radius(d => d.radius + 3));
-
-  g.append('g').selectAll('line').data(validEdges).join('line')
-    .attr('stroke', 'rgba(255,255,255,0.05)').attr('stroke-width', 1)
-    .attr('class', 'dep-link');
-
-  const glow = g.append('g').selectAll('circle').data(nodes).join('circle')
-    .attr('r', d => d.radius * 2.5)
-    .attr('fill', d => d.color).attr('fill-opacity', 0.06)
-    .style('pointer-events', 'none');
-
-  const node = g.append('g').selectAll('circle').data(nodes).join('circle')
-    .attr('r', d => d.radius)
-    .attr('fill', d => d.color).attr('fill-opacity', 0.8)
-    .attr('stroke', d => d.color).attr('stroke-width', 1.5).attr('stroke-opacity', 0.3)
-    .style('cursor', 'pointer').style('transition', 'r .2s, stroke-opacity .2s')
-    .call(d3.drag().on('start', (e,d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
-      .on('drag', (e,d) => { d.fx = e.x; d.fy = e.y; })
-      .on('end', (e,d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }))
-    .on('click', (e, d) => showFileDetail(d))
-    .on('mouseover', function(e, d) {
-      d3.select(this).attr('stroke-opacity', 1).attr('r', d.radius * 1.3);
-      showTooltip(e, `<div class="nt-title">${esc(d.label)}</div><div class="nt-row"><span class="nt-label">Language</span><span class="nt-value">${d.language}</span></div><div class="nt-row"><span class="nt-label">Tokens</span><span class="nt-value">${ff(d.tokens)}</span></div><div class="nt-row"><span class="nt-label">Path</span><span class="nt-value" style="font-size:9px">${esc(d.id)}</span></div>`);
-    })
-    .on('mousemove', (e) => moveTooltip(e))
-    .on('mouseout', function(e, d) { d3.select(this).attr('stroke-opacity', 0.3).attr('r', d.radius); hideTooltip(); });
-
-  const nodeVal = g.append('g').selectAll('text').data(nodes).join('text')
-    .attr('class', 'deps-node-val')
-    .attr('text-anchor', 'middle')
-    .attr('dy', '0.35em')
-    .style('display', depsShowValues ? '' : 'none')
-    .text(d => (d.radius >= 12 && d.tokens >= 1000) ? fmt(d.tokens) : '');
-
-  const label = g.append('g').selectAll('text').data(nodes).join('text')
-    .text(d => d.label.length > 20 ? d.label.substring(0,18)+'..' : d.label)
-    .attr('font-size', 9).attr('fill', 'rgba(255,255,255,0.45)').attr('text-anchor', 'middle')
-    .attr('dy', d => -d.radius - 4).style('pointer-events', 'none');
-
-  let depTickCount = 0;
-  simulation.on('tick', () => {
-    g.selectAll('.dep-link').attr('x1', d => d.source.x).attr('y1', d => d.source.y).attr('x2', d => d.target.x).attr('y2', d => d.target.y);
-    glow.attr('cx', d => d.x).attr('cy', d => d.y);
-    node.attr('cx', d => d.x).attr('cy', d => d.y);
-    nodeVal.attr('x', d => d.x).attr('y', d => d.y);
-    label.attr('x', d => d.x).attr('y', d => d.y);
-    if (++depTickCount % 10 === 0) updateMinimap('depsGraph');
-  });
-  depsSimulation = simulation;
-
-  applyDepsValuesState();
-}
-
-function showFileDetail(d) {
-  const f = d.file;
-  const exports = (f.exports || []).join(', ') || 'none';
-  $('detailContent').innerHTML = `
-    <h3>${esc(d.label)}</h3>
-    <div class="detail-row"><span class="dl">Path</span><span class="dv" style="word-break:break-all">${esc(f.path)}</span></div>
-    <div class="detail-row"><span class="dl">Language</span><span class="dv">${esc(d.language)}</span></div>
-    <div class="detail-row"><span class="dl">Tokens</span><span class="dv">${ff(f.token_count || 0)}</span></div>
-    <div class="detail-row"><span class="dl">Lines</span><span class="dv">${ff(f.line_count || 0)}</span></div>
-    <div class="detail-row"><span class="dl">Exports</span><span class="dv" style="word-break:break-all">${esc(exports)}</span></div>`;
-  $('detailPanel').classList.add('open');
-}
-
-let compressionFiles = [];
-let compressionSelected = null;
-let compressionMode = 'map';
-let compressionTask = '';
-
-async function loadCompression() {
-  const container = $('view-compression');
-  if (!container.dataset.built) {
-    showLoading(container);
-    try {
-      const [graph, searchIdx] = await Promise.all([
-        apiFetch('/api/graph').catch(() => null),
-        apiFetch('/api/search-index').catch(() => null),
-      ]);
-      if (isBuildingData(graph) || isBuildingData(searchIdx)) {
-        showIndexing(container, 'Indexes are building in the background. This view will refresh automatically in a few seconds.', 'compression', loadCompression);
-        return;
-      }
-      resetRetry('compression');
-      const graphPaths = graph && graph.files ? Object.values(graph.files).map(f => f.path) : [];
-      const searchPaths = searchIdx && searchIdx.top_chunks_by_token_count ? searchIdx.top_chunks_by_token_count.map(c => c.file_path) : [];
-      const all = new Set([...graphPaths, ...searchPaths]);
-      compressionFiles = [...all].sort();
-    } catch { compressionFiles = []; }
-
-    container.innerHTML = `
-      <div class="card" style="margin-bottom:14px;padding:16px 20px;background:linear-gradient(135deg,rgba(99,102,241,0.06),rgba(56,189,248,0.04));border:1px solid rgba(99,102,241,0.15)">
-        <div style="display:flex;align-items:flex-start;gap:12px">
-          <div style="font-size:22px;flex-shrink:0">🗜️</div>
-          <div>
-            <div style="font-weight:700;color:var(--text-bright);margin-bottom:4px">Compression Lab</div>
-            <div style="font-size:13px;color:var(--muted);line-height:1.6">Pick any file from your project index, choose a <strong>read mode</strong>, and see exactly how Nebu-CTX would compress it before sending to your AI tool — including token counts before and after. Use this to understand which mode saves the most tokens for different file types.</div>
-          </div>
-        </div>
-      </div>
-      <div class="row r12">
-        <div class="card" style="max-height:600px;overflow:hidden;display:flex;flex-direction:column">
-          <h3>Select File</h3>
-          <input type="text" class="search-input" placeholder="Filter files..." oninput="filterCompressionFiles(this.value)" style="margin-bottom:8px">
-          <input type="text" class="search-input" placeholder="Optional task (enables task-mode view)..." id="compressionTaskInput" oninput="compressionTask=this.value" style="margin-bottom:8px">
-          <div class="file-list" id="compressionFileList"></div>
-        </div>
-        <div class="card" id="compressionResult">
-          <div class="empty-state" style="padding:40px"><h2>Select a file</h2><p>Choose a file from the list to see compression modes in action.</p></div>
-        </div>
-      </div>
-      ${howItWorks('Compression Algorithms', '<strong>map</strong> &mdash; Extracts dependency graph + exports + key function signatures. Best for understanding file structure without reading code.<br><br><strong>signatures</strong> &mdash; Extracts only the API surface (function/class/type signatures). Strips all implementation details.<br><br><strong>reference</strong> &mdash; A compact file reference (tokens + lines) without content.<br><br><strong>task</strong> &mdash; Task-aware compression (IB filter + graph context) when a task is provided.<br><br><strong>aggressive</strong> &mdash; Removes all comments, blank lines, and non-essential whitespace. Preserves code logic but minimizes formatting.<br><br><strong>entropy</strong> &mdash; Uses Shannon entropy analysis and Jaccard similarity to identify and remove low-information-density sections. Keeps only the most unique, information-rich lines.')}`;
-    container.dataset.built = 'true';
-    renderCompressionFileList(compressionFiles);
-  }
-}
-
-function filterCompressionFiles(query) {
-  const q = query.toLowerCase();
-  const filtered = compressionFiles.filter(f => f.toLowerCase().includes(q));
-  renderCompressionFileList(filtered);
-}
-
-function renderCompressionFileList(files) {
-  const el = $('compressionFileList');
-  if (!el) return;
-  el.innerHTML = files.slice(0, 100).map(f =>
-    `<div class="file-item${f === compressionSelected ? ' selected' : ''}" data-path="${esc(f)}">${esc(f)}</div>`
-  ).join('');
-  el.querySelectorAll('.file-item').forEach(item => {
-    item.onclick = () => selectCompressionFile(item.dataset.path);
-  });
-}
-
-async function selectCompressionFile(path) {
-  compressionSelected = path;
-  renderCompressionFileList(compressionFiles);
-  const result = $('compressionResult');
-  if (!result) return;
-  result.innerHTML = '<div class="loading-state">Compressing...</div>';
-  try {
-    let url = '/api/compression-demo?path=' + encodeURIComponent(path);
-    const t = (compressionTask || '').trim();
-    if (t) url += '&task=' + encodeURIComponent(t);
-    const data = await apiFetch(url);
-    if (data.error) { result.innerHTML = `<div class="empty-state"><p>${esc(data.error)}</p></div>`; return; }
-    renderCompressionResult(data);
-  } catch (e) { result.innerHTML = '<div class="empty-state"><p>Failed to load compression demo.</p></div>'; }
-}
-
-function renderCompressionResult(data) {
-  const result = $('compressionResult');
-  if (!result) return;
-  const modes = data.modes || {};
-  const modeKeys = ['map', 'signatures', 'reference', 'aggressive', 'entropy'];
-  if (data.task) modeKeys.push('task');
-
-  result.innerHTML = `
-    <h3>Compression: ${esc(data.path.split('/').pop())} <span class="badge">${ff(data.original_tokens)} tokens · ${ff(data.original_lines)} lines</span></h3>
-    <div class="mode-tabs" id="compressionModeTabs">
-      ${modeKeys.map(m => `<div class="mode-tab${m === compressionMode ? ' active' : ''}" onclick="switchCompressionMode('${m}')">${m} <span class="tag tg" style="margin-left:4px">${modes[m] ? modes[m].savings_pct+'%' : '---'}</span></div>`).join('')}
-    </div>
-    <div class="row r4" style="margin-bottom:12px">
-      ${modeKeys.map(m => {
-        const md = modes[m] || {};
-        return `<div class="hc" style="padding:12px;text-align:center"><div class="hv" style="font-size:18px;color:var(--green)">${md.savings_pct || 0}%</div><div class="hl">${m}</div><div class="hs">${ff(md.tokens || 0)} tok</div></div>`;
-      }).join('')}
-    </div>
-    <div id="compressionSplitPane"></div>`;
-  renderCompressionPane(data);
-}
-
-function switchCompressionMode(mode) {
-  compressionMode = mode;
-  document.querySelectorAll('#compressionModeTabs .mode-tab').forEach(t => t.classList.toggle('active', t.textContent.trim().startsWith(mode)));
-  if (compressionSelected) {
-    const result = $('compressionResult');
-    if (result && result.dataset.lastData) renderCompressionPane(JSON.parse(result.dataset.lastData));
-    else selectCompressionFile(compressionSelected);
-  }
-}
-
-function renderCompressionPane(data) {
-  const result = $('compressionResult');
-  if (result) result.dataset.lastData = JSON.stringify(data);
-  const pane = $('compressionSplitPane');
-  if (!pane) return;
-  const modeData = (data.modes || {})[compressionMode] || {};
-  const origLines = data.original_lines || 0;
-  const compLines = (modeData.output || '').split('\n').length;
-  const removedLines = Math.max(0, origLines - compLines);
-  pane.innerHTML = `<div class="split-pane">
-    <div class="split-side"><h4>Original <span class="badge">${ff(data.original_tokens)} tok · ${ff(origLines)} lines</span></h4><pre style="color:var(--red);opacity:0.6">${removedLines > 0 ? '[-] '+ff(removedLines)+' lines removed by '+esc(compressionMode) : 'Full file'}</pre><pre style="max-height:400px;overflow:auto">${esc((data.original || modeData.output || '').substring(0, 5000))}</pre></div>
-    <div class="split-side"><h4>${esc(compressionMode)} <span class="badge">${ff(modeData.tokens || 0)} tok · ${modeData.savings_pct || 0}% saved</span></h4><pre style="max-height:400px;overflow:auto">${esc((modeData.output || '').substring(0, 5000) || 'No output')}</pre></div>
-  </div>`;
-}
-
 async function loadAgents() {
   const container = $('view-agents');
   try {
@@ -2705,609 +2223,6 @@ function buildProjectSelectorHtml(selected, opts = {}) {
     `<option value="${esc(p.project_id)}" ${selected === p.project_id ? 'selected' : ''}>${esc(p.slug)}</option>`
   ).join('');
   return `<select id="${opts.id||'projectSelector'}" style="padding:8px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;cursor:pointer;${opts.style||''}" onchange="${opts.onchange||''}">${options}</select>`;
-}
-
-async function loadSearch() {
-  const container = $('view-search');
-  try {
-    await getProjectList();
-    const projects = _cachedProjectList || [];
-    const hasProjects = projects.length > 0;
-    const defaultProject = hasProjects ? projects[0].project_id : null;
-
-    const renderSearch = async (projectId) => {
-      const url = projectId ? `/api/search-index?project_id=${encodeURIComponent(projectId)}` : '/api/search-index';
-      const data = await apiFetch(url);
-      if (isBuildingData(data)) {
-        showIndexing(container, 'Search index is building in the background.', 'search', () => renderSearch(projectId));
-        return;
-      }
-      resetRetry('search');
-
-      const isProjectIndex = !!projectId;
-      const langDist = data.language_distribution || {};
-      const langEntries = Object.entries(langDist).sort((a,b) => b[1] - a[1]);
-      const projectSel = hasProjects ? buildProjectSelectorHtml(projectId, { id: 'searchProjectSel', onchange: 'renderSearchForProject(this.value)' }) : '';
-
-      container.innerHTML = `
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-          <div style="font-size:12px;color:var(--muted)">Project:</div>
-          ${projectSel || '<span style="font-size:12px;color:var(--muted)">No projects synced yet — run <code>nebu-ctx cloud bind</code></span>'}
-          ${isProjectIndex && data.last_indexed_at ? `<span style="font-size:11px;color:var(--muted)">Last indexed ${new Date(data.last_indexed_at).toLocaleString()}</span>` : ''}
-        </div>
-        ${!isProjectIndex ? `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--blue);background:var(--surface-2)"><div style="display:flex;align-items:flex-start;gap:10px"><span style="font-size:15px;flex-shrink:0">ℹ️</span><div style="font-size:12px;color:var(--text-muted);line-height:1.6"><strong style="color:var(--text)">Server registry index</strong> — no project selected. Select a project above to see its source file index, or use <code>ctx_search</code> from the Rust client. Showing server MCP tools + routes below.</div></div></div>` : ''}
-        <div class="row r3" style="margin-bottom:16px">
-          <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${ff(isProjectIndex ? data.doc_count : data.chunk_count || 0)}</div><div class="hl">${isProjectIndex ? 'Source Files' : 'MCP Tools'}</div></div>
-          <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${ff(isProjectIndex ? data.chunk_count : data.doc_count || 0)}</div><div class="hl">${isProjectIndex ? 'Symbols' : 'Total Entries'}</div></div>
-          <div class="hc"><div class="hv" style="color:var(--blue);font-size:24px">${ff(langEntries.length)}</div><div class="hl">Languages</div></div>
-        </div>
-        <div class="row r11">
-          <div class="card">
-            <h3>${isProjectIndex ? 'Language Distribution' : 'Entry Type Distribution'}</h3>
-            <canvas id="searchLangChart" style="max-height:300px"></canvas>
-          </div>
-          <div class="card">
-            <h3>${isProjectIndex ? 'Largest Files by Token Count' : 'MCP Tools by Token Count'}</h3>
-            <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
-            <table>
-              <thead><tr><th>${isProjectIndex ? 'File' : 'Symbol'}</th><th>${isProjectIndex ? 'Language' : 'File'}</th><th>Kind</th><th class="r">Tokens</th><th class="r">Lines</th></tr></thead>
-              <tbody id="searchChunksTable"></tbody>
-            </table>
-            </div>
-          </div>
-        </div>
-        <div class="card" style="margin-top:10px">
-          <h3>Search Playground</h3>
-          <div style="display:flex;gap:8px;margin-bottom:12px">
-            <input id="searchPlaygroundInput" type="text" class="search-input" placeholder="${isProjectIndex ? 'Search project files by path…' : 'Search server tools and routes…'}" onkeydown="if(event.key==='Enter')runSearch()">
-            <button class="btn" onclick="runSearch()" style="white-space:nowrap;padding:8px 20px">Search</button>
-          </div>
-          <div id="searchPlaygroundResults" style="font-size:12px;color:var(--muted)">Enter a query and press Enter to search.</div>
-        </div>
-        ${howItWorks(isProjectIndex ? 'Project Source Index' : 'Server Registry Search', isProjectIndex
-          ? 'The project index is built locally by the Rust client using tree-sitter and synced to the server via <code>nebu-ctx cloud bind</code>. Files are broken into symbols and stored per-project in Postgres. Select a project above to browse its files, symbols, and call graph. For live BM25 search over project source, use <code>ctx_search(pattern, path)</code> from the Rust client.'
-          : 'This panel provides a searchable index of the nebu-ctx server\'s own registered <strong>MCP tools</strong> and <strong>HTTP route handlers</strong>. Select a project above to switch to project source search.')}`;
-
-      window._currentSearchProjectId = projectId || null;
-
-      if (langEntries.length && $('searchLangChart')) {
-        if (charts.searchLang) charts.searchLang.destroy();
-        const langColors = { rs:'#f87171', js:'#fbbf24', cs:'#a78bfa', ts:'#38bdf8', tsx:'#38bdf8', py:'#6366f1', go:'#818cf8', toml:'#f472b6', json:'#6b6b88', md:'#6b6b88', yaml:'#6b6b88', route:'#f59e0b', tool:'#6366f1' };
-        charts.searchLang = new Chart($('searchLangChart'), {
-          type: 'bar',
-          data: {
-            labels: langEntries.map(e => e[0] || 'unknown'),
-            datasets: [{ data: langEntries.map(e => e[1]), backgroundColor: langEntries.map(e => (langColors[e[0]] || '#6b6b88') + '88'), borderRadius: 4, borderSkipped: false }],
-          },
-          options: { ...chartDefaults(), indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ...chartDefaults().scales.x }, y: { ...chartDefaults().scales.y, ticks: { color: '#6b6b88', font: { size: 10, family: 'var(--mono)' } } } } },
-        });
-      }
-
-      const tb = $('searchChunksTable');
-      const top = data.top_chunks_by_token_count || [];
-      tb.innerHTML = top.map(c => `<tr>
-        <td style="color:var(--text-bright);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.symbol_name || c.file_path || '---')}</td>
-        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)">${esc(isProjectIndex ? (c.kind || '') : c.file_path)}</td>
-        <td><span class="tag tp">${esc(c.kind || '')}</span></td>
-        <td class="r">${ff(c.token_count)}</td>
-        <td class="r">${c.start_line}-${c.end_line}</td>
-      </tr>`).join('');
-    };
-
-    window.renderSearchForProject = async (projectId) => {
-      await renderSearch(projectId);
-    };
-
-    await renderSearch(defaultProject);
-  } catch (e) { showError(container, 'Could not load search index data.'); }
-}
-
-async function runSearch() {
-  const q = ($('searchPlaygroundInput') || {}).value || '';
-  const el = $('searchPlaygroundResults');
-  if (!el || !q.trim()) return;
-  el.innerHTML = '<div class="loading-state" style="padding:20px">Searching…</div>';
-  try {
-    const projectId = window._currentSearchProjectId;
-    const url = projectId
-      ? `/api/search?q=${encodeURIComponent(q.trim())}&limit=20&project_id=${encodeURIComponent(projectId)}`
-      : `/api/search?q=${encodeURIComponent(q.trim())}&limit=20`;
-    const data = await apiFetch(url, { timeoutMs: 5000 });
-    if (isBuildingData(data)) {
-      el.innerHTML = '<div style="color:var(--muted);padding:16px">Search index is still building…</div>';
-      return;
-    }
-    const results = data.results || [];
-    if (!results.length) {
-      el.innerHTML = '<div style="color:var(--muted);padding:16px">No results for <strong>' + esc(q) + '</strong></div>';
-      return;
-    }
-    el.innerHTML = '<div style="margin-bottom:8px;font-size:11px;color:var(--muted)">' + results.length + ' result(s) for <strong>' + esc(q) + '</strong></div>'
-      + '<table style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;font-size:11px;color:var(--muted)"><th style="padding:6px">Score</th><th style="padding:6px">Symbol / File</th><th style="padding:6px">Kind</th><th style="padding:6px">Path</th><th style="padding:6px">Lines</th></tr></thead><tbody>'
-      + results.map(r => `<tr style="border-top:1px solid var(--border)"><td style="padding:6px;font-family:var(--mono);color:var(--yellow)">${r.score.toFixed(2)}</td><td style="padding:6px;font-family:var(--mono);color:var(--green)">${esc(r.symbol_name || '—')}</td><td style="padding:6px"><span style="background:var(--surface-2);padding:2px 6px;border-radius:4px;font-size:10px">${esc(r.kind)}</span></td><td style="padding:6px;font-size:11px;color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.file_path)}</td><td style="padding:6px;font-size:11px">${r.start_line}-${r.end_line}</td></tr>`)
-      .join('')
-      + '</tbody></table>'
-      + (results.length > 0 && results[0].snippet ? '<div style="margin-top:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:6px">Preview: ' + esc(results[0].symbol_name || results[0].file_path) + '</div><pre style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11px;line-height:1.6;max-height:200px;overflow:auto;white-space:pre-wrap;word-break:break-all">' + esc(results[0].snippet) + '</pre></div>' : '');
-  } catch (e) {
-    el.innerHTML = '<div style="color:var(--red);padding:16px">Search failed: ' + esc(e.message || 'unknown error') + '</div>';
-  }
-}
-
-async function loadLearning() {
-  const container = $('view-learning');
-  try {
-    const data = await apiFetch('/api/feedback');
-    const thresholds = data.learned_thresholds || {};
-    const outcomes = data.outcomes || [];
-    const hasThresholds = Object.keys(thresholds).length > 0;
-
-    container.innerHTML = `
-      <div class="row r11">
-        <div class="card">
-          <h3>Learned Compression Thresholds</h3>
-          <div id="learningThresholdsContainer">
-            ${hasThresholds ? '<canvas id="learningThresholdsChart"></canvas>' : '<div class="empty-state" style="padding:30px"><p>No learned thresholds yet. Nebu-CTX adapts compression parameters as you use it.</p></div>'}
-          </div>
-        </div>
-        <div class="card">
-          <h3>Compression Outcomes</h3>
-          <div id="learningOutcomesContainer">
-            ${outcomes.length ? '<canvas id="learningOutcomesChart"></canvas>' : '<div class="empty-state" style="padding:30px"><p>No compression outcome data yet.</p></div>'}
-          </div>
-        </div>
-      </div>
-      ${howItWorks('Adaptive Learning', 'Nebu-CTX uses an <strong>exponential moving average (EMA)</strong> to adapt compression thresholds per language. After each tool call, the system records whether the compression was successful (agent completed the task) and the compression ratio achieved. Over time, the <strong>entropy threshold</strong> and <strong>Jaccard similarity threshold</strong> are tuned to maximize compression while maintaining task success. Languages with different information densities (e.g., Rust vs. JSON) naturally converge to different optimal thresholds.')}`;
-
-    if (hasThresholds && $('learningThresholdsChart')) {
-      const langs = Object.keys(thresholds);
-      const entropy = langs.map(l => thresholds[l].entropy_threshold || thresholds[l].entropy || 0);
-      const jaccard = langs.map(l => thresholds[l].jaccard_threshold || thresholds[l].jaccard || 0);
-
-      if (charts.thresholds) charts.thresholds.destroy();
-      charts.thresholds = new Chart($('learningThresholdsChart'), {
-        type: 'bar',
-        data: {
-          labels: langs,
-          datasets: [
-            { label: 'Entropy', data: entropy, backgroundColor: 'rgba(99,102,241,0.5)', borderRadius: 4 },
-            { label: 'Jaccard', data: jaccard, backgroundColor: 'rgba(129,140,248,0.5)', borderRadius: 4 },
-          ],
-        },
-        options: { ...chartDefaults(), plugins: { legend: { display: true, position: 'bottom', labels: { color: '#6b6b88', font: { size: 9 }, usePointStyle: true, pointStyle: 'circle', padding: 12 } } } },
-      });
-    }
-
-    if (outcomes.length && $('learningOutcomesChart')) {
-      const scatterData = outcomes.slice(-200).map(o => {
-        let ratio = o.compression_ratio || o.savings_pct || 0;
-        if (!ratio && o.tokens_original > 0) {
-          ratio = Math.round((o.tokens_saved / o.tokens_original) * 100);
-        }
-        return { x: ratio, y: o.task_completed ? 1 : 0 };
-      });
-
-      if (charts.outcomes) charts.outcomes.destroy();
-      charts.outcomes = new Chart($('learningOutcomesChart'), {
-        type: 'scatter',
-        data: {
-          datasets: [{
-            data: scatterData,
-            backgroundColor: scatterData.map(d => d.y ? 'rgba(99,102,241,0.6)' : 'rgba(248,113,113,0.6)'),
-            pointRadius: 4,
-          }],
-        },
-        options: {
-          ...chartDefaults(),
-          scales: {
-            x: { ...chartDefaults().scales.x, title: { display: true, text: 'Compression Ratio', color: '#6b6b88', font: { size: 9 } } },
-            y: { ...chartDefaults().scales.y, title: { display: true, text: 'Task Completed', color: '#6b6b88', font: { size: 9 } }, ticks: { ...chartDefaults().scales.y.ticks, callback: v => v ? 'Yes' : 'No', stepSize: 1 }, min: -0.2, max: 1.2 },
-          },
-        },
-      });
-    }
-  } catch (e) { showError(container, 'Could not load learning data.'); }
-}
-
-async function loadSymbols() {
-  const container = $('view-symbols');
-  if (!container) return;
-  await getProjectList();
-  const projects = _cachedProjectList || [];
-  const hasProjects = projects.length > 0;
-  const defaultProject = hasProjects ? projects[0].project_id : null;
-  window._symCurrentProject = defaultProject;
-
-  const projectSel = hasProjects
-    ? buildProjectSelectorHtml(defaultProject, { id: 'symProjectSel', onchange: 'window._symCurrentProject=this.value;filterSymbols()' })
-    : '<span style="font-size:12px;color:var(--muted)">No projects synced — run <code>nebu-ctx cloud bind</code></span>';
-
-  container.innerHTML = `
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-      <div style="font-size:12px;color:var(--muted)">Project:</div>
-      ${projectSel}
-    </div>
-    ${!hasProjects ? `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--blue);background:var(--surface-2)"><div style="display:flex;align-items:flex-start;gap:10px"><span style="font-size:15px;flex-shrink:0">ℹ️</span><div style="font-size:12px;color:var(--text-muted);line-height:1.6"><strong style="color:var(--text)">Server registry symbols</strong> — no project index yet. Select a synced project to browse its source symbols.</div></div></div>` : ''}
-    <div style="margin-bottom:16px;display:flex;gap:8px;align-items:center">
-      <input id="symSearch" type="text" class="search-input" placeholder="Search symbols…" style="flex:1" oninput="filterSymbols()">
-      <select id="symKind" style="padding:12px 16px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:12px;outline:none;cursor:pointer" onchange="filterSymbols()">
-        <option value="">All kinds</option>
-        <option value="fn">Functions</option>
-        <option value="struct">Structs</option>
-        <option value="class">Classes</option>
-        <option value="method">Methods</option>
-        <option value="trait">Traits</option>
-        <option value="enum">Enums</option>
-        <option value="route">Routes</option>
-        <option value="tool">MCP Tools</option>
-      </select>
-    </div>
-    <div class="card">
-    <h3>Symbol Table</h3>
-    <div id="symResults" style="font-size:13px;overflow-x:auto"></div>
-    </div>`;
-  filterSymbols();
-}
-async function filterSymbols() {
-  const q = ($('symSearch') || {}).value || '';
-  const kind = ($('symKind') || {}).value || '';
-  const projectId = window._symCurrentProject || null;
-  const params = new URLSearchParams();
-  if (q) params.set('q', q);
-  if (kind) params.set('kind', kind);
-  if (projectId) params.set('project_id', projectId);
-  try {
-    const data = await apiFetch('/api/symbols?' + params.toString());
-    const el = $('symResults');
-    if (!el) return;
-    if (isBuildingData(data)) {
-      el.innerHTML = '<div style="color:var(--dim);padding:16px">Indexing symbols…</div>';
-      scheduleRetry('symbols', filterSymbols);
-      return;
-    }
-    resetRetry('symbols');
-    if (!data || !data.length) {
-      el.innerHTML = `<div style="color:var(--dim);padding:16px">${projectId ? 'No symbols found for this project. Make sure the index has been synced.' : 'No symbols found'}</div>`;
-      return;
-    }
-    el.innerHTML = '<table style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;font-size:11px;color:var(--dim)"><th style="padding:6px">Name</th><th style="padding:6px">Kind</th><th style="padding:6px">File</th><th style="padding:6px">Lines</th><th style="padding:6px">Vis</th></tr></thead><tbody>'
-      + data.map(s => `<tr style="border-top:1px solid var(--border)"><td style="padding:6px;font-family:var(--mono);color:var(--green)">${esc(s.name)}</td><td style="padding:6px"><span style="background:var(--surface-2);padding:2px 6px;border-radius:4px;font-size:11px">${esc(s.kind)}</span></td><td style="padding:6px;font-size:12px;color:var(--dim);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.file)}</td><td style="padding:6px;font-size:12px">${s.start_line}-${s.end_line}</td><td style="padding:6px">${s.is_exported ? '⊛' : '−'}</td></tr>`).join('')
-      + '</tbody></table>';
-  } catch (e) { showError($('symResults'), 'Could not load symbols.'); }
-}
-
-async function loadCallGraph() {
-  const container = $('view-callgraph');
-  if (!container) return;
-  await getProjectList();
-  const projects = _cachedProjectList || [];
-  const hasProjects = projects.length > 0;
-  const defaultProject = hasProjects ? projects[0].project_id : null;
-  window._cgCurrentProject = defaultProject;
-
-  const renderCallGraph = async (projectId) => {
-    container.innerHTML = '<div style="color:var(--dim);padding:16px">Loading call graph…</div>';
-    try {
-      const url = projectId ? `/api/call-graph?project_id=${encodeURIComponent(projectId)}` : '/api/call-graph';
-      const data = await apiFetch(url, { timeoutMs: 15000 });
-
-      const projectSel = hasProjects
-        ? buildProjectSelectorHtml(projectId, { id: 'cgProjectSel', onchange: 'window._cgCurrentProject=this.value;renderCallGraphForProject(this.value)' })
-        : '';
-
-      if (isBuildingData(data)) {
-        showIndexing(container, 'Call graph is building in the background.', 'callgraph', () => renderCallGraph(projectId));
-        return;
-      }
-      resetRetry('callgraph');
-      const edges = Array.isArray(data?.edges) ? data.edges : [];
-
-      if (!edges.length) {
-        const idxFiles = data?.indexed_file_count ?? 0;
-        const idxSymbols = data?.indexed_symbol_count ?? 0;
-        const analyzed = data?.analyzed_file_count ?? 0;
-        const isProject = !!projectId;
-        container.innerHTML = `
-          ${hasProjects ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><div style="font-size:12px;color:var(--muted)">Project:</div>${projectSel}</div>` : ''}
-          <div class="card" style="margin-bottom:12px;border-left:3px solid var(--blue);background:var(--surface-2)">
-            <div style="display:flex;align-items:flex-start;gap:10px">
-              <span style="font-size:15px;flex-shrink:0">ℹ️</span>
-              <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
-                ${isProject
-                  ? '<strong style="color:var(--text)">No call edges yet</strong> — the project index has been synced but no call edges were detected. Call edges are extracted from import/use statements and function call patterns.'
-                  : '<strong style="color:var(--text)">No project selected</strong> — select a project above to see its call graph, or sync a project with <code>nebu-ctx cloud bind</code>.'}
-              </div>
-            </div>
-          </div>`;
-        showGuidedEmpty(container, isProject ? 'No call edges for this project' : 'No call edges yet',
-          isProject ? 'Call edges are extracted during index sync.' : 'Select a project above.',
-          [ 'Indexed files: ' + idxFiles, 'Indexed symbols: ' + idxSymbols, 'Files analyzed: ' + analyzed ],
-          'Refresh', `renderCallGraphForProject('${projectId || ''}')`);
-        return;
-      }
-
-      const nodes = new Map();
-      edges.forEach(e => {
-        nodes.set(e.caller_symbol, (nodes.get(e.caller_symbol) || 0) + 1);
-        nodes.set(e.callee_name, (nodes.get(e.callee_name) || 0) + 1);
-      });
-      const topNodes = [...nodes.entries()].sort((a,b) => b[1]-a[1]).slice(0, 50).map(n => n[0]);
-      const topSet = new Set(topNodes);
-      const filteredEdges = edges.filter(e => topSet.has(e.caller_symbol) || topSet.has(e.callee_name));
-      const uniqueEdges = new Map();
-      filteredEdges.forEach(e => {
-        const key = e.caller_symbol + '→' + e.callee_name;
-        if (!uniqueEdges.has(key)) uniqueEdges.set(key, { source: e.caller_symbol, target: e.callee_name, count: 1 });
-        else uniqueEdges.get(key).count++;
-      });
-      const graphNodes = [...new Set([...uniqueEdges.values()].flatMap(e => [e.source, e.target]))].map(n => ({ id: n, count: nodes.get(n) || 0 }));
-      const maxCount = Math.max(...graphNodes.map(n => n.count), 1);
-
-    container.innerHTML = `
-      ${hasProjects ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><div style="font-size:12px;color:var(--muted)">Project:</div>${projectSel}</div>` : ''}
-      <div class="row r3" style="margin-bottom:16px">
-        <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${edges.length}</div><div class="hl">Call Edges</div></div>
-        <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${graphNodes.length}</div><div class="hl">Symbols</div></div>
-        <div class="hc"><div class="hv" style="color:var(--blue);font-size:24px">${[...uniqueEdges.values()].length}</div><div class="hl">Unique Calls</div></div>
-      </div>
-      <div class="d3-container" id="cgViz"></div>`;
-    const graphEl = $('cgViz');
-    const width = graphEl.clientWidth, height = graphEl.clientHeight || 500;
-    graphEl.innerHTML = `<div class="graph-stats"><span>${graphNodes.length}</span> symbols &middot; <span>${[...uniqueEdges.values()].length}</span> edges</div><div class="graph-toolbar"><button id="cgValBtn" class="${callGraphShowValues ? 'active' : ''}" onclick="toggleCallGraphValues()" title="Toggle values">123</button><div class="tb-sep"></div><button onclick="zoomGraph(null,'cgViz',1.3)" title="Zoom In">+</button><button onclick="zoomGraph(null,'cgViz',0.7)" title="Zoom Out">−</button><button onclick="resetGraph(null,'cgViz')" title="Reset">⟲</button><div class="tb-sep"></div><button class="fs-toggle-btn" onclick="toggleGraphFullscreen('cgViz')" title="Fullscreen (F)">⛶</button></div><div class="graph-breadcrumb">Call Graph · <span style="color:var(--green)">Press Esc to exit</span></div><div class="graph-minimap"><canvas></canvas></div>`;
-
-    const svg = d3.select('#cgViz').append('svg').attr('class', 'd3-graph').attr('width', width).attr('height', height);
-    const defs = svg.append('defs');
-    defs.append('marker').attr('id', 'arrowhead').attr('viewBox', '0 -5 10 10')
-      .attr('refX', 20).attr('refY', 0).attr('markerWidth', 6).attr('markerHeight', 6)
-      .attr('orient', 'auto').append('path').attr('d', 'M0,-4L8,0L0,4').attr('fill', 'rgba(99,102,241,0.3)');
-    const gg = svg.append('g');
-    const zoomBehavior = d3.zoom().scaleExtent([0.1, 8]).on('zoom', e => gg.attr('transform', e.transform));
-    svg.call(zoomBehavior);
-    graphEl._zoom = zoomBehavior; graphEl._svg = svg;
-
-    const sim = d3.forceSimulation(graphNodes)
-      .force('link', d3.forceLink([...uniqueEdges.values()]).id(d => d.id).distance(100))
-      .force('charge', d3.forceManyBody().strength(-250))
-      .force('center', d3.forceCenter(width/2, height/2))
-      .force('collision', d3.forceCollide().radius(d => Math.min(5 + d.count * 1.5, 18) + 8));
-
-    const linkData = [...uniqueEdges.values()];
-    const link = gg.append('g').selectAll('line').data(linkData).join('line')
-      .attr('stroke', 'rgba(99,102,241,0.12)').attr('stroke-width', d => Math.min(d.count, 4))
-      .attr('marker-end', 'url(#arrowhead)');
-
-    const edgeLabel = gg.append('g').selectAll('text').data(linkData.filter(e => e.count > 1)).join('text')
-      .attr('class', 'cg-edge-label')
-      .text(d => d.count);
-
-    const nodeR = d => Math.min(5 + d.count * 1.5, 18);
-    const glow = gg.append('g').selectAll('circle').data(graphNodes).join('circle')
-      .attr('r', d => nodeR(d) * 2.5)
-      .attr('fill', d => { const t = d.count / maxCount; return t > 0.6 ? 'rgba(99,102,241,0.08)' : t > 0.3 ? 'rgba(56,189,248,0.06)' : 'rgba(129,140,248,0.04)'; })
-      .style('pointer-events', 'none');
-
-    const nodeColor = d => { const t = d.count / maxCount; return t > 0.6 ? '#6366f1' : t > 0.3 ? '#38bdf8' : '#818cf8'; };
-    const node = gg.append('g').selectAll('circle').data(graphNodes).join('circle')
-      .attr('r', d => nodeR(d))
-      .attr('fill', nodeColor).attr('fill-opacity', 0.85)
-      .attr('stroke', nodeColor).attr('stroke-width', 1.5).attr('stroke-opacity', 0.4)
-      .style('cursor', 'pointer').style('transition', 'r .2s, stroke-opacity .2s')
-      .call(d3.drag().on('start', (e,d) => { if(!e.active) sim.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; })
-        .on('drag', (e,d) => { d.fx=e.x; d.fy=e.y; })
-        .on('end', (e,d) => { if(!e.active) sim.alphaTarget(0); d.fx=null; d.fy=null; }))
-      .on('mouseover', function(e, d) {
-        d3.select(this).attr('stroke-opacity', 1).attr('r', nodeR(d) * 1.3);
-        const callsOut = [...uniqueEdges.values()].filter(edge => edge.source.id === d.id || edge.source === d.id).length;
-        const callsIn = [...uniqueEdges.values()].filter(edge => edge.target.id === d.id || edge.target === d.id).length;
-        showTooltip(e, `<div class="nt-title">${esc(d.id)}</div><div class="nt-row"><span class="nt-label">References</span><span class="nt-value">${d.count}</span></div><div class="nt-row"><span class="nt-label">Calls out</span><span class="nt-value">${callsOut}</span></div><div class="nt-row"><span class="nt-label">Called by</span><span class="nt-value">${callsIn}</span></div>`);
-      })
-      .on('mousemove', (e) => moveTooltip(e))
-      .on('mouseout', function(e, d) { d3.select(this).attr('stroke-opacity', 0.4).attr('r', nodeR(d)); hideTooltip(); });
-
-    const nodeCount = gg.append('g').selectAll('text').data(graphNodes).join('text')
-      .attr('class', 'cg-node-count')
-      .attr('text-anchor', 'middle')
-      .attr('dy', '0.35em')
-      .style('display', callGraphShowValues ? '' : 'none')
-      .text(d => d.count >= 2 ? d.count : '');
-
-    const label = gg.append('g').selectAll('text').data(graphNodes).join('text')
-      .text(d => { const name = d.id.includes('::') ? d.id.split('::').pop() : d.id; return name.length > 20 ? name.substring(0,18)+'..' : name; })
-      .attr('font-size', 10).attr('fill', 'rgba(255,255,255,0.55)')
-      .attr('dx', d => nodeR(d) + 6).attr('dy', 4)
-      .style('pointer-events', 'none');
-
-    let cgTickCount = 0;
-    sim.on('tick', () => {
-      link.attr('x1', d => d.source.x).attr('y1', d => d.source.y).attr('x2', d => d.target.x).attr('y2', d => d.target.y);
-      edgeLabel.attr('x', d => (d.source.x + d.target.x) / 2).attr('y', d => (d.source.y + d.target.y) / 2);
-      glow.attr('cx', d => d.x).attr('cy', d => d.y);
-      node.attr('cx', d => d.x).attr('cy', d => d.y);
-      nodeCount.attr('x', d => d.x).attr('y', d => d.y);
-      label.attr('x', d => d.x).attr('y', d => d.y);
-      if (++cgTickCount % 10 === 0) updateMinimap('cgViz');
-    });
-
-    graphEl._sim = sim;
-
-    applyCallGraphValuesState();
-    } catch (e) { showError(container, 'Could not load call graph.'); }
-  };
-
-  window.renderCallGraphForProject = renderCallGraph;
-  await renderCallGraph(defaultProject);
-}
-
-async function loadRoutes() {
-  const container = $('view-routes');
-  if (!container) return;
-  container.innerHTML = '<div style="color:var(--dim);padding:16px">Loading routes…</div>';
-  try {
-    const data = await apiFetch('/api/routes', { timeoutMs: 8000 });
-    if (isBuildingData(data)) {
-      showIndexing(container, 'Route map is building in the background. This view will refresh automatically in a few seconds.', 'routes', loadRoutes);
-      return;
-    }
-    resetRetry('routes');
-    const routes = Array.isArray(data) ? data : (Array.isArray(data?.routes) ? data.routes : []);
-    if (!routes.length) {
-      const idxFiles = data?.indexed_file_count ?? 0;
-      const candidates = data?.route_candidate_count ?? 0;
-      showGuidedEmpty(container, 'No HTTP routes found',
-        'Nebu-CTX did not detect any supported HTTP route declarations in this project.',
-        [
-          'Indexed files: ' + idxFiles,
-          'Route candidate files: ' + candidates,
-          candidates === 0
-            ? 'This project may not contain server route files.'
-            : 'This project may use a routing style not yet recognized by Nebu-CTX.',
-        ], 'Refresh', 'loadRoutes()');
-      return;
-    }
-    const methodColors = { GET: '#6366f1', POST: '#60a5fa', PUT: '#fbbf24', PATCH: '#c084fc', DELETE: '#f87171', HEAD: '#94a3b8', OPTIONS: '#94a3b8' };
-    const methodCounts = {};
-    routes.forEach(r => { methodCounts[r.method] = (methodCounts[r.method]||0)+1; });
-    container.innerHTML = `
-      <div class="row r4" style="margin-bottom:16px">
-        <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${routes.length}</div><div class="hl">Total Routes</div></div>
-        ${Object.entries(methodCounts).slice(0,3).map(([m,c]) => `<div class="hc"><div class="hv" style="color:${methodColors[m]||'#6b6b88'};font-size:24px">${c}</div><div class="hl">${m}</div></div>`).join('')}
-      </div>
-      <div class="card">
-        <h3>API Routes</h3>
-        <div style="overflow-x:auto">
-        <table><thead><tr><th>Method</th><th>Path</th><th>Handler</th><th>File</th><th class="r">Line</th></tr></thead><tbody>`
-      + routes.map(r => `<tr><td><span style="background:${methodColors[r.method] || '#6b6b88'}22;color:${methodColors[r.method] || '#6b6b88'};padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid ${methodColors[r.method] || '#6b6b88'}33">${esc(r.method)}</span></td><td style="font-family:var(--mono);font-size:12px;color:var(--text-bright)">${esc(r.path)}</td><td style="font-size:12px;color:var(--green)">${esc(r.handler || '—')}</td><td style="font-size:11px;color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.file)}</td><td class="r">${r.line}</td></tr>`).join('')
-      + `</tbody></table></div></div>`;
-  } catch (e) { showError(container, 'Could not load routes.'); }
-}
-
-async function loadContextLayer() {
-  const container = $('view-contextlayer');
-  if (!container) return;
-  container.innerHTML = '<div style="color:var(--muted);padding:16px">Loading Context Layer…</div>';
-  try {
-    const [pipeline, ledger, intent] = await Promise.all([
-      apiFetch('/api/pipeline-stats', { timeoutMs: 5000 }).catch(() => ({})),
-      apiFetch('/api/context-ledger', { timeoutMs: 5000 }).catch(() => ({})),
-      apiFetch('/api/intent', { timeoutMs: 5000 }).catch(() => ({active:false})),
-    ]);
-
-    const pRuns = pipeline.runs || 0;
-    const pSaved = Object.values(pipeline.per_layer || {}).reduce((s,a) => s + (a.total_input_tokens||0) - (a.total_output_tokens||0), 0);
-    const lEntries = ledger.entries_count || 0;
-    const lSent = ledger.total_tokens_sent || 0;
-    const lSaved = ledger.total_tokens_saved || 0;
-    const lRatio = ledger.compression_ratio || 0;
-    const pressure = ledger.pressure || {};
-    const pUtil = ((pressure.utilization || 0) * 100).toFixed(0);
-    const pRec = pressure.recommendation || 'NoAction';
-    const modeDist = ledger.mode_distribution || {};
-    const entries = ledger.entries || [];
-    const intentActive = intent.active || false;
-    const intentData = intent.intent || {};
-
-    const pressureColor = pUtil > 80 ? 'var(--red)' : pUtil > 60 ? 'var(--yellow)' : 'var(--green)';
-    const pressureLabel = pRec === 'NoAction' ? 'Healthy' : pRec === 'SuggestCompression' ? 'Elevated' : pRec === 'ForceCompression' ? 'High' : 'Critical';
-
-    container.innerHTML = `
-      <div class="row r4" style="margin-bottom:16px">
-        <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${fmt(pSaved)}</div><div class="hl">Pipeline Tokens Saved</div></div>
-        <div class="hc"><div class="hv" style="color:var(--blue);font-size:24px">${pRuns}</div><div class="hl">Pipeline Runs</div></div>
-        <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${lEntries}</div><div class="hl">Ledger Entries</div></div>
-        <div class="hc"><div class="hv" style="color:${pressureColor};font-size:24px">${pUtil}%</div><div class="hl">Context Pressure</div></div>
-      </div>
-
-      <div class="row" style="gap:16px;margin-bottom:16px">
-        <div class="card" style="flex:1">
-          <h3>Active Intent</h3>
-          ${intentActive
-            ? `<div style="margin-top:8px">
-                <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-                  <span style="background:var(--green-dim);color:var(--green);padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;border:1px solid var(--green)33">ACTIVE</span>
-                  <span style="color:var(--text-bright);font-weight:600">${esc(intentData.task_type || 'unknown')}</span>
-                  <span style="color:var(--muted);font-size:12px">conf: ${((intentData.confidence||0)*100).toFixed(0)}%</span>
-                </div>
-                <div style="font-size:12px;color:var(--muted)">Scope: ${esc(intentData.scope || '—')}</div>
-                ${(intentData.targets||[]).length ? `<div style="font-size:12px;color:var(--muted);margin-top:4px">Targets: ${intentData.targets.map(t => `<code style="background:var(--surface-2);padding:1px 6px;border-radius:3px;font-size:11px">${esc(t)}</code>`).join(' ')}</div>` : ''}
-                ${intentData.language_hint ? `<div style="font-size:12px;color:var(--muted);margin-top:4px">Language: ${esc(intentData.language_hint)}</div>` : ''}
-              </div>`
-            : '<div style="color:var(--muted);margin-top:8px;font-size:13px">No active intent detected yet. Intent is auto-inferred from file access patterns and preload queries.</div>'
-          }
-        </div>
-        <div class="card" style="flex:1">
-          <h3>Context Window</h3>
-          <div style="margin-top:8px">
-            <div style="background:var(--surface-2);border-radius:8px;height:20px;overflow:hidden;margin-bottom:8px;border:1px solid var(--border)">
-              <div style="height:100%;width:${Math.min(100,pUtil)}%;background:linear-gradient(90deg,var(--green),${pressureColor});border-radius:8px;transition:width 0.5s"></div>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted)">
-              <span>${fmt(lSent)} tokens sent</span>
-              <span>${fmt(pressure.remaining_tokens || 0)} remaining</span>
-            </div>
-            <div style="margin-top:8px;font-size:12px;color:${pressureColor};font-weight:600">${pressureLabel}</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="row" style="gap:16px;margin-bottom:16px">
-        <div class="card" style="flex:1">
-          <h3>Pipeline Layers</h3>
-          <div style="margin-top:8px">
-            ${Object.entries(pipeline.per_layer || {}).map(([layer, agg]) => {
-              const ratio = agg.total_input_tokens ? ((1 - agg.total_output_tokens / agg.total_input_tokens) * 100).toFixed(1) : '0.0';
-              const avgMs = agg.count ? (agg.total_duration_us / agg.count / 1000).toFixed(1) : '0.0';
-              return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                <span style="width:100px;font-size:12px;color:var(--text-bright);font-weight:600">${esc(layer)}</span>
-                <div style="flex:1;background:var(--surface-2);border-radius:4px;height:12px;overflow:hidden">
-                  <div style="height:100%;width:${Math.min(100,ratio)}%;background:var(--green);border-radius:4px"></div>
-                </div>
-                <span style="font-size:11px;color:var(--green);width:50px;text-align:right">${ratio}%</span>
-                <span style="font-size:11px;color:var(--muted);width:60px;text-align:right">${avgMs}ms</span>
-                <span style="font-size:11px;color:var(--muted);width:40px;text-align:right">${agg.count}x</span>
-              </div>`;
-            }).join('') || '<div style="color:var(--muted);font-size:13px">No pipeline data yet. Data appears after MCP tool calls.</div>'}
-          </div>
-        </div>
-        <div class="card" style="flex:1">
-          <h3>Mode Distribution</h3>
-          <div style="margin-top:8px">
-            ${Object.entries(modeDist).map(([mode, count]) => {
-              const total = Object.values(modeDist).reduce((s,c) => s+c, 0);
-              const pct = total ? (count / total * 100).toFixed(0) : 0;
-              const colors = {full:'var(--blue)',map:'var(--green)',signatures:'var(--purple)',aggressive:'var(--yellow)',entropy:'var(--pink)',diff:'var(--red)'};
-              return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                <span style="width:90px;font-size:12px;color:var(--text-bright)">${esc(mode)}</span>
-                <div style="flex:1;background:var(--surface-2);border-radius:4px;height:12px;overflow:hidden">
-                  <div style="height:100%;width:${pct}%;background:${colors[mode]||'var(--muted)'};border-radius:4px"></div>
-                </div>
-                <span style="font-size:11px;color:var(--muted);width:50px;text-align:right">${count}x (${pct}%)</span>
-              </div>`;
-            }).join('') || '<div style="color:var(--muted);font-size:13px">No mode data yet.</div>'}
-          </div>
-        </div>
-      </div>
-
-      ${entries.length ? `
-      <div class="card">
-        <h3>Context Ledger (last ${entries.length} entries)</h3>
-        <div style="overflow-x:auto;margin-top:8px">
-          <table><thead><tr><th>Tool</th><th>Type</th><th>Actor</th><th class="r">Tokens In</th><th class="r">Saved</th></tr></thead><tbody>
-          ${entries.map(e => {
-            const orig = e.tokens_original || 0;
-            const saved = e.tokens_saved || 0;
-            const pctSaved = orig > 0 ? ((saved / orig) * 100).toFixed(0) : 0;
-            return `<tr>
-              <td style="font-family:var(--mono);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-bright)">${esc(e.tool || '—')}</td>
-              <td><span style="background:var(--surface-2);padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600">${esc(e.type || '—')}</span></td>
-              <td style="font-size:11px;color:var(--muted)">${esc(e.actor_label || '—')}</td>
-              <td class="r" style="font-size:12px">${fmt(orig)}</td>
-              <td class="r" style="font-size:12px;color:${saved > 0 ? 'var(--green)' : 'var(--muted)'};font-weight:${saved > 0 ? '600' : '400'}">${saved > 0 ? pctSaved + '%' : '—'}</td>
-            </tr>`;
-          }).join('')}
-          </tbody></table>
-        </div>
-      </div>` : ''}
-    `;
-  } catch (e) { showError(container, 'Could not load Context Layer data.'); }
 }
 
 loadDomainNav().finally(() => {

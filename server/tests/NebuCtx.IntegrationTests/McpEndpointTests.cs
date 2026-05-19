@@ -137,7 +137,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
         var payload = await _client.GetFromJsonAsync<DashboardOverviewResponse>("/api/dashboard/overview");
         Assert.NotNull(payload);
 
-        var dailySavings = Assert.Single(payload!.Stats.ProjectDailySavings);
+        var dailySavings = Assert.Single(payload!.Stats.ProjectDailySavings, item => item.ProjectId == projectId);
         Assert.Equal(projectId, dailySavings.ProjectId);
         Assert.Equal("overview-project", dailySavings.ProjectName);
         Assert.Equal(500, dailySavings.TokensSaved);
@@ -157,7 +157,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     {
         var payload = await _client.GetFromJsonAsync<DashboardDomainsResponse>("/api/dashboard/domains");
         Assert.NotNull(payload);
-        Assert.Equal(6, payload!.Domains.Count);
+        Assert.Equal(3, payload!.Domains.Count);
 
         var memoryDomain = Assert.Single(payload.Domains, domain => domain.Id == "memory");
         Assert.Contains(memoryDomain.Views, view => view.Id == "knowledge");
@@ -165,8 +165,10 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
 
         var allViewIds = payload.Domains.SelectMany(domain => domain.Views).Select(view => view.Id).ToArray();
         Assert.Contains("overview", allViewIds);
-        Assert.Contains("routes", allViewIds);
-        Assert.Contains("contextlayer", allViewIds);
+        Assert.Contains("agents", allViewIds);
+        Assert.DoesNotContain("routes", allViewIds);
+        Assert.DoesNotContain("contextlayer", allViewIds);
+        Assert.DoesNotContain("learning", allViewIds);
     }
 
     /// <summary>

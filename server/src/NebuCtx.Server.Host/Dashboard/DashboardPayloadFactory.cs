@@ -62,14 +62,8 @@ public static class DashboardPayloadFactory
                     ("overview", "Overview"), ("live", "Live Observatory"), ("token", "MCP Token")),
                 CreateDomain("memory", "Memory", "Knowledge, brain, and bug memory surfaces.",
                     ("knowledge", "Knowledge Graph"), ("brain", "Brain Memory"), ("bugs", "Bug Memory")),
-                CreateDomain("code", "Code Intelligence", "Search, symbols, dependencies, call graphs, and routes.",
-                    ("search", "Search Explorer"), ("symbols", "Symbol Explorer"), ("deps", "Dependency Map"), ("callgraph", "Call Graph"), ("routes", "Route Map")),
-                CreateDomain("context", "Context", "Compression and context-layer pressure diagnostics.",
-                    ("compression", "Compression Lab"), ("contextlayer", "Context Layer")),
                 CreateDomain("agents", "Agents", "Agent coordination and multi-actor activity.",
                     ("agents", "Agent World")),
-                CreateDomain("learning", "Learning", "Feedback loops and learned operating curves.",
-                    ("learning", "Learning Curves")),
             ],
         };
     }

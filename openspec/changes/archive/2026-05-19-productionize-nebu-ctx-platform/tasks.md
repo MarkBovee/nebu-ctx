@@ -13,7 +13,7 @@
 - [x] Install full Claude memory hook set during setup/init
 - [x] Improve startup memory injection at `SessionStart`
 - [x] Upgrade OpenCode plugin transport for safer hook calls
-- [ ] Add deeper OpenCode lifecycle parity once more editor hook surface is available
+- [x] Add deeper OpenCode lifecycle parity via available plugin hooks for startup, compaction, and idle-time persistence
 
 ## 3. Offline sync
 

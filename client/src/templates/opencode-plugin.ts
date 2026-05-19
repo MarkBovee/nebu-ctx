@@ -4,6 +4,16 @@ import { tmpdir } from "os"
 import { join } from "path"
 
 const NEBU = "nebu-ctx"
+const SESSION_STARTUP = "startup"
+const SESSION_COMPACT = "compact"
+const ROUTING_BLOCK = `<context_window_protection>
+  Use nebu-ctx MCP tools instead of raw native tools to save tokens:
+  - ctx_read / ctx_search / ctx_shell / ctx_tree instead of Read / Grep / Bash / ls
+  - ctx_batch_execute for multi-step research (one call replaces many)
+  - Bash only for: git, mkdir, rm, mv, navigation
+  Skills, roles, and decisions from this session remain active until revoked.
+</context_window_protection>`
+const ROUTING_MARKERS = ["<context_window_protection>", "ctx_read", "ctx_search"]
 
 function resolveWindowsNebuExe() {
   const homeDir = process.env["USERPROFILE"] ?? process.env["HOME"] ?? ""
@@ -16,7 +26,22 @@ function resolveNebuBinary() {
   return process.env["NEBU_CTX_BIN"] ?? process.env["NEBU_CTX_EXE"] ?? resolveWindowsNebuExe()
 }
 
-export const NebuCtxOpenCodePlugin: Plugin = async ({ $ }) => {
+function systemHasRoutingInstructions(system: string[]) {
+  const text = system.join("\n")
+  return ROUTING_MARKERS.filter((marker) => text.includes(marker)).length >= 2
+}
+
+function stripRoutingBlock(additionalContext: string) {
+  return additionalContext.replace(ROUTING_BLOCK, "").trim()
+}
+
+function insertSystemBlock(system: string[], block: string, index: number) {
+  if (!block) return
+  const boundedIndex = Math.max(0, Math.min(index, system.length))
+  system.splice(boundedIndex, 0, block)
+}
+
+export const NebuCtxOpenCodePlugin: Plugin = async ({ $, directory }) => {
   try {
     const result = await runNebu(["--version"])
     if (!result || result.exitCode !== 0) {
@@ -29,11 +54,16 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $ }) => {
 
   const homeDir = process.env["USERPROFILE"] ?? process.env["HOME"] ?? ""
   const dataDir = process.env["NEBU_CTX_DATA_DIR"] ?? `${homeDir}/.nebu-ctx`
+  const initializedSessions = new Set<string>()
+  const dirtySessions = new Set<string>()
+  const pendingSessionContext = new Map<string, typeof SESSION_STARTUP | typeof SESSION_COMPACT>()
+  const projectDir = directory || process.cwd()
 
-  async function runNebu(args: string[], stdinText?: string) {
+  async function runNebu(args: string[], stdinText?: string, cwd = projectDir) {
     try {
       const command = resolveNebuBinary()
       const proc = Bun.spawn([command, ...args], {
+        cwd,
         env: { ...process.env, NEBU_CTX_DATA_DIR: dataDir },
         stdin: stdinText ? new Response(stdinText) : null,
         stdout: "pipe",
@@ -49,6 +79,40 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $ }) => {
     }
   }
 
+  function parseHookJson(stdout: string) {
+    const trimmed = stdout.trim()
+    if (!trimmed) return null
+
+    try {
+      return JSON.parse(trimmed) as Record<string, unknown>
+    } catch {
+      return null
+    }
+  }
+
+  async function readAdditionalContext(
+    hook: "session-start" | "pre-compact",
+    input?: Record<string, unknown>,
+  ) {
+    const result = await runNebu(["hook", hook], input ? JSON.stringify(input) : undefined)
+    const parsed = parseHookJson(String(result?.stdout ?? ""))
+    const additionalContext = parsed?.additionalContext
+    return typeof additionalContext === "string" ? additionalContext.trim() : ""
+  }
+
+  async function flushSessionMemory(sessionID: string) {
+    if (!dirtySessions.has(sessionID)) return
+
+    dirtySessions.delete(sessionID)
+    await runNebu(["hook", "stop"])
+  }
+
+  function getSessionID(event: unknown) {
+    const properties = (event as { properties?: Record<string, unknown> } | null)?.properties
+    const sessionID = properties?.sessionID
+    return typeof sessionID === "string" && sessionID ? sessionID : ""
+  }
+
   async function fireTelemetry(tool: string, tokensOriginal: number, tokensSaved: number) {
     await runNebu(["hook", "telemetry", tool, String(tokensOriginal), String(tokensSaved)])
   }
@@ -56,8 +120,43 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $ }) => {
   return {
     "shell.env": async (_input, output) => {
       output.env["NEBU_CTX_DATA_DIR"] = dataDir
-      await runNebu(["hook", "session-start"], JSON.stringify({ source: "startup", editor: "opencode" }))
       output.env["NEBU_CTX_BIN"] = resolveNebuBinary()
+    },
+
+    // Route richer OpenCode lifecycle hooks through nebu-ctx where nebu-ctx
+    // already knows how to build memory snapshots and durable session writes.
+    "experimental.chat.system.transform": async (input, output) => {
+      if (!input.sessionID) return
+
+      // Keep the first system block stable so OpenCode can still fold the
+      // remainder for provider prompt caching, matching the proven context-mode pattern.
+      if (!systemHasRoutingInstructions(output.system)) {
+        insertSystemBlock(output.system, ROUTING_BLOCK, Math.min(1, output.system.length))
+      }
+
+      const source = pendingSessionContext.get(input.sessionID)
+        ?? (initializedSessions.has(input.sessionID) ? "" : SESSION_STARTUP)
+      if (!source) return
+
+      const additionalContext = await readAdditionalContext("session-start", {
+        source,
+        editor: "opencode",
+      })
+      const snapshot = stripRoutingBlock(additionalContext)
+
+      if (snapshot) {
+        insertSystemBlock(output.system, snapshot, Math.min(2, output.system.length))
+      }
+
+      initializedSessions.add(input.sessionID)
+      pendingSessionContext.delete(input.sessionID)
+    },
+
+    "experimental.session.compacting": async (_input, output) => {
+      const additionalContext = await readAdditionalContext("pre-compact")
+      if (additionalContext) {
+        output.context.push(additionalContext)
+      }
     },
 
     "tool.execute.before": async (input, output) => {
@@ -78,6 +177,10 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $ }) => {
     },
 
     "tool.execute.after": async (input, output) => {
+      if (typeof input?.sessionID === "string" && input.sessionID) {
+        dirtySessions.add(input.sessionID)
+      }
+
       const tool = String(input?.tool ?? "").toLowerCase()
       if (tool !== "bash" && tool !== "shell") return
 
@@ -120,7 +223,32 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $ }) => {
       ) return
 
       const hookInput = JSON.stringify({ prompt: text.slice(0, 500), source: "opencode" })
+      if (typeof _input?.sessionID === "string" && _input.sessionID) {
+        dirtySessions.add(_input.sessionID)
+      }
       await runNebu(["hook", "user-prompt-submit"], hookInput)
+    },
+
+    event: async ({ event }) => {
+      const sessionID = getSessionID(event)
+      if (!sessionID) return
+
+      if (event.type === "session.compacted") {
+        pendingSessionContext.set(sessionID, SESSION_COMPACT)
+        return
+      }
+
+      if (event.type === "session.idle") {
+        await flushSessionMemory(sessionID)
+        return
+      }
+
+      if (event.type === "session.deleted") {
+        await flushSessionMemory(sessionID)
+        dirtySessions.delete(sessionID)
+        initializedSessions.delete(sessionID)
+        pendingSessionContext.delete(sessionID)
+      }
     },
   }
 }

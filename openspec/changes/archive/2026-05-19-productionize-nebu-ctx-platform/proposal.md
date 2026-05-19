@@ -12,7 +12,7 @@
 ## What changes
 
 - consolidate the dashboard into fewer, clearer operational views backed by new `/api/dashboard/*` endpoints
-- improve editor memory activation, especially for Claude Code and OpenCode
+- improve editor memory activation for Claude Code and OpenCode, including deeper plugin lifecycle parity where hooks exist
 - introduce a durable offline sync outbox so client activity can be replayed after reconnect
 - make project memory visible and manageable per project on the server
 - harden the client/server contracts and validation path for production use
@@ -23,6 +23,7 @@ This change starts with the lowest-risk high-value foundation:
 
 - complete Claude hook installation for `SessionStart`, `UserPromptSubmit`, and `PreCompact`
 - improve startup memory activation
+- extend OpenCode plugin integration to use its startup, compaction, and session lifecycle hooks where available
 - add a disk-backed sync outbox for client telemetry and queued server memory calls
 - add new dashboard overview and per-project memory endpoints
 - prepare the OpenSpec baseline for the larger dashboard and memory redesign

@@ -1173,6 +1173,10 @@ args = ["x"]
         assert!(plugin.contains("NebuCtxOpenCodePlugin"));
         assert!(plugin.contains("where nebu-ctx"));
         assert!(plugin.contains("runNebu([\"hook\", \"rewrite-inline\", command])"));
+        assert!(plugin.contains("experimental.chat.system.transform"));
+        assert!(plugin.contains("experimental.session.compacting"));
+        assert!(plugin.contains("session.compacted"));
+        assert!(plugin.contains("session.idle"));
         assert!(!plugin.contains("lean-ctx hook rewrite-inline"));
     }
 
