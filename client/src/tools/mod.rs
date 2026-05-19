@@ -222,22 +222,23 @@ impl NebuCtxServer {
                 .unwrap_or(".")
                 .to_string();
 
-            let resolved = if p.is_absolute() || looks_like_windows_absolute_path(&normalized) || p.exists() {
-                std::path::PathBuf::from(&normalized)
-            } else if let Some(ref root) = session.project_root {
-                let joined = std::path::Path::new(root).join(&normalized);
-                if joined.exists() {
-                    joined
+            let resolved =
+                if p.is_absolute() || looks_like_windows_absolute_path(&normalized) || p.exists() {
+                    std::path::PathBuf::from(&normalized)
+                } else if let Some(ref root) = session.project_root {
+                    let joined = std::path::Path::new(root).join(&normalized);
+                    if joined.exists() {
+                        joined
+                    } else if let Some(ref cwd) = session.shell_cwd {
+                        std::path::Path::new(cwd).join(&normalized)
+                    } else {
+                        std::path::Path::new(&jail_root).join(&normalized)
+                    }
                 } else if let Some(ref cwd) = session.shell_cwd {
                     std::path::Path::new(cwd).join(&normalized)
                 } else {
                     std::path::Path::new(&jail_root).join(&normalized)
-                }
-            } else if let Some(ref cwd) = session.shell_cwd {
-                std::path::Path::new(cwd).join(&normalized)
-            } else {
-                std::path::Path::new(&jail_root).join(&normalized)
-            };
+                };
 
             (resolved, jail_root)
         };
@@ -1040,9 +1041,15 @@ mod resolve_path_tests {
 
     #[test]
     fn recognizes_windows_absolute_paths_even_off_windows() {
-        assert!(looks_like_windows_absolute_path("C:/Users/markb/Projects/Spotify/package.json"));
-        assert!(looks_like_windows_absolute_path("c:/Users/markb/Projects/Spotify/package.json"));
-        assert!(!looks_like_windows_absolute_path("/mnt/work/Projects/Spotify/package.json"));
+        assert!(looks_like_windows_absolute_path(
+            "C:/Users/markb/Projects/Spotify/package.json"
+        ));
+        assert!(looks_like_windows_absolute_path(
+            "c:/Users/markb/Projects/Spotify/package.json"
+        ));
+        assert!(!looks_like_windows_absolute_path(
+            "/mnt/work/Projects/Spotify/package.json"
+        ));
         assert!(!looks_like_windows_absolute_path("src/package.json"));
     }
 }

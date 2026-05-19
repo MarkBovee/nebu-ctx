@@ -7,14 +7,15 @@ use std::path::Path;
 pub fn detect_project_root(file_path: &str) -> Option<String> {
     let mut dir = Path::new(file_path).parent()?;
     let mut best: Option<String> = None;
+    let home = dirs::home_dir().map(|path| crate::core::pathutil::safe_canonicalize_or_self(&path));
 
     loop {
         if is_project_root_marker(dir) {
-            best = Some(
-                crate::core::pathutil::safe_canonicalize_or_self(dir)
-                    .to_string_lossy()
-                    .to_string(),
-            );
+            let canonical = crate::core::pathutil::safe_canonicalize_or_self(dir);
+            let is_home_marker = home.as_ref().is_some_and(|home_dir| home_dir == &canonical);
+            if !(is_home_marker && best.is_some()) {
+                best = Some(canonical.to_string_lossy().to_string());
+            }
         }
         match dir.parent() {
             Some(parent) if parent != dir => dir = parent,

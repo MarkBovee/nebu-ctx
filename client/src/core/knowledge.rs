@@ -74,6 +74,12 @@ pub struct ConsolidatedInsight {
 }
 
 impl ProjectKnowledge {
+    fn canonical_project_root(project_root: &str) -> String {
+        crate::core::pathutil::safe_canonicalize_or_self(std::path::Path::new(project_root))
+            .to_string_lossy()
+            .to_string()
+    }
+
     pub fn run_memory_lifecycle(&mut self) -> crate::core::memory_lifecycle::LifecycleReport {
         let cfg = crate::core::memory_lifecycle::LifecycleConfig {
             max_facts: MAX_FACTS,
@@ -83,9 +89,10 @@ impl ProjectKnowledge {
     }
 
     pub fn new(project_root: &str) -> Self {
+        let project_root = Self::canonical_project_root(project_root);
         Self {
-            project_root: project_root.to_string(),
-            project_hash: hash_project_root(project_root),
+            project_hash: hash_project_root(&project_root),
+            project_root,
             facts: Vec::new(),
             patterns: Vec::new(),
             history: Vec::new(),
@@ -569,7 +576,8 @@ impl ProjectKnowledge {
     }
 
     pub fn load(project_root: &str) -> Option<Self> {
-        let hash = hash_project_root(project_root);
+        let project_root = Self::canonical_project_root(project_root);
+        let hash = hash_project_root(&project_root);
         let dir = knowledge_dir(&hash).ok()?;
         let path = dir.join("knowledge.json");
 
@@ -579,12 +587,13 @@ impl ProjectKnowledge {
             }
         }
 
-        let old_hash = crate::core::project_hash::hash_path_only(project_root);
+        let old_hash = crate::core::project_hash::hash_path_only(&project_root);
         if old_hash != hash {
-            crate::core::project_hash::migrate_if_needed(&old_hash, &hash, project_root);
+            crate::core::project_hash::migrate_if_needed(&old_hash, &hash, &project_root);
             if let Ok(content) = std::fs::read_to_string(&path) {
                 if let Ok(mut k) = serde_json::from_str::<Self>(&content) {
                     k.project_hash = hash;
+                    k.project_root = project_root.clone();
                     let _ = k.save();
                     return Some(k);
                 }

@@ -5,6 +5,35 @@ use super::execute::execute_command_in;
 use super::helpers::*;
 use crate::tools::NebuCtxServer;
 
+fn looks_like_windows_absolute_path(path: &str) -> bool {
+    path.len() >= 3
+        && path.as_bytes()[0].is_ascii_alphabetic()
+        && path.as_bytes()[1] == b':'
+        && matches!(path.as_bytes()[2], b'/' | b'\\')
+}
+
+fn session_project_root_or_dot(session: &crate::core::session::SessionState) -> String {
+    session
+        .project_root
+        .clone()
+        .unwrap_or_else(|| ".".to_string())
+}
+
+async fn resolve_graph_symbol_spec(
+    server: &NebuCtxServer,
+    spec: &str,
+) -> Result<String, ErrorData> {
+    let Some((file_part, symbol_name)) = spec.split_once("::") else {
+        return Ok(spec.to_string());
+    };
+
+    let resolved_file = server
+        .resolve_path(file_part)
+        .await
+        .map_err(|e| ErrorData::invalid_params(e, None))?;
+    Ok(format!("{resolved_file}::{symbol_name}"))
+}
+
 impl NebuCtxServer {
     pub(super) async fn dispatch_tool(
         &self,
@@ -249,7 +278,14 @@ impl NebuCtxServer {
                     return Ok(rejection);
                 }
 
-                let explicit_cwd = get_str(args, "cwd");
+                let explicit_cwd = match get_str(args, "cwd") {
+                    Some(cwd) => Some(
+                        self.resolve_path(&cwd)
+                            .await
+                            .map_err(|e| ErrorData::invalid_params(e, None))?,
+                    ),
+                    None => None,
+                };
                 let effective_cwd = {
                     let session = self.session.read().await;
                     session.effective_cwd(explicit_cwd.as_deref())
@@ -615,7 +651,16 @@ impl NebuCtxServer {
             "ctx_intent" => {
                 let query = get_str(args, "query")
                     .ok_or_else(|| ErrorData::invalid_params("query is required", None))?;
-                let root = get_str(args, "project_root").unwrap_or_else(|| ".".to_string());
+                let root = match get_str(args, "project_root") {
+                    Some(root) => self
+                        .resolve_path(&root)
+                        .await
+                        .map_err(|e| ErrorData::invalid_params(e, None))?,
+                    None => {
+                        let session = self.session.read().await;
+                        session_project_root_or_dot(&session)
+                    }
+                };
                 let mut cache = self.cache.write().await;
                 let output =
                     crate::tools::ctx_intent::handle(&mut cache, &query, &root, self.crp_mode);
@@ -646,7 +691,20 @@ impl NebuCtxServer {
             "ctx_graph" => {
                 let action = get_str(args, "action")
                     .ok_or_else(|| ErrorData::invalid_params("action is required", None))?;
+                let root = match get_str(args, "project_root") {
+                    Some(root) => self
+                        .resolve_path(&root)
+                        .await
+                        .map_err(|e| ErrorData::invalid_params(e, None))?,
+                    None => {
+                        let session = self.session.read().await;
+                        session_project_root_or_dot(&session)
+                    }
+                };
                 let path = match get_str(args, "path") {
+                    Some(p) if action == "symbol" => {
+                        Some(resolve_graph_symbol_spec(self, &p).await?)
+                    }
                     Some(p) => Some(
                         self.resolve_path(&p)
                             .await
@@ -654,10 +712,6 @@ impl NebuCtxServer {
                     ),
                     None => None,
                 };
-                let root = self
-                    .resolve_path(&get_str(args, "project_root").unwrap_or_else(|| ".".to_string()))
-                    .await
-                    .map_err(|e| ErrorData::invalid_params(e, None))?;
                 let crp_mode = self.crp_mode;
                 let action_for_record = action.clone();
                 let mut cache = self.cache.write().await;
@@ -1150,7 +1204,10 @@ impl NebuCtxServer {
             "ctx_symbol" => {
                 let sym_name = get_str(args, "name")
                     .ok_or_else(|| ErrorData::invalid_params("name is required", None))?;
-                let file = get_str(args, "file").or_else(|| get_str(args, "path"));
+                let file = match get_str(args, "file").or_else(|| get_str(args, "path")) {
+                    Some(file) => Some(self.resolve_path_or_passthrough(&file).await),
+                    None => None,
+                };
                 let kind = get_str(args, "kind");
                 let session = self.session.read().await;
                 let project_root = session
@@ -1170,7 +1227,10 @@ impl NebuCtxServer {
                 result
             }
             "ctx_graph_diagram" => {
-                let file = get_str(args, "file");
+                let file = match get_str(args, "file") {
+                    Some(file) => Some(self.resolve_path_or_passthrough(&file).await),
+                    None => None,
+                };
                 let depth = get_int(args, "depth").map(|d| d as usize);
                 let kind = get_str(args, "kind");
                 let session = self.session.read().await;
@@ -1229,7 +1289,10 @@ impl NebuCtxServer {
             "ctx_callers" => {
                 let symbol = get_str(args, "symbol")
                     .ok_or_else(|| ErrorData::invalid_params("symbol is required", None))?;
-                let file = get_str(args, "file");
+                let file = match get_str(args, "file") {
+                    Some(file) => Some(self.resolve_path_or_passthrough(&file).await),
+                    None => None,
+                };
                 let session = self.session.read().await;
                 let project_root = session
                     .project_root
@@ -1244,7 +1307,10 @@ impl NebuCtxServer {
             "ctx_callees" => {
                 let symbol = get_str(args, "symbol")
                     .ok_or_else(|| ErrorData::invalid_params("symbol is required", None))?;
-                let file = get_str(args, "file");
+                let file = match get_str(args, "file") {
+                    Some(file) => Some(self.resolve_path_or_passthrough(&file).await),
+                    None => None,
+                };
                 let session = self.session.read().await;
                 let project_root = session
                     .project_root
@@ -1587,13 +1653,12 @@ impl NebuCtxServer {
                 let path = get_str(args, "path");
                 let depth = get_int(args, "depth").map(|d| d as usize);
                 let root = if let Some(r) = get_str(args, "root") {
-                    r
+                    self.resolve_path(&r)
+                        .await
+                        .map_err(|e| ErrorData::invalid_params(e, None))?
                 } else {
                     let session = self.session.read().await;
-                    session
-                        .project_root
-                        .clone()
-                        .unwrap_or_else(|| ".".to_string())
+                    session_project_root_or_dot(&session)
                 };
                 let result =
                     crate::tools::ctx_impact::handle(&action, path.as_deref(), &root, depth);
@@ -1602,15 +1667,25 @@ impl NebuCtxServer {
             }
             "ctx_architecture" => {
                 let action = get_str(args, "action").unwrap_or_else(|| "overview".to_string());
-                let path = get_str(args, "path");
+                let path = match get_str(args, "path") {
+                    Some(path)
+                        if action == "module"
+                            && (looks_like_windows_absolute_path(&path)
+                                || path.contains('/')
+                                || path.contains('\\')) =>
+                    {
+                        Some(self.resolve_path_or_passthrough(&path).await)
+                    }
+                    Some(path) => Some(path),
+                    None => None,
+                };
                 let root = if let Some(r) = get_str(args, "root") {
-                    r
+                    self.resolve_path(&r)
+                        .await
+                        .map_err(|e| ErrorData::invalid_params(e, None))?
                 } else {
                     let session = self.session.read().await;
-                    session
-                        .project_root
-                        .clone()
-                        .unwrap_or_else(|| ".".to_string())
+                    session_project_root_or_dot(&session)
                 };
                 let result =
                     crate::tools::ctx_architecture::handle(&action, path.as_deref(), &root);
@@ -1643,5 +1718,22 @@ impl NebuCtxServer {
                 ));
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::looks_like_windows_absolute_path;
+
+    #[test]
+    fn recognizes_windows_absolute_filesystem_paths() {
+        assert!(looks_like_windows_absolute_path(
+            "C:/Users/markb/Projects/Spotify/package.json"
+        ));
+        assert!(looks_like_windows_absolute_path(
+            "c:\\Users\\markb\\Projects\\Spotify\\oauth.js"
+        ));
+        assert!(!looks_like_windows_absolute_path("src/package.json"));
+        assert!(!looks_like_windows_absolute_path("/api/routes"));
     }
 }

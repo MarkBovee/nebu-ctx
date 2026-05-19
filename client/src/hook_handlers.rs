@@ -110,10 +110,16 @@ fn build_rewrite_compound(cmd: &str, binary: &str) -> Option<String> {
 }
 
 fn emit_rewrite(rewritten: &str) {
-    let json_escaped = rewritten.replace('\\', "\\\\").replace('"', "\\\"");
-    print!(
-        "{{\"hookSpecificOutput\":{{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"updatedInput\":{{\"command\":\"{json_escaped}\"}}}}}}"
-    );
+    let payload = serde_json::json!({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "allow",
+            "updatedInput": {
+                "command": rewritten,
+            }
+        }
+    });
+    print!("{}", payload);
 }
 
 pub fn handle_redirect() {

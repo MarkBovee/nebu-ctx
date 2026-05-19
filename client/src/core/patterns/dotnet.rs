@@ -217,6 +217,29 @@ fn compress_test(output: &str) -> String {
     }
 }
 
+#[cfg(test)]
+fn looks_like_test_summary_only_output(output: &str) -> bool {
+    let lines: Vec<&str> = output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect();
+    if lines.is_empty() {
+        return false;
+    }
+
+    lines.iter().all(|line| {
+        let lower = line.to_ascii_lowercase();
+        lower.starts_with("passed!")
+            || lower.starts_with("failed!")
+            || lower.starts_with("passed:")
+            || lower.starts_with("failed:")
+            || lower.starts_with("skipped:")
+            || lower.starts_with("total:")
+            || test_total_re().is_match(line)
+    })
+}
+
 fn compress_restore(output: &str) -> String {
     let mut restored_projects = Vec::new();
     let mut pkg_summary: Option<String> = None;
@@ -303,4 +326,30 @@ fn compact_or_ok(output: &str, max: usize) -> String {
         lines[..max].join("\n"),
         lines.len() - max
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{compress_test, looks_like_test_summary_only_output};
+
+    #[test]
+    fn compress_test_keeps_visible_summary_output() {
+        let output = "Passed!  - Failed:     0, Passed:    12, Skipped:     0, Total:    12, Duration: 53 ms - NebuCtx.ProjectIdentityTests.dll (net10.0)\n";
+        let compressed = compress_test(output);
+        assert!(!compressed.trim().is_empty());
+        assert_ne!(compressed.trim(), "ok");
+        assert!(compressed.contains("Passed!") || compressed.contains("Total:"));
+    }
+
+    #[test]
+    fn summary_only_detector_matches_dotnet_test_footer() {
+        let output = "Passed!  - Failed:     0, Passed:    12, Skipped:     0, Total:    12, Duration: 53 ms - NebuCtx.ProjectIdentityTests.dll (net10.0)\n";
+        assert!(looks_like_test_summary_only_output(output));
+    }
+
+    #[test]
+    fn summary_only_detector_rejects_non_summary_text() {
+        let output = "Determining projects to restore...\nPassed!  - Failed: 0, Passed: 1, Skipped: 0, Total: 1\n";
+        assert!(!looks_like_test_summary_only_output(output));
+    }
 }

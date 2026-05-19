@@ -183,17 +183,43 @@ mod tests {
         enqueue_replay_fixtures(tmp.path());
 
         assert_eq!(flush_pending(), 3);
-        assert!(crate::core::sync_outbox::load_entries().unwrap().is_empty());
+        wait_for_empty_outbox();
 
         let mut paths = Vec::new();
-        for _ in 0..4 {
-            paths.push(received_paths.recv_timeout(Duration::from_secs(2)).unwrap());
+        let required_paths = [
+            "/v1/telemetry/ingest",
+            "/v1/tools/call",
+            "/v1/projects/resolve",
+            "/v1/index/sync",
+        ];
+        while paths.len() < 16 {
+            let path = received_paths.recv_timeout(Duration::from_secs(2)).unwrap();
+            paths.push(path);
+            if required_paths
+                .iter()
+                .all(|required| paths.iter().any(|path| path == required))
+            {
+                break;
+            }
         }
 
         assert!(paths.contains(&"/v1/telemetry/ingest".to_string()));
         assert!(paths.contains(&"/v1/tools/call".to_string()));
         assert!(paths.contains(&"/v1/projects/resolve".to_string()));
         assert!(paths.contains(&"/v1/index/sync".to_string()));
+    }
+
+    fn wait_for_empty_outbox() {
+        for _ in 0..20 {
+            if crate::core::sync_outbox::load_entries().unwrap().is_empty() {
+                return;
+            }
+
+            std::thread::sleep(Duration::from_millis(25));
+        }
+
+        let entries = crate::core::sync_outbox::load_entries().unwrap();
+        panic!("expected empty outbox after replay, found: {entries:?}");
     }
 
     fn enqueue_replay_fixtures(root: &std::path::Path) {
@@ -280,26 +306,45 @@ mod tests {
 
     fn spawn_replay_server(expected_requests: usize) -> (String, mpsc::Receiver<String>) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
         let endpoint = format!("http://{}", listener.local_addr().unwrap());
         let (tx, rx) = mpsc::channel();
 
         std::thread::spawn(move || {
-            for _ in 0..expected_requests {
-                let Ok((mut stream, _)) = listener.accept() else {
-                    break;
-                };
-                stream
-                    .set_read_timeout(Some(Duration::from_secs(2)))
-                    .unwrap();
-                let path = read_request_path(&mut stream);
-                let body = response_body_for(&path);
-                let response = format!(
-                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                    body.len(),
-                    body
-                );
-                stream.write_all(response.as_bytes()).unwrap();
-                tx.send(path).unwrap();
+            let mut served_requests = 0usize;
+            let mut idle_after_expected_since = None;
+
+            loop {
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        idle_after_expected_since = None;
+                        served_requests += 1;
+                        stream
+                            .set_read_timeout(Some(Duration::from_secs(2)))
+                            .unwrap();
+                        let path = read_request_path(&mut stream);
+                        let body = response_body_for(&path);
+                        let response = format!(
+                            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                            body.len(),
+                            body
+                        );
+                        let _ = stream.write_all(response.as_bytes());
+                        let _ = tx.send(path);
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        if served_requests >= expected_requests {
+                            let idle_since = idle_after_expected_since
+                                .get_or_insert_with(std::time::Instant::now);
+                            if idle_since.elapsed() >= Duration::from_millis(250) {
+                                break;
+                            }
+                        }
+
+                        std::thread::sleep(Duration::from_millis(10));
+                    }
+                    Err(_) => break,
+                }
             }
         });
 

@@ -457,7 +457,20 @@ impl ServerHandler for NebuCtxServer {
             }
         }
 
-        let auto_context = {
+        let skip_auto_context = (name == "ctx"
+            && args.as_ref().is_some_and(|args| {
+                let domain = args.get("domain").and_then(|value| value.as_str());
+                let action = args.get("action").and_then(|value| value.as_str());
+                domain == Some("memory") && matches!(action, Some("promote" | "triage"))
+            }))
+            || (name == "ctx_knowledge"
+                && args.as_ref().is_some_and(|args| {
+                    matches!(args.get("action").and_then(|value| value.as_str()), Some("promote" | "triage"))
+                }));
+
+        let auto_context = if skip_auto_context {
+            None
+        } else {
             let task = {
                 let session = self.session.read().await;
                 session.task.as_ref().map(|t| t.description.clone())
@@ -1040,6 +1053,56 @@ mod tests {
     }
 
     #[test]
+    fn ctx_read_files_target_executes_batch_reads() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let data = tempfile::tempdir().unwrap();
+        let repo = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", data.path());
+        std::env::set_var("NEBU_CTX_HOME", data.path());
+        std::fs::create_dir(repo.path().join(".git")).unwrap();
+
+        let first = repo.path().join("one.txt");
+        let second = repo.path().join("two.txt");
+        std::fs::write(&first, "alpha\n").unwrap();
+        std::fs::write(&second, "beta\n").unwrap();
+
+        let first_path = crate::hooks::normalize_tool_path(&first.to_string_lossy());
+        let second_path = crate::hooks::normalize_tool_path(&second.to_string_lossy());
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let engine = crate::engine::ContextEngine::with_project_root(repo.path());
+        let text = rt
+            .block_on(engine.call_tool_text(
+                "ctx_read",
+                Some(serde_json::json!({
+                    "target": "files",
+                    "paths": [first_path, second_path],
+                    "mode": "full"
+                })),
+            ))
+            .expect("ctx_read(files) should succeed");
+
+        assert!(
+            text.contains("Read 2 files"),
+            "unexpected batch read text: {text}"
+        );
+        assert!(
+            text.contains("one.txt"),
+            "missing first file in batch read: {text}"
+        );
+        assert!(
+            text.contains("two.txt"),
+            "missing second file in batch read: {text}"
+        );
+
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
+        std::env::remove_var("NEBU_CTX_HOME");
+    }
+
+    #[test]
     fn analytics_report_is_accepted_in_public_mode() {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -1138,16 +1201,21 @@ mod tests {
             ))
             .expect("memory promote should succeed locally");
 
-        assert!(text.contains("Promoted 1 items into local knowledge"), "unexpected promote text: {text}");
+        assert!(
+            text.contains("Promoted 1 items into local knowledge"),
+            "unexpected promote text: {text}"
+        );
 
-        let knowledge = crate::core::knowledge::ProjectKnowledge::load(&repo.path().to_string_lossy())
-            .expect("local knowledge should exist after promote");
-        assert!(knowledge.facts.iter().any(|fact|
-            fact.category == "decision"
+        let knowledge =
+            crate::core::knowledge::ProjectKnowledge::load(&repo.path().to_string_lossy())
+                .expect("local knowledge should exist after promote");
+        assert!(knowledge
+            .facts
+            .iter()
+            .any(|fact| fact.category == "decision"
                 && fact.key == "memory-owner"
                 && fact.value == "server owns canonical knowledge"
-                && fact.is_current()
-        ));
+                && fact.is_current()));
 
         std::env::remove_var("NEBU_CTX_DATA_DIR");
         std::env::remove_var("NEBU_CTX_HOME");
@@ -1165,9 +1233,27 @@ mod tests {
 
         let repo_root = repo.path().to_string_lossy().to_string();
         let mut knowledge = crate::core::knowledge::ProjectKnowledge::load_or_create(&repo_root);
-        let _ = knowledge.remember("decision", "dup-a", "server owns canonical memory", "session-1", 0.95);
-        let _ = knowledge.remember("decision", "dup-b", "server owns canonical memory", "session-2", 0.82);
-        let _ = knowledge.remember("testing", "demo-placeholder", "demo placeholder memory", "session-3", 0.60);
+        let _ = knowledge.remember(
+            "decision",
+            "dup-a",
+            "server owns canonical memory",
+            "session-1",
+            0.95,
+        );
+        let _ = knowledge.remember(
+            "decision",
+            "dup-b",
+            "server owns canonical memory",
+            "session-2",
+            0.82,
+        );
+        let _ = knowledge.remember(
+            "testing",
+            "demo-placeholder",
+            "demo placeholder memory",
+            "session-3",
+            0.60,
+        );
         knowledge.save().unwrap();
 
         let rt = tokio::runtime::Builder::new_current_thread()
@@ -1186,9 +1272,18 @@ mod tests {
             ))
             .expect("memory triage apply should succeed locally");
 
-        assert!(text.contains("TRIAGE APPLY:"), "unexpected triage text: {text}");
-        assert!(text.contains("merged=1"), "unexpected triage merge summary: {text}");
-        assert!(text.contains("junk_marked=1"), "unexpected triage junk summary: {text}");
+        assert!(
+            text.contains("TRIAGE APPLY:"),
+            "unexpected triage text: {text}"
+        );
+        assert!(
+            text.contains("merged=1"),
+            "unexpected triage merge summary: {text}"
+        );
+        assert!(
+            text.contains("junk_marked=1"),
+            "unexpected triage junk summary: {text}"
+        );
 
         let knowledge = crate::core::knowledge::ProjectKnowledge::load(&repo_root)
             .expect("knowledge should still exist after triage apply");
@@ -1197,17 +1292,20 @@ mod tests {
             .iter()
             .filter(|fact| fact.category == "decision" && fact.is_current())
             .collect();
-        assert_eq!(current_decisions.len(), 1, "expected one current decision after merge");
-        assert!(knowledge.facts.iter().any(|fact|
-            fact.key == "dup-b"
+        assert_eq!(
+            current_decisions.len(),
+            1,
+            "expected one current decision after merge"
+        );
+        assert!(knowledge.facts.iter().any(|fact| fact.key == "dup-b"
+            && !fact.is_current()
+            && fact.supersedes.as_deref() == Some("merged-into:decision/dup-a")));
+        assert!(knowledge
+            .facts
+            .iter()
+            .any(|fact| fact.key == "demo-placeholder"
                 && !fact.is_current()
-                && fact.supersedes.as_deref() == Some("merged-into:decision/dup-a")
-        ));
-        assert!(knowledge.facts.iter().any(|fact|
-            fact.key == "demo-placeholder"
-                && !fact.is_current()
-                && fact.supersedes.as_deref() == Some("triage:junk")
-        ));
+                && fact.supersedes.as_deref() == Some("triage:junk")));
 
         std::env::remove_var("NEBU_CTX_DATA_DIR");
         std::env::remove_var("NEBU_CTX_HOME");

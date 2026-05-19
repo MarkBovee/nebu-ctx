@@ -11,8 +11,9 @@ pub fn handle(
     project_root: &str,
 ) -> (String, usize) {
     let index = graph_index::load_or_build(project_root);
+    let normalized_file = normalize_file_filter(file, project_root);
 
-    let matches = find_symbols(&index, name, file, kind);
+    let matches = find_symbols(&index, name, normalized_file.as_deref(), kind);
 
     if matches.is_empty() {
         return (
@@ -83,6 +84,17 @@ fn find_symbols<'a>(
     });
 
     results
+}
+
+fn normalize_file_filter(file_filter: Option<&str>, project_root: &str) -> Option<String> {
+    let file_filter = file_filter?;
+    let rel = graph_index::graph_relative_key(file_filter, project_root);
+    let rel_key = graph_index::graph_match_key(&rel);
+    if rel_key.is_empty() {
+        Some(graph_index::graph_match_key(file_filter))
+    } else {
+        Some(rel_key)
+    }
 }
 
 fn render_single(sym: &SymbolEntry, index: &ProjectIndex, project_root: &str) -> (String, usize) {
@@ -234,6 +246,17 @@ mod tests {
         let index = test_index();
         let results = find_symbols(&index, "Config", Some("lib.rs"), None);
         assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn normalize_file_filter_handles_windows_style_absolute_paths() {
+        let filter = normalize_file_filter(Some(r"C:/repo/src/lib.rs"), r"C:\repo");
+        let expected = if cfg!(windows) {
+            Some("src/lib.rs".to_string())
+        } else {
+            Some("C:/repo/src/lib.rs".to_string())
+        };
+        assert_eq!(filter, expected);
     }
 
     #[test]

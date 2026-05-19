@@ -331,9 +331,7 @@ fn handle_module(path: Option<&str>, root: &str) -> String {
     let canon_root = crate::core::pathutil::safe_canonicalize(std::path::Path::new(root))
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| root.to_string());
-    let canon_target = crate::core::pathutil::safe_canonicalize(std::path::Path::new(target))
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|_| target.to_string());
+    let canon_target = normalize_module_target(target, root);
     let root_slash = if canon_root.ends_with('/') {
         canon_root.clone()
     } else {
@@ -419,6 +417,19 @@ fn handle_module(path: Option<&str>, root: &str) -> String {
 
     let tokens = count_tokens(&result);
     format!("{result}[ctx_architecture module: {tokens} tok]")
+}
+
+fn normalize_module_target(target: &str, root: &str) -> String {
+    let target_path = std::path::Path::new(target);
+    let candidate = if target_path.is_absolute() || target.contains(':') {
+        target_path.to_path_buf()
+    } else {
+        std::path::Path::new(root).join(target)
+    };
+
+    crate::core::pathutil::safe_canonicalize(&candidate)
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| crate::hooks::normalize_tool_path(&candidate.to_string_lossy()))
 }
 
 #[derive(Debug)]
@@ -628,6 +639,12 @@ fn common_prefix(files: &[String]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn normalize_module_target_handles_windows_absolute_paths() {
+        let normalized = normalize_module_target(r"C:/repo/src/services/auth.rs", r"C:\repo");
+        assert_eq!(normalized, "C:/repo/src/services/auth.rs");
+    }
 
     #[test]
     fn common_prefix_single() {

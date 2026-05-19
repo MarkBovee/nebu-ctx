@@ -754,6 +754,9 @@ fn compress_if_beneficial(command: &str, output: &str) -> String {
 
     if let Some(compressed) = patterns::compress_output(command, output) {
         if !compressed.trim().is_empty() {
+            if should_preserve_dotnet_test_output(command, output, &compressed) {
+                return output.to_string();
+            }
             let compressed_tokens = count_tokens(&compressed);
             if compressed_tokens >= min_output_tokens && compressed_tokens < original_tokens {
                 let ratio = compressed_tokens as f64 / original_tokens as f64;
@@ -808,6 +811,32 @@ fn compress_if_beneficial(command: &str, output: &str) -> String {
     }
 
     output.to_string()
+}
+
+fn should_preserve_dotnet_test_output(
+    command: &str,
+    raw_output: &str,
+    compressed_output: &str,
+) -> bool {
+    let command_lower = command.trim().to_ascii_lowercase();
+    if !command_lower.starts_with("dotnet test") && !command_lower.starts_with("dotnet vstest") {
+        return false;
+    }
+
+    let raw_trimmed = raw_output.trim();
+    if raw_trimmed.is_empty() {
+        return false;
+    }
+
+    let compressed_trimmed = compressed_output.trim();
+    if compressed_trimmed.is_empty() || compressed_trimmed.eq_ignore_ascii_case("ok") {
+        return true;
+    }
+
+    let raw_has_pass_fail = raw_trimmed.contains("Passed!") || raw_trimmed.contains("Failed!");
+    let compressed_has_pass_fail =
+        compressed_trimmed.contains("Passed!") || compressed_trimmed.contains("Failed!");
+    raw_has_pass_fail && !compressed_has_pass_fail
 }
 
 fn truncate_with_safety_scan(lines: &[&str], original_tokens: usize) -> Option<String> {
@@ -1232,7 +1261,10 @@ mod windows_shell_flag_tests {
 
 #[cfg(test)]
 mod passthrough_tests {
-    use super::{compress_and_measure, is_excluded_command, normalize_captured_output};
+    use super::{
+        compress_and_measure, is_excluded_command, normalize_captured_output,
+        should_preserve_dotnet_test_output,
+    };
 
     #[test]
     fn turbo_is_passthrough() {
@@ -1521,6 +1553,30 @@ mod passthrough_tests {
     }
 
     #[test]
+    fn dotnet_test_visible_summary_is_preserved() {
+        let stdout = "Passed!  - Failed:     0, Passed:    12, Skipped:     0, Total:    12, Duration: 53 ms - NebuCtx.ProjectIdentityTests.dll (net10.0)\n";
+        let (result, output_tokens) =
+            compress_and_measure("dotnet test --verbosity minimal", stdout, "");
+        assert!(
+            result.contains("Passed!"),
+            "summary output should stay visible: {result}"
+        );
+        assert!(output_tokens > 0);
+    }
+
+    #[test]
+    fn dotnet_test_preserve_guard_trips_when_compression_loses_summary() {
+        let raw = "Passed!  - Failed:     0, Passed:    12, Skipped:     0, Total:    12\n";
+        assert!(should_preserve_dotnet_test_output("dotnet test", raw, "ok"));
+        assert!(should_preserve_dotnet_test_output(
+            "dotnet test",
+            raw,
+            "[nebu-ctx: 100→1 tok, -99%]"
+        ));
+        assert!(!should_preserve_dotnet_test_output("cargo test", raw, "ok"));
+    }
+
+    #[test]
     fn elixir_servers_are_passthrough() {
         assert!(is_excluded_command("mix phx.server", &[]));
         assert!(is_excluded_command("iex -s mix phx.server", &[]));
@@ -1636,24 +1692,19 @@ mod passthrough_tests {
 
     #[test]
     fn exec_direct_runs_true() {
-        let code = super::exec_direct(&["true".to_string()]);
+        let code = super::exec_direct(&success_command());
         assert_eq!(code, 0);
     }
 
     #[test]
     fn exec_direct_runs_false() {
-        let code = super::exec_direct(&["false".to_string()]);
+        let code = super::exec_direct(&failure_command());
         assert_ne!(code, 0);
     }
 
     #[test]
     fn exec_direct_preserves_args_with_special_chars() {
-        let code = super::exec_direct(&[
-            "echo".to_string(),
-            "hello world".to_string(),
-            "it's here".to_string(),
-            "a \"quoted\" thing".to_string(),
-        ]);
+        let code = super::exec_direct(&special_arg_command());
         assert_eq!(code, 0);
     }
 
@@ -1671,16 +1722,52 @@ mod passthrough_tests {
 
     #[test]
     fn exec_argv_runs_simple_command() {
-        let code = super::exec_argv(&["true".to_string()]);
+        let code = super::exec_argv(&success_command());
         assert_eq!(code, 0);
     }
 
     #[test]
     fn exec_argv_passes_through_when_disabled() {
         std::env::set_var("NEBU_CTX_DISABLED", "1");
-        let code = super::exec_argv(&["true".to_string()]);
+        let code = super::exec_argv(&success_command());
         std::env::remove_var("NEBU_CTX_DISABLED");
         assert_eq!(code, 0);
+    }
+
+    fn success_command() -> Vec<String> {
+        if cfg!(windows) {
+            vec!["cmd".to_string(), "/c".to_string(), "exit".to_string(), "0".to_string()]
+        } else {
+            vec!["true".to_string()]
+        }
+    }
+
+    fn failure_command() -> Vec<String> {
+        if cfg!(windows) {
+            vec!["cmd".to_string(), "/c".to_string(), "exit".to_string(), "1".to_string()]
+        } else {
+            vec!["false".to_string()]
+        }
+    }
+
+    fn special_arg_command() -> Vec<String> {
+        if cfg!(windows) {
+            vec![
+                "cmd".to_string(),
+                "/c".to_string(),
+                "echo".to_string(),
+                "hello world".to_string(),
+                "it's here".to_string(),
+                "a \"quoted\" thing".to_string(),
+            ]
+        } else {
+            vec![
+                "echo".to_string(),
+                "hello world".to_string(),
+                "it's here".to_string(),
+                "a \"quoted\" thing".to_string(),
+            ]
+        }
     }
 
     #[test]

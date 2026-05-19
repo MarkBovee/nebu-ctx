@@ -29,10 +29,11 @@ impl ContextEngine {
     }
 
     pub fn with_project_root(project_root: impl Into<PathBuf>) -> Self {
+        let project_root = crate::core::pathutil::safe_canonicalize_or_self(&project_root.into())
+            .to_string_lossy()
+            .to_string();
         Self {
-            server: NebuCtxServer::new_with_project_root(Some(
-                project_root.into().to_string_lossy().to_string(),
-            )),
+            server: NebuCtxServer::new_with_project_root(Some(project_root)),
             next_id: AtomicI64::new(1),
         }
     }

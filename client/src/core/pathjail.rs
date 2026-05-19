@@ -19,6 +19,18 @@ const IDE_CONFIG_DIRS: &[&str] = &[
     ".continue",
 ];
 
+fn home_dir_from_env() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| {
+            std::env::var_os("USERPROFILE")
+                .filter(|value| !value.is_empty())
+                .map(PathBuf::from)
+        })
+        .or_else(dirs::home_dir)
+}
+
 fn allow_paths_from_env() -> Vec<PathBuf> {
     let mut out = Vec::new();
 
@@ -26,7 +38,7 @@ fn allow_paths_from_env() -> Vec<PathBuf> {
         out.push(canonicalize_or_self(&data_dir));
     }
 
-    if let Some(home) = dirs::home_dir() {
+    if let Some(home) = home_dir_from_env() {
         for dir in IDE_CONFIG_DIRS {
             let p = home.join(dir);
             if p.exists() {

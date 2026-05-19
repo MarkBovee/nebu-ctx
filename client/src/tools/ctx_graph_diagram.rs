@@ -23,12 +23,13 @@ pub fn handle(
 
 fn render_dep_graph(file: Option<&str>, depth: usize, project_root: &str) -> String {
     let index = graph_index::load_or_build(project_root);
+    let file_filter = normalize_graph_file_filter(file, project_root);
 
     if index.edges.is_empty() {
         return "No dependency edges found in project index.".to_string();
     }
 
-    let edges: Vec<_> = if let Some(focus) = file {
+    let edges: Vec<_> = if let Some(focus) = file_filter.as_deref() {
         let reachable = bfs_reachable_files(focus, &index.edges, depth);
         index
             .edges
@@ -42,7 +43,10 @@ fn render_dep_graph(file: Option<&str>, depth: usize, project_root: &str) -> Str
     if edges.is_empty() {
         return format!(
             "No dependency edges found{}",
-            file.map(|f| format!(" for '{f}'")).unwrap_or_default()
+            file_filter
+                .as_deref()
+                .map(|f| format!(" for '{f}'"))
+                .unwrap_or_default()
         );
     }
 
@@ -116,12 +120,13 @@ fn render_call_graph(file: Option<&str>, _depth: usize, project_root: &str) -> S
     let index = graph_index::load_or_build(project_root);
     let call_graph = CallGraph::load_or_build(project_root, &index);
     let _ = call_graph.save();
+    let file_filter = normalize_graph_file_filter(file, project_root);
 
     if call_graph.edges.is_empty() {
         return "No call edges found. Run ctx_callers first to build the call graph.".to_string();
     }
 
-    let edges: Vec<_> = if let Some(focus) = file {
+    let edges: Vec<_> = if let Some(focus) = file_filter.as_deref() {
         call_graph
             .edges
             .iter()
@@ -138,7 +143,10 @@ fn render_call_graph(file: Option<&str>, _depth: usize, project_root: &str) -> S
     if edges.is_empty() {
         return format!(
             "No call edges found{}",
-            file.map(|f| format!(" matching '{f}'")).unwrap_or_default()
+            file_filter
+                .as_deref()
+                .map(|f| format!(" matching '{f}'"))
+                .unwrap_or_default()
         );
     }
 
@@ -233,6 +241,17 @@ fn shorten_path(path: &str) -> String {
     format!("…/{}", last_two.join("/"))
 }
 
+fn normalize_graph_file_filter(file: Option<&str>, project_root: &str) -> Option<String> {
+    let file = file?;
+    let rel = crate::core::graph_index::graph_relative_key(file, project_root);
+    let rel_key = crate::core::graph_index::graph_match_key(&rel);
+    if rel_key.is_empty() {
+        Some(crate::core::graph_index::graph_match_key(file))
+    } else {
+        Some(rel_key)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -264,5 +283,16 @@ mod tests {
     fn render_call_graph_empty() {
         let result = render_call_graph(None, 2, "/nonexistent/path");
         assert!(result.contains("No call edges") || result.contains("flowchart"));
+    }
+
+    #[test]
+    fn normalize_graph_file_filter_handles_windows_style_absolute_paths() {
+        let filter = normalize_graph_file_filter(Some(r"C:/repo/src/main.rs"), r"C:\repo");
+        let expected = if cfg!(windows) {
+            Some("src/main.rs".to_string())
+        } else {
+            Some("C:/repo/src/main.rs".to_string())
+        };
+        assert_eq!(filter, expected);
     }
 }
