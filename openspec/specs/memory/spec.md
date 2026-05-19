@@ -1,7 +1,7 @@
 # memory Specification
 
 ## Purpose
-TBD - created by archiving change productionize-nebu-ctx-platform. Update Purpose after archive.
+Provide durable project memory across sessions and editors through the public memory capability, including startup activation, session capture, recall, consolidation, promotion, and offline-safe persistence.
 ## Requirements
 ### Requirement: Complete Claude memory hook installation
 The client MUST install the Claude Code hook set needed for routing, startup recall, prompt capture, compaction, and stop-time persistence.
@@ -48,4 +48,3 @@ Client-driven server memory writes MUST not be silently dropped when the server 
 - WHEN a prompt or promoted project fact should be written to the server and the server is unavailable
 - THEN the write SHALL be queued in the local sync outbox
 - AND it SHALL be retried later
-

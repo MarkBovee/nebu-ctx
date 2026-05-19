@@ -160,6 +160,7 @@ mod tests {
             repository_fingerprint: None,
             checkout_binding: None,
             project_slug: None,
+            command_preview: None,
         });
 
         let entries = crate::core::sync_outbox::load_entries().unwrap();
@@ -208,6 +209,7 @@ mod tests {
                 repository_fingerprint: Some(context.fingerprint.clone()),
                 checkout_binding: Some(context.checkout_binding.clone()),
                 project_slug: Some(context.project_slug.clone()),
+                command_preview: None,
             })
             .unwrap(),
         )

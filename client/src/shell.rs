@@ -9,18 +9,22 @@ use crate::core::tokens::count_tokens;
 
 pub fn decode_output(bytes: &[u8]) -> String {
     match String::from_utf8(bytes.to_vec()) {
-        Ok(s) => s,
+        Ok(s) => normalize_captured_output(&s),
         Err(_) => {
             #[cfg(windows)]
             {
-                decode_windows_output(bytes)
+                normalize_captured_output(&decode_windows_output(bytes))
             }
             #[cfg(not(windows))]
             {
-                String::from_utf8_lossy(bytes).into_owned()
+                normalize_captured_output(&String::from_utf8_lossy(bytes))
             }
         }
     }
+}
+
+fn normalize_captured_output(text: &str) -> String {
+    text.replace("\r\n", "\n").replace('\r', "\n")
 }
 
 #[cfg(windows)]
@@ -700,6 +704,7 @@ pub fn interactive() {
 }
 
 fn compress_and_measure(command: &str, stdout: &str, stderr: &str) -> (String, usize) {
+    let raw_output = combine_output(stdout, stderr);
     let compressed_stdout = compress_if_beneficial(command, stdout);
     let compressed_stderr = compress_if_beneficial(command, stderr);
 
@@ -716,6 +721,11 @@ fn compress_and_measure(command: &str, stdout: &str, stderr: &str) -> (String, u
 
     // Count tokens on content BEFORE the [nebu-ctx: ...] footer to avoid
     // counting the annotation overhead against savings.
+    if result.trim().is_empty() && !raw_output.trim().is_empty() {
+        let output_tokens = count_tokens(&raw_output);
+        return (raw_output, output_tokens);
+    }
+
     let content_for_counting = if let Some(pos) = result.rfind("\n[nebu-ctx: ") {
         &result[..pos]
     } else {
@@ -1141,6 +1151,26 @@ mod join_command_tests {
     }
 
     #[test]
+    fn powershell_dotnet_test_issue_command_is_quoted_stably() {
+        let args: Vec<String> = vec![
+            "dotnet".into(),
+            "test".into(),
+            "src/Accentry.Service.Warranty.Tests/Accentry.Service.Warranty.Tests.csproj".into(),
+            "-c".into(),
+            "Release".into(),
+            "--no-restore".into(),
+            "--filter".into(),
+            "StartupRuntimeNormalizationTests".into(),
+            "-v".into(),
+            "minimal".into(),
+        ];
+        assert_eq!(
+            join_command_for(&args, "-Command"),
+            "& dotnet test src/Accentry.Service.Warranty.Tests/Accentry.Service.Warranty.Tests.csproj -c Release --no-restore --filter StartupRuntimeNormalizationTests -v minimal"
+        );
+    }
+
+    #[test]
     fn cmd_simple_args() {
         let args: Vec<String> = vec!["npm.cmd".into(), "install".into()];
         assert_eq!(join_command_for(&args, "/C"), "npm.cmd install");
@@ -1202,7 +1232,7 @@ mod windows_shell_flag_tests {
 
 #[cfg(test)]
 mod passthrough_tests {
-    use super::is_excluded_command;
+    use super::{compress_and_measure, is_excluded_command, normalize_captured_output};
 
     #[test]
     fn turbo_is_passthrough() {
@@ -1472,6 +1502,22 @@ mod passthrough_tests {
         assert!(is_excluded_command("dotnet run --project src/Api", &[]));
         assert!(is_excluded_command("dotnet watch run", &[]));
         assert!(is_excluded_command("dotnet ef database update", &[]));
+    }
+
+    #[test]
+    fn normalize_captured_output_converts_carriage_returns_to_lines() {
+        let input = "test one\rtest two\r\npassed\n";
+        let normalized = normalize_captured_output(input);
+        assert_eq!(normalized, "test one\ntest two\npassed\n");
+    }
+
+    #[test]
+    fn compress_and_measure_falls_back_to_raw_when_compressed_result_is_empty() {
+        let stdout = "Running tests\nResult: Passed\n";
+        let stderr = "";
+        let (result, output_tokens) = compress_and_measure("dotnet test", stdout, stderr);
+        assert_eq!(result, stdout);
+        assert!(output_tokens > 0);
     }
 
     #[test]

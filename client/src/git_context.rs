@@ -23,7 +23,9 @@ pub fn discover_project_context(current_directory: &Path) -> ProjectContext {
         remote_url,
         host: parsed_remote.as_ref().map(|(host, _, _)| host.clone()),
         owner: parsed_remote.as_ref().map(|(_, owner, _)| owner.clone()),
-        repo_name: parsed_remote.as_ref().map(|(_, _, repo_name)| repo_name.clone()),
+        repo_name: parsed_remote
+            .as_ref()
+            .map(|(_, _, repo_name)| repo_name.clone()),
         default_branch,
     };
 
@@ -50,7 +52,10 @@ pub fn discover_repository_context(current_directory: &Path) -> ProjectContext {
 }
 
 fn parse_remote_url(remote_url: &str) -> Option<(String, String, String)> {
-    let trimmed = remote_url.trim().trim_end_matches('/').trim_end_matches(".git");
+    let trimmed = remote_url
+        .trim()
+        .trim_end_matches('/')
+        .trim_end_matches(".git");
     if let Some(rest) = trimmed.strip_prefix("https://") {
         return parse_host_path(rest);
     }
@@ -106,7 +111,11 @@ fn detect_client_label() -> Option<String> {
     std::env::var("COMPUTERNAME")
         .ok()
         .filter(|value| !value.trim().is_empty())
-        .or_else(|| std::env::var("HOSTNAME").ok().filter(|value| !value.trim().is_empty()))
+        .or_else(|| {
+            std::env::var("HOSTNAME")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+        })
 }
 
 fn fallback_project_slug(local_root: &Path) -> Option<String> {
@@ -117,7 +126,13 @@ fn fallback_project_slug(local_root: &Path) -> Option<String> {
 
     let sanitized = raw
         .chars()
-        .map(|ch| if ch.is_ascii_alphanumeric() { ch.to_ascii_lowercase() } else { '-' })
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
         .collect::<String>()
         .trim_matches('-')
         .to_string();
@@ -142,12 +157,20 @@ mod tests {
     fn parse_remote_url_supports_https_and_ssh_formats() {
         assert_eq!(
             parse_remote_url("https://github.com/MarkBovee/nebu-ctx.git"),
-            Some(("github.com".to_string(), "MarkBovee".to_string(), "nebu-ctx".to_string()))
+            Some((
+                "github.com".to_string(),
+                "MarkBovee".to_string(),
+                "nebu-ctx".to_string()
+            ))
         );
 
         assert_eq!(
             parse_remote_url("git@github.com:MarkBovee/nebu-ctx.git"),
-            Some(("github.com".to_string(), "MarkBovee".to_string(), "nebu-ctx".to_string()))
+            Some((
+                "github.com".to_string(),
+                "MarkBovee".to_string(),
+                "nebu-ctx".to_string()
+            ))
         );
     }
 

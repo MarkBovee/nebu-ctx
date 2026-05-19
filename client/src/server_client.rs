@@ -4,6 +4,7 @@ use crate::models::{
     TelemetryIngestRequest, ToolCallRequest, ToolCallResponse, ToolListResponse,
 };
 use anyhow::{anyhow, Context, Result};
+use md5::{Digest, Md5};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -186,7 +187,9 @@ impl ServerClient {
         T: DeserializeOwned,
     {
         let mut body = response.into_body();
-        let payload = body.read_to_string().context("failed to read response body")?;
+        let payload = body
+            .read_to_string()
+            .context("failed to read response body")?;
         serde_json::from_str(&payload).context("failed to parse server response")
     }
 
@@ -249,11 +252,21 @@ pub fn post_knowledge_to_server(project_root: &str) {
         .iter()
         .filter(|f| f.is_current() && f.confidence >= 0.7)
         .map(|fact| {
+            let source_scope = fact.source_session.clone();
+            let promotion_identity = deterministic_promotion_identity(
+                "promote",
+                &source_scope,
+                &fact.category,
+                &fact.key,
+            );
             serde_json::json!({
                 "category": fact.category,
                 "key": fact.key,
                 "value": fact.value,
                 "confidence": fact.confidence,
+                "source_type": "promote",
+                "source_scope": source_scope,
+                "promotion_identity": promotion_identity,
             })
         })
         .collect();
@@ -303,7 +316,10 @@ pub fn queue_or_call_tool(
     project_context: &ProjectContext,
 ) -> Result<()> {
     if let Ok(client) = ServerClient::load() {
-        if client.call_tool(tool_name, arguments.clone(), project_context).is_ok() {
+        if client
+            .call_tool(tool_name, arguments.clone(), project_context)
+            .is_ok()
+        {
             return Ok(());
         }
     }
@@ -322,12 +338,50 @@ pub fn queue_or_call_tool(
 }
 
 pub fn replay_queued_server_tool_call(payload: serde_json::Value) -> Result<()> {
-    let queued: QueuedServerToolCall = serde_json::from_value(payload)
-        .context("failed to deserialize queued server tool call")?;
+    let queued: QueuedServerToolCall =
+        serde_json::from_value(payload).context("failed to deserialize queued server tool call")?;
     let client = ServerClient::load()?;
     let context: ProjectContext = queued.project_context.into();
     client.call_tool(&queued.tool_name, queued.arguments, &context)?;
     Ok(())
+}
+
+pub fn deterministic_promotion_identity(
+    source_type: &str,
+    source_scope: &str,
+    category: &str,
+    key: &str,
+) -> String {
+    let canonical = format!(
+        "{}:{}:{}:{}",
+        normalize_identity_token(source_type),
+        normalize_identity_token(source_scope),
+        normalize_identity_token(category),
+        normalize_identity_token(key)
+    );
+
+    let mut hasher = Md5::new();
+    hasher.update(canonical.as_bytes());
+    format!("{}:{:x}", canonical, hasher.finalize())
+}
+
+fn normalize_identity_token(value: &str) -> String {
+    let lowered = value.trim().to_lowercase();
+    let mut normalized = lowered
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '-' })
+        .collect::<String>();
+
+    while normalized.contains("--") {
+        normalized = normalized.replace("--", "-");
+    }
+
+    let trimmed = normalized.trim_matches('-');
+    if trimmed.is_empty() {
+        "unknown".to_string()
+    } else {
+        trimmed.to_string()
+    }
 }
 
 pub fn queue_or_sync_index(
@@ -365,8 +419,8 @@ pub fn queue_or_sync_index(
 }
 
 pub fn replay_queued_index_sync(payload: serde_json::Value) -> Result<()> {
-    let queued: QueuedIndexSync = serde_json::from_value(payload)
-        .context("failed to deserialize queued index sync")?;
+    let queued: QueuedIndexSync =
+        serde_json::from_value(payload).context("failed to deserialize queued index sync")?;
     let client = ServerClient::load()?;
     let context: ProjectContext = queued.project_context.into();
     let resolved = client.resolve_project(&context)?;
@@ -435,7 +489,60 @@ mod tests {
 
         let entries = crate::core::sync_outbox::load_entries().unwrap();
         assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].kind, crate::core::sync_outbox::OutboxOperationKind::CodeIndexSync);
+        assert_eq!(
+            entries[0].kind,
+            crate::core::sync_outbox::OutboxOperationKind::CodeIndexSync
+        );
         assert_eq!(entries[0].payload["files"][0]["path"], "src/lib.rs");
+    }
+
+    #[test]
+    fn deterministic_promotion_identity_is_stable() {
+        let first =
+            deterministic_promotion_identity("promote", "session-1", "decision", "memory-owner");
+        let second =
+            deterministic_promotion_identity(" promote ", "session-1", "decision", "memory owner");
+        assert_eq!(first, second);
+        assert!(first.contains("promote:session-1:decision:memory-owner:"));
+    }
+
+    #[test]
+    fn post_knowledge_to_server_queues_deterministic_promote_batch_when_offline() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", tmp.path());
+        std::env::set_var("NEBU_CTX_HOME", tmp.path().join("home"));
+
+        let project_root = tmp.path().join("project");
+        std::fs::create_dir_all(&project_root).unwrap();
+
+        let mut knowledge =
+            crate::core::knowledge::ProjectKnowledge::new(&project_root.to_string_lossy());
+        let _ = knowledge.remember(
+            "decision",
+            "memory-owner",
+            "server owns canonical memory",
+            "session-42",
+            0.95,
+        );
+        knowledge.save().unwrap();
+
+        post_knowledge_to_server(&project_root.to_string_lossy());
+
+        let entries = crate::core::sync_outbox::load_entries().unwrap();
+        let entry = entries
+            .into_iter()
+            .find(|item| item.kind == crate::core::sync_outbox::OutboxOperationKind::ServerToolCall)
+            .unwrap();
+        assert_eq!(entry.payload["tool_name"], "ctx_knowledge");
+        assert_eq!(entry.payload["arguments"]["action"], "promote");
+        let items = entry.payload["arguments"]["items"].as_array().unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0]["source_type"], "promote");
+        assert_eq!(items[0]["source_scope"], "session-42");
+        assert!(items[0]["promotion_identity"]
+            .as_str()
+            .unwrap()
+            .contains("promote:session-42:decision:memory-owner:"));
     }
 }

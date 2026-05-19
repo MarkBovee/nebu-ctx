@@ -1386,7 +1386,10 @@ fn build_tips(store: &StatsStore) -> Vec<String> {
 
     let cfg = crate::core::config::Config::load();
     if cfg.theme == "default" {
-        tips.push("Configure dashboard presentation on the NebuCtx server instead of the local client.".into());
+        tips.push(
+            "Configure dashboard presentation on the NebuCtx server instead of the local client."
+                .into(),
+        );
         tips.push(
             "Want a unique look? Run nebu-ctx theme list to see all available themes.".into(),
         );

@@ -51,7 +51,11 @@ Full rules: @rules/nebu-ctx.md
 Verify setup: run `/mcp` to check nebu-ctx is connected, `/memory` to confirm this file loaded.
 <!-- /nebu-ctx -->";
 
-fn claude_hook_payload(binary: &str, rewrite_cmd: String, redirect_cmd: String) -> serde_json::Value {
+fn claude_hook_payload(
+    binary: &str,
+    rewrite_cmd: String,
+    redirect_cmd: String,
+) -> serde_json::Value {
     serde_json::json!({
         "hooks": {
             "PreToolUse": [
@@ -285,9 +289,10 @@ pub(super) fn install_claude_hook_config(home: &std::path::Path) {
         String::new()
     };
 
-    let needs_update =
-        !settings_content.contains("hook rewrite") || !settings_content.contains("hook redirect")
-        || !settings_content.contains("hook stop") || !settings_content.contains("hook post-tool-use")
+    let needs_update = !settings_content.contains("hook rewrite")
+        || !settings_content.contains("hook redirect")
+        || !settings_content.contains("hook stop")
+        || !settings_content.contains("hook post-tool-use")
         || !settings_content.contains("hook session-start")
         || !settings_content.contains("hook user-prompt-submit")
         || !settings_content.contains("hook pre-compact");
@@ -328,11 +333,14 @@ pub(super) fn install_claude_project_hooks(cwd: &std::path::Path) {
     let _ = std::fs::create_dir_all(cwd.join(".claude"));
 
     let existing = std::fs::read_to_string(&settings_path).unwrap_or_default();
-    if existing.contains("hook rewrite") && existing.contains("hook redirect")
-        && existing.contains("hook stop") && existing.contains("hook post-tool-use")
+    if existing.contains("hook rewrite")
+        && existing.contains("hook redirect")
+        && existing.contains("hook stop")
+        && existing.contains("hook post-tool-use")
         && existing.contains("hook session-start")
         && existing.contains("hook user-prompt-submit")
-        && existing.contains("hook pre-compact") {
+        && existing.contains("hook pre-compact")
+    {
         return;
     }
 
@@ -923,8 +931,10 @@ fn install_copilot_pretooluse_hook(global: bool) {
 
     let needs_write = if hook_path.exists() {
         let content = std::fs::read_to_string(&hook_path).unwrap_or_default();
-        !content.contains("hook rewrite") || content.contains("\"PreToolUse\"")
-            || !content.contains("hook stop") || !content.contains("hook post-tool-use")
+        !content.contains("hook rewrite")
+            || content.contains("\"PreToolUse\"")
+            || !content.contains("hook stop")
+            || !content.contains("hook post-tool-use")
     } else {
         true
     };
@@ -975,9 +985,13 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
                         .entry("servers")
                         .or_insert_with(|| serde_json::json!({}));
                     if let Some(servers_obj) = servers.as_object_mut() {
-                        if servers_obj.get("lean-ctx") == Some(&desired) || servers_obj.get("nebu-ctx") == Some(&desired) {
+                        if servers_obj.get("lean-ctx") == Some(&desired)
+                            || servers_obj.get("nebu-ctx") == Some(&desired)
+                        {
                             if !crate::hooks::mcp_server_quiet_mode() {
-                                println!("  \x1b[32m✓\x1b[0m Copilot already configured in {label}");
+                                println!(
+                                    "  \x1b[32m✓\x1b[0m Copilot already configured in {label}"
+                                );
                             }
                             return;
                         }
@@ -1125,7 +1139,9 @@ pub(super) fn install_opencode_hook() {
                 crate::core::editor_registry::WriteAction::Already => {
                     "OpenCode MCP already configured at ~/.config/opencode/opencode.json"
                 }
-                _ => "  \x1b[32m✓\x1b[0m OpenCode MCP configured at ~/.config/opencode/opencode.json",
+                _ => {
+                    "  \x1b[32m✓\x1b[0m OpenCode MCP configured at ~/.config/opencode/opencode.json"
+                }
             };
             println!("{message}");
         }

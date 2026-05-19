@@ -1525,6 +1525,7 @@ function flattenEvent(ev) {
     const pct = orig > 0 ? Math.round(saved / orig * 100) : 0;
     const modeTag = mode === 'mcp' ? 'tp' : mode === 'hook' ? 'tb' : mode === 'shell' ? 'tpk' : 'ty';
     detail = (mode ? '<span class="tag ' + modeTag + '">' + esc(mode) + '</span> ' : '') + (saved > 0 ? '<span class="tag tg">-' + fmt(saved) + ' tok (' + pct + '%)</span>' : (orig > 0 ? '<span style="font-size:9px;color:var(--muted)">' + fmt(orig) + ' tok</span>' : ''));
+    if (k.command_preview) detail += ' <span style="color:var(--text);font-size:10px;font-family:var(--mono)">' + esc(k.command_preview) + '</span>';
     if (k.path) detail += ' <span style="color:var(--muted);font-size:9px">' + esc(k.path) + '</span>';
     const isMcp = mode === 'mcp' || tool.startsWith('ctx_');
     const isHook = mode === 'hook';

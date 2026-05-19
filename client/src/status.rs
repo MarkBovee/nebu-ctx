@@ -140,13 +140,14 @@ fn build_status_report() -> Result<(StatusReport, std::path::PathBuf), String> {
 
     let rules_targets = crate::rules_inject::collect_rules_status(&home);
 
-    let host_connection = crate::config::load_connection()
-        .ok()
-        .flatten()
-        .map(|conn| CloudConnectionStatus {
-            endpoint: conn.endpoint,
-            saved: true,
-        });
+    let host_connection =
+        crate::config::load_connection()
+            .ok()
+            .flatten()
+            .map(|conn| CloudConnectionStatus {
+                endpoint: conn.endpoint,
+                saved: true,
+            });
 
     let sync_outbox = build_sync_outbox_status(&mut warnings);
 

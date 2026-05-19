@@ -1,5 +1,5 @@
-use crate::server_client::ServerClient;
 use crate::models::ServerConnection;
+use crate::server_client::ServerClient;
 use crate::{config, core};
 use anyhow::{Context, Result};
 use serde_json::json;
@@ -51,7 +51,10 @@ fn disconnect_server() -> Result<()> {
     output_json(json!({ "disconnected": true }))
 }
 
-fn validate_and_save_connection(endpoint: &str, token: &str) -> Result<(ServerConnection, ServerClient)> {
+fn validate_and_save_connection(
+    endpoint: &str,
+    token: &str,
+) -> Result<(ServerConnection, ServerClient)> {
     let connection = ServerConnection {
         endpoint: config::normalize_server_endpoint(endpoint),
         token: token.trim().to_string(),
@@ -130,8 +133,14 @@ pub fn cmd_gotchas(args: &[String]) {
             let store = core::gotcha_tracker::GotchaStore::load(&project_root);
             println!("Bug Memory Stats:");
             println!("  Active gotchas:      {}", store.gotchas.len());
-            println!("  Errors detected:     {}", store.stats.total_errors_detected);
-            println!("  Fixes correlated:    {}", store.stats.total_fixes_correlated);
+            println!(
+                "  Errors detected:     {}",
+                store.stats.total_errors_detected
+            );
+            println!(
+                "  Fixes correlated:    {}",
+                store.stats.total_fixes_correlated
+            );
             println!("  Bugs prevented:      {}", store.stats.total_prevented);
             println!("  Promoted to knowledge: {}", store.stats.gotchas_promoted);
             println!("  Decayed/archived:    {}", store.stats.gotchas_decayed);
@@ -172,4 +181,3 @@ pub fn cmd_buddy(args: &[String]) {
         }
     }
 }
-

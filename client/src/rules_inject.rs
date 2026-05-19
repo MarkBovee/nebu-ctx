@@ -207,8 +207,7 @@ pub fn collect_rules_status(home: &std::path::Path) -> Vec<RulesTargetStatus> {
             match std::fs::read_to_string(&target.path) {
                 Ok(content) => {
                     if content.contains(MARKER) || content.contains(LEGACY_MARKER) {
-                        if content.contains(RULES_VERSION)
-                            || content.contains(LEGACY_RULES_VERSION)
+                        if content.contains(RULES_VERSION) || content.contains(LEGACY_RULES_VERSION)
                         {
                             "up_to_date".to_string()
                         } else {
@@ -661,7 +660,9 @@ mod tests {
         let lines: Vec<&str> = RULES_SHARED.lines().collect();
         let first_5 = lines[..5.min(lines.len())].join("\n");
         assert!(
-            first_5.contains("ALWAYS") || first_5.contains("nebu-ctx") || first_5.contains("lean-ctx"),
+            first_5.contains("ALWAYS")
+                || first_5.contains("nebu-ctx")
+                || first_5.contains("lean-ctx"),
             "LITM: preference instruction must be near start"
         );
         let last_5 = lines[lines.len().saturating_sub(5)..].join("\n");
@@ -674,8 +675,12 @@ mod tests {
     #[test]
     fn dedicated_rules_contain_public_contract() {
         assert!(RULES_DEDICATED.contains("public nebu-ctx MCP surface"));
-        assert!(RULES_DEDICATED.contains("ctx_read(target=\"file\"|\"files\"|\"symbol\"|\"outline\"|\"archive\", ...)"));
-        assert!(RULES_DEDICATED.contains("Public `ctx_read` targets: `file`, `files`, `symbol`, `outline`, `archive`."));
+        assert!(RULES_DEDICATED.contains(
+            "ctx_read(target=\"file\"|\"files\"|\"symbol\"|\"outline\"|\"archive\", ...)"
+        ));
+        assert!(RULES_DEDICATED.contains(
+            "Public `ctx_read` targets: `file`, `files`, `symbol`, `outline`, `archive`."
+        ));
         assert!(RULES_DEDICATED.contains("Public `ctx_search` modes: `regex`, `semantic`."));
         assert!(RULES_DEDICATED.contains("ctx(domain=\"memory\""));
         assert!(RULES_DEDICATED.contains("only the 5 public tools"));
@@ -686,12 +691,15 @@ mod tests {
         let lines: Vec<&str> = RULES_DEDICATED.lines().collect();
         let first_5 = lines[..5.min(lines.len())].join("\n");
         assert!(
-            first_5.contains("ALWAYS") || first_5.contains("nebu-ctx") || first_5.contains("lean-ctx"),
+            first_5.contains("ALWAYS")
+                || first_5.contains("nebu-ctx")
+                || first_5.contains("lean-ctx"),
             "LITM: preference instruction must be near start"
         );
         let last_5 = lines[lines.len().saturating_sub(5)..].join("\n");
         assert!(
-            last_5.contains("fallback") || last_5.contains("ctx(domain=\"context\", action=\"compress\")"),
+            last_5.contains("fallback")
+                || last_5.contains("ctx(domain=\"context\", action=\"compress\")"),
             "LITM: practical note must be near end"
         );
     }

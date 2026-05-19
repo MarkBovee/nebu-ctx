@@ -30,7 +30,10 @@ fn sync_status_json_reports_outbox_items() {
 
     let home_str = home.to_string_lossy().to_string();
     let data_str = data_dir.to_string_lossy().to_string();
-    let envs = [("HOME", home_str.as_str()), ("NEBU_CTX_DATA_DIR", data_str.as_str())];
+    let envs = [
+        ("HOME", home_str.as_str()),
+        ("NEBU_CTX_DATA_DIR", data_str.as_str()),
+    ];
     std::env::set_var("NEBU_CTX_DATA_DIR", data_str.as_str());
 
     nebu_ctx::core::sync_outbox::enqueue(
@@ -50,10 +53,9 @@ fn sync_status_json_reports_outbox_items() {
 
 #[test]
 fn setup_ci_smoke_install_docs_prefer_binstall_with_cargo_install_fallback() {
-    let client_readme = std::fs::read_to_string(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("README.md"),
-    )
-    .expect("read client README");
+    let client_readme =
+        std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("README.md"))
+            .expect("read client README");
     let root_readme = std::fs::read_to_string(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../README.md"),
     )
@@ -71,8 +73,16 @@ fn setup_ci_smoke_install_docs_prefer_binstall_with_cargo_install_fallback() {
         }
     }
 
-    let client_install = install_section(client_readme.as_str(), "## Install", Some("## Local install from source"));
-    let root_install = install_section(root_readme.as_str(), "## Install And Run", Some("### 2. Start the host"));
+    let client_install = install_section(
+        client_readme.as_str(),
+        "## Install",
+        Some("## Local install from source"),
+    );
+    let root_install = install_section(
+        root_readme.as_str(),
+        "## Install And Run",
+        Some("### 2. Start the host"),
+    );
 
     for (name, readme) in [("client", client_install), ("root", root_install)] {
         assert!(
@@ -112,10 +122,9 @@ fn setup_ci_smoke_install_docs_prefer_binstall_with_cargo_install_fallback() {
 
 #[test]
 fn setup_ci_smoke_windows_packaging_docs_still_mention_user_facing_promise() {
-    let client_readme = std::fs::read_to_string(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("README.md"),
-    )
-    .expect("read client README");
+    let client_readme =
+        std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("README.md"))
+            .expect("read client README");
     let root_readme = std::fs::read_to_string(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../README.md"),
     )

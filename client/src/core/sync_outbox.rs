@@ -54,13 +54,16 @@ pub fn load_entries() -> Result<Vec<OutboxEntry>, String> {
         }
 
         let data = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-        let entry = serde_json::from_str::<OutboxEntry>(&data).map_err(|e| {
-            format!("failed to parse outbox entry {}: {e}", path.display())
-        })?;
+        let entry = serde_json::from_str::<OutboxEntry>(&data)
+            .map_err(|e| format!("failed to parse outbox entry {}: {e}", path.display()))?;
         entries.push(entry);
     }
 
-    entries.sort_by(|a, b| a.created_at.cmp(&b.created_at).then_with(|| a.id.cmp(&b.id)));
+    entries.sort_by(|a, b| {
+        a.created_at
+            .cmp(&b.created_at)
+            .then_with(|| a.id.cmp(&b.id))
+    });
     Ok(entries)
 }
 
@@ -118,7 +121,11 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         std::env::set_var("NEBU_CTX_DATA_DIR", tmp.path());
 
-        enqueue(OutboxOperationKind::TelemetryIngest, serde_json::json!({"tool":"ctx_read"})).unwrap();
+        enqueue(
+            OutboxOperationKind::TelemetryIngest,
+            serde_json::json!({"tool":"ctx_read"}),
+        )
+        .unwrap();
         let entries = load_entries().unwrap();
 
         assert_eq!(entries.len(), 1);
@@ -132,11 +139,23 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         std::env::set_var("NEBU_CTX_DATA_DIR", tmp.path());
 
-        let id = enqueue(OutboxOperationKind::ServerToolCall, serde_json::json!({"name":"ctx_brain"})).unwrap();
-        let entry = load_entries().unwrap().into_iter().find(|item| item.id == id).unwrap();
+        let id = enqueue(
+            OutboxOperationKind::ServerToolCall,
+            serde_json::json!({"name":"ctx_brain"}),
+        )
+        .unwrap();
+        let entry = load_entries()
+            .unwrap()
+            .into_iter()
+            .find(|item| item.id == id)
+            .unwrap();
         mark_failed(&entry, "offline").unwrap();
 
-        let updated = load_entries().unwrap().into_iter().find(|item| item.id == id).unwrap();
+        let updated = load_entries()
+            .unwrap()
+            .into_iter()
+            .find(|item| item.id == id)
+            .unwrap();
         assert_eq!(updated.attempts, 1);
         assert_eq!(updated.last_error.as_deref(), Some("offline"));
     }

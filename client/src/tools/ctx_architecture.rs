@@ -62,8 +62,14 @@ fn load_graph_data(provider: &GraphProvider) -> Result<GraphData, String> {
 
                 all_files.insert(edge.from.clone());
                 all_files.insert(edge.to.clone());
-                forward.entry(edge.from.clone()).or_default().push(edge.to.clone());
-                reverse.entry(edge.to.clone()).or_default().push(edge.from.clone());
+                forward
+                    .entry(edge.from.clone())
+                    .or_default()
+                    .push(edge.to.clone());
+                reverse
+                    .entry(edge.to.clone())
+                    .or_default()
+                    .push(edge.from.clone());
             }
         }
         #[cfg(feature = "property-graph")]
@@ -108,7 +114,9 @@ fn load_graph_data(provider: &GraphProvider) -> Result<GraphData, String> {
     }
 
     if all_files.is_empty() {
-        return Err("Graph is empty after auto-build. No supported source files found.".to_string());
+        return Err(
+            "Graph is empty after auto-build. No supported source files found.".to_string(),
+        );
     }
 
     Ok(GraphData {
@@ -119,8 +127,9 @@ fn load_graph_data(provider: &GraphProvider) -> Result<GraphData, String> {
 }
 
 fn open_graph(root: &str) -> Result<graph_provider::OpenGraphProvider, String> {
-    graph_provider::open_best_effort(root)
-        .ok_or_else(|| "Graph is empty after auto-build. No supported source files found.".to_string())
+    graph_provider::open_best_effort(root).ok_or_else(|| {
+        "Graph is empty after auto-build. No supported source files found.".to_string()
+    })
 }
 
 fn handle_overview(root: &str) -> String {
@@ -160,7 +169,11 @@ fn handle_overview(root: &str) -> String {
 
     result.push_str(&format!("\nLayers: {}\n", layers.len()));
     for layer in &layers {
-        result.push_str(&format!("  L{}: {} files\n", layer.depth, layer.files.len()));
+        result.push_str(&format!(
+            "  L{}: {} files\n",
+            layer.depth,
+            layer.files.len()
+        ));
     }
 
     result.push_str(&format!("\nEntrypoints: {}\n", entrypoints.len()));
@@ -229,7 +242,11 @@ fn handle_layers(root: &str) -> String {
     let mut result = format!("Dependency Layers ({}):\n", layers.len());
 
     for layer in &layers {
-        result.push_str(&format!("\nLayer {} ({} files):\n", layer.depth, layer.files.len()));
+        result.push_str(&format!(
+            "\nLayer {} ({} files):\n",
+            layer.depth,
+            layer.files.len()
+        ));
         for file in layer.files.iter().take(20) {
             result.push_str(&format!("  {file}\n"));
         }
@@ -381,7 +398,10 @@ fn handle_module(path: Option<&str>, root: &str) -> String {
     }
 
     if !external_imports.is_empty() {
-        result.push_str(&format!("\nExternal imports ({}):\n", external_imports.len()));
+        result.push_str(&format!(
+            "\nExternal imports ({}):\n",
+            external_imports.len()
+        ));
         for imp in external_imports.iter().take(15) {
             result.push_str(&format!("  {imp}\n"));
         }
@@ -452,7 +472,12 @@ fn compute_layers(data: &GraphData) -> Vec<Layer> {
     let leaf_files: HashSet<&String> = data
         .all_files
         .iter()
-        .filter(|f| data.forward.get(*f).map(|deps| deps.is_empty()).unwrap_or(true))
+        .filter(|f| {
+            data.forward
+                .get(*f)
+                .map(|deps| deps.is_empty())
+                .unwrap_or(true)
+        })
         .collect();
 
     let mut depth_map: HashMap<String, usize> = HashMap::new();

@@ -195,6 +195,10 @@ public sealed class TelemetryIngestRequest
     /// <summary>Suggested project slug for new project auto-creation.</summary>
     [JsonPropertyName("project_slug")]
     public string? ProjectSlug { get; set; }
+
+    /// <summary>Optional sanitized command preview for shell and hook telemetry.</summary>
+    [JsonPropertyName("command_preview")]
+    public string? CommandPreview { get; set; }
 }
 
 /// <summary>

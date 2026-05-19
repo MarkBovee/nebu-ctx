@@ -6,7 +6,7 @@ using System.Text.Json;
 
 /// <summary>
 /// Tool handler for ctx_knowledge — project-scoped categorized knowledge store.
-/// Actions: remember, recall, status, remove, categories, consolidate, promote.
+/// Actions: remember, recall, status, remove, categories, consolidate, promote, upkeep, wakeup, triage.
 /// </summary>
 public sealed class KnowledgeToolHandler : IToolHandler
 {
@@ -25,7 +25,7 @@ public sealed class KnowledgeToolHandler : IToolHandler
     public string Name => "ctx_knowledge";
 
     /// <inheritdoc />
-    public string Description => "Project-scoped categorized knowledge store. Actions: remember, recall, status, remove, categories, consolidate, promote.";
+    public string Description => "Project-scoped categorized knowledge store. Actions: remember, recall, status, remove, categories, consolidate, promote, upkeep, wakeup, triage.";
 
     /// <inheritdoc />
     public Dictionary<string, object?> InputSchema => new()
@@ -36,8 +36,13 @@ public sealed class KnowledgeToolHandler : IToolHandler
             ["action"] = new Dictionary<string, object?>
             {
                 ["type"] = "string",
-                ["description"] = "Action: remember, recall, status, remove, categories, consolidate, promote",
-                ["enum"] = new[] { "remember", "recall", "status", "remove", "categories", "consolidate", "promote" },
+                ["description"] = "Action: remember, recall, status, remove, categories, consolidate, promote, upkeep, wakeup, triage",
+                ["enum"] = new[] { "remember", "recall", "status", "remove", "categories", "consolidate", "promote", "upkeep", "wakeup", "triage" },
+            },
+            ["mode"] = new Dictionary<string, object?>
+            {
+                ["type"] = "string",
+                ["description"] = "Optional execution mode for triage actions: preview or apply.",
             },
             ["category"] = new Dictionary<string, object?>
             {
@@ -82,6 +87,8 @@ public sealed class KnowledgeToolHandler : IToolHandler
                         ["key"] = new Dictionary<string, object?> { ["type"] = "string" },
                         ["value"] = new Dictionary<string, object?> { ["type"] = "string" },
                         ["confidence"] = new Dictionary<string, object?> { ["type"] = "number" },
+                        ["source_type"] = new Dictionary<string, object?> { ["type"] = "string" },
+                        ["source_scope"] = new Dictionary<string, object?> { ["type"] = "string" },
                     },
                 },
             },
@@ -103,7 +110,10 @@ public sealed class KnowledgeToolHandler : IToolHandler
             "categories" => await ExecuteCategoriesAsync(context, cancellationToken),
             "consolidate" => await _knowledgeService.ConsolidateAsync(context.ProjectId, cancellationToken),
             "promote"     => await ExecutePromoteAsync(arguments, context, cancellationToken),
-            _             => throw new ArgumentException($"Unknown knowledge action: '{action}'. Use: remember, recall, status, remove, categories, consolidate, promote"),
+            "upkeep"      => await _knowledgeService.UpkeepAsync(context.ProjectId, cancellationToken),
+            "wakeup"      => await _knowledgeService.BuildWakeupAsync(context.ProjectId, cancellationToken),
+            "triage"      => await ExecuteTriageAsync(arguments, context, cancellationToken),
+            _             => throw new ArgumentException($"Unknown knowledge action: '{action}'. Use: remember, recall, status, remove, categories, consolidate, promote, upkeep, wakeup, triage"),
         };
     }
 
@@ -117,7 +127,13 @@ public sealed class KnowledgeToolHandler : IToolHandler
         var value      = GetStringArg(arguments, "value")    ?? throw new ArgumentException("'value' is required for remember.");
         var confidence = GetFloatArg(arguments, "confidence") ?? 1.0f;
 
-        await _knowledgeService.RememberAsync(context.ProjectId, category, key, value, confidence, cancellationToken);
+        await _knowledgeService.RememberAsync(
+            context.ProjectId,
+            category,
+            key,
+            value,
+            confidence,
+            cancellationToken: cancellationToken);
         return new { remembered = true, category, key, confidence };
     }
 
@@ -134,7 +150,25 @@ public sealed class KnowledgeToolHandler : IToolHandler
         return new
         {
             count = entries.Count,
-            entries = entries.Select(e => new { e.Category, e.Key, e.Value, e.Confidence, updated_at = e.UpdatedAt }),
+            entries = entries.Select(e => new
+            {
+                e.Category,
+                e.Key,
+                e.Value,
+                e.Confidence,
+                created_at = e.CreatedAt,
+                updated_at = e.UpdatedAt,
+                logical_key = e.LogicalKey,
+                promotion_identity = e.PromotionIdentity,
+                source_type = e.SourceType,
+                source_scope = e.SourceScope,
+                lifecycle_status = e.LifecycleStatus,
+                lifecycle_score = e.LifecycleScore,
+                confirmation_count = e.ConfirmationCount,
+                last_confirmed_at = e.LastConfirmedAt,
+                retrieval_count = e.RetrievalCount,
+                last_retrieved_at = e.LastRetrievedAt,
+            }),
         };
     }
 
@@ -171,6 +205,16 @@ public sealed class KnowledgeToolHandler : IToolHandler
         arguments.TryGetValue("items", out var rawItems);
         var items = KnowledgeService.ParsePromotionItems(rawItems);
         return await _knowledgeService.PromoteAsync(context.ProjectId, items, cancellationToken);
+    }
+
+    /// <summary>
+    /// Previews or applies hosted memory triage for a project.
+    /// </summary>
+    private async Task<object> ExecuteTriageAsync(Dictionary<string, object?> arguments, ToolExecutionContext context, CancellationToken cancellationToken)
+    {
+        var mode = GetStringArg(arguments, "mode");
+        var apply = string.Equals(mode, "apply", StringComparison.OrdinalIgnoreCase);
+        return await _knowledgeService.TriageAsync(context.ProjectId, apply, cancellationToken);
     }
 
     /// <summary>Extracts a string argument.</summary>

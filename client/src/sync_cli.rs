@@ -45,7 +45,10 @@ pub fn run_cli(args: &[String]) -> i32 {
             let before = build_outbox_status();
             let attempted = crate::core::telemetry_queue::flush_pending();
             let after = build_outbox_status();
-            print_report(build_status_report("flush", attempted, Some((before, after))), json)
+            print_report(
+                build_status_report("flush", attempted, Some((before, after))),
+                json,
+            )
         }
         _ => {
             eprintln!("Unknown sync action: {action}");
@@ -60,18 +63,27 @@ pub fn build_outbox_status() -> SyncOutboxStatus {
     match crate::core::sync_outbox::load_entries() {
         Ok(entries) => SyncOutboxStatus {
             queued: entries.len(),
-            failed: entries.iter().filter(|entry| entry.last_error.is_some()).count(),
+            failed: entries
+                .iter()
+                .filter(|entry| entry.last_error.is_some())
+                .count(),
             telemetry: entries
                 .iter()
-                .filter(|entry| entry.kind == crate::core::sync_outbox::OutboxOperationKind::TelemetryIngest)
+                .filter(|entry| {
+                    entry.kind == crate::core::sync_outbox::OutboxOperationKind::TelemetryIngest
+                })
                 .count(),
             server_tool_calls: entries
                 .iter()
-                .filter(|entry| entry.kind == crate::core::sync_outbox::OutboxOperationKind::ServerToolCall)
+                .filter(|entry| {
+                    entry.kind == crate::core::sync_outbox::OutboxOperationKind::ServerToolCall
+                })
                 .count(),
             code_index_syncs: entries
                 .iter()
-                .filter(|entry| entry.kind == crate::core::sync_outbox::OutboxOperationKind::CodeIndexSync)
+                .filter(|entry| {
+                    entry.kind == crate::core::sync_outbox::OutboxOperationKind::CodeIndexSync
+                })
                 .count(),
             path: path.to_string_lossy().to_string(),
             readable: true,
@@ -116,7 +128,10 @@ fn build_status_report(
 
 fn print_report(report: SyncReport, json: bool) -> i32 {
     if json {
-        println!("{}", serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".to_string()));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".to_string())
+        );
     } else {
         print_human(&report);
     }

@@ -224,30 +224,42 @@ fn fire_sync_index(project_root: &str, idx: &ProjectIndex) {
 
     let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));
 
-    let files: Vec<IndexSyncFile> = idx.files.values().map(|f| IndexSyncFile {
-        path: f.path.clone(),
-        hash: f.hash.clone(),
-        language: f.language.clone(),
-        line_count: f.line_count,
-        token_count: f.token_count,
-        exports: f.exports.clone(),
-        summary: f.summary.clone(),
-    }).collect();
+    let files: Vec<IndexSyncFile> = idx
+        .files
+        .values()
+        .map(|f| IndexSyncFile {
+            path: f.path.clone(),
+            hash: f.hash.clone(),
+            language: f.language.clone(),
+            line_count: f.line_count,
+            token_count: f.token_count,
+            exports: f.exports.clone(),
+            summary: f.summary.clone(),
+        })
+        .collect();
 
-    let symbols: Vec<IndexSyncSymbol> = idx.symbols.values().map(|s| IndexSyncSymbol {
-        file_path: s.file.clone(),
-        name: s.name.clone(),
-        kind: s.kind.clone(),
-        start_line: s.start_line,
-        end_line: s.end_line,
-        is_exported: s.is_exported,
-    }).collect();
+    let symbols: Vec<IndexSyncSymbol> = idx
+        .symbols
+        .values()
+        .map(|s| IndexSyncSymbol {
+            file_path: s.file.clone(),
+            name: s.name.clone(),
+            kind: s.kind.clone(),
+            start_line: s.start_line,
+            end_line: s.end_line,
+            is_exported: s.is_exported,
+        })
+        .collect();
 
-    let edges: Vec<IndexSyncEdge> = idx.edges.iter().map(|e| IndexSyncEdge {
-        from_symbol: e.from.clone(),
-        to_symbol: e.to.clone(),
-        kind: e.kind.clone(),
-    }).collect();
+    let edges: Vec<IndexSyncEdge> = idx
+        .edges
+        .iter()
+        .map(|e| IndexSyncEdge {
+            from_symbol: e.from.clone(),
+            to_symbol: e.to.clone(),
+            kind: e.kind.clone(),
+        })
+        .collect();
 
     let _ = crate::server_client::queue_or_sync_index(&ctx, files, symbols, edges);
 }

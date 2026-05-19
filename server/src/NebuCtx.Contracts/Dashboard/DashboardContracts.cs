@@ -560,6 +560,24 @@ public sealed class ProjectMemoryResponse
     /// </summary>
     [JsonPropertyName("brain")]
     public required IReadOnlyList<ProjectBrainEntryResponse> Brain { get; set; }
+
+    /// <summary>
+    /// Lifecycle summary for the project's canonical memory.
+    /// </summary>
+    [JsonPropertyName("health")]
+    public ProjectMemoryHealthResponse? Health { get; set; }
+
+    /// <summary>
+    /// Latest triage preview for the project's canonical memory.
+    /// </summary>
+    [JsonPropertyName("triage")]
+    public ProjectMemoryTriageResponse? Triage { get; set; }
+
+    /// <summary>
+    /// Current bounded wake-up composition for the project.
+    /// </summary>
+    [JsonPropertyName("wakeup")]
+    public IReadOnlyList<ProjectMemoryWakeupEntryResponse> Wakeup { get; set; } = [];
 }
 
 /// <summary>
@@ -596,6 +614,198 @@ public sealed class ProjectKnowledgeFactResponse
     /// </summary>
     [JsonPropertyName("updated_at")]
     public DateTimeOffset UpdatedAt { get; set; }
+
+    /// <summary>
+    /// When the fact was first created.
+    /// </summary>
+    [JsonPropertyName("created_at")]
+    public DateTimeOffset CreatedAt { get; set; }
+
+    /// <summary>
+    /// Stable logical key used for deterministic identity.
+    /// </summary>
+    [JsonPropertyName("logical_key")]
+    public string LogicalKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Stable deterministic promotion identity.
+    /// </summary>
+    [JsonPropertyName("promotion_identity")]
+    public string PromotionIdentity { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Source type that produced the fact.
+    /// </summary>
+    [JsonPropertyName("source_type")]
+    public string SourceType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Source scope for deterministic replay identity.
+    /// </summary>
+    [JsonPropertyName("source_scope")]
+    public string SourceScope { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Lifecycle status for the canonical fact.
+    /// </summary>
+    [JsonPropertyName("lifecycle_status")]
+    public string LifecycleStatus { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Lifecycle score used for ranking and wake-up selection.
+    /// </summary>
+    [JsonPropertyName("lifecycle_score")]
+    public float LifecycleScore { get; set; }
+
+    /// <summary>
+    /// Number of explicit confirmations retained for the fact.
+    /// </summary>
+    [JsonPropertyName("confirmation_count")]
+    public int ConfirmationCount { get; set; }
+
+    /// <summary>
+    /// When the fact was last explicitly confirmed.
+    /// </summary>
+    [JsonPropertyName("last_confirmed_at")]
+    public DateTimeOffset? LastConfirmedAt { get; set; }
+
+    /// <summary>
+    /// Number of times the fact has been retrieved.
+    /// </summary>
+    [JsonPropertyName("retrieval_count")]
+    public int RetrievalCount { get; set; }
+
+    /// <summary>
+    /// When the fact was last retrieved.
+    /// </summary>
+    [JsonPropertyName("last_retrieved_at")]
+    public DateTimeOffset? LastRetrievedAt { get; set; }
+
+    /// <summary>
+    /// Historical revisions retained after canonical updates.
+    /// </summary>
+    [JsonPropertyName("history")]
+    public IReadOnlyList<ProjectKnowledgeHistoryResponse> History { get; set; } = [];
+}
+
+/// <summary>
+/// Lifecycle summary for a project's canonical memory.
+/// </summary>
+public sealed class ProjectMemoryHealthResponse
+{
+    /// <summary>Total persisted knowledge entries.</summary>
+    [JsonPropertyName("total_facts")]
+    public int TotalFacts { get; set; }
+
+    /// <summary>Current canonical facts that remain active.</summary>
+    [JsonPropertyName("current_facts")]
+    public int CurrentFacts { get; set; }
+
+    /// <summary>Facts marked stale, superseded, or otherwise non-current.</summary>
+    [JsonPropertyName("non_current_facts")]
+    public int NonCurrentFacts { get; set; }
+
+    /// <summary>Historical revisions retained across facts.</summary>
+    [JsonPropertyName("history_entries")]
+    public int HistoryEntries { get; set; }
+
+    /// <summary>Average lifecycle score across current facts.</summary>
+    [JsonPropertyName("average_lifecycle_score")]
+    public float AverageLifecycleScore { get; set; }
+
+    /// <summary>The latest maintenance-related update time.</summary>
+    [JsonPropertyName("last_maintenance_at")]
+    public DateTimeOffset? LastMaintenanceAt { get; set; }
+
+    /// <summary>Memory density score derived from current facts and retained history.</summary>
+    [JsonPropertyName("density_score")]
+    public float DensityScore { get; set; }
+
+    /// <summary>Maintenance summary string for operator display.</summary>
+    [JsonPropertyName("maintenance_summary")]
+    public string MaintenanceSummary { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Dashboard view model for a historical knowledge revision.
+/// </summary>
+public sealed class ProjectKnowledgeHistoryResponse
+{
+    /// <summary>Historical fact value.</summary>
+    [JsonPropertyName("value")]
+    public string Value { get; set; } = string.Empty;
+
+    /// <summary>Confidence when the revision was current.</summary>
+    [JsonPropertyName("confidence")]
+    public float Confidence { get; set; }
+
+    /// <summary>Promotion identity for the historical revision.</summary>
+    [JsonPropertyName("promotion_identity")]
+    public string PromotionIdentity { get; set; } = string.Empty;
+
+    /// <summary>Source type for the historical revision.</summary>
+    [JsonPropertyName("source_type")]
+    public string SourceType { get; set; } = string.Empty;
+
+    /// <summary>Source scope for the historical revision.</summary>
+    [JsonPropertyName("source_scope")]
+    public string SourceScope { get; set; } = string.Empty;
+
+    /// <summary>When the revision became current.</summary>
+    [JsonPropertyName("valid_from")]
+    public DateTimeOffset? ValidFrom { get; set; }
+
+    /// <summary>When the revision stopped being current.</summary>
+    [JsonPropertyName("superseded_at")]
+    public DateTimeOffset SupersededAt { get; set; }
+}
+
+/// <summary>
+/// Dashboard view model for hosted memory triage summaries.
+/// </summary>
+public sealed class ProjectMemoryTriageResponse
+{
+    /// <summary>Triage execution mode.</summary>
+    [JsonPropertyName("mode")]
+    public string Mode { get; set; } = "preview";
+
+    /// <summary>Duplicate groups proposed by triage.</summary>
+    [JsonPropertyName("duplicate_groups")]
+    public IReadOnlyList<object> DuplicateGroups { get; set; } = [];
+
+    /// <summary>Stale cleanup candidates.</summary>
+    [JsonPropertyName("stale_candidates")]
+    public IReadOnlyList<object> StaleCandidates { get; set; } = [];
+
+    /// <summary>Likely junk or demo cleanup candidates.</summary>
+    [JsonPropertyName("junk_candidates")]
+    public IReadOnlyList<object> JunkCandidates { get; set; } = [];
+
+    /// <summary>Applied triage actions, when triage ran in apply mode.</summary>
+    [JsonPropertyName("applied_actions")]
+    public IReadOnlyList<object> AppliedActions { get; set; } = [];
+}
+
+/// <summary>
+/// Dashboard view model for a bounded wake-up entry.
+/// </summary>
+public sealed class ProjectMemoryWakeupEntryResponse
+{
+    /// <summary>Fact category.</summary>
+    [JsonPropertyName("category")]
+    public string Category { get; set; } = string.Empty;
+
+    /// <summary>Fact key.</summary>
+    [JsonPropertyName("key")]
+    public string Key { get; set; } = string.Empty;
+
+    /// <summary>Fact value.</summary>
+    [JsonPropertyName("value")]
+    public string Value { get; set; } = string.Empty;
+
+    /// <summary>Lifecycle score used for wake-up ranking.</summary>
+    [JsonPropertyName("lifecycle_score")]
+    public float LifecycleScore { get; set; }
 }
 
 /// <summary>

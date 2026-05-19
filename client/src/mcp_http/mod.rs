@@ -248,10 +248,7 @@ struct ToolsQuery {
 
 async fn v1_tools(State(state): State<AppState>, Query(q): Query<ToolsQuery>) -> impl IntoResponse {
     let v = state.engine.manifest();
-    let tools = v
-        .get("tools")
-        .cloned()
-        .unwrap_or(Value::Array(vec![]));
+    let tools = v.get("tools").cloned().unwrap_or(Value::Array(vec![]));
 
     let all = tools.as_array().cloned().unwrap_or_default();
     let total = all.len();

@@ -43,9 +43,9 @@ public sealed class PostgresTelemetryStore
         await using var cmd = new NpgsqlCommand(
             """
             INSERT INTO telemetry_events
-                (occurred_at, event_type, tool_name, mode, project_id, actor_label, path, tokens_original, tokens_output, tokens_saved)
+                (occurred_at, event_type, tool_name, mode, project_id, actor_label, path, command_preview, tokens_original, tokens_output, tokens_saved)
             VALUES
-                (@occurred_at, @event_type, @tool_name, @mode, @project_id, @actor_label, @path, @tokens_original, @tokens_output, @tokens_saved)
+                (@occurred_at, @event_type, @tool_name, @mode, @project_id, @actor_label, @path, @command_preview, @tokens_original, @tokens_output, @tokens_saved)
             """,
             conn);
 
@@ -56,6 +56,7 @@ public sealed class PostgresTelemetryStore
         cmd.Parameters.AddWithValue("project_id", evt.ProjectId);
         cmd.Parameters.AddWithValue("actor_label", evt.ActorLabel);
         cmd.Parameters.Add(new NpgsqlParameter("path", NpgsqlDbType.Text) { Value = (object?)evt.Path ?? DBNull.Value });
+        cmd.Parameters.Add(new NpgsqlParameter("command_preview", NpgsqlDbType.Text) { Value = (object?)evt.CommandPreview ?? DBNull.Value });
         cmd.Parameters.AddWithValue("tokens_original", evt.TokensOriginal);
         cmd.Parameters.AddWithValue("tokens_output", evt.TokensOutput);
         cmd.Parameters.AddWithValue("tokens_saved", evt.TokensSaved);
@@ -78,7 +79,7 @@ public sealed class PostgresTelemetryStore
         await using var cmd = new NpgsqlCommand(
             $"""
             SELECT occurred_at, event_type, tool_name, mode, project_id, actor_label, path,
-                   tokens_original, tokens_output, tokens_saved
+                   command_preview, tokens_original, tokens_output, tokens_saved
             FROM (
                 SELECT * FROM telemetry_events ORDER BY occurred_at DESC LIMIT {HydrationLimit}
             ) recent
@@ -100,9 +101,10 @@ public sealed class PostgresTelemetryStore
                 ProjectId = reader.GetString(4),
                 ActorLabel = reader.GetString(5),
                 Path = reader.IsDBNull(6) ? null : reader.GetString(6),
-                TokensOriginal = reader.GetInt64(7),
-                TokensOutput = reader.GetInt64(8),
-                TokensSaved = reader.GetInt64(9),
+                CommandPreview = reader.IsDBNull(7) ? null : reader.GetString(7),
+                TokensOriginal = reader.GetInt64(8),
+                TokensOutput = reader.GetInt64(9),
+                TokensSaved = reader.GetInt64(10),
             });
         }
 

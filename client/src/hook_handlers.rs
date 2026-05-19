@@ -9,7 +9,9 @@ fn read_stdin_string() -> Option<String> {
 }
 
 fn extract_first_json_field(input: &str, fields: &[&str]) -> Option<String> {
-    fields.iter().find_map(|field| extract_json_field(input, field))
+    fields
+        .iter()
+        .find_map(|field| extract_json_field(input, field))
 }
 
 fn extract_command_from_hook_input(input: &str) -> Option<String> {
@@ -24,9 +26,29 @@ fn drain_sync_outbox() {
     let _ = crate::core::telemetry_queue::flush_pending();
 }
 
+fn fetch_hosted_wakeup_briefing(project_root: &str) -> Option<String> {
+    if project_root.is_empty() {
+        return None;
+    }
+
+    let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));
+    let client = crate::server_client::ServerClient::load().ok()?;
+    let mut args = serde_json::Map::new();
+    args.insert("action".to_string(), serde_json::json!("wakeup"));
+    let value = client.call_tool("ctx_knowledge", args, &ctx).ok()?;
+    let briefing = value.get("briefing")?.as_str()?.trim().to_string();
+    if briefing.is_empty() {
+        None
+    } else {
+        Some(briefing)
+    }
+}
+
 pub fn handle_rewrite() {
     let binary = resolve_binary();
-    let Some(input) = read_stdin_string() else { return };
+    let Some(input) = read_stdin_string() else {
+        return;
+    };
 
     let tool = extract_tool_name(&input);
     if !matches!(tool.as_deref(), Some("Bash" | "bash")) {
@@ -109,7 +131,9 @@ fn codex_reroute_message(rewritten: &str) -> String {
 
 pub fn handle_codex_pretooluse() {
     let binary = resolve_binary();
-    let Some(input) = read_stdin_string() else { return };
+    let Some(input) = read_stdin_string() else {
+        return;
+    };
 
     let tool = extract_tool_name(&input);
     if !matches!(tool.as_deref(), Some("Bash" | "bash")) {
@@ -138,7 +162,9 @@ pub fn handle_codex_session_start() {
 /// Tool names differ: "runInTerminal" / "editFile" instead of "Bash" / "Read".
 pub fn handle_copilot() {
     let binary = resolve_binary();
-    let Some(input) = read_stdin_string() else { return };
+    let Some(input) = read_stdin_string() else {
+        return;
+    };
 
     let tool = extract_tool_name(&input);
     let tool_name = match tool.as_deref() {
@@ -251,7 +277,10 @@ pub fn handle_pre_compact() {
 
     // Output the snapshot as additionalContext for Claude Code to inject after compact.
     if !xml.is_empty() {
-        let escaped = xml.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n");
+        let escaped = xml
+            .replace('\\', "\\\\")
+            .replace('"', "\\\"")
+            .replace('\n', "\\n");
         println!("{{\"additionalContext\":\"{escaped}\"}}");
     }
 }
@@ -265,10 +294,11 @@ pub fn handle_pre_compact() {
 ///
 /// Wired to Claude Code `SessionStart`.
 pub fn handle_session_start() {
-    let Some(input) = read_stdin_string() else { return };
+    let Some(input) = read_stdin_string() else {
+        return;
+    };
 
-    let source = extract_json_field(&input, "source")
-        .unwrap_or_else(|| "startup".to_string());
+    let source = extract_json_field(&input, "source").unwrap_or_else(|| "startup".to_string());
 
     let project_root = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
@@ -278,15 +308,26 @@ pub fn handle_session_start() {
         // After compact/resume: inject session state so agent picks up exactly where it left off.
         let snapshot = build_session_snapshot_xml(&project_root, &source);
         let routing = session_start_routing_block();
-        if snapshot.is_empty() { routing } else { format!("{routing}\n\n{snapshot}") }
+        if snapshot.is_empty() {
+            routing
+        } else {
+            format!("{routing}\n\n{snapshot}")
+        }
     } else {
         let snapshot = build_session_snapshot_xml(&project_root, &source);
         let routing = session_start_routing_block();
-        if snapshot.is_empty() { routing } else { format!("{routing}\n\n{snapshot}") }
+        if snapshot.is_empty() {
+            routing
+        } else {
+            format!("{routing}\n\n{snapshot}")
+        }
     };
 
     if !additional.is_empty() {
-        let escaped = additional.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n");
+        let escaped = additional
+            .replace('\\', "\\\\")
+            .replace('"', "\\\"")
+            .replace('\n', "\\n");
         println!("{{\"additionalContext\":\"{escaped}\"}}");
     }
 }
@@ -299,10 +340,11 @@ pub fn handle_session_start() {
 ///
 /// Wired to Claude Code `UserPromptSubmit`.
 pub fn handle_user_prompt_submit() {
-    let Some(input) = read_stdin_string() else { return };
+    let Some(input) = read_stdin_string() else {
+        return;
+    };
 
-    let prompt = extract_first_json_field(&input, &["prompt", "message"])
-        .unwrap_or_default();
+    let prompt = extract_first_json_field(&input, &["prompt", "message"]).unwrap_or_default();
 
     let trimmed = prompt.trim().to_string();
     if trimmed.is_empty() {
@@ -365,40 +407,76 @@ fn build_session_snapshot_xml(project_root: &str, source: &str) -> String {
     if let Some(ref s) = session {
         // P1: Current task (never truncated)
         if let Some(ref task) = s.task {
-            parts.push(format!("<current_task>{}</current_task>", xml_escape(&task.description)));
+            parts.push(format!(
+                "<current_task>{}</current_task>",
+                xml_escape(&task.description)
+            ));
         }
 
         // P2: Recent decisions (latest 5)
         let decisions: Vec<_> = s.decisions.iter().rev().take(5).collect();
         if !decisions.is_empty() {
-            let lines: Vec<String> = decisions.iter().map(|d| format!("- {}", xml_escape(&d.summary))).collect();
+            let lines: Vec<String> = decisions
+                .iter()
+                .map(|d| format!("- {}", xml_escape(&d.summary)))
+                .collect();
             parts.push(format!("<decisions>\n{}\n</decisions>", lines.join("\n")));
         }
 
         // P3: Files touched (modified only, latest 8)
-        let modified_files: Vec<_> = s.files_touched.iter().filter(|f| f.modified).rev().take(8).collect();
+        let modified_files: Vec<_> = s
+            .files_touched
+            .iter()
+            .filter(|f| f.modified)
+            .rev()
+            .take(8)
+            .collect();
         if !modified_files.is_empty() {
-            let lines: Vec<String> = modified_files.iter().map(|f| format!("- {}", xml_escape(&f.path))).collect();
-            parts.push(format!("<files_modified>\n{}\n</files_modified>", lines.join("\n")));
+            let lines: Vec<String> = modified_files
+                .iter()
+                .map(|f| format!("- {}", xml_escape(&f.path)))
+                .collect();
+            parts.push(format!(
+                "<files_modified>\n{}\n</files_modified>",
+                lines.join("\n")
+            ));
         }
 
         // P4: Next steps (latest 3)
         let next_steps: Vec<_> = s.next_steps.iter().rev().take(3).collect();
         if !next_steps.is_empty() {
-            let lines: Vec<String> = next_steps.iter().map(|ns| format!("- {}", xml_escape(ns))).collect();
+            let lines: Vec<String> = next_steps
+                .iter()
+                .map(|ns| format!("- {}", xml_escape(ns)))
+                .collect();
             parts.push(format!("<next_steps>\n{}\n</next_steps>", lines.join("\n")));
         }
     }
 
-    // P5: Key knowledge facts (latest 5 by category)
-    if !high_confidence_facts.is_empty() {
+    // P5: Key knowledge facts or hosted wake-up briefing.
+    if let Some(hosted) = fetch_hosted_wakeup_briefing(project_root) {
+        parts.push(format!(
+            "<knowledge>\n{}\n</knowledge>",
+            xml_escape(&hosted)
+        ));
+    } else if !high_confidence_facts.is_empty() {
         let facts_text: Vec<String> = high_confidence_facts
             .iter()
             .rev()
             .take(5)
-            .map(|f| format!("- [{}] {}: {}", xml_escape(&f.category), xml_escape(&f.key), xml_escape(&f.value)))
+            .map(|f| {
+                format!(
+                    "- [{}] {}: {}",
+                    xml_escape(&f.category),
+                    xml_escape(&f.key),
+                    xml_escape(&f.value)
+                )
+            })
             .collect();
-        parts.push(format!("<knowledge>\n{}\n</knowledge>", facts_text.join("\n")));
+        parts.push(format!(
+            "<knowledge>\n{}\n</knowledge>",
+            facts_text.join("\n")
+        ));
     }
 
     if parts.is_empty() {
@@ -406,11 +484,17 @@ fn build_session_snapshot_xml(project_root: &str, source: &str) -> String {
     }
 
     // Enforce ≤2KB (≈500 tokens) budget: truncate parts from the end if over limit.
-    let mut xml = format!("<session_state source=\"{source}\">\n\n{}\n\n</session_state>", parts.join("\n\n"));
+    let mut xml = format!(
+        "<session_state source=\"{source}\">\n\n{}\n\n</session_state>",
+        parts.join("\n\n")
+    );
     if xml.len() > 2048 {
         while xml.len() > 2048 && parts.len() > 1 {
             parts.pop();
-            xml = format!("<session_state source=\"{source}\">\n\n{}\n\n</session_state>", parts.join("\n\n"));
+            xml = format!(
+                "<session_state source=\"{source}\">\n\n{}\n\n</session_state>",
+                parts.join("\n\n")
+            );
         }
     }
 
@@ -426,7 +510,8 @@ fn session_start_routing_block() -> String {
   - ctx_batch_execute for multi-step research (one call replaces many)
   - Bash only for: git, mkdir, rm, mv, navigation
   Skills, roles, and decisions from this session remain active until revoked.
-</context_window_protection>"#.to_string()
+</context_window_protection>"#
+        .to_string()
 }
 
 /// Escapes characters that are not safe inside XML text nodes.
@@ -438,20 +523,9 @@ fn xml_escape(s: &str) -> String {
 }
 
 /// Forwards the current knowledge facts for the project to the configured server
-/// via `ctx_knowledge(action="remember")` for each current, high-confidence fact.
+/// via a deterministic `ctx_knowledge(action="promote")` batch.
 fn post_promoted_facts_to_server(project_root: &str) {
-    let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));
-    let knowledge = crate::core::knowledge::ProjectKnowledge::load_or_create(project_root);
-
-    for fact in knowledge.facts.iter().filter(|f| f.is_current() && f.confidence >= 0.7) {
-        let mut args = serde_json::Map::new();
-        args.insert("action".to_string(), serde_json::json!("remember"));
-        args.insert("category".to_string(), serde_json::json!(fact.category));
-        args.insert("key".to_string(), serde_json::json!(fact.key));
-        args.insert("value".to_string(), serde_json::json!(fact.value));
-        args.insert("confidence".to_string(), serde_json::json!(fact.confidence));
-        let _ = crate::server_client::queue_or_call_tool("ctx_knowledge", args, &ctx);
-    }
+    crate::server_client::post_knowledge_to_server(project_root);
 }
 
 /// PostToolUse telemetry handler: reads the hook event JSON from stdin,
@@ -459,10 +533,11 @@ fn post_promoted_facts_to_server(project_root: &str) {
 /// event to the server. Wired to Claude Code `PostToolUse` and Copilot
 /// CLI `postToolUse`.
 pub fn handle_post_tool_use() {
-    let Some(input) = read_stdin_string() else { return };
+    let Some(input) = read_stdin_string() else {
+        return;
+    };
 
-    let tool_name = extract_tool_name(&input)
-        .unwrap_or_else(|| "unknown".to_string());
+    let tool_name = extract_tool_name(&input).unwrap_or_else(|| "unknown".to_string());
 
     // Prefer Claude Code's nested usage.{input,output}_tokens; fall back to
     // byte-length proxy when those fields are absent.
@@ -492,15 +567,32 @@ pub fn handle_post_tool_use() {
             (bytes / 4) as i64
         });
 
+    let command_preview = extract_command_from_hook_input(&input)
+        .and_then(|command| crate::core::sanitize::telemetry_command_preview(&command));
+    let project_context = std::env::current_dir()
+        .ok()
+        .map(|dir| crate::git_context::discover_project_context(&dir));
+
     crate::core::telemetry_queue::fire_sync(crate::models::TelemetryIngestRequest {
         tool_name: crate::core::stats::normalize_command(&tool_name),
         tokens_original: tokens_in + tokens_out,
         tokens_saved: 0,
         duration_ms: 0,
         mode: Some("hook".to_string()),
-        repository_fingerprint: None,
-        checkout_binding: None,
-        project_slug: None,
+        repository_fingerprint: project_context.as_ref().and_then(|context| {
+            context
+                .fingerprint
+                .has_safe_identity()
+                .then(|| context.fingerprint.clone())
+        }),
+        checkout_binding: project_context
+            .as_ref()
+            .map(|context| context.checkout_binding.clone()),
+        project_slug: project_context
+            .as_ref()
+            .map(|context| context.project_slug.clone())
+            .filter(|slug| !slug.is_empty()),
+        command_preview,
     });
 }
 
@@ -819,5 +911,78 @@ mod tests {
             r,
             "lean-ctx -c 'find . -not -path ./node_modules -not -path ./.git -not -path ./dist'"
         );
+    }
+
+    #[test]
+    fn hook_telemetry_serializes_project_context() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let temp = tempfile::tempdir().unwrap();
+        let original_dir = std::env::current_dir().unwrap();
+        let previous_hostname = std::env::var_os("HOSTNAME");
+        let previous_computername = std::env::var_os("COMPUTERNAME");
+
+        std::env::set_var("HOSTNAME", "hook-test-host");
+        std::env::remove_var("COMPUTERNAME");
+        std::env::set_current_dir(temp.path()).unwrap();
+
+        let project_context = std::env::current_dir()
+            .ok()
+            .map(|dir| crate::git_context::discover_project_context(&dir))
+            .unwrap();
+        let request = crate::models::TelemetryIngestRequest {
+            tool_name: crate::core::stats::normalize_command("Bash"),
+            tokens_original: 12,
+            tokens_saved: 0,
+            duration_ms: 0,
+            mode: Some("hook".to_string()),
+            repository_fingerprint: project_context
+                .fingerprint
+                .has_safe_identity()
+                .then(|| project_context.fingerprint.clone()),
+            checkout_binding: Some(project_context.checkout_binding.clone()),
+            project_slug: Some(project_context.project_slug.clone())
+                .filter(|slug| !slug.is_empty()),
+            command_preview: crate::core::sanitize::telemetry_command_preview(
+                r#"dotnet test --filter "Category=Unit" -p:Token=abc"#,
+            ),
+        };
+
+        let payload = serde_json::to_value(request).unwrap();
+        let local_root = payload
+            .get("checkout_binding")
+            .and_then(|binding| binding.get("local_root"))
+            .and_then(|value| value.as_str())
+            .unwrap();
+        let client_label = payload
+            .get("checkout_binding")
+            .and_then(|binding| binding.get("client_label"))
+            .and_then(|value| value.as_str())
+            .unwrap();
+        let project_slug = payload
+            .get("project_slug")
+            .and_then(|value| value.as_str())
+            .unwrap();
+        let command_preview = payload
+            .get("command_preview")
+            .and_then(|value| value.as_str())
+            .unwrap();
+
+        assert_eq!(local_root, temp.path().to_string_lossy());
+        assert_eq!(client_label, "hook-test-host");
+        assert_eq!(project_slug, project_context.project_slug);
+        assert!(command_preview.starts_with("dotnet test --filter \"Category=Unit\""));
+        assert!(command_preview.contains("-p:Token=abc"));
+
+        std::env::set_current_dir(original_dir).unwrap();
+        if let Some(value) = previous_hostname {
+            std::env::set_var("HOSTNAME", value);
+        } else {
+            std::env::remove_var("HOSTNAME");
+        }
+        if let Some(value) = previous_computername {
+            std::env::set_var("COMPUTERNAME", value);
+        } else {
+            std::env::remove_var("COMPUTERNAME");
+        }
     }
 }

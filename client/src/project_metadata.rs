@@ -18,9 +18,12 @@ const MARKER_FILES: &[&str] = &[
 ];
 
 pub fn build_project_metadata(project_root: &Path) -> Result<ProjectMetadataEnvelope> {
-    let project_root = project_root
-        .canonicalize()
-        .with_context(|| format!("failed to canonicalize project root {}", project_root.display()))?;
+    let project_root = project_root.canonicalize().with_context(|| {
+        format!(
+            "failed to canonicalize project root {}",
+            project_root.display()
+        )
+    })?;
 
     let mut total_file_count = 0u64;
     let mut source_file_count = 0u64;
@@ -54,9 +57,17 @@ pub fn build_project_metadata(project_root: &Path) -> Result<ProjectMetadataEnve
 
     let mut languages = language_counts
         .into_iter()
-        .map(|(language, file_count)| ProjectLanguageStat { language, file_count })
+        .map(|(language, file_count)| ProjectLanguageStat {
+            language,
+            file_count,
+        })
         .collect::<Vec<_>>();
-    languages.sort_by(|left, right| right.file_count.cmp(&left.file_count).then_with(|| left.language.cmp(&right.language)));
+    languages.sort_by(|left, right| {
+        right
+            .file_count
+            .cmp(&left.file_count)
+            .then_with(|| left.language.cmp(&right.language))
+    });
     languages.truncate(8);
 
     Ok(ProjectMetadataEnvelope {
@@ -71,7 +82,11 @@ pub fn build_project_metadata(project_root: &Path) -> Result<ProjectMetadataEnve
 }
 
 fn infer_language(path: &Path) -> Option<&'static str> {
-    match path.extension().and_then(|value| value.to_str()).unwrap_or_default() {
+    match path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+    {
         "rs" => Some("rust"),
         "cs" => Some("csharp"),
         "py" => Some("python"),
@@ -98,10 +113,22 @@ mod tests {
     #[test]
     fn build_project_metadata_collects_markers_and_languages() {
         let temp_dir = tempdir().unwrap();
-        fs::write(temp_dir.path().join("Cargo.toml"), "[package]\nname='demo'\n").unwrap();
+        fs::write(
+            temp_dir.path().join("Cargo.toml"),
+            "[package]\nname='demo'\n",
+        )
+        .unwrap();
         fs::create_dir_all(temp_dir.path().join("src")).unwrap();
-        fs::write(temp_dir.path().join("src").join("main.rs"), "fn main() {}\n").unwrap();
-        fs::write(temp_dir.path().join("src").join("lib.rs"), "pub fn demo() {}\n").unwrap();
+        fs::write(
+            temp_dir.path().join("src").join("main.rs"),
+            "fn main() {}\n",
+        )
+        .unwrap();
+        fs::write(
+            temp_dir.path().join("src").join("lib.rs"),
+            "pub fn demo() {}\n",
+        )
+        .unwrap();
         fs::write(temp_dir.path().join("notes.txt"), "ignore me\n").unwrap();
 
         let metadata = build_project_metadata(temp_dir.path()).unwrap();

@@ -248,9 +248,8 @@ impl NebuCtxServer {
             Err(e) => {
                 if p.is_absolute() {
                     if let Some(new_root) = maybe_derive_project_root_from_absolute(&resolved) {
-                        let current_root_is_weak =
-                            !has_project_marker(jail_root_path)
-                                || is_suspicious_root(jail_root_path);
+                        let current_root_is_weak = !has_project_marker(jail_root_path)
+                            || is_suspicious_root(jail_root_path);
                         let allow_reroot = self
                             .startup_project_root
                             .as_ref()
@@ -391,9 +390,11 @@ impl NebuCtxServer {
             tokens_saved: saved as i64,
             duration_ms: duration_ms as i64,
             mode,
-            repository_fingerprint: project_context
-                .as_ref()
-                .and_then(|c| c.fingerprint.has_safe_identity().then(|| c.fingerprint.clone())),
+            repository_fingerprint: project_context.as_ref().and_then(|c| {
+                c.fingerprint
+                    .has_safe_identity()
+                    .then(|| c.fingerprint.clone())
+            }),
             checkout_binding: project_context.as_ref().map(|c| c.checkout_binding.clone()),
             project_slug: project_context
                 .as_ref()
@@ -407,6 +408,7 @@ impl NebuCtxServer {
                         .to_string();
                     Some(slug)
                 }),
+            command_preview: None,
         };
         crate::core::telemetry_queue::enqueue(request);
     }
@@ -1019,7 +1021,13 @@ mod resolve_path_tests {
         assert_eq!(out, real_repo.join("a.txt").to_string_lossy());
 
         let session = server.session.read().await;
-        assert_eq!(session.project_root.as_deref(), Some(real_repo.to_string_lossy().as_ref()));
-        assert_eq!(session.shell_cwd.as_deref(), Some(real_repo.to_string_lossy().as_ref()));
+        assert_eq!(
+            session.project_root.as_deref(),
+            Some(real_repo.to_string_lossy().as_ref())
+        );
+        assert_eq!(
+            session.shell_cwd.as_deref(),
+            Some(real_repo.to_string_lossy().as_ref())
+        );
     }
 }

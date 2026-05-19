@@ -170,6 +170,16 @@ public interface IKnowledgeStore
     Task UpsertFactAsync(KnowledgeEntry entry, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Loads a single categorized knowledge fact for a project.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="category">Fact category.</param>
+    /// <param name="key">Fact key.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The matching knowledge entry when present; otherwise <see langword="null"/>.</returns>
+    Task<KnowledgeEntry?> GetFactAsync(string projectId, string category, string key, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Searches knowledge facts by text query, optionally filtered by category.
     /// </summary>
     /// <param name="projectId">Project identifier.</param>
@@ -253,8 +263,71 @@ public sealed class KnowledgeEntry
     /// <summary>Confidence score between 0 and 1. Defaults to 1.0 (certain).</summary>
     public float Confidence { get; set; } = 1.0f;
 
+    /// <summary>When this fact was first created.</summary>
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+
     /// <summary>When this fact was last updated.</summary>
-    public DateTimeOffset UpdatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>Stable logical key used for deterministic promotion identity derivation.</summary>
+    public string LogicalKey { get; set; } = string.Empty;
+
+    /// <summary>Stable deterministic identity for replay-safe promotion and lifecycle tracking.</summary>
+    public string PromotionIdentity { get; set; } = string.Empty;
+
+    /// <summary>Source type that produced or last confirmed this fact.</summary>
+    public string SourceType { get; set; } = "remember";
+
+    /// <summary>Source scope that produced this fact, such as a project or session identifier.</summary>
+    public string SourceScope { get; set; } = string.Empty;
+
+    /// <summary>Lifecycle status for the current canonical fact.</summary>
+    public string LifecycleStatus { get; set; } = "current";
+
+    /// <summary>Current lifecycle score used for wake-up ranking and recall ordering.</summary>
+    public float LifecycleScore { get; set; }
+
+    /// <summary>How many times this fact has been explicitly confirmed.</summary>
+    public int ConfirmationCount { get; set; } = 1;
+
+    /// <summary>When this fact was last explicitly confirmed.</summary>
+    public DateTimeOffset? LastConfirmedAt { get; set; }
+
+    /// <summary>How often this fact has been retrieved through hosted recall or wake-up selection.</summary>
+    public int RetrievalCount { get; set; }
+
+    /// <summary>When this fact was last retrieved through hosted recall or wake-up selection.</summary>
+    public DateTimeOffset? LastRetrievedAt { get; set; }
+
+    /// <summary>Historical revisions retained when the canonical fact changes over time.</summary>
+    public List<KnowledgeHistoryEntry> History { get; set; } = [];
+}
+
+/// <summary>
+/// Historical revision retained for a knowledge fact after a canonical update.
+/// </summary>
+public sealed class KnowledgeHistoryEntry
+{
+    /// <summary>Historical fact value.</summary>
+    public string Value { get; set; } = string.Empty;
+
+    /// <summary>Confidence at the time this revision was current.</summary>
+    public float Confidence { get; set; }
+
+    /// <summary>Promotion identity that produced this historical revision.</summary>
+    public string PromotionIdentity { get; set; } = string.Empty;
+
+    /// <summary>Source type that produced this historical revision.</summary>
+    public string SourceType { get; set; } = string.Empty;
+
+    /// <summary>Source scope that produced this historical revision.</summary>
+    public string SourceScope { get; set; } = string.Empty;
+
+    /// <summary>When this revision became current.</summary>
+    public DateTimeOffset? ValidFrom { get; set; }
+
+    /// <summary>When this revision stopped being current.</summary>
+    public DateTimeOffset SupersededAt { get; set; }
 }
 
 /// <summary>

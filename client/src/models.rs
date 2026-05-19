@@ -162,4 +162,6 @@ pub struct TelemetryIngestRequest {
     pub checkout_binding: Option<CheckoutBinding>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub project_slug: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub command_preview: Option<String>,
 }

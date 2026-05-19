@@ -1,22 +1,36 @@
 use crate::{
-    core, doctor, hook_handlers, mcp_stdio, report, setup, shell,
-    status, sync_cli, token_report, tools, uninstall,
+    core, doctor, hook_handlers, mcp_stdio, report, setup, shell, status, sync_cli, token_report,
+    tools, uninstall,
 };
 use anyhow::Result;
 
-fn fire_shell_telemetry(tool_name: String) {
+fn fire_shell_telemetry(tool_name: String, command_preview: Option<String>) {
+    let project_context = std::env::current_dir()
+        .ok()
+        .map(|dir| crate::git_context::discover_project_context(&dir));
+
     core::telemetry_queue::fire_sync(crate::models::TelemetryIngestRequest {
         tool_name,
         tokens_original: 0,
         tokens_saved: 0,
         duration_ms: 0,
         mode: Some("shell".to_string()),
-        repository_fingerprint: None,
-        checkout_binding: None,
-        project_slug: None,
+        repository_fingerprint: project_context.as_ref().and_then(|context| {
+            context
+                .fingerprint
+                .has_safe_identity()
+                .then(|| context.fingerprint.clone())
+        }),
+        checkout_binding: project_context
+            .as_ref()
+            .map(|context| context.checkout_binding.clone()),
+        project_slug: project_context
+            .as_ref()
+            .map(|context| context.project_slug.clone())
+            .filter(|slug| !slug.is_empty()),
+        command_preview,
     });
 }
-
 
 pub fn run() {
     let args: Vec<String> = std::env::args().collect();
@@ -41,7 +55,6 @@ pub fn run() {
                 if std::env::var("NEBU_CTX_ACTIVE").is_ok()
                     || std::env::var("NEBU_CTX_DISABLED").is_ok()
                 {
-                    fire_shell_telemetry(core::stats::normalize_command(&command));
                     passthrough(&command);
                 }
                 if raw {
@@ -51,7 +64,10 @@ pub fn run() {
                 }
                 let code = shell::exec(&command);
                 core::stats::flush();
-                fire_shell_telemetry(core::stats::normalize_command(&command));
+                fire_shell_telemetry(
+                    core::stats::normalize_command(&command),
+                    core::sanitize::telemetry_command_preview(&command),
+                );
                 std::process::exit(code);
             }
             "-t" | "--track" => {
@@ -67,13 +83,19 @@ pub fn run() {
                     if std::env::var("NEBU_CTX_ACTIVE").is_ok()
                         || std::env::var("NEBU_CTX_DISABLED").is_ok()
                     {
-                        fire_shell_telemetry(tracked_name.clone());
                         passthrough(&command);
                     }
                     shell::exec(&command)
                 };
                 core::stats::flush();
-                fire_shell_telemetry(tracked_name);
+                let command_preview = if cmd_args.len() > 1 {
+                    core::sanitize::telemetry_command_preview(&shell::join_command(cmd_args))
+                } else {
+                    cmd_args
+                        .first()
+                        .and_then(|command| core::sanitize::telemetry_command_preview(command))
+                };
+                fire_shell_telemetry(tracked_name, command_preview);
                 std::process::exit(code);
             }
             "shell" | "--shell" => {
@@ -91,8 +113,8 @@ pub fn run() {
                     return;
                 }
                 let model = super::option_value(&rest, &["--model"]);
-                let period = super::option_value(&rest, &["--period"])
-                    .unwrap_or_else(|| "all".to_string());
+                let period =
+                    super::option_value(&rest, &["--period"]).unwrap_or_else(|| "all".to_string());
                 let limit = super::option_value_parsed::<usize>(&rest, &["--limit"]).unwrap_or(10);
 
                 if rest.iter().any(|a| a == "--graph") {
@@ -382,11 +404,7 @@ pub fn run() {
                         "stop" => {
                             let port = super::option_value_parsed::<u16>(&rest, &["--port", "-p"])
                                 .unwrap_or(4444);
-                            match ureq::get(&format!(
-                                "http://127.0.0.1:{port}/health"
-                            ))
-                            .call()
-                            {
+                            match ureq::get(&format!("http://127.0.0.1:{port}/health")).call() {
                                 Ok(_) => {
                                     println!("Proxy is running. Use Ctrl+C or kill the process.");
                                 }
@@ -652,18 +670,37 @@ pub fn run() {
                     "session-start" => hook_handlers::handle_session_start(),
                     "user-prompt-submit" => hook_handlers::handle_user_prompt_submit(),
                     "telemetry" => {
-                        let tool_name = rest.get(1).cloned().unwrap_or_else(|| "unknown".to_string());
-                        let tokens_original: i64 = rest.get(2).and_then(|s| s.parse().ok()).unwrap_or(0);
-                        let tokens_saved: i64 = rest.get(3).and_then(|s| s.parse().ok()).unwrap_or(0);
+                        let tool_name = rest
+                            .get(1)
+                            .cloned()
+                            .unwrap_or_else(|| "unknown".to_string());
+                        let tokens_original: i64 =
+                            rest.get(2).and_then(|s| s.parse().ok()).unwrap_or(0);
+                        let tokens_saved: i64 =
+                            rest.get(3).and_then(|s| s.parse().ok()).unwrap_or(0);
+                        let project_context = std::env::current_dir()
+                            .ok()
+                            .map(|dir| crate::git_context::discover_project_context(&dir));
                         core::telemetry_queue::fire_sync(crate::models::TelemetryIngestRequest {
                             tool_name: core::stats::normalize_command(&tool_name),
                             tokens_original,
                             tokens_saved,
                             duration_ms: 0,
                             mode: Some("plugin".to_string()),
-                            repository_fingerprint: None,
-                            checkout_binding: None,
-                            project_slug: None,
+                            repository_fingerprint: project_context.as_ref().and_then(|context| {
+                                context
+                                    .fingerprint
+                                    .has_safe_identity()
+                                    .then(|| context.fingerprint.clone())
+                            }),
+                            checkout_binding: project_context
+                                .as_ref()
+                                .map(|context| context.checkout_binding.clone()),
+                            project_slug: project_context
+                                .as_ref()
+                                .map(|context| context.project_slug.clone())
+                                .filter(|slug| !slug.is_empty()),
+                            command_preview: None,
                         });
                     }
                     _ => {

@@ -75,7 +75,7 @@ public static class DashboardPayloadFactory
     /// <param name="knowledgeEntries">Knowledge entries for the project.</param>
     /// <param name="brainEntries">Brain entries for the project.</param>
     /// <returns>Project memory payload.</returns>
-    public static ProjectMemoryResponse BuildProjectMemoryPayload(ProjectRecord project, IReadOnlyList<KnowledgeEntry> knowledgeEntries, IReadOnlyList<BrainEntry> brainEntries)
+    public static ProjectMemoryResponse BuildProjectMemoryPayload(ProjectRecord project, IReadOnlyList<KnowledgeEntry> knowledgeEntries, IReadOnlyList<BrainEntry> brainEntries, Dictionary<string, object?>? triage = null)
     {
         return new ProjectMemoryResponse
         {
@@ -90,7 +90,30 @@ public static class DashboardPayloadFactory
                     Key = entry.Key,
                     Value = entry.Value,
                     Confidence = entry.Confidence,
+                    CreatedAt = entry.CreatedAt,
                     UpdatedAt = entry.UpdatedAt,
+                    LogicalKey = entry.LogicalKey,
+                    PromotionIdentity = entry.PromotionIdentity,
+                    SourceType = entry.SourceType,
+                    SourceScope = entry.SourceScope,
+                    LifecycleStatus = entry.LifecycleStatus,
+                    LifecycleScore = entry.LifecycleScore,
+                    ConfirmationCount = entry.ConfirmationCount,
+                    LastConfirmedAt = entry.LastConfirmedAt,
+                    RetrievalCount = entry.RetrievalCount,
+                    LastRetrievedAt = entry.LastRetrievedAt,
+                    History = entry.History
+                        .Select(item => new ProjectKnowledgeHistoryResponse
+                        {
+                            Value = item.Value,
+                            Confidence = item.Confidence,
+                            PromotionIdentity = item.PromotionIdentity,
+                            SourceType = item.SourceType,
+                            SourceScope = item.SourceScope,
+                            ValidFrom = item.ValidFrom,
+                            SupersededAt = item.SupersededAt,
+                        })
+                        .ToArray(),
                 })
                 .ToArray(),
             Brain = brainEntries
@@ -102,7 +125,86 @@ public static class DashboardPayloadFactory
                     CreatedAt = entry.CreatedAt,
                 })
                 .ToArray(),
+            Health = BuildMemoryHealth(knowledgeEntries),
+            Triage = BuildMemoryTriage(triage),
+            Wakeup = BuildWakeupEntries(knowledgeEntries),
         };
+    }
+
+    /// <summary>
+    /// Builds a compact lifecycle summary from canonical knowledge entries.
+    /// </summary>
+    private static ProjectMemoryHealthResponse BuildMemoryHealth(IReadOnlyList<KnowledgeEntry> knowledgeEntries)
+    {
+        var currentFacts = knowledgeEntries.Count(entry => string.Equals(entry.LifecycleStatus, "current", StringComparison.OrdinalIgnoreCase));
+        var historyEntries = knowledgeEntries.Sum(entry => entry.History.Count);
+        var currentScores = knowledgeEntries
+            .Where(entry => string.Equals(entry.LifecycleStatus, "current", StringComparison.OrdinalIgnoreCase))
+            .Select(entry => entry.LifecycleScore)
+            .ToArray();
+
+        return new ProjectMemoryHealthResponse
+        {
+            TotalFacts = knowledgeEntries.Count,
+            CurrentFacts = currentFacts,
+            NonCurrentFacts = Math.Max(0, knowledgeEntries.Count - currentFacts),
+            HistoryEntries = historyEntries,
+            AverageLifecycleScore = currentScores.Length == 0 ? 0f : currentScores.Average(),
+            LastMaintenanceAt = knowledgeEntries
+                .Select(entry => entry.UpdatedAt)
+                .OrderByDescending(timestamp => timestamp)
+                .FirstOrDefault(),
+            DensityScore = knowledgeEntries.Count == 0 ? 0f : (float)historyEntries / knowledgeEntries.Count,
+            MaintenanceSummary = $"current={currentFacts}, non_current={Math.Max(0, knowledgeEntries.Count - currentFacts)}, history={historyEntries}",
+        };
+    }
+
+    /// <summary>
+    /// Builds a dashboard triage summary from a triage result payload.
+    /// </summary>
+    private static ProjectMemoryTriageResponse? BuildMemoryTriage(Dictionary<string, object?>? triage)
+    {
+        if (triage is null)
+        {
+            return null;
+        }
+
+        return new ProjectMemoryTriageResponse
+        {
+            Mode = triage.TryGetValue("mode", out var mode) ? mode?.ToString() ?? "preview" : "preview",
+            DuplicateGroups = triage.TryGetValue("duplicate_groups", out var duplicateGroups) && duplicateGroups is IEnumerable<object> duplicateItems
+                ? duplicateItems.ToArray()
+                : [],
+            StaleCandidates = triage.TryGetValue("stale_candidates", out var staleCandidates) && staleCandidates is IEnumerable<object> staleItems
+                ? staleItems.ToArray()
+                : [],
+            JunkCandidates = triage.TryGetValue("junk_candidates", out var junkCandidates) && junkCandidates is IEnumerable<object> junkItems
+                ? junkItems.ToArray()
+                : [],
+            AppliedActions = triage.TryGetValue("applied_actions", out var appliedActions) && appliedActions is IEnumerable<object> appliedItems
+                ? appliedItems.ToArray()
+                : [],
+        };
+    }
+
+    /// <summary>
+    /// Builds the bounded wake-up composition currently implied by lifecycle ranking.
+    /// </summary>
+    private static IReadOnlyList<ProjectMemoryWakeupEntryResponse> BuildWakeupEntries(IReadOnlyList<KnowledgeEntry> knowledgeEntries)
+    {
+        return knowledgeEntries
+            .Where(entry => string.Equals(entry.LifecycleStatus, "current", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(entry => entry.LifecycleScore)
+            .ThenByDescending(entry => entry.Confidence)
+            .Take(8)
+            .Select(entry => new ProjectMemoryWakeupEntryResponse
+            {
+                Category = entry.Category,
+                Key = entry.Key,
+                Value = entry.Value,
+                LifecycleScore = entry.LifecycleScore,
+            })
+            .ToArray();
     }
 
     /// <summary>
@@ -844,6 +946,7 @@ public static class DashboardPayloadFactory
                 tool = item.ToolName,
                 mode = item.Mode,
                 path = item.Path,
+                command_preview = item.CommandPreview,
                 actor_label = item.ActorLabel,
                 project_id = item.ProjectId,
                 tokens_saved = item.TokensSaved,

@@ -145,6 +145,15 @@ internal sealed class InMemoryKnowledgeStore : IKnowledgeStore
         return Task.CompletedTask;
     }
 
+    public Task<KnowledgeEntry?> GetFactAsync(string projectId, string category, string key, CancellationToken cancellationToken = default)
+    {
+        lock (_lock)
+        {
+            var fact = _facts.FirstOrDefault(f => f.ProjectId == projectId && f.Category == category && f.Key == key);
+            return Task.FromResult(fact);
+        }
+    }
+
     public Task<IReadOnlyList<KnowledgeEntry>> RecallAsync(string projectId, string? category, string query, int limit, CancellationToken cancellationToken = default)
     {
         lock (_lock)
@@ -231,7 +240,28 @@ internal sealed class InMemoryKnowledgeStore : IKnowledgeStore
                     Key = fact.Key,
                     Value = fact.Value,
                     Confidence = fact.Confidence,
+                    CreatedAt = fact.CreatedAt,
                     UpdatedAt = fact.UpdatedAt,
+                    LogicalKey = fact.LogicalKey,
+                    PromotionIdentity = fact.PromotionIdentity,
+                    SourceType = fact.SourceType,
+                    SourceScope = fact.SourceScope,
+                    LifecycleStatus = fact.LifecycleStatus,
+                    LifecycleScore = fact.LifecycleScore,
+                    ConfirmationCount = fact.ConfirmationCount,
+                    LastConfirmedAt = fact.LastConfirmedAt,
+                    RetrievalCount = fact.RetrievalCount,
+                    LastRetrievedAt = fact.LastRetrievedAt,
+                    History = fact.History.Select(item => new KnowledgeHistoryEntry
+                    {
+                        Value = item.Value,
+                        Confidence = item.Confidence,
+                        PromotionIdentity = item.PromotionIdentity,
+                        SourceType = item.SourceType,
+                        SourceScope = item.SourceScope,
+                        ValidFrom = item.ValidFrom,
+                        SupersededAt = item.SupersededAt,
+                    }).ToList(),
                 };
                 moved++;
             }

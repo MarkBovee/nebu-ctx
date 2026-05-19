@@ -308,6 +308,11 @@ public sealed class TelemetryStore
         public string? Path { get; init; }
 
         /// <summary>
+        /// Optional sanitized command preview for shell and hook telemetry.
+        /// </summary>
+        public string? CommandPreview { get; init; }
+
+        /// <summary>
         /// Estimated original token count.
         /// </summary>
         public long TokensOriginal { get; init; }
@@ -535,6 +540,7 @@ public sealed class TelemetryStore
                 ProjectId = projectId,
                 ActorLabel = actorLabel,
                 Path = projectRoot,
+                CommandPreview = request.CommandPreview,
                 TokensOriginal = inputTokens,
                 TokensOutput = outputTokens,
                 TokensSaved = request.TokensSaved,
@@ -802,6 +808,7 @@ public sealed class TelemetryStore
             ProjectId = entry.ProjectId,
             ActorLabel = entry.ActorLabel,
             Path = entry.Path,
+            CommandPreview = entry.CommandPreview,
             TokensOriginal = entry.TokensOriginal,
             TokensOutput = entry.TokensOutput,
             TokensSaved = entry.TokensSaved,
@@ -898,6 +905,7 @@ public sealed class TelemetryStore
                     ProjectId = evt.ProjectId,
                     ActorLabel = evt.ActorLabel,
                     Path = evt.Path,
+                    CommandPreview = evt.CommandPreview,
                     TokensOriginal = evt.TokensOriginal,
                     TokensOutput = evt.TokensOutput,
                     TokensSaved = evt.TokensSaved,
@@ -925,6 +933,7 @@ public sealed class TelemetryStore
             ProjectId = evt.ProjectId,
             ActorLabel = evt.ActorLabel,
             Path = evt.Path,
+            CommandPreview = evt.CommandPreview,
             TokensOriginal = evt.TokensOriginal,
             TokensOutput = evt.TokensOutput,
             TokensSaved = evt.TokensSaved,

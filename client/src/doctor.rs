@@ -103,7 +103,8 @@ fn rc_has_pipe_guard(path: &PathBuf) -> bool {
             if has_pipe_guard_in_content(&s) {
                 return true;
             }
-            let has_nebu_hook = s.contains(".nebu-ctx/shell-hook.") || s.contains(".nebu-ctx/shell-hook.");
+            let has_nebu_hook =
+                s.contains(".nebu-ctx/shell-hook.") || s.contains(".nebu-ctx/shell-hook.");
             if has_nebu_hook {
                 if let Some(home) = dirs::home_dir() {
                     for dir in &[".nebu-ctx"] {
@@ -617,7 +618,10 @@ fn sync_outbox_outcome(data_dir: Option<&PathBuf>) -> Outcome {
             line: format!("{BOLD}sync outbox{RST}  {GREEN}empty{RST}"),
         },
         Ok(entries) => {
-            let failed = entries.iter().filter(|entry| entry.last_error.is_some()).count();
+            let failed = entries
+                .iter()
+                .filter(|entry| entry.last_error.is_some())
+                .count();
             Outcome {
                 ok: true,
                 line: format!(

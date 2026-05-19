@@ -1,5 +1,5 @@
-use std::io::{self, IsTerminal, Write};
 use crate::core::theme::Color;
+use std::io::{self, IsTerminal, Write};
 
 const LOGO: [&str; 6] = [
     r"  ███╗   ██╗███████╗██████╗ ██╗   ██╗     ██████╗████████╗██╗  ██╗",
@@ -57,7 +57,11 @@ pub fn print_nebu_splash() {
         return;
     }
 
-    let max_icon_width = NEBULA_ICON.iter().map(|l| l.chars().count()).max().unwrap_or(34);
+    let max_icon_width = NEBULA_ICON
+        .iter()
+        .map(|l| l.chars().count())
+        .max()
+        .unwrap_or(34);
     let gap = 4usize;
 
     // LOGO text lines start at icon row 3, tagline at icon row 3 + LOGO.len() + 1

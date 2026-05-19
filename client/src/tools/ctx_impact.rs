@@ -170,7 +170,11 @@ fn impact_from_index(index: &ProjectIndex, target: &str, max_depth: usize) -> Im
     }
 }
 
-fn dependency_chain_from_index(index: &ProjectIndex, from: &str, to: &str) -> Option<DependencyChain> {
+fn dependency_chain_from_index(
+    index: &ProjectIndex,
+    from: &str,
+    to: &str,
+) -> Option<DependencyChain> {
     use std::collections::{HashSet, VecDeque};
 
     let mut queue = VecDeque::from([(from.to_string(), vec![from.to_string()])]);
@@ -322,7 +326,10 @@ mod tests {
         });
 
         let impact = impact_from_index(&index, "c.rs", 5);
-        assert_eq!(impact.affected_files, vec!["a.rs".to_string(), "b.rs".to_string()]);
+        assert_eq!(
+            impact.affected_files,
+            vec!["a.rs".to_string(), "b.rs".to_string()]
+        );
         assert_eq!(impact.max_depth_reached, 2);
         assert_eq!(impact.edges_traversed, 2);
     }

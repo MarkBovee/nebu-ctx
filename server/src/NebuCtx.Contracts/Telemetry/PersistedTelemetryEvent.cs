@@ -42,6 +42,11 @@ public sealed class PersistedTelemetryEvent
     public string? Path { get; init; }
 
     /// <summary>
+    /// Optional sanitized command preview for shell and hook telemetry.
+    /// </summary>
+    public string? CommandPreview { get; init; }
+
+    /// <summary>
     /// Estimated original token count.
     /// </summary>
     public long TokensOriginal { get; init; }

@@ -48,13 +48,7 @@ pub fn write_config_with_options(
 }
 
 pub fn auto_approve_tools() -> Vec<&'static str> {
-    vec![
-        "ctx_read",
-        "ctx_shell",
-        "ctx_search",
-        "ctx_tree",
-        "ctx",
-    ]
+    vec!["ctx_read", "ctx_shell", "ctx_search", "ctx_tree", "ctx"]
 }
 
 fn server_entry(binary: &str, data_dir: &str, include_auto_approve: bool) -> Value {
@@ -168,8 +162,13 @@ fn try_claude_mcp_add(desired: &Value) -> Result<WriteResult, String> {
         for (index, ch) in chars.iter().enumerate() {
             let drive_colon = *ch == ':'
                 && current.len() == 1
-                && current.chars().next().is_some_and(|value| value.is_ascii_alphabetic())
-                && chars.get(index + 1).is_some_and(|next| *next == '\\' || *next == '/');
+                && current
+                    .chars()
+                    .next()
+                    .is_some_and(|value| value.is_ascii_alphabetic())
+                && chars
+                    .get(index + 1)
+                    .is_some_and(|next| *next == '\\' || *next == '/');
             let is_separator = *ch == ';' || (*ch == ':' && !drive_colon);
 
             if is_separator {
@@ -313,7 +312,9 @@ fn write_zed_config(
             .as_object_mut()
             .ok_or_else(|| "\"context_servers\" must be an object".to_string())?;
 
-        let existing = servers_obj.get("nebu-ctx").cloned()
+        let existing = servers_obj
+            .get("nebu-ctx")
+            .cloned()
             .or_else(|| servers_obj.get("lean-ctx").cloned());
         if existing.as_ref() == Some(&desired) {
             return Ok(WriteResult {
@@ -419,7 +420,9 @@ fn write_vscode_mcp(
             .as_object_mut()
             .ok_or_else(|| "\"servers\" must be an object".to_string())?;
 
-        let existing = servers_obj.get("nebu-ctx").cloned()
+        let existing = servers_obj
+            .get("nebu-ctx")
+            .cloned()
             .or_else(|| servers_obj.get("lean-ctx").cloned());
         if existing.as_ref() == Some(&desired) {
             return Ok(WriteResult {
@@ -507,7 +510,9 @@ fn write_opencode_config(
         let instructions_arr = instructions
             .as_array_mut()
             .ok_or_else(|| "\"instructions\" must be an array".to_string())?;
-        let had_instruction = instructions_arr.iter().any(|item| item == &desired_instruction);
+        let had_instruction = instructions_arr
+            .iter()
+            .any(|item| item == &desired_instruction);
         if !had_instruction {
             instructions_arr.push(desired_instruction.clone());
         }
@@ -673,7 +678,9 @@ fn write_amp_config(
             .as_object_mut()
             .ok_or_else(|| "\"amp.mcpServers\" must be an object".to_string())?;
 
-        let existing = servers_obj.get("nebu-ctx").cloned()
+        let existing = servers_obj
+            .get("nebu-ctx")
+            .cloned()
             .or_else(|| servers_obj.get("lean-ctx").cloned());
         if existing.as_ref() == Some(&entry) {
             return Ok(WriteResult {
@@ -731,7 +738,10 @@ fn write_crush_config(
             .as_object_mut()
             .ok_or_else(|| "\"mcp\" must be an object".to_string())?;
 
-        let existing = mcp_obj.get("nebu-ctx").cloned().or_else(|| mcp_obj.get("lean-ctx").cloned());
+        let existing = mcp_obj
+            .get("nebu-ctx")
+            .cloned()
+            .or_else(|| mcp_obj.get("lean-ctx").cloned());
         if existing.as_ref() == Some(&desired) {
             return Ok(WriteResult {
                 action: WriteAction::Already,
@@ -880,7 +890,9 @@ fn write_gemini_settings(
             .as_object_mut()
             .ok_or_else(|| "\"mcpServers\" must be an object".to_string())?;
 
-        let existing = servers_obj.get("nebu-ctx").cloned()
+        let existing = servers_obj
+            .get("nebu-ctx")
+            .cloned()
             .or_else(|| servers_obj.get("lean-ctx").cloned());
         if existing.as_ref() == Some(&entry) {
             return Ok(WriteResult {
@@ -1156,14 +1168,17 @@ args = ["x"]
         .unwrap();
 
         let t = target(path.clone(), ConfigType::OpenCode);
-        let res = write_opencode_config(&t, "/usr/local/bin/nebu-ctx", WriteOptions::default())
-            .unwrap();
+        let res =
+            write_opencode_config(&t, "/usr/local/bin/nebu-ctx", WriteOptions::default()).unwrap();
         assert_eq!(res.action, WriteAction::Updated);
 
         let json: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(json["mcp"]["other"]["command"], serde_json::json!(["foo"]));
         assert!(json["mcp"].get("lean-ctx").is_none());
-        assert_eq!(json["mcp"]["nebu-ctx"]["command"], serde_json::json!(["/usr/local/bin/nebu-ctx"]));
+        assert_eq!(
+            json["mcp"]["nebu-ctx"]["command"],
+            serde_json::json!(["/usr/local/bin/nebu-ctx"])
+        );
         assert_eq!(json["mcp"]["nebu-ctx"]["enabled"], true);
     }
 

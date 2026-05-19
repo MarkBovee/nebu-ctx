@@ -105,6 +105,7 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $, directory }) => {
 
     dirtySessions.delete(sessionID)
     await runNebu(["hook", "stop"])
+    pendingSessionContext.set(sessionID, SESSION_COMPACT)
   }
 
   function getSessionID(event: unknown) {

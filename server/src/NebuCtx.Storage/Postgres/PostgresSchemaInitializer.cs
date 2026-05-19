@@ -22,6 +22,8 @@ public static class PostgresSchemaInitializer
         await cmd.ExecuteNonQueryAsync(cancellationToken);
 
         await EnsureProjectMetadataColumnAsync(conn, cancellationToken);
+        await EnsureKnowledgeLifecycleColumnsAsync(conn, cancellationToken);
+        await EnsureTelemetryCommandPreviewColumnAsync(conn, cancellationToken);
         await MigrateWorkspaceBindingsTableAsync(conn, cancellationToken);
     }
 
@@ -33,6 +35,57 @@ public static class PostgresSchemaInitializer
     private static async Task EnsureProjectMetadataColumnAsync(NpgsqlConnection conn, CancellationToken cancellationToken)
     {
         await using var cmd = new NpgsqlCommand("ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_metadata_json JSONB", conn);
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Adds lifecycle metadata columns to knowledge_entries when upgrading existing databases.
+    /// </summary>
+    /// <param name="conn">Open Postgres connection.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private static async Task EnsureKnowledgeLifecycleColumnsAsync(NpgsqlConnection conn, CancellationToken cancellationToken)
+    {
+        await using var cmd = new NpgsqlCommand(
+            """
+            ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+            ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS logical_key TEXT NOT NULL DEFAULT '';
+            ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS promotion_identity TEXT NOT NULL DEFAULT '';
+            ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS source_type TEXT NOT NULL DEFAULT 'remember';
+            ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS source_scope TEXT NOT NULL DEFAULT '';
+            ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS lifecycle_status TEXT NOT NULL DEFAULT 'current';
+            ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS lifecycle_score REAL NOT NULL DEFAULT 0.0;
+            ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS confirmation_count INT NOT NULL DEFAULT 1;
+            ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS last_confirmed_at TIMESTAMPTZ;
+            ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS retrieval_count INT NOT NULL DEFAULT 0;
+            ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS last_retrieved_at TIMESTAMPTZ;
+            ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS history_json JSONB NOT NULL DEFAULT '[]'::jsonb;
+            UPDATE knowledge_entries
+            SET logical_key = CASE WHEN logical_key = '' THEN key ELSE logical_key END,
+                promotion_identity = CASE WHEN promotion_identity = '' THEN concat('legacy:', project_id, ':', category, ':', key) ELSE promotion_identity END,
+                source_scope = CASE WHEN source_scope = '' THEN project_id ELSE source_scope END,
+                lifecycle_score = CASE WHEN lifecycle_score = 0.0 THEN confidence ELSE lifecycle_score END,
+                last_confirmed_at = COALESCE(last_confirmed_at, updated_at),
+                created_at = COALESCE(created_at, updated_at)
+            WHERE logical_key = ''
+               OR promotion_identity = ''
+               OR source_scope = ''
+               OR lifecycle_score = 0.0
+               OR last_confirmed_at IS NULL;
+            CREATE INDEX IF NOT EXISTS idx_knowledge_entries_promotion_identity
+                ON knowledge_entries (project_id, promotion_identity);
+            """,
+            conn);
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Adds the optional command preview column for telemetry event detail.
+    /// </summary>
+    /// <param name="conn">Open Postgres connection.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private static async Task EnsureTelemetryCommandPreviewColumnAsync(NpgsqlConnection conn, CancellationToken cancellationToken)
+    {
+        await using var cmd = new NpgsqlCommand("ALTER TABLE telemetry_events ADD COLUMN IF NOT EXISTS command_preview TEXT", conn);
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -106,12 +159,27 @@ public static class PostgresSchemaInitializer
             key         TEXT NOT NULL,
             value       TEXT NOT NULL,
             confidence  REAL NOT NULL DEFAULT 1.0,
+            created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            logical_key TEXT NOT NULL DEFAULT '',
+            promotion_identity TEXT NOT NULL DEFAULT '',
+            source_type TEXT NOT NULL DEFAULT 'remember',
+            source_scope TEXT NOT NULL DEFAULT '',
+            lifecycle_status TEXT NOT NULL DEFAULT 'current',
+            lifecycle_score REAL NOT NULL DEFAULT 0.0,
+            confirmation_count INT NOT NULL DEFAULT 1,
+            last_confirmed_at TIMESTAMPTZ,
+            retrieval_count INT NOT NULL DEFAULT 0,
+            last_retrieved_at TIMESTAMPTZ,
+            history_json JSONB NOT NULL DEFAULT '[]'::jsonb,
             PRIMARY KEY (project_id, category, key)
         );
 
         CREATE INDEX IF NOT EXISTS idx_knowledge_entries_project
             ON knowledge_entries (project_id);
+
+        CREATE INDEX IF NOT EXISTS idx_knowledge_entries_promotion_identity
+            ON knowledge_entries (project_id, promotion_identity);
 
         CREATE TABLE IF NOT EXISTS session_state (
             project_id  TEXT NOT NULL,
@@ -134,6 +202,7 @@ public static class PostgresSchemaInitializer
             project_id      TEXT NOT NULL DEFAULT '',
             actor_label     TEXT NOT NULL DEFAULT 'anonymous',
             path            TEXT,
+            command_preview TEXT,
             tokens_original BIGINT NOT NULL DEFAULT 0,
             tokens_output   BIGINT NOT NULL DEFAULT 0,
             tokens_saved    BIGINT NOT NULL DEFAULT 0

@@ -72,7 +72,8 @@ pub fn save_connection(endpoint: &str, token: &str) -> Result<ServerConnection> 
     };
 
     fs::create_dir_all(config_dir()).context("failed to create client config directory")?;
-    let json = serde_json::to_string_pretty(&connection).context("failed to serialize connection")?;
+    let json =
+        serde_json::to_string_pretty(&connection).context("failed to serialize connection")?;
     fs::write(connection_path(), json).context("failed to write connection file")?;
     Ok(connection)
 }
@@ -83,7 +84,8 @@ pub fn load_connection() -> Result<Option<ServerConnection>> {
         return Ok(None);
     }
 
-    let data = fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?;
+    let data =
+        fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?;
     let connection = serde_json::from_str(&data).context("failed to parse connection file")?;
     Ok(Some(connection))
 }
@@ -103,9 +105,21 @@ mod tests {
 
     #[test]
     fn normalize_server_endpoint_trims_known_api_paths() {
-        assert_eq!(normalize_server_endpoint("http://localhost:4242/mcp"), "http://localhost:4242");
-        assert_eq!(normalize_server_endpoint("http://localhost:4242/v1/tools/call"), "http://localhost:4242");
-        assert_eq!(normalize_server_endpoint("http://localhost:4242/v1/tools"), "http://localhost:4242");
-        assert_eq!(normalize_server_endpoint("http://localhost:4242/health"), "http://localhost:4242");
+        assert_eq!(
+            normalize_server_endpoint("http://localhost:4242/mcp"),
+            "http://localhost:4242"
+        );
+        assert_eq!(
+            normalize_server_endpoint("http://localhost:4242/v1/tools/call"),
+            "http://localhost:4242"
+        );
+        assert_eq!(
+            normalize_server_endpoint("http://localhost:4242/v1/tools"),
+            "http://localhost:4242"
+        );
+        assert_eq!(
+            normalize_server_endpoint("http://localhost:4242/health"),
+            "http://localhost:4242"
+        );
     }
 }

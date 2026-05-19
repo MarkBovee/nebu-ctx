@@ -237,4 +237,3 @@ OUTPUT EFFICIENCY:\n\
 • [TASK:type] and SCOPE hints included. Architecture=thorough, generate=code."
         .to_string()
 }
-

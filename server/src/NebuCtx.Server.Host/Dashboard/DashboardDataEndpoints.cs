@@ -134,6 +134,7 @@ public static class DashboardDataEndpoints
             ProjectRegistry projectRegistry,
             IKnowledgeStore knowledgeStore,
             IBrainStore brainStore,
+            NebuCtx.Server.Core.Services.KnowledgeService knowledgeService,
             CancellationToken ct) =>
         {
             var projects = await projectRegistry.ListAsync(ct);
@@ -145,8 +146,21 @@ public static class DashboardDataEndpoints
 
             var knowledgeEntries = await knowledgeStore.ListAllForProjectAsync(projectId, cancellationToken: ct);
             var brainEntries = await brainStore.ListAllAsync(projectId, cancellationToken: ct);
+            var triage = await knowledgeService.TriageAsync(projectId, apply: false, cancellationToken: ct);
 
-            return Results.Ok(DashboardPayloadFactory.BuildProjectMemoryPayload(project, knowledgeEntries, brainEntries));
+            return Results.Ok(DashboardPayloadFactory.BuildProjectMemoryPayload(project, knowledgeEntries, brainEntries, triage));
+        });
+
+        app.MapPost("/dashboard/projects/{projectId}/memory/triage", async (
+            string projectId,
+            HttpRequest request,
+            NebuCtx.Server.Core.Services.KnowledgeService knowledgeService,
+            CancellationToken ct) =>
+        {
+            var mode = request.Query["mode"].ToString();
+            var apply = string.Equals(mode, "apply", StringComparison.OrdinalIgnoreCase);
+            var result = await knowledgeService.TriageAsync(projectId, apply, ct);
+            return Results.Ok(result);
         });
 
         app.MapDelete("/dashboard/projects/{projectId}/memory/brain/{key}", async (
