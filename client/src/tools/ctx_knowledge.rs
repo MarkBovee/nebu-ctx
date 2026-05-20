@@ -660,7 +660,7 @@ fn handle_export(project_root: &str) -> String {
 }
 
 fn handle_consolidate(project_root: &str) -> String {
-    let session = match SessionState::load_latest() {
+    let session = match SessionState::load_latest_for_project_root(project_root) {
         Some(s) => s,
         None => return "No active session to consolidate.".to_string(),
     };

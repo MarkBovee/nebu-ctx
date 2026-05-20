@@ -338,6 +338,25 @@ pub fn handle_session_start() {
     }
 }
 
+fn truncate_for_memory(text: &str, limit: usize) -> String {
+    text.chars().take(limit).collect()
+}
+
+fn store_brain_entry(project_root: &str, key_prefix: &str, value_prefix: &str, text: &str) {
+    if project_root.is_empty() {
+        return;
+    }
+
+    let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));
+    let mut args = serde_json::Map::new();
+    args.insert("action".to_string(), serde_json::json!("store"));
+    let key = format!("{key_prefix}-{}", chrono::Utc::now().timestamp_millis());
+    args.insert("key".to_string(), serde_json::Value::String(key));
+    let value = format!("{value_prefix}: {}", truncate_for_memory(text, 800));
+    args.insert("value".to_string(), serde_json::Value::String(value));
+    let _ = crate::server_client::queue_or_call_tool("ctx_brain", args, &ctx);
+}
+
 /// UserPromptSubmit hook: fired by Claude Code when the user submits a prompt.
 ///
 /// Captures the raw prompt for session continuity tracking. Stores it in the
@@ -373,14 +392,41 @@ pub fn handle_user_prompt_submit() {
     if project_root.is_empty() {
         return;
     }
-    let ctx = crate::git_context::discover_project_context(std::path::Path::new(&project_root));
-    let mut args = serde_json::Map::new();
-    args.insert("action".to_string(), serde_json::json!("store"));
-    let key = format!("user-prompt-{}", chrono::Utc::now().timestamp());
-    args.insert("key".to_string(), serde_json::Value::String(key));
-    let value = format!("user_prompt: {}", &trimmed[..trimmed.len().min(400)]);
-    args.insert("value".to_string(), serde_json::Value::String(value));
-    let _ = crate::server_client::queue_or_call_tool("ctx_brain", args, &ctx);
+    store_brain_entry(&project_root, "user-prompt", "user_prompt", &trimmed);
+}
+
+/// AssistantOutputSubmit hook: fired by editor plugins when assistant text is
+/// available from streaming message-part events.
+pub fn handle_assistant_output_submit() {
+    let Some(input) = read_stdin_string() else {
+        return;
+    };
+
+    let message = extract_first_json_field(&input, &["message", "text", "response"])
+        .unwrap_or_default();
+
+    let trimmed = message.trim().to_string();
+    if trimmed.is_empty() {
+        return;
+    }
+
+    let is_system = trimmed.starts_with("<session_state")
+        || trimmed.starts_with("<context_guidance>")
+        || trimmed.starts_with("<system-reminder>")
+        || trimmed.starts_with("<tool-result>");
+    if is_system {
+        return;
+    }
+
+    let project_root = std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+    store_brain_entry(
+        &project_root,
+        "assistant-output",
+        "assistant_output",
+        &trimmed,
+    );
 }
 
 /// Builds a compact XML `<session_state>` block (≤2KB) from local session state

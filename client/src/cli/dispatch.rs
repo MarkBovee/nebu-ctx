@@ -677,6 +677,7 @@ pub fn run() {
                     "pre-compact" => hook_handlers::handle_pre_compact(),
                     "session-start" => hook_handlers::handle_session_start(),
                     "user-prompt-submit" => hook_handlers::handle_user_prompt_submit(),
+                    "assistant-output-submit" => hook_handlers::handle_assistant_output_submit(),
                     "telemetry" => {
                         let tool_name = rest
                             .get(1)
@@ -712,7 +713,7 @@ pub fn run() {
                         });
                     }
                     _ => {
-                        eprintln!("Usage: nebu-ctx hook <rewrite|redirect|copilot|codex-pretooluse|codex-session-start|rewrite-inline|stop|post-tool-use|pre-compact|session-start|user-prompt-submit|telemetry>");
+                        eprintln!("Usage: nebu-ctx hook <rewrite|redirect|copilot|codex-pretooluse|codex-session-start|rewrite-inline|stop|post-tool-use|pre-compact|session-start|user-prompt-submit|assistant-output-submit|telemetry>");
                         eprintln!("  Internal commands used by agent hooks (Claude, Cursor, Copilot, etc.)");
                         std::process::exit(1);
                     }

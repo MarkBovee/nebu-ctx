@@ -69,6 +69,9 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $, directory }) => {
   const initializedSessions = new Set<string>()
   const dirtySessions = new Set<string>()
   const pendingSessionContext = new Map<string, typeof SESSION_STARTUP | typeof SESSION_COMPACT>()
+  const assistantMessages = new Map<string, string>()
+  const assistantParts = new Map<string, { sessionID: string, messageID: string, text: string }>()
+  const dirtyAssistantParts = new Set<string>()
   const projectDir = directory || process.cwd()
   const nebuBinary = await resolveNebuBinary()
 
@@ -130,10 +133,63 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $, directory }) => {
     pendingSessionContext.set(sessionID, SESSION_COMPACT)
   }
 
+  async function flushAssistantOutput(sessionID: string) {
+    const parts: string[] = []
+
+    for (const [partID, state] of assistantParts) {
+      if (state.sessionID !== sessionID || !dirtyAssistantParts.has(partID)) continue
+      if (assistantMessages.get(state.messageID) !== sessionID) continue
+
+      const text = state.text.trim()
+      dirtyAssistantParts.delete(partID)
+      if (text) {
+        parts.push(text)
+      }
+    }
+
+    const text = parts.join("\n\n").trim()
+    if (!text) return
+
+    await runNebu(["hook", "assistant-output-submit"], JSON.stringify({
+      message: text.slice(0, 4000),
+      source: "opencode",
+    }))
+  }
+
+  function forgetAssistantMessage(messageID: string) {
+    assistantMessages.delete(messageID)
+
+    for (const [partID, state] of assistantParts) {
+      if (state.messageID !== messageID) continue
+      assistantParts.delete(partID)
+      dirtyAssistantParts.delete(partID)
+    }
+  }
+
+  function clearAssistantSessionState(sessionID: string) {
+    for (const [messageID, messageSessionID] of assistantMessages) {
+      if (messageSessionID === sessionID) {
+        assistantMessages.delete(messageID)
+      }
+    }
+
+    for (const [partID, state] of assistantParts) {
+      if (state.sessionID !== sessionID) continue
+      assistantParts.delete(partID)
+      dirtyAssistantParts.delete(partID)
+    }
+  }
+
   function getSessionID(event: unknown) {
     const properties = (event as { properties?: Record<string, unknown> } | null)?.properties
     const sessionID = properties?.sessionID
-    return typeof sessionID === "string" && sessionID ? sessionID : ""
+    if (typeof sessionID === "string" && sessionID) return sessionID
+
+    const infoSessionID = (properties?.info as Record<string, unknown> | undefined)?.sessionID
+    if (typeof infoSessionID === "string" && infoSessionID) return infoSessionID
+
+    const partSessionID = (properties?.part as Record<string, unknown> | undefined)?.sessionID
+    return typeof partSessionID === "string" && partSessionID ? partSessionID : ""
   }
 
   async function fireTelemetry(tool: string, tokensOriginal: number, tokensSaved: number) {
@@ -254,23 +310,95 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $, directory }) => {
 
     event: async ({ event }) => {
       const sessionID = getSessionID(event)
+
+      if (event.type === "message.updated") {
+        const info = (event.properties as { info?: Record<string, unknown> } | undefined)?.info
+        const messageID = info?.id
+        const role = info?.role
+        const messageSessionID = info?.sessionID
+
+        if (
+          typeof messageID === "string"
+          && typeof role === "string"
+          && typeof messageSessionID === "string"
+        ) {
+          if (role === "assistant") {
+            assistantMessages.set(messageID, messageSessionID)
+          } else {
+            forgetAssistantMessage(messageID)
+          }
+        }
+
+        return
+      }
+
+      if (event.type === "message.removed") {
+        const messageID = (event.properties as { messageID?: unknown } | undefined)?.messageID
+        if (typeof messageID === "string" && messageID) {
+          forgetAssistantMessage(messageID)
+        }
+
+        return
+      }
+
+      if (event.type === "message.part.updated") {
+        const part = (event.properties as {
+          part?: Record<string, unknown>
+        } | undefined)?.part
+        if (!part || part.type !== "text") return
+
+        const messageID = part.messageID
+        const partID = part.id
+        const partSessionID = part.sessionID
+        const text = String(part.text ?? "")
+        if (
+          typeof messageID !== "string"
+          || typeof partID !== "string"
+          || typeof partSessionID !== "string"
+        ) return
+        if (part.synthetic === true || part.ignored === true) return
+
+        assistantParts.set(partID, {
+          sessionID: partSessionID,
+          messageID,
+          text,
+        })
+        dirtyAssistantParts.add(partID)
+        dirtySessions.add(partSessionID)
+        return
+      }
+
+      if (event.type === "message.part.removed") {
+        const partID = (event.properties as { partID?: unknown } | undefined)?.partID
+        if (typeof partID === "string" && partID) {
+          assistantParts.delete(partID)
+          dirtyAssistantParts.delete(partID)
+        }
+
+        return
+      }
+
       if (!sessionID) return
 
       if (event.type === "session.compacted") {
+        await flushAssistantOutput(sessionID)
         pendingSessionContext.set(sessionID, SESSION_COMPACT)
         return
       }
 
       if (event.type === "session.idle") {
+        await flushAssistantOutput(sessionID)
         await flushSessionMemory(sessionID)
         return
       }
 
       if (event.type === "session.deleted") {
+        await flushAssistantOutput(sessionID)
         await flushSessionMemory(sessionID)
         dirtySessions.delete(sessionID)
         initializedSessions.delete(sessionID)
         pendingSessionContext.delete(sessionID)
+        clearAssistantSessionState(sessionID)
       }
     },
   }

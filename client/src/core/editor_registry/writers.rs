@@ -1264,6 +1264,9 @@ args = ["x"]
         assert!(plugin.contains("runNebu([\"hook\", \"rewrite-inline\", command])"));
         assert!(plugin.contains("experimental.chat.system.transform"));
         assert!(plugin.contains("experimental.session.compacting"));
+        assert!(plugin.contains("message.updated"));
+        assert!(plugin.contains("message.part.updated"));
+        assert!(plugin.contains("assistant-output-submit"));
         assert!(plugin.contains("session.compacted"));
         assert!(plugin.contains("session.idle"));
         assert!(!plugin.contains("lean-ctx hook rewrite-inline"));
