@@ -229,6 +229,98 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     }
 
     /// <summary>
+    /// Project resolve returns 409 when duplicate fingerprint records already exist.
+    /// </summary>
+    [Fact]
+    public async Task ProjectResolve_DuplicateFingerprint_Returns409()
+    {
+        var fingerprint = new RepositoryFingerprint
+        {
+            RemoteUrl = "https://github.com/example/ha-addons.git",
+            Host = "github.com",
+            Owner = "example",
+            RepoName = "ha-addons",
+            DefaultBranch = "main",
+        };
+
+        await SeedLegacyProjectAsync(new ProjectRecord
+        {
+            ProjectId = "proj_dup_a",
+            Slug = "ha-addons",
+            Fingerprint = fingerprint,
+            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-2),
+            UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(-2),
+        });
+        await SeedLegacyProjectAsync(new ProjectRecord
+        {
+            ProjectId = "proj_dup_b",
+            Slug = "ha-addons",
+            Fingerprint = fingerprint,
+            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-1),
+            UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(-1),
+        });
+
+        var response = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "ha-addons",
+            Fingerprint = fingerprint,
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Public ctx memory calls route to the hosted canonical knowledge path.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_PublicCtxMemoryRememberAndRecall_ReturnsHostedKnowledge()
+    {
+        var fingerprint = new RepositoryFingerprint
+        {
+            RemoteUrl = "https://github.com/example/public-ctx-memory.git",
+            Host = "github.com",
+            Owner = "example",
+            RepoName = "public-ctx-memory",
+            DefaultBranch = "main",
+        };
+
+        var rememberResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx",
+            RepositoryFingerprint = fingerprint,
+            ProjectSlug = "public-ctx-memory",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["domain"] = "memory",
+                ["action"] = "remember",
+                ["category"] = "decision",
+                ["key"] = "memory-owner",
+                ["value"] = "server owns canonical memory",
+                ["confidence"] = 0.95,
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, rememberResponse.StatusCode);
+
+        var recallResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx",
+            RepositoryFingerprint = fingerprint,
+            ProjectSlug = "public-ctx-memory",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["domain"] = "memory",
+                ["action"] = "recall",
+                ["query"] = "memory-owner",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, recallResponse.StatusCode);
+
+        var recallPayload = await recallResponse.Content.ReadAsStringAsync();
+        Assert.Contains("memory-owner", recallPayload, StringComparison.Ordinal);
+        Assert.Contains("server owns canonical memory", recallPayload, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Project resolution endpoint creates a canonical project and persists the workspace binding.
     /// </summary>
     [Fact]

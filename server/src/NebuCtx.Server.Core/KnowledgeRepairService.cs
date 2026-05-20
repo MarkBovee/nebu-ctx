@@ -31,14 +31,11 @@ public sealed class KnowledgeRepairService
         var clearedProjects = new List<object>();
 
         foreach (var duplicateGroup in projects
-                     .Where(HasSafeFingerprint)
+                     .Where(ProjectIdentityDiagnostics.HasSafeFingerprint)
                      .GroupBy(BuildFingerprintKey, StringComparer.OrdinalIgnoreCase)
                      .Where(group => group.Count() > 1))
         {
-            var canonical = duplicateGroup
-                .OrderByDescending(project => project.ProjectMetadata?.Summary.SourceFileCount ?? 0)
-                .ThenBy(project => project.CreatedAt)
-                .First();
+            var canonical = ProjectIdentityDiagnostics.SelectCanonicalProject(duplicateGroup);
 
             foreach (var duplicate in duplicateGroup.Where(project => !string.Equals(project.ProjectId, canonical.ProjectId, StringComparison.OrdinalIgnoreCase)))
             {
@@ -53,7 +50,7 @@ public sealed class KnowledgeRepairService
             }
         }
 
-        foreach (var ambiguous in projects.Where(project => IsLegacyAmbiguousSlug(project) && !HasSafeFingerprint(project)))
+        foreach (var ambiguous in projects.Where(project => IsLegacyAmbiguousSlug(project) && !ProjectIdentityDiagnostics.HasSafeFingerprint(project)))
         {
             var clearedFacts = await _knowledgeStore.ClearProjectAsync(ambiguous.ProjectId, cancellationToken);
             ambiguous.ProjectMetadata = null;
@@ -77,15 +74,6 @@ public sealed class KnowledgeRepairService
         };
     }
 
-    private static bool HasSafeFingerprint(ProjectRecord project)
-    {
-        return project.Fingerprint is { } fingerprint
-            && (!string.IsNullOrWhiteSpace(fingerprint.RemoteUrl)
-                || (!string.IsNullOrWhiteSpace(fingerprint.Host)
-                    && !string.IsNullOrWhiteSpace(fingerprint.Owner)
-                    && !string.IsNullOrWhiteSpace(fingerprint.RepoName)));
-    }
-
     private static bool IsLegacyAmbiguousSlug(ProjectRecord project)
     {
         return string.Equals(project.Slug, "mark", StringComparison.OrdinalIgnoreCase)
@@ -94,12 +82,8 @@ public sealed class KnowledgeRepairService
 
     private static string BuildFingerprintKey(ProjectRecord project)
     {
-        var fingerprint = project.Fingerprint;
-        if (!string.IsNullOrWhiteSpace(fingerprint?.RemoteUrl))
-        {
-            return $"remote:{fingerprint.RemoteUrl}";
-        }
-
-        return $"repo:{fingerprint?.Host}|{fingerprint?.Owner}|{fingerprint?.RepoName}";
+        return ProjectIdentityDiagnostics.TryBuildFingerprintKey(project, out var key)
+            ? key
+            : string.Empty;
     }
 }

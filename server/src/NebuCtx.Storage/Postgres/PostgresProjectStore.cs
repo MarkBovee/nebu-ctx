@@ -42,6 +42,13 @@ public sealed class PostgresProjectStore : IProjectStore
     /// <inheritdoc />
     public async Task<ProjectRecord?> FindByFingerprintAsync(RepositoryFingerprint fingerprint, CancellationToken cancellationToken = default)
     {
+        var matches = await ListByFingerprintAsync(fingerprint, cancellationToken);
+        return matches.Count == 1 ? matches[0] : null;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ProjectRecord>> ListByFingerprintAsync(RepositoryFingerprint fingerprint, CancellationToken cancellationToken = default)
+    {
         await using var conn = await OpenConnectionAsync(cancellationToken);
 
         // Match on remote_url first (most specific), then host+owner+repo_name
@@ -59,17 +66,14 @@ public sealed class PostgresProjectStore : IProjectStore
         cmd.Parameters.AddWithValue("repo_name", (object?)fingerprint.RepoName ?? DBNull.Value);
 
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
-        ProjectRecord? match = null;
-        var count = 0;
+        var matches = new List<ProjectRecord>();
 
         while (await reader.ReadAsync(cancellationToken))
         {
-            count++;
-            match = MapProjectRecord(reader);
+            matches.Add(MapProjectRecord(reader));
         }
 
-        // Return null if ambiguous (more than one match)
-        return count == 1 ? match : null;
+        return matches;
     }
 
     /// <inheritdoc />

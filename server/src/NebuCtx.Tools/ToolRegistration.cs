@@ -2,6 +2,7 @@ namespace NebuCtx.Tools;
 
 using Microsoft.Extensions.DependencyInjection;
 using NebuCtx.Server.Core;
+using NebuCtx.Tools.Ctx;
 using NebuCtx.Tools.Brain;
 using NebuCtx.Tools.Cost;
 using NebuCtx.Tools.Gain;
@@ -23,6 +24,7 @@ public static class ToolRegistration
     /// <returns>The same service collection for chaining.</returns>
     public static IServiceCollection AddToolHandlers(this IServiceCollection services)
     {
+        services.AddSingleton<IToolHandler, CtxToolHandler>();
         services.AddSingleton<IToolHandler, BrainToolHandler>();
         services.AddSingleton<IToolHandler, CostToolHandler>();
         services.AddSingleton<IToolHandler, GainToolHandler>();

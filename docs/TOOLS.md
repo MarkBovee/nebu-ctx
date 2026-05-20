@@ -162,6 +162,52 @@ Memory:
 }
 ```
 
+### Memory Actions
+
+For hosted memory over HTTP, call the public `ctx` tool and set `domain` to `memory`.
+
+Working-memory actions:
+
+- `task`
+- `finding`
+- `decision`
+- `save`
+- `load`
+- `status`
+- `reset`
+- `list`
+- `cleanup`
+
+Durable knowledge actions:
+
+- `store`
+- `set`
+- `remember`
+- `recall`
+- `consolidate`
+- `promote`
+- `upkeep`
+- `wakeup`
+- `triage`
+- `remove`
+
+Internally, the Rust client or hosted server routes those public memory actions onto private handlers such as `ctx_session` and `ctx_knowledge`.
+
+HTTP example:
+
+```json
+{
+  "name": "ctx",
+  "arguments": {
+    "domain": "memory",
+    "action": "remember",
+    "category": "decision",
+    "key": "memory-owner",
+    "value": "server owns canonical memory"
+  }
+}
+```
+
 Context:
 
 ```json

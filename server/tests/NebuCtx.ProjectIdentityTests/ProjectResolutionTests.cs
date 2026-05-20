@@ -11,15 +11,16 @@ using NebuCtx.Storage;
 public class ProjectResolutionTests
 {
     private ProjectRegistry _registry = null!;
+    private InMemoryProjectStore _projectStore = null!;
 
     /// <summary>
     /// Sets up a fresh in-memory registry for each test.
     /// </summary>
     public ProjectResolutionTests()
     {
-        var projectStore = new InMemoryProjectStore();
+        _projectStore = new InMemoryProjectStore();
         var bindingStore = new InMemoryCheckoutBindingStore();
-        _registry = new ProjectRegistry(projectStore, bindingStore);
+        _registry = new ProjectRegistry(_projectStore, bindingStore);
     }
 
     /// <summary>
@@ -188,6 +189,45 @@ public class ProjectResolutionTests
     }
 
     /// <summary>
+    /// Ambiguous duplicate projects must not create a fresh canonical project.
+    /// </summary>
+    [Fact]
+    public async Task AmbiguousFingerprint_DoesNotCreateAnotherProject()
+    {
+        var fingerprint = new RepositoryFingerprint
+        {
+            RemoteUrl = "https://github.com/MarkBovee/ha-addons.git",
+            Host = "github.com",
+            Owner = "MarkBovee",
+            RepoName = "ha-addons",
+            DefaultBranch = "master",
+        };
+
+        await _projectStore.CreateProjectAsync(new ProjectRecord
+        {
+            ProjectId = "proj_a",
+            Slug = "ha-addons",
+            Fingerprint = fingerprint,
+            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-1),
+            UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(-1),
+        });
+        await _projectStore.CreateProjectAsync(new ProjectRecord
+        {
+            ProjectId = "proj_b",
+            Slug = "ha-addons",
+            Fingerprint = fingerprint,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        });
+
+        var resolved = await _registry.ResolveOrCreateAsync(fingerprint, "ha-addons");
+
+        Assert.Null(resolved);
+        var allProjects = await _projectStore.ListProjectsAsync();
+        Assert.Equal(2, allProjects.Count);
+    }
+
+    /// <summary>
     /// In-memory project store used to keep the test independent from runtime database providers.
     /// </summary>
     private sealed class InMemoryProjectStore : IProjectStore
@@ -204,8 +244,17 @@ public class ProjectResolutionTests
         /// <inheritdoc />
         public Task<ProjectRecord?> FindByFingerprintAsync(RepositoryFingerprint fingerprint, CancellationToken cancellationToken = default)
         {
-            var project = _projects.Values.FirstOrDefault(project => project.Fingerprint is not null && FingerprintsMatch(project.Fingerprint, fingerprint));
-            return Task.FromResult(project);
+            return ListByFingerprintAsync(fingerprint, cancellationToken)
+                .ContinueWith(task => task.Result.Count == 1 ? task.Result[0] : null, cancellationToken);
+        }
+
+        /// <inheritdoc />
+        public Task<IReadOnlyList<ProjectRecord>> ListByFingerprintAsync(RepositoryFingerprint fingerprint, CancellationToken cancellationToken = default)
+        {
+            var projects = _projects.Values
+                .Where(project => project.Fingerprint is not null && FingerprintsMatch(project.Fingerprint, fingerprint))
+                .ToList();
+            return Task.FromResult<IReadOnlyList<ProjectRecord>>(projects);
         }
 
         /// <inheritdoc />

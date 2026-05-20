@@ -124,10 +124,10 @@ printf '%s' "$manifest_json" | assert_json
 
 tools_json="$(curl -fsS -H "Authorization: Bearer ${TOKEN}" "http://127.0.0.1:${HOST_HTTP_PORT}/v1/tools")"
 printf '%s' "$tools_json" | assert_json
-printf '%s' "$tools_json" | grep -q 'ctx_brain'
+printf '%s' "$tools_json" | grep -q '"ctx"'
 
 store_body="$(cat <<EOF
-{"name":"ctx_brain","arguments":{"action":"store","key":"${SMOKE_MARKER}","value":"${SMOKE_MARKER}"}}
+{"name":"ctx","arguments":{"domain":"memory","action":"remember","category":"general","key":"${SMOKE_MARKER}","value":"${SMOKE_MARKER}"}}
 EOF
 )"
 
@@ -139,7 +139,7 @@ store_json="$(curl -fsS \
 printf '%s' "$store_json" | assert_json
 
 recall_body="$(cat <<EOF
-{"name":"ctx_brain","arguments":{"action":"recall","query":"${SMOKE_MARKER}","limit":5}}
+{"name":"ctx","arguments":{"domain":"memory","action":"recall","query":"${SMOKE_MARKER}","limit":5}}
 EOF
 )"
 
@@ -155,21 +155,11 @@ printf '\n=== Installing CLI and connecting to the server ===\n'
 # Source-build smoke stays here; published-binary install validation lives in tests/local-binstall-smoke.sh.
 "$CARGO_BIN" install --path "$PROJECT_ROOT/client" --bin nebu-ctx --root "$CLI_ROOT" --force
 
-HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx" server connect --endpoint "http://127.0.0.1:${HOST_HTTP_PORT}" --token "$TOKEN" >/dev/null
+HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx" connect --endpoint "http://127.0.0.1:${HOST_HTTP_PORT}" --token "$TOKEN" >/dev/null
 
-status_output="$(HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx" server status)"
+status_output="$(HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx" status --json)"
 printf '%s\n' "$status_output"
 printf '%s' "$status_output" | grep -q '"saved": true'
-
-bind_output="$(HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx" server bind)"
-printf '%s' "$bind_output" | grep -q '"project"'
-
-client_store_json="$(HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx" ctx_brain action=store key="$SMOKE_MARKER" value="$SMOKE_MARKER")"
-printf '%s' "$client_store_json" | assert_json
-
-client_recall_json="$(HOME="$CLI_HOME" USERPROFILE="$CLI_HOME" "$CLI_ROOT/bin/nebu-ctx" ctx_brain action=recall query="$SMOKE_MARKER")"
-printf '%s' "$client_recall_json" | assert_json
-printf '%s' "$client_recall_json" | grep -q "$SMOKE_MARKER"
 
 python3 - "$CLI_HOME/.nebu-ctx/cloud/server_connection.json" "http://127.0.0.1:${HOST_HTTP_PORT}" <<'PY'
 import json

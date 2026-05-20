@@ -236,6 +236,8 @@ Use `ctx_shell` for:
 
 Use `ctx` for high-level workflows via `domain` + `action`.
 
+For hosted memory management over the MCP HTTP server, this is the public entrypoint. Do not call internal host handlers like `ctx_knowledge` or `ctx_session` directly from external clients.
+
 Domains:
 
 - `memory`
@@ -254,6 +256,70 @@ Examples:
 ```json
 { "name": "ctx", "arguments": { "domain": "graph", "action": "impact", "path": "client/src/mcp_server/mod.rs" } }
 ```
+
+### Hosted Memory Management
+
+Public memory calls go to `POST /v1/tools/call` with `name="ctx"` and `arguments.domain="memory"`.
+
+Internally the host routes memory actions like this:
+
+- `task`, `finding`, `decision`, `save`, `load`, `status`, `reset`, `list`, `cleanup` -> hosted session state
+- `store`, `set`, `remember`, `recall`, `consolidate`, `promote`, `upkeep`, `wakeup`, `triage`, `remove` -> hosted canonical knowledge
+
+Example: store a durable fact
+
+```bash
+curl -fsS \
+  -H "Authorization: Bearer <token>" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "ctx",
+    "arguments": {
+      "domain": "memory",
+      "action": "remember",
+      "category": "decision",
+      "key": "memory-owner",
+      "value": "server owns canonical memory",
+      "confidence": 0.95
+    }
+  }' \
+  http://127.0.0.1:4242/v1/tools/call
+```
+
+Example: recall stored memory
+
+```bash
+curl -fsS \
+  -H "Authorization: Bearer <token>" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "ctx",
+    "arguments": {
+      "domain": "memory",
+      "action": "recall",
+      "query": "memory-owner"
+    }
+  }' \
+  http://127.0.0.1:4242/v1/tools/call
+```
+
+Example: run hosted upkeep or triage
+
+```bash
+curl -fsS \
+  -H "Authorization: Bearer <token>" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"ctx","arguments":{"domain":"memory","action":"upkeep"}}' \
+  http://127.0.0.1:4242/v1/tools/call
+
+curl -fsS \
+  -H "Authorization: Bearer <token>" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"ctx","arguments":{"domain":"memory","action":"triage","mode":"preview"}}' \
+  http://127.0.0.1:4242/v1/tools/call
+```
+
+For operator inspection, the dashboard exposes per-project memory on `GET /api/dashboard/projects/{projectId}/memory` and triage apply on `POST /api/dashboard/projects/{projectId}/memory/triage?mode=apply`.
 
 ## Hook System
 

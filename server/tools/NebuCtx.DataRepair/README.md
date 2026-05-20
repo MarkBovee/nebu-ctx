@@ -5,10 +5,13 @@ Local admin helper for direct Postgres project-identity repair and cleanup.
 ## What it does
 
 - inspects legacy `mark` / `markb` project records
+- inspects duplicate fingerprint project groups that should collapse to one canonical project
 - shows bindings, inferred repo identity, and a small evidence sample
 - deletes stale legacy shells automatically
 - can optionally delete unresolved legacy records that still have no repo identity
 - can migrate misidentified projects into a canonical repo-backed project when identity can be inferred
+- can optionally merge duplicate safe-fingerprint project groups into one canonical project
+- can explicitly delete approved project shells by project id
 
 ## Safe workflow
 
@@ -30,6 +33,24 @@ Delete unresolved legacy records with no repo identity:
 set -a && . ./.env && NEBU_REPAIR_DELETE_UNRESOLVED=1 dotnet run --project server/tools/NebuCtx.DataRepair/NebuCtx.DataRepair.csproj
 ```
 
+Inspect duplicate fingerprint groups only:
+
+```bash
+set -a && . ./.env && NEBU_REPAIR_DUPLICATE_FINGERPRINTS=1 dotnet run --project server/tools/NebuCtx.DataRepair/NebuCtx.DataRepair.csproj
+```
+
+Merge duplicate fingerprint groups into the selected canonical project:
+
+```bash
+set -a && . ./.env && NEBU_REPAIR_DUPLICATE_FINGERPRINTS=1 NEBU_REPAIR_APPLY_DUPLICATE_MERGE=1 dotnet run --project server/tools/NebuCtx.DataRepair/NebuCtx.DataRepair.csproj
+```
+
+Delete explicit project shells by project id:
+
+```bash
+set -a && . ./.env && NEBU_REPAIR_DELETE_PROJECT_IDS=proj_a,proj_b dotnet run --project server/tools/NebuCtx.DataRepair/NebuCtx.DataRepair.csproj
+```
+
 Build only:
 
 ```bash
@@ -40,4 +61,4 @@ dotnet build server/tools/NebuCtx.DataRepair/NebuCtx.DataRepair.csproj
 
 - The tool uses `DATABASE_URL` from the environment.
 - The helper is intentionally local/admin-oriented and emits JSON for auditability.
-- Keep it inspect-first; the unresolved delete mode is explicit by design.
+- Keep it inspect-first; destructive modes are explicit by design.

@@ -7,6 +7,15 @@
 //   Delete unresolved legacy mark/markb records with no repo identity:
 //     set -a && . ./.env && NEBU_REPAIR_DELETE_UNRESOLVED=1 dotnet run --project server/tools/NebuCtx.DataRepair/NebuCtx.DataRepair.csproj
 //
+//   Inspect duplicate fingerprint groups:
+//     set -a && . ./.env && NEBU_REPAIR_DUPLICATE_FINGERPRINTS=1 dotnet run --project server/tools/NebuCtx.DataRepair/NebuCtx.DataRepair.csproj
+//
+//   Merge duplicate fingerprint groups:
+//     set -a && . ./.env && NEBU_REPAIR_DUPLICATE_FINGERPRINTS=1 NEBU_REPAIR_APPLY_DUPLICATE_MERGE=1 dotnet run --project server/tools/NebuCtx.DataRepair/NebuCtx.DataRepair.csproj
+//
+//   Delete explicit project shells by id:
+//     set -a && . ./.env && NEBU_REPAIR_DELETE_PROJECT_IDS=proj_a,proj_b dotnet run --project server/tools/NebuCtx.DataRepair/NebuCtx.DataRepair.csproj
+//
 // Safe workflow: inspect first, review the JSON output, then run the destructive mode only
 // when the target records are confirmed unresolved legacy data.
 
@@ -21,9 +30,28 @@ var deleteUnresolved = string.Equals(
     Environment.GetEnvironmentVariable("NEBU_REPAIR_DELETE_UNRESOLVED"),
     "1",
     StringComparison.Ordinal);
+var inspectDuplicateFingerprints = string.Equals(
+    Environment.GetEnvironmentVariable("NEBU_REPAIR_DUPLICATE_FINGERPRINTS"),
+    "1",
+    StringComparison.Ordinal);
+var applyDuplicateMerge = string.Equals(
+    Environment.GetEnvironmentVariable("NEBU_REPAIR_APPLY_DUPLICATE_MERGE"),
+    "1",
+    StringComparison.Ordinal);
+var explicitDeleteProjectIds = ParseProjectIds(Environment.GetEnvironmentVariable("NEBU_REPAIR_DELETE_PROJECT_IDS"));
 await using var connection = await OpenConnectionAsync();
 
 var candidates = await LoadCandidateProjectsAsync(connection);
+var allProjects = await LoadAllProjectsAsync(connection);
+var duplicateGroups = ProjectIdentityDiagnostics.FindDuplicateFingerprintGroups(allProjects);
+var explicitDeleteCandidates = allProjects
+    .Where(project => explicitDeleteProjectIds.Contains(project.ProjectId))
+    .OrderBy(project => project.CreatedAt)
+    .ToArray();
+var explicitDeleteMissingIds = explicitDeleteProjectIds
+    .Where(projectId => explicitDeleteCandidates.All(project => !string.Equals(project.ProjectId, projectId, StringComparison.OrdinalIgnoreCase)))
+    .OrderBy(projectId => projectId, StringComparer.OrdinalIgnoreCase)
+    .ToArray();
 var beforeCounts = await LoadTableCountsAsync(connection, candidates.Select(project => project.ProjectId).ToArray());
 var inspections = await InspectProjectsAsync(candidates);
 
@@ -33,30 +61,53 @@ WriteJson(new
     candidate_count = candidates.Count,
     candidates = candidates.Select(project => BuildProjectInspection(project, inspections)).ToArray(),
     table_counts = beforeCounts,
+    explicit_delete_project_ids = explicitDeleteProjectIds.OrderBy(projectId => projectId, StringComparer.OrdinalIgnoreCase).ToArray(),
+    explicit_delete_candidates = explicitDeleteCandidates.Select(project => new
+    {
+        project_id = project.ProjectId,
+        slug = project.Slug,
+        remote_url = project.Fingerprint?.RemoteUrl,
+        created_at = project.CreatedAt,
+    }).ToArray(),
+    explicit_delete_missing_ids = explicitDeleteMissingIds,
+    duplicate_fingerprint_group_count = duplicateGroups.Count,
+    duplicate_fingerprint_groups = duplicateGroups.Select(BuildDuplicateFingerprintInspection).ToArray(),
 });
 
 await using var transaction = await connection.BeginTransactionAsync();
 
 var deletedProjects = new List<DeletedProjectResult>();
-foreach (var project in candidates.Where(LegacyProjectCleanupRules.IsSafeToDelete))
+var deletedProjectIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+foreach (var project in explicitDeleteCandidates)
+{
+    var deletions = await DeleteProjectEverywhereAsync(connection, transaction, project.ProjectId);
+    deletedProjects.Add(new DeletedProjectResult(project.ProjectId, project.Slug, deletions, "explicit-project-delete"));
+    deletedProjectIds.Add(project.ProjectId);
+}
+
+foreach (var project in candidates.Where(project => !deletedProjectIds.Contains(project.ProjectId) && LegacyProjectCleanupRules.IsSafeToDelete(project)))
 {
     var deletions = await DeleteProjectEverywhereAsync(connection, transaction, project.ProjectId);
     deletedProjects.Add(new DeletedProjectResult(project.ProjectId, project.Slug, deletions, "stale-legacy"));
+    deletedProjectIds.Add(project.ProjectId);
 }
 
 if (deleteUnresolved)
 {
     foreach (var project in candidates.Where(project =>
+                 !deletedProjectIds.Contains(project.ProjectId) &&
                  inspections.TryGetValue(project.ProjectId, out var inspection)
                  && LegacyProjectCleanupRules.IsUnresolvedLegacyProject(project, inspection.Fingerprint)))
     {
         var deletions = await DeleteProjectEverywhereAsync(connection, transaction, project.ProjectId);
         deletedProjects.Add(new DeletedProjectResult(project.ProjectId, project.Slug, deletions, "unresolved-legacy-no-repo"));
+        deletedProjectIds.Add(project.ProjectId);
     }
 }
 
 var migratedProjects = new List<MigratedProjectResult>();
-foreach (var project in candidates.Where(project => !LegacyProjectCleanupRules.IsSafeToDelete(project)))
+foreach (var project in candidates.Where(project => !deletedProjectIds.Contains(project.ProjectId) && !LegacyProjectCleanupRules.IsSafeToDelete(project)))
 {
     if (!inspections.TryGetValue(project.ProjectId, out var inspection)
         || inspection.Fingerprint is null
@@ -83,12 +134,44 @@ foreach (var project in candidates.Where(project => !LegacyProjectCleanupRules.I
         inspection.Fingerprint.RemoteUrl,
         inspection.Fingerprint.RepoName,
         reassigned));
+    deletedProjectIds.Add(project.ProjectId);
+}
+
+var duplicateFingerprintMerges = new List<DuplicateFingerprintMergeResult>();
+if (inspectDuplicateFingerprints && applyDuplicateMerge)
+{
+    foreach (var duplicateGroup in duplicateGroups)
+    {
+        var activeProjects = duplicateGroup.Projects
+            .Where(project => !deletedProjectIds.Contains(project.ProjectId))
+            .ToArray();
+        if (activeProjects.Length <= 1)
+        {
+            continue;
+        }
+
+        var canonical = ProjectIdentityDiagnostics.SelectCanonicalProject(activeProjects);
+        foreach (var duplicate in activeProjects.Where(project => !string.Equals(project.ProjectId, canonical.ProjectId, StringComparison.OrdinalIgnoreCase)))
+        {
+            var reassigned = await ReassignProjectScopedDataAsync(connection, transaction, duplicate.ProjectId, canonical.ProjectId);
+            await DeleteByProjectIdAsync(connection, transaction, "projects", duplicate.ProjectId);
+            duplicateFingerprintMerges.Add(new DuplicateFingerprintMergeResult(
+                duplicateGroup.FingerprintKey,
+                duplicate.ProjectId,
+                duplicate.Slug,
+                canonical.ProjectId,
+                canonical.Slug,
+                reassigned));
+            deletedProjectIds.Add(duplicate.ProjectId);
+        }
+    }
 }
 
 await transaction.CommitAsync();
 
 var touchedProjectIds = deletedProjects.Select(item => item.ProjectId).ToList();
 touchedProjectIds.AddRange(migratedProjects.Select(item => item.FromProjectId));
+touchedProjectIds.AddRange(duplicateFingerprintMerges.Select(item => item.FromProjectId));
 
 var afterCounts = touchedProjectIds.Count == 0
     ? new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase)
@@ -101,6 +184,8 @@ WriteJson(new
     deleted_projects = deletedProjects,
     migrated_project_count = migratedProjects.Count,
     migrated_projects = migratedProjects,
+    duplicate_fingerprint_merge_count = duplicateFingerprintMerges.Count,
+    duplicate_fingerprint_merges = duplicateFingerprintMerges,
     table_counts_after = afterCounts,
 });
 
@@ -126,6 +211,39 @@ static async Task<List<ProjectRecord>> LoadCandidateProjectsAsync(NpgsqlConnecti
     }
 
     return projects;
+}
+
+static async Task<List<ProjectRecord>> LoadAllProjectsAsync(NpgsqlConnection connection)
+{
+    const string sql =
+        """
+        SELECT project_id, slug, remote_url, host, owner, repo_name, default_branch, project_metadata_json::text, created_at, updated_at
+        FROM projects
+        ORDER BY created_at
+        """;
+
+    await using var command = new NpgsqlCommand(sql, connection);
+    await using var reader = await command.ExecuteReaderAsync();
+
+    var projects = new List<ProjectRecord>();
+    while (await reader.ReadAsync())
+    {
+        projects.Add(MapProject(reader));
+    }
+
+    return projects;
+}
+
+static HashSet<string> ParseProjectIds(string? rawValue)
+{
+    if (string.IsNullOrWhiteSpace(rawValue))
+    {
+        return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    return rawValue
+        .Split([',', ';', '\n', '\r', '\t', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
 }
 
 static async Task<Dictionary<string, ProjectInspection>> InspectProjectsAsync(IEnumerable<ProjectRecord> projects)
@@ -197,6 +315,25 @@ static object BuildProjectInspection(ProjectRecord project, IReadOnlyDictionary<
         knowledge_sample = inspection?.KnowledgeSample,
         brain_sample = inspection?.BrainSample,
         session_sample = inspection?.SessionSample,
+    };
+}
+
+static object BuildDuplicateFingerprintInspection(ProjectDuplicateFingerprintGroup group)
+{
+    return new
+    {
+        fingerprint_key = group.FingerprintKey,
+        canonical_project_id = group.CanonicalProjectId,
+        project_count = group.ProjectIds.Count,
+        projects = group.Projects.Select(project => new
+        {
+            project_id = project.ProjectId,
+            slug = project.Slug,
+            created_at = project.CreatedAt,
+            source_file_count = project.ProjectMetadata?.Summary.SourceFileCount ?? 0,
+            total_file_count = project.ProjectMetadata?.Summary.TotalFileCount ?? 0,
+            remote_url = project.Fingerprint?.RemoteUrl,
+        }).ToArray(),
     };
 }
 
@@ -736,4 +873,12 @@ file sealed record MigratedProjectResult(
     string? LocalRoot,
     string? RemoteUrl,
     string? RepoName,
+    Dictionary<string, int> Reassigned);
+
+file sealed record DuplicateFingerprintMergeResult(
+    string FingerprintKey,
+    string FromProjectId,
+    string FromSlug,
+    string ToProjectId,
+    string ToSlug,
     Dictionary<string, int> Reassigned);

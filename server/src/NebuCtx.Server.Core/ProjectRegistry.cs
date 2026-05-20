@@ -39,7 +39,13 @@ public sealed class ProjectRegistry
             return null;
         }
 
-        var existing = await _projectStore.FindByFingerprintAsync(fingerprint, cancellationToken);
+        var matches = await _projectStore.ListByFingerprintAsync(fingerprint, cancellationToken);
+        if (matches.Count > 1)
+        {
+            return null;
+        }
+
+        var existing = matches.Count == 1 ? matches[0] : null;
         if (existing is not null)
         {
             if (projectMetadata is not null)

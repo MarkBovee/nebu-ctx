@@ -2133,6 +2133,8 @@ async function loadBrain() {
     const data = await apiFetch('/api/brain');
     const entries = data.entries || [];
     const total = data.total_count || entries.length;
+    const duplicateSlugGroups = (_cachedProjectList && _cachedProjectList._duplicate_slug_groups) || [];
+    const duplicateFingerprintGroups = (_cachedProjectList && _cachedProjectList._duplicate_fingerprint_groups) || [];
 
     // Group entries by project
     const byProject = {};
@@ -2163,6 +2165,22 @@ async function loadBrain() {
         <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${memoryProjects.length}</div><div class="hl">Projects</div></div>
         <div class="hc"><div class="hv" style="color:var(--blue);font-size:24px">${entries.length > 0 ? new Date(entries[0].created_at).toLocaleDateString() : '—'}</div><div class="hl">Latest Entry</div></div>
       </div>
+      ${(duplicateSlugGroups.length || duplicateFingerprintGroups.length) ? `<div class="card" style="margin-bottom:16px;border-color:rgba(251,191,36,0.28);background:rgba(251,191,36,0.06)">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
+          <div>
+            <h3 style="margin:0 0 8px 0;color:var(--yellow)">Project Identity Warning</h3>
+            <p style="margin:0;color:var(--muted)">Duplicate project records were detected. Resolve/bind may stay unstable until these are repaired.</p>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${duplicateSlugGroups.length ? `<span class="tag ty">${duplicateSlugGroups.length} duplicate slug group(s)</span>` : ''}
+            ${duplicateFingerprintGroups.length ? `<span class="tag ty">${duplicateFingerprintGroups.length} duplicate fingerprint group(s)</span>` : ''}
+          </div>
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:var(--muted)">
+          ${duplicateSlugGroups.slice(0, 6).map(group => `<div>slug <code>${esc(group.slug)}</code> -> ${group.count} projects</div>`).join('')}
+          ${duplicateFingerprintGroups.slice(0, 6).map(group => `<div>fingerprint duplicate -> canonical <code>${esc(group.canonical_project_id)}</code>, ${group.count} projects</div>`).join('')}
+        </div>
+      </div>` : ''}
       <div class="card" style="margin-bottom:16px">
         <div class="card-header" style="margin-bottom:12px">
           <h3>Memory Admin</h3>
@@ -2212,6 +2230,8 @@ async function getProjectList() {
   try {
     const data = await apiFetch('/api/projects');
     _cachedProjectList = (data.projects || []);
+    _cachedProjectList._duplicate_slug_groups = data.duplicate_slug_groups || [];
+    _cachedProjectList._duplicate_fingerprint_groups = data.duplicate_fingerprint_groups || [];
     setTimeout(() => { _cachedProjectList = null; }, 60000); // 1 min cache TTL
     return _cachedProjectList;
   } catch { return []; }

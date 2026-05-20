@@ -26,6 +26,14 @@ public interface IProjectStore
     Task<ProjectRecord?> FindByFingerprintAsync(RepositoryFingerprint fingerprint, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Lists all projects that match a repository fingerprint.
+    /// </summary>
+    /// <param name="fingerprint">Repository fingerprint to search for.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>All matching projects, including ambiguous duplicate records.</returns>
+    Task<IReadOnlyList<ProjectRecord>> ListByFingerprintAsync(RepositoryFingerprint fingerprint, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Creates a new project record.
     /// </summary>
     /// <param name="project">Project record to persist.</param>

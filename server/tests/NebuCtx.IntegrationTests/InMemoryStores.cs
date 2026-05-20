@@ -21,13 +21,21 @@ internal sealed class InMemoryProjectStore : IProjectStore
 
     public Task<ProjectRecord?> FindByFingerprintAsync(RepositoryFingerprint fingerprint, CancellationToken cancellationToken = default)
     {
-        var match = _projects.Values.FirstOrDefault(p =>
-            p.Fingerprint is not null &&
-            string.Equals(p.Fingerprint.RemoteUrl, fingerprint.RemoteUrl, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(p.Fingerprint.Host, fingerprint.Host, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(p.Fingerprint.Owner, fingerprint.Owner, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(p.Fingerprint.RepoName, fingerprint.RepoName, StringComparison.OrdinalIgnoreCase));
-        return Task.FromResult(match);
+        return ListByFingerprintAsync(fingerprint, cancellationToken)
+            .ContinueWith(task => task.Result.Count == 1 ? task.Result[0] : null, cancellationToken);
+    }
+
+    public Task<IReadOnlyList<ProjectRecord>> ListByFingerprintAsync(RepositoryFingerprint fingerprint, CancellationToken cancellationToken = default)
+    {
+        var matches = _projects.Values
+            .Where(p =>
+                p.Fingerprint is not null &&
+                string.Equals(p.Fingerprint.RemoteUrl, fingerprint.RemoteUrl, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(p.Fingerprint.Host, fingerprint.Host, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(p.Fingerprint.Owner, fingerprint.Owner, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(p.Fingerprint.RepoName, fingerprint.RepoName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        return Task.FromResult<IReadOnlyList<ProjectRecord>>(matches);
     }
 
     public Task CreateProjectAsync(ProjectRecord project, CancellationToken cancellationToken = default)

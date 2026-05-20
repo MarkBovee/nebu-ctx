@@ -117,6 +117,10 @@ public static class DashboardDataEndpoints
         app.MapGet("/projects", async (ProjectRegistry projectRegistry, CancellationToken ct) =>
         {
             var projects = await projectRegistry.ListAsync(ct);
+            var duplicateSlugGroups = ProjectIdentityDiagnostics.FindDuplicateSlugGroups(projects);
+            var duplicateFingerprintGroups = ProjectIdentityDiagnostics.FindDuplicateFingerprintGroups(projects);
+            var duplicateSlugProjectIds = duplicateSlugGroups.SelectMany(group => group.ProjectIds).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var duplicateFingerprintProjectIds = duplicateFingerprintGroups.SelectMany(group => group.ProjectIds).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var payload = projects.Select(p => new
             {
                 project_id = p.ProjectId,
@@ -125,8 +129,27 @@ public static class DashboardDataEndpoints
                 source_file_count = p.ProjectMetadata?.Summary.SourceFileCount ?? 0,
                 total_file_count = p.ProjectMetadata?.Summary.TotalFileCount ?? 0,
                 created_at = p.CreatedAt,
+                has_duplicate_slug = duplicateSlugProjectIds.Contains(p.ProjectId),
+                has_duplicate_fingerprint = duplicateFingerprintProjectIds.Contains(p.ProjectId),
             }).ToArray();
-            return Results.Ok(new { projects = payload, total = payload.Length });
+            return Results.Ok(new
+            {
+                projects = payload,
+                total = payload.Length,
+                duplicate_slug_groups = duplicateSlugGroups.Select(group => new
+                {
+                    slug = group.Slug,
+                    count = group.ProjectIds.Count,
+                    project_ids = group.ProjectIds,
+                }).ToArray(),
+                duplicate_fingerprint_groups = duplicateFingerprintGroups.Select(group => new
+                {
+                    fingerprint_key = group.FingerprintKey,
+                    canonical_project_id = group.CanonicalProjectId,
+                    count = group.ProjectIds.Count,
+                    project_ids = group.ProjectIds,
+                }).ToArray(),
+            });
         });
 
         app.MapGet("/dashboard/projects/{projectId}/memory", async (

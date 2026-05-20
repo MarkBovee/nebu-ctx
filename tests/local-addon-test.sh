@@ -136,10 +136,10 @@ printf '%s' "$manifest_json" | assert_json
 
 tools_json="$(curl -fsS -H "Authorization: Bearer ${TOKEN}" "http://127.0.0.1:${HOST_MCP_PORT}/v1/tools")"
 printf '%s' "$tools_json" | assert_json
-printf '%s' "$tools_json" | grep -q 'ctx_brain'
+printf '%s' "$tools_json" | grep -q '"ctx"'
 
 store_body="$(cat <<EOF
-{"name":"ctx_brain","arguments":{"action":"store","key":"${SMOKE_MARKER}","value":"${SMOKE_MARKER}"}}
+{"name":"ctx","arguments":{"domain":"memory","action":"remember","category":"general","key":"${SMOKE_MARKER}","value":"${SMOKE_MARKER}"}}
 EOF
 )"
 
@@ -150,7 +150,7 @@ curl -fsS \
     "http://127.0.0.1:${HOST_MCP_PORT}/v1/tools/call" | assert_json
 
 recall_body="$(cat <<EOF
-{"name":"ctx_brain","arguments":{"action":"recall","query":"${SMOKE_MARKER}","limit":5}}
+{"name":"ctx","arguments":{"domain":"memory","action":"recall","query":"${SMOKE_MARKER}","limit":5}}
 EOF
 )"
 
