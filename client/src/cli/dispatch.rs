@@ -771,6 +771,10 @@ pub fn run() {
                 eprintln!("  Or add the shell hook to your shell profile via: nebu-ctx setup");
                 std::process::exit(1);
             }
+            "on-brief" => {
+                status::print_on_brief();
+                return;
+            }
             _ => {
                 eprintln!("nebu-ctx: unknown command '{}'\n", args[1]);
                 print_help();

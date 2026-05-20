@@ -166,6 +166,16 @@ fn shell_exec_quoted_args() {
     );
 }
 
+#[test]
+fn on_brief_is_recognized_command() {
+    let (_stdout, stderr, code) = run_with_env(&["on-brief"], &[], None);
+    assert_eq!(code, 0, "on-brief should be accepted");
+    assert!(
+        !stderr.contains("unknown command"),
+        "should not report unknown command: {stderr}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Agent init tests
 // ---------------------------------------------------------------------------
