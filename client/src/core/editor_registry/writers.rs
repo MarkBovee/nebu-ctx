@@ -481,6 +481,8 @@ fn write_opencode_config(
         "environment": { "NEBU_CTX_DATA_DIR": data_dir }
     });
     let desired_instruction = serde_json::json!("./rules/nebu-ctx.md");
+    let desired_plugin = serde_json::json!("./plugins/nebu-ctx.ts");
+    install_opencode_support_files(target)?;
 
     if target.config_path.exists() {
         let content = std::fs::read_to_string(&target.config_path).map_err(|e| e.to_string())?;
@@ -517,13 +519,22 @@ fn write_opencode_config(
             instructions_arr.push(desired_instruction.clone());
         }
 
+        let plugins = obj.entry("plugin").or_insert_with(|| serde_json::json!([]));
+        let plugins_arr = plugins
+            .as_array_mut()
+            .ok_or_else(|| "\"plugin\" must be an array".to_string())?;
+        let had_plugin = plugins_arr.iter().any(|item| item == &desired_plugin);
+        if !had_plugin {
+            plugins_arr.push(desired_plugin.clone());
+        }
+
         let mcp = obj.entry("mcp").or_insert_with(|| serde_json::json!({}));
         let mcp_obj = mcp
             .as_object_mut()
             .ok_or_else(|| "\"mcp\" must be an object".to_string())?;
 
         let existing = mcp_obj.get("nebu-ctx").cloned();
-        if existing.as_ref() == Some(&desired) && had_instruction {
+        if existing.as_ref() == Some(&desired) && had_instruction && had_plugin {
             return Ok(WriteResult {
                 action: WriteAction::Already,
                 note: None,
@@ -548,12 +559,14 @@ fn write_opencode_fresh(
     binary: &str,
     note: Option<String>,
 ) -> Result<WriteResult, String> {
+    install_opencode_support_files_for_config(path)?;
     let data_dir = crate::core::data_dir::nebu_ctx_data_dir()
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let content = serde_json::to_string_pretty(&serde_json::json!({
         "$schema": "https://opencode.ai/config.json",
         "instructions": ["./rules/nebu-ctx.md"],
+        "plugin": ["./plugins/nebu-ctx.ts"],
         "mcp": { "nebu-ctx": { "type": "local", "command": [binary], "enabled": true, "environment": { "NEBU_CTX_DATA_DIR": data_dir } } }
     }))
     .map_err(|e| e.to_string())?;
@@ -566,6 +579,34 @@ fn write_opencode_fresh(
         },
         note,
     })
+}
+
+fn install_opencode_support_files(target: &EditorTarget) -> Result<(), String> {
+    install_opencode_support_files_for_config(&target.config_path)
+}
+
+fn install_opencode_support_files_for_config(config_path: &std::path::Path) -> Result<(), String> {
+    let Some(config_dir) = config_path.parent() else {
+        return Err("OpenCode config path has no parent directory".to_string());
+    };
+
+    let rules_dir = config_dir.join("rules");
+    std::fs::create_dir_all(&rules_dir).map_err(|e| e.to_string())?;
+    let rules_path = rules_dir.join("nebu-ctx.md");
+    let desired_rules = crate::rules_inject::rules_dedicated_markdown();
+    let existing_rules = std::fs::read_to_string(&rules_path).unwrap_or_default();
+    if existing_rules.is_empty() || !existing_rules.contains(crate::rules_inject::RULES_VERSION_STR)
+    {
+        crate::config_io::write_atomic_with_backup(&rules_path, desired_rules)?;
+    }
+
+    let plugin_dir = config_dir.join("plugins");
+    std::fs::create_dir_all(&plugin_dir).map_err(|e| e.to_string())?;
+    let plugin_path = plugin_dir.join("nebu-ctx.ts");
+    let plugin_content = include_str!("../../templates/opencode-plugin.ts");
+    crate::config_io::write_atomic_with_backup(&plugin_path, plugin_content)?;
+
+    Ok(())
 }
 
 fn write_jetbrains_config(
@@ -1180,6 +1221,32 @@ args = ["x"]
             serde_json::json!(["/usr/local/bin/nebu-ctx"])
         );
         assert_eq!(json["mcp"]["nebu-ctx"]["enabled"], true);
+        assert_eq!(json["instructions"], serde_json::json!(["./rules/nebu-ctx.md"]));
+        assert_eq!(json["plugin"], serde_json::json!(["./plugins/nebu-ctx.ts"]));
+        assert!(dir.path().join("rules/nebu-ctx.md").exists());
+        assert!(dir.path().join("plugins/nebu-ctx.ts").exists());
+    }
+
+    #[test]
+    fn opencode_config_adds_plugin_to_existing_array() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("opencode.json");
+        std::fs::write(
+            &path,
+            r#"{ "plugin": [["./plugins/skill-router.js", { "maxHints": 3 }]], "instructions": [], "mcp": {} }"#,
+        )
+        .unwrap();
+
+        let t = target(path.clone(), ConfigType::OpenCode);
+        let res =
+            write_opencode_config(&t, "/usr/local/bin/nebu-ctx", WriteOptions::default()).unwrap();
+        assert_eq!(res.action, WriteAction::Updated);
+
+        let json: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        let plugins = json["plugin"].as_array().expect("plugin should be array");
+        assert_eq!(plugins.len(), 2);
+        assert_eq!(plugins[0][0], "./plugins/skill-router.js");
+        assert_eq!(plugins[1], serde_json::json!("./plugins/nebu-ctx.ts"));
     }
 
     #[test]

@@ -288,6 +288,53 @@ fn setup_bootstrap_doctor_status_json_smoke() {
 }
 
 #[test]
+fn bootstrap_configures_opencode_plugin_and_rules() {
+    let bin = env!("CARGO_BIN_EXE_nebu-ctx");
+
+    let tmp = tempfile::tempdir().unwrap();
+    let home = tmp.path().join("home");
+    std::fs::create_dir_all(home.join(".config/opencode")).unwrap();
+    let data_dir = tmp.path().join("data");
+    std::fs::create_dir_all(&data_dir).unwrap();
+
+    let home_str = home.to_string_lossy().to_string();
+    let data_str = data_dir.to_string_lossy().to_string();
+
+    let mut envs = vec![
+        ("HOME", home_str.as_str()),
+        ("NEBU_CTX_DATA_DIR", data_str.as_str()),
+        ("NEBU_CTX_ACTIVE", "1"),
+        ("NEBU_CTX_DISABLED", "1"),
+    ];
+    #[cfg(not(windows))]
+    {
+        envs.push(("SHELL", "/bin/bash"));
+    }
+    #[cfg(windows)]
+    {
+        envs.push(("USERPROFILE", home_str.as_str()));
+    }
+
+    let (code, out) = run_json(bin, &["bootstrap", "--json"], &envs);
+    assert_eq!(code, 0, "bootstrap exit code");
+    let setup: SetupReport = serde_json::from_str(&out).expect("bootstrap JSON parse");
+    assert_eq!(setup.schema_version, 1);
+
+    let opencode_path = home.join(".config/opencode/opencode.json");
+    let json: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&opencode_path).unwrap()).unwrap();
+    assert_eq!(json["plugin"], serde_json::json!(["./plugins/nebu-ctx.ts"]));
+    assert_eq!(json["instructions"], serde_json::json!(["./rules/nebu-ctx.md"]));
+    assert_eq!(
+        json["mcp"]["nebu-ctx"]["environment"]["NEBU_CTX_DATA_DIR"],
+        serde_json::json!(data_str)
+    );
+
+    assert!(home.join(".config/opencode/plugins/nebu-ctx.ts").exists());
+    assert!(home.join(".config/opencode/rules/nebu-ctx.md").exists());
+}
+
+#[test]
 fn claude_config_dir_fallback_writes_dot_claude_json() {
     let bin = env!("CARGO_BIN_EXE_nebu-ctx");
 

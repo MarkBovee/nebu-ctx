@@ -6,7 +6,7 @@ pub fn resolve_portable_binary() -> String {
         .output()
     {
         if output.status.success() {
-            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let path = first_discovered_path(&output.stdout);
             if !path.is_empty() {
                 return sanitize_exe_path(path);
             }
@@ -20,4 +20,27 @@ pub fn resolve_portable_binary() -> String {
 
 fn sanitize_exe_path(path: String) -> String {
     path.trim_end_matches(" (deleted)").to_string()
+}
+
+fn first_discovered_path(stdout: &[u8]) -> String {
+    String::from_utf8_lossy(stdout)
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .unwrap_or("")
+        .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::first_discovered_path;
+
+    #[test]
+    fn first_discovered_path_uses_first_non_empty_line() {
+        let stdout = b"C:\\Projects\\Playground\\nebu-ctx\\client\\target\\debug\\nebu-ctx.exe\r\nC:\\Users\\nsmbo\\.cargo\\bin\\nebu-ctx.exe\r\n";
+        assert_eq!(
+            first_discovered_path(stdout),
+            "C:\\Projects\\Playground\\nebu-ctx\\client\\target\\debug\\nebu-ctx.exe"
+        );
+    }
 }

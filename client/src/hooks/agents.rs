@@ -1150,36 +1150,6 @@ pub(super) fn install_opencode_hook() {
         }
     }
 
-    install_opencode_rules_file(&home);
-    install_opencode_plugin(&home);
-}
-
-fn install_opencode_rules_file(home: &std::path::Path) {
-    let rules_dir = home.join(".config/opencode/rules");
-    let _ = std::fs::create_dir_all(&rules_dir);
-    let rules_path = rules_dir.join("nebu-ctx.md");
-    let desired = crate::rules_inject::rules_dedicated_markdown();
-    let existing = std::fs::read_to_string(&rules_path).unwrap_or_default();
-
-    if existing.is_empty() || !existing.contains(crate::rules_inject::RULES_VERSION_STR) {
-        write_file(&rules_path, &desired);
-    }
-}
-
-fn install_opencode_plugin(home: &std::path::Path) {
-    let plugin_dir = home.join(".config/opencode/plugins");
-    let _ = std::fs::create_dir_all(&plugin_dir);
-    let plugin_path = plugin_dir.join("nebu-ctx.ts");
-
-    let plugin_content = include_str!("../templates/opencode-plugin.ts");
-    let _ = std::fs::write(&plugin_path, plugin_content);
-
-    if !mcp_server_quiet_mode() {
-        println!(
-            "  \x1b[32m✓\x1b[0m OpenCode plugin installed at {}",
-            plugin_path.display()
-        );
-    }
 }
 
 #[cfg(test)]
