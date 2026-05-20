@@ -167,6 +167,16 @@ fn shell_exec_quoted_args() {
 }
 
 #[test]
+fn shell_exec_argv_mode_runs_without_shell_roundtrip() {
+    let (stdout, _stderr, code) = run_with_env(&["-c", "echo", "argv path ok"], &[], None);
+    assert_eq!(code, 0);
+    assert!(
+        stdout.contains("argv path ok"),
+        "argv mode output: {stdout}"
+    );
+}
+
+#[test]
 fn on_brief_is_recognized_command() {
     let (_stdout, stderr, code) = run_with_env(&["on-brief"], &[], None);
     assert_eq!(code, 0, "on-brief should be accepted");
@@ -451,4 +461,19 @@ fn nebula_ctx_c_multiline_preserves_all_lines_when_piped() {
     assert!(stdout.contains("LINE_A"), "LINE_A: {stdout}");
     assert!(stdout.contains("LINE_B"), "LINE_B: {stdout}");
     assert!(stdout.contains("LINE_C"), "LINE_C: {stdout}");
+}
+
+#[cfg(windows)]
+#[test]
+fn powershell_encoded_command_handles_nested_quotes() {
+    let (stdout, stderr, code) = run_with_env(
+        &["-c", r#"Write-Output 'json: {\"name\":\"nested\"}'"#],
+        &[("NEBU_CTX_SHELL", "pwsh.exe")],
+        None,
+    );
+    assert_eq!(code, 0, "stderr: {stderr}");
+    assert!(
+        stdout.contains(r#"json: {\"name\":\"nested\"}"#),
+        "stdout: {stdout}"
+    );
 }

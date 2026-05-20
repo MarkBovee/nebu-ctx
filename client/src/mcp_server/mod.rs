@@ -465,7 +465,10 @@ impl ServerHandler for NebuCtxServer {
             }))
             || (name == "ctx_knowledge"
                 && args.as_ref().is_some_and(|args| {
-                    matches!(args.get("action").and_then(|value| value.as_str()), Some("promote" | "triage"))
+                    matches!(
+                        args.get("action").and_then(|value| value.as_str()),
+                        Some("promote" | "triage")
+                    )
                 }));
 
         let auto_context = if skip_auto_context {

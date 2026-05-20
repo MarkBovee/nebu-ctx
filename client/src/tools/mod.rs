@@ -770,7 +770,7 @@ fn auto_consolidate_knowledge(project_root: &str) {
     use crate::core::knowledge::ProjectKnowledge;
     use crate::core::session::SessionState;
 
-    let session = match SessionState::load_latest() {
+    let session = match SessionState::load_latest_for_project_root(project_root) {
         Some(s) => s,
         None => return,
     };
@@ -1037,6 +1037,44 @@ mod resolve_path_tests {
             session.shell_cwd.as_deref(),
             Some(real_repo.to_string_lossy().as_ref())
         );
+    }
+
+    #[test]
+    fn auto_consolidate_uses_workspace_scoped_session() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let data = tempfile::tempdir().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", data.path());
+
+        let repo_a = tmp.path().join("repo-a");
+        let repo_b = tmp.path().join("repo-b");
+        let root_a = create_git_root(&repo_a);
+        let root_b = create_git_root(&repo_b);
+
+        let mut session_a = SessionState::new();
+        session_a.project_root = Some(root_a.clone());
+        session_a.add_decision("decision from repo-a", None);
+        session_a.save().unwrap();
+
+        let mut session_b = SessionState::new();
+        session_b.project_root = Some(root_b.clone());
+        session_b.add_decision("decision from repo-b", None);
+        session_b.save().unwrap();
+
+        auto_consolidate_knowledge(&root_a);
+
+        let knowledge = crate::core::knowledge::ProjectKnowledge::load(&root_a)
+            .expect("knowledge should exist for repo-a");
+        assert!(knowledge
+            .facts
+            .iter()
+            .any(|fact| fact.category == "decision" && fact.value == "decision from repo-a"));
+        assert!(!knowledge
+            .facts
+            .iter()
+            .any(|fact| fact.category == "decision" && fact.value == "decision from repo-b"));
+
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
     }
 
     #[test]

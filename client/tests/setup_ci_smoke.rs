@@ -324,7 +324,10 @@ fn bootstrap_configures_opencode_plugin_and_rules() {
     let json: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(&opencode_path).unwrap()).unwrap();
     assert_eq!(json["plugin"], serde_json::json!(["./plugins/nebu-ctx.ts"]));
-    assert_eq!(json["instructions"], serde_json::json!(["./rules/nebu-ctx.md"]));
+    assert_eq!(
+        json["instructions"],
+        serde_json::json!(["./rules/nebu-ctx.md"])
+    );
     assert_eq!(
         json["mcp"]["nebu-ctx"]["environment"]["NEBU_CTX_DATA_DIR"],
         serde_json::json!(data_str)

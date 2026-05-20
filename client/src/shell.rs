@@ -1,5 +1,5 @@
 use std::io::{self, BufRead, IsTerminal, Write};
-use std::process::{Command, Stdio};
+use std::process::{Command, ExitStatus, Output, Stdio};
 
 use crate::core::config;
 use crate::core::patterns;
@@ -113,6 +113,60 @@ pub fn is_non_interactive() -> bool {
     !io::stdin().is_terminal()
 }
 
+fn spawn_direct_inherit(args: &[String]) -> io::Result<ExitStatus> {
+    Command::new(&args[0])
+        .args(&args[1..])
+        .env("NEBU_CTX_ACTIVE", "1")
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()
+}
+
+fn spawn_direct_buffered(args: &[String]) -> io::Result<Output> {
+    let child = Command::new(&args[0])
+        .args(&args[1..])
+        .env("NEBU_CTX_ACTIVE", "1")
+        .env_remove("DISPLAY")
+        .env_remove("XAUTHORITY")
+        .env_remove("WAYLAND_DISPLAY")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+
+    child.wait_with_output()
+}
+
+enum DirectExecResult {
+    Direct(i32),
+    FallbackShell(i32),
+}
+
+impl DirectExecResult {
+    fn code(self) -> i32 {
+        match self {
+            DirectExecResult::Direct(code) | DirectExecResult::FallbackShell(code) => code,
+        }
+    }
+
+    fn used_shell_fallback(&self) -> bool {
+        matches!(self, DirectExecResult::FallbackShell(_))
+    }
+}
+
+fn exec_direct_with_fallback(args: &[String], joined: &str) -> DirectExecResult {
+    match spawn_direct_inherit(args) {
+        Ok(status) => DirectExecResult::Direct(status.code().unwrap_or(1)),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            DirectExecResult::FallbackShell(exec(joined))
+        }
+        Err(e) => {
+            eprintln!("nebu-ctx: failed to execute: {e}");
+            DirectExecResult::Direct(127)
+        }
+    }
+}
+
 /// Execute a command from pre-split argv without going through `sh -c`.
 /// Used by `-t` mode when the shell hook passes `"$@"` — arguments are
 /// already correctly split by the user's shell, so re-serializing them
@@ -123,32 +177,57 @@ pub fn exec_argv(args: &[String]) -> i32 {
         return 127;
     }
 
+    let joined = join_command(args);
+
     if std::env::var("NEBU_CTX_DISABLED").is_ok() || std::env::var("NEBU_CTX_ACTIVE").is_ok() {
-        return exec_direct(args);
+        return exec_direct_with_fallback(args, &joined).code();
     }
 
-    let joined = join_command(args);
     let cfg = config::Config::load();
 
     if is_excluded_command(&joined, &cfg.excluded_commands) {
-        return exec_direct(args);
+        return exec_direct_with_fallback(args, &joined).code();
     }
 
-    let code = exec_direct(args);
-    stats::record(&joined, 0, 0);
-    code
+    let result = exec_direct_with_fallback(args, &joined);
+    if !result.used_shell_fallback() {
+        stats::record(&joined, 0, 0);
+    }
+    result.code()
+}
+
+pub fn exec_argv_compressed(args: &[String]) -> i32 {
+    if args.is_empty() {
+        return 127;
+    }
+
+    let joined = join_command(args);
+
+    if std::env::var("NEBU_CTX_DISABLED").is_ok() || std::env::var("NEBU_CTX_ACTIVE").is_ok() {
+        return exec_direct_with_fallback(args, &joined).code();
+    }
+
+    let cfg = config::Config::load();
+    let force_compress = std::env::var("NEBU_CTX_COMPRESS").is_ok();
+    let raw_mode = std::env::var("NEBU_CTX_RAW").is_ok();
+
+    if raw_mode || (!force_compress && is_excluded_command(&joined, &cfg.excluded_commands)) {
+        return exec_direct_with_fallback(args, &joined).code();
+    }
+
+    if !force_compress {
+        let result = exec_direct_with_fallback(args, &joined);
+        if !result.used_shell_fallback() {
+            stats::record(&joined, 0, 0);
+        }
+        return result.code();
+    }
+
+    exec_buffered_argv(args, &joined, &cfg)
 }
 
 fn exec_direct(args: &[String]) -> i32 {
-    let status = Command::new(&args[0])
-        .args(&args[1..])
-        .env("NEBU_CTX_ACTIVE", "1")
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .status();
-
-    match status {
+    match spawn_direct_inherit(args) {
         Ok(s) => s.code().unwrap_or(1),
         Err(e) => {
             eprintln!("nebu-ctx: failed to execute: {e}");
@@ -184,10 +263,93 @@ pub fn exec(command: &str) -> i32 {
     exec_buffered(command, &shell, &shell_flag, &cfg)
 }
 
+pub(crate) fn spawn_shell_command(
+    shell: &str,
+    shell_flag: &str,
+    command: &str,
+    set_output_encoding: bool,
+) -> Command {
+    let mut cmd = Command::new(shell);
+
+    #[cfg(windows)]
+    if let Some((flag, encoded)) = powershell_command_arg(shell_flag, command, set_output_encoding)
+    {
+        cmd.arg(flag).arg(encoded);
+    } else {
+        cmd.arg(shell_flag).arg(command);
+    }
+
+    #[cfg(not(windows))]
+    {
+        let _ = set_output_encoding;
+        cmd.arg(shell_flag).arg(command);
+    }
+
+    cmd
+}
+
+#[cfg(windows)]
+fn base64_encode(bytes: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(((bytes.len() + 2) / 3) * 4);
+    let mut i = 0;
+
+    while i + 3 <= bytes.len() {
+        let chunk = ((bytes[i] as u32) << 16) | ((bytes[i + 1] as u32) << 8) | bytes[i + 2] as u32;
+        out.push(TABLE[((chunk >> 18) & 0x3f) as usize] as char);
+        out.push(TABLE[((chunk >> 12) & 0x3f) as usize] as char);
+        out.push(TABLE[((chunk >> 6) & 0x3f) as usize] as char);
+        out.push(TABLE[(chunk & 0x3f) as usize] as char);
+        i += 3;
+    }
+
+    match bytes.len() - i {
+        1 => {
+            let chunk = (bytes[i] as u32) << 16;
+            out.push(TABLE[((chunk >> 18) & 0x3f) as usize] as char);
+            out.push(TABLE[((chunk >> 12) & 0x3f) as usize] as char);
+            out.push('=');
+            out.push('=');
+        }
+        2 => {
+            let chunk = ((bytes[i] as u32) << 16) | ((bytes[i + 1] as u32) << 8);
+            out.push(TABLE[((chunk >> 18) & 0x3f) as usize] as char);
+            out.push(TABLE[((chunk >> 12) & 0x3f) as usize] as char);
+            out.push(TABLE[((chunk >> 6) & 0x3f) as usize] as char);
+            out.push('=');
+        }
+        _ => {}
+    }
+
+    out
+}
+
+#[cfg(windows)]
+fn powershell_command_arg(
+    shell_flag: &str,
+    command: &str,
+    set_output_encoding: bool,
+) -> Option<(&'static str, String)> {
+    if !shell_flag.eq_ignore_ascii_case("-Command") {
+        return None;
+    }
+
+    let script = if set_output_encoding {
+        format!("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; {command}")
+    } else {
+        command.to_string()
+    };
+
+    let mut utf16 = Vec::with_capacity(script.len() * 2);
+    for unit in script.encode_utf16() {
+        utf16.extend_from_slice(&unit.to_le_bytes());
+    }
+
+    Some(("-EncodedCommand", base64_encode(&utf16)))
+}
+
 fn exec_inherit(command: &str, shell: &str, shell_flag: &str) -> i32 {
-    let status = Command::new(shell)
-        .arg(shell_flag)
-        .arg(command)
+    let status = spawn_shell_command(shell, shell_flag, command, false)
         .env("NEBU_CTX_ACTIVE", "1")
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
@@ -219,55 +381,12 @@ fn combine_output(stdout: &str, stderr: &str) -> String {
     }
 }
 
-fn exec_buffered(command: &str, shell: &str, shell_flag: &str, cfg: &config::Config) -> i32 {
-    #[cfg(windows)]
-    set_console_utf8();
-
-    let start = std::time::Instant::now();
-
-    let mut cmd = Command::new(shell);
-    cmd.arg(shell_flag);
-
-    #[cfg(windows)]
-    {
-        let is_powershell =
-            shell.to_lowercase().contains("powershell") || shell.to_lowercase().contains("pwsh");
-        if is_powershell {
-            cmd.arg(format!(
-                "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; {command}"
-            ));
-        } else {
-            cmd.arg(command);
-        }
-    }
-    #[cfg(not(windows))]
-    cmd.arg(command);
-
-    let child = cmd
-        .env("NEBU_CTX_ACTIVE", "1")
-        .env_remove("DISPLAY")
-        .env_remove("XAUTHORITY")
-        .env_remove("WAYLAND_DISPLAY")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn();
-
-    let child = match child {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("nebu-ctx: failed to execute: {e}");
-            return 127;
-        }
-    };
-
-    let output = match child.wait_with_output() {
-        Ok(o) => o,
-        Err(e) => {
-            eprintln!("nebu-ctx: failed to wait: {e}");
-            return 127;
-        }
-    };
-
+fn finalize_buffered_output(
+    command: &str,
+    output: Output,
+    start: std::time::Instant,
+    cfg: &config::Config,
+) -> i32 {
     let duration_ms = start.elapsed().as_millis();
     let exit_code = output.status.code().unwrap_or(1);
     let stdout = decode_output(&output.stdout);
@@ -303,6 +422,57 @@ fn exec_buffered(command: &str, shell: &str, shell_flag: &str, cfg: &config::Con
     }
 
     exit_code
+}
+
+fn exec_buffered_argv(args: &[String], joined: &str, cfg: &config::Config) -> i32 {
+    #[cfg(windows)]
+    set_console_utf8();
+
+    let start = std::time::Instant::now();
+    let output = match spawn_direct_buffered(args) {
+        Ok(output) => output,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return exec(joined),
+        Err(e) => {
+            eprintln!("nebu-ctx: failed to execute: {e}");
+            return 127;
+        }
+    };
+
+    finalize_buffered_output(joined, output, start, cfg)
+}
+
+fn exec_buffered(command: &str, shell: &str, shell_flag: &str, cfg: &config::Config) -> i32 {
+    #[cfg(windows)]
+    set_console_utf8();
+
+    let start = std::time::Instant::now();
+
+    let child = spawn_shell_command(shell, shell_flag, command, true)
+        .env("NEBU_CTX_ACTIVE", "1")
+        .env_remove("DISPLAY")
+        .env_remove("XAUTHORITY")
+        .env_remove("WAYLAND_DISPLAY")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn();
+
+    let child = match child {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("nebu-ctx: failed to execute: {e}");
+            return 127;
+        }
+    };
+
+    let output = match child.wait_with_output() {
+        Ok(o) => o,
+        Err(e) => {
+            eprintln!("nebu-ctx: failed to wait: {e}");
+            return 127;
+        }
+    };
+
+    finalize_buffered_output(command, output, start, cfg)
 }
 
 const BUILTIN_PASSTHROUGH: &[&str] = &[
@@ -1734,9 +1904,28 @@ mod passthrough_tests {
         assert_eq!(code, 0);
     }
 
+    #[test]
+    fn exec_argv_compressed_runs_simple_command() {
+        std::env::set_var("NEBU_CTX_COMPRESS", "1");
+        let code = super::exec_argv_compressed(&success_command());
+        std::env::remove_var("NEBU_CTX_COMPRESS");
+        assert_eq!(code, 0);
+    }
+
+    #[test]
+    fn exec_argv_compressed_empty_returns_127() {
+        let code = super::exec_argv_compressed(&[]);
+        assert_eq!(code, 127);
+    }
+
     fn success_command() -> Vec<String> {
         if cfg!(windows) {
-            vec!["cmd".to_string(), "/c".to_string(), "exit".to_string(), "0".to_string()]
+            vec![
+                "cmd".to_string(),
+                "/c".to_string(),
+                "exit".to_string(),
+                "0".to_string(),
+            ]
         } else {
             vec!["true".to_string()]
         }
@@ -1744,7 +1933,12 @@ mod passthrough_tests {
 
     fn failure_command() -> Vec<String> {
         if cfg!(windows) {
-            vec!["cmd".to_string(), "/c".to_string(), "exit".to_string(), "1".to_string()]
+            vec![
+                "cmd".to_string(),
+                "/c".to_string(),
+                "exit".to_string(),
+                "1".to_string(),
+            ]
         } else {
             vec!["false".to_string()]
         }

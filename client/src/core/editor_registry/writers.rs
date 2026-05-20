@@ -1221,7 +1221,10 @@ args = ["x"]
             serde_json::json!(["/usr/local/bin/nebu-ctx"])
         );
         assert_eq!(json["mcp"]["nebu-ctx"]["enabled"], true);
-        assert_eq!(json["instructions"], serde_json::json!(["./rules/nebu-ctx.md"]));
+        assert_eq!(
+            json["instructions"],
+            serde_json::json!(["./rules/nebu-ctx.md"])
+        );
         assert_eq!(json["plugin"], serde_json::json!(["./plugins/nebu-ctx.ts"]));
         assert!(dir.path().join("rules/nebu-ctx.md").exists());
         assert!(dir.path().join("plugins/nebu-ctx.ts").exists());

@@ -31,7 +31,8 @@ pub fn consolidate_latest(
     project_root: &str,
     budgets: ConsolidationBudgets,
 ) -> Result<ConsolidationOutcome, String> {
-    let session = SessionState::load_latest().ok_or_else(|| "no active session".to_string())?;
+    let session = SessionState::load_latest_for_project_root(project_root)
+        .ok_or_else(|| "no active session".to_string())?;
 
     let mut knowledge = ProjectKnowledge::load_or_create(project_root);
 
@@ -190,6 +191,55 @@ mod tests {
         let k = ProjectKnowledge::load(&project_root_str).expect("knowledge saved");
         let active = k.facts.iter().filter(|f| f.is_current()).count();
         assert!(active >= 2, "expected promoted facts");
+
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
+    }
+
+    #[test]
+    fn consolidate_uses_latest_session_for_requested_project_root() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let tmp = tempfile::tempdir().expect("tempdir");
+        std::env::set_var(
+            "NEBU_CTX_DATA_DIR",
+            tmp.path().to_string_lossy().to_string(),
+        );
+
+        let project_a = tmp.path().join("proj-a");
+        let project_b = tmp.path().join("proj-b");
+        std::fs::create_dir_all(&project_a).expect("mkdir project_a");
+        std::fs::create_dir_all(&project_b).expect("mkdir project_b");
+
+        let project_a_str = project_a.to_string_lossy().to_string();
+        let project_b_str = project_b.to_string_lossy().to_string();
+
+        let mut session_a = SessionState::new();
+        session_a.project_root = Some(project_a_str.clone());
+        session_a.add_decision("Decision from project A", None);
+        session_a.save().expect("save session_a");
+
+        let mut session_b = SessionState::new();
+        session_b.project_root = Some(project_b_str.clone());
+        session_b.add_decision("Decision from project B", None);
+        session_b.save().expect("save session_b");
+
+        consolidate_latest(
+            &project_a_str,
+            ConsolidationBudgets {
+                max_decisions: 5,
+                max_findings: 5,
+            },
+        )
+        .expect("consolidate project_a");
+
+        let knowledge_a = ProjectKnowledge::load(&project_a_str).expect("knowledge for project_a");
+        assert!(knowledge_a
+            .facts
+            .iter()
+            .any(|fact| fact.category == "decision" && fact.value == "Decision from project A"));
+        assert!(!knowledge_a
+            .facts
+            .iter()
+            .any(|fact| fact.category == "decision" && fact.value == "Decision from project B"));
 
         std::env::remove_var("NEBU_CTX_DATA_DIR");
     }

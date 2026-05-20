@@ -1149,7 +1149,6 @@ pub(super) fn install_opencode_hook() {
             eprintln!("  \x1b[31m✗\x1b[0m Failed to configure OpenCode");
         }
     }
-
 }
 
 #[cfg(test)]

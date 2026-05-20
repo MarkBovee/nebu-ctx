@@ -47,6 +47,10 @@ pub fn run() {
             "-c" | "exec" => {
                 let raw = rest.first().map(|a| a == "--raw").unwrap_or(false);
                 let cmd_args = if raw { &args[3..] } else { &args[2..] };
+                if cmd_args.is_empty() {
+                    eprintln!("Usage: nebu-ctx -c [--raw] \"command\" or nebu-ctx -c [--raw] <exe> [args...]");
+                    std::process::exit(1);
+                }
                 let command = if cmd_args.len() == 1 {
                     cmd_args[0].clone()
                 } else {
@@ -62,7 +66,11 @@ pub fn run() {
                 } else {
                     std::env::set_var("NEBU_CTX_COMPRESS", "1");
                 }
-                let code = shell::exec(&command);
+                let code = if cmd_args.len() > 1 {
+                    shell::exec_argv_compressed(cmd_args)
+                } else {
+                    shell::exec(&command)
+                };
                 core::stats::flush();
                 fire_shell_telemetry(
                     core::stats::normalize_command(&command),
@@ -791,9 +799,7 @@ pub fn run() {
 
 fn passthrough(command: &str) -> ! {
     let (shell, flag) = shell::shell_and_flag();
-    let status = std::process::Command::new(&shell)
-        .arg(&flag)
-        .arg(command)
+    let status = shell::spawn_shell_command(&shell, &flag, command, false)
         .env("NEBU_CTX_ACTIVE", "1")
         .status()
         .map(|s| s.code().unwrap_or(1))
@@ -866,7 +872,8 @@ USAGE:
     nebu-ctx                       Start MCP server (stdio)
     nebu-ctx serve                 Start MCP server (Streamable HTTP)
     nebu-ctx -t \"command\"          Track command (full output + stats, no compression)
-    nebu-ctx -c \"command\"          Execute with compressed output (used by AI hooks)
+    nebu-ctx -c \"command\"          Execute shell command with compressed output
+    nebu-ctx -c <exe> [args...]     Execute argv directly to avoid re-quoting hazards
     nebu-ctx -c --raw \"command\"    Execute without compression (full output)
     nebu-ctx exec \"command\"        Same as -c
     nebu-ctx bypass \"command\"      Run command with zero compression (raw passthrough)
@@ -953,9 +960,9 @@ OPTIONS:
     --help, -h                     Show this help
 
 EXAMPLES:
-        nebu-ctx -c \"git status\"       Compressed git output
+        nebu-ctx -c \"git status\"       Compressed shell command
+        nebu-ctx -c gh pr list          Direct argv mode for quoting-sensitive CLIs
         nebu-ctx -c \"kubectl get pods\" Compressed k8s output
-        nebu-ctx -c \"gh pr list\"       Compressed GitHub CLI output
             nebu-ctx token-report --json   Machine-readable token + memory report
         nebu-ctx wrapped               Weekly savings report card
         nebu-ctx wrapped --month       Monthly savings report card
