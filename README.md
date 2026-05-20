@@ -364,6 +364,18 @@ nebu-ctx connect --endpoint http://127.0.0.1:4242 --token <token>
 nebu-ctx setup
 ```
 
+Shell startup banner modes:
+
+- `nebu-ctx config set startup_banner compact` keeps the default one-line startup status
+- `nebu-ctx config set startup_banner ascii` shows the README-style ASCII banner on shell init
+- `nebu-ctx config set startup_banner off` disables the startup banner entirely
+
+Temporary override for the current shell session:
+
+```bash
+NEBU_CTX_STARTUP_BANNER=ascii
+```
+
 ### 5. Verify
 
 ```bash
@@ -412,6 +424,11 @@ Depending on the target, the setup path may include:
 - shell or pre-tool hook installation
 - project or global rules/instruction files
 - editor-specific config file updates
+
+Shell hook notes:
+
+- `nebu-ctx init --global` now refreshes older PowerShell installs to the current sourced `~/.nebu-ctx/shell-hook.ps1` model
+- PowerShell now gets the same `nebu-ctx-on`, `nebu-ctx-off`, `nebu-ctx-mode`, and `nebu-ctx-status` helpers as the POSIX shells
 
 ## CLI Surfaces Worth Knowing
 

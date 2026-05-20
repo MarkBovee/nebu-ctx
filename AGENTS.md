@@ -11,7 +11,9 @@
 ## Main Surfaces
 
 - `client/src/main.rs`: thin-client CLI entrypoint
+- `client/src/status.rs`: shell startup brief/banner rendering (`nebu-ctx on-brief`)
 - `client/src/hook_handlers.rs`: all Claude Code / Copilot CLI hook logic (7 hook types)
+- `client/src/cli/shell_init.rs`: generated shell hooks for bash/zsh/fish/PowerShell and upgrade-safe profile rewrites
 - `client/src/mcp_server/mod.rs`: MCP tool routing, CLOUD_ONLY_TOOLS, CLOUD_PREFERRED_TOOLS
 - `client/src/mcp_server/dispatch.rs`: local tool dispatch (stubs/delegates for non-cloud tools)
 - `client/src/cloud_client.rs`: HTTP client for cloud server calls
@@ -49,6 +51,7 @@ These rules mirror `coding.instructions.md` so agents that only ingest `AGENTS.m
 - Normalize and canonicalize filesystem paths at the boundary where paths enter the system so session state, caches, and path jail logic agree on the same real path.
 - Keep public API and tool behavior changes minimal and explicit. Avoid widening behavior accidentally when fixing path, session, or routing bugs.
 - Reuse existing helpers in `core/`, `hooks/`, and `tools/` before adding new utility layers.
+- Keep shell hook behavior aligned across bash/zsh/fish/PowerShell when practical; if startup behavior changes, update `on-brief`, generated hooks, uninstall cleanup, and README usage together.
 - Validate Rust changes with the narrowest relevant `cargo check` or `cargo test --manifest-path client/Cargo.toml` command first, then widen only if needed.
 
 ### C# Server Rules
