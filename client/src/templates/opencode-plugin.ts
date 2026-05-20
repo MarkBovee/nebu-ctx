@@ -1,5 +1,5 @@
 import type { Plugin } from "@opencode-ai/plugin"
-import { mkdtemp, rm, writeFile } from "fs/promises"
+import { mkdtemp, readFile, rm, writeFile } from "fs/promises"
 import { tmpdir } from "os"
 import { join } from "path"
 
@@ -20,8 +20,30 @@ function resolveWindowsNebuExe() {
   return join(homeDir, ".cargo", "bin", "nebu-ctx.exe")
 }
 
-function resolveNebuBinary() {
-  if (process.platform !== "win32") return NEBU
+async function resolveConfiguredNebuBinary() {
+  const configPath = process.env["OPENCODE_CONFIG"]
+    ?? join(process.env["USERPROFILE"] ?? process.env["HOME"] ?? "", ".config", "opencode", "opencode.json")
+
+  try {
+    const raw = await readFile(configPath, "utf8")
+    const config = JSON.parse(raw) as {
+      mcp?: Record<string, { command?: unknown }>
+    }
+    const command = config.mcp?.[NEBU]?.command
+    if (!Array.isArray(command)) return ""
+
+    const binary = command.find((value): value is string => typeof value === "string" && value.trim().length > 0)
+    return binary ?? ""
+  } catch {
+    return ""
+  }
+}
+
+async function resolveNebuBinary() {
+  const configuredBinary = await resolveConfiguredNebuBinary()
+  if (configuredBinary) return configuredBinary
+
+  if (process.platform !== "win32") return process.env["NEBU_CTX_BIN"] ?? process.env["NEBU_CTX_EXE"] ?? NEBU
 
   return process.env["NEBU_CTX_BIN"] ?? process.env["NEBU_CTX_EXE"] ?? resolveWindowsNebuExe()
 }
@@ -42,29 +64,29 @@ function insertSystemBlock(system: string[], block: string, index: number) {
 }
 
 export const NebuCtxOpenCodePlugin: Plugin = async ({ $, directory }) => {
-  try {
-    const result = await runNebu(["--version"])
-    if (!result || result.exitCode !== 0) {
-      throw new Error(result?.stderr || "nebu-ctx --version failed")
-    }
-  } catch {
-    console.warn("[nebu-ctx] nebu-ctx binary not found in PATH - plugin disabled")
-    return {}
-  }
-
   const homeDir = process.env["USERPROFILE"] ?? process.env["HOME"] ?? ""
   const dataDir = process.env["NEBU_CTX_DATA_DIR"] ?? `${homeDir}/.nebu-ctx`
   const initializedSessions = new Set<string>()
   const dirtySessions = new Set<string>()
   const pendingSessionContext = new Map<string, typeof SESSION_STARTUP | typeof SESSION_COMPACT>()
   const projectDir = directory || process.cwd()
+  const nebuBinary = await resolveNebuBinary()
+
+  try {
+    const result = await runNebu(["--version"])
+    if (!result || result.exitCode !== 0) {
+      throw new Error(result?.stderr || "nebu-ctx --version failed")
+    }
+  } catch {
+    console.warn(`[nebu-ctx] nebu-ctx binary not found at '${nebuBinary}' - plugin disabled`)
+    return {}
+  }
 
   async function runNebu(args: string[], stdinText?: string, cwd = projectDir) {
     try {
-      const command = resolveNebuBinary()
-      const proc = Bun.spawn([command, ...args], {
+      const proc = Bun.spawn([nebuBinary, ...args], {
         cwd,
-        env: { ...process.env, NEBU_CTX_DATA_DIR: dataDir },
+        env: { ...process.env, NEBU_CTX_DATA_DIR: dataDir, NEBU_CTX_BIN: nebuBinary },
         stdin: stdinText ? new Response(stdinText) : null,
         stdout: "pipe",
         stderr: "pipe",
@@ -121,7 +143,7 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $, directory }) => {
   return {
     "shell.env": async (_input, output) => {
       output.env["NEBU_CTX_DATA_DIR"] = dataDir
-      output.env["NEBU_CTX_BIN"] = resolveNebuBinary()
+      output.env["NEBU_CTX_BIN"] = nebuBinary
     },
 
     // Route richer OpenCode lifecycle hooks through nebu-ctx where nebu-ctx

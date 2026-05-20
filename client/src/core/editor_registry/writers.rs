@@ -1253,7 +1253,11 @@ args = ["x"]
     fn opencode_plugin_template_uses_nebu_ctx() {
         let plugin = include_str!("../../templates/opencode-plugin.ts");
         assert!(plugin.contains("NebuCtxOpenCodePlugin"));
-        assert!(plugin.contains("where nebu-ctx"));
+        assert!(plugin.contains("resolveConfiguredNebuBinary"));
+        assert!(plugin.contains("config.mcp?.[NEBU]?.command"));
+        assert!(plugin.contains("const dataDir = process.env[\"NEBU_CTX_DATA_DIR\"]"));
+        assert!(plugin.contains("const result = await runNebu([\"--version\"])"));
+        assert!(plugin.contains("NEBU_CTX_BIN: nebuBinary"));
         assert!(plugin.contains("runNebu([\"hook\", \"rewrite-inline\", command])"));
         assert!(plugin.contains("experimental.chat.system.transform"));
         assert!(plugin.contains("experimental.session.compacting"));
