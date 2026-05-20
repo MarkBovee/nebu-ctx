@@ -34,10 +34,6 @@
 
 ## Coding Standards For Agents
 
-These rules mirror `coding.instructions.md` so agents that only ingest `AGENTS.md` still apply the same delivery standards automatically.
-
-### Applies To Rust And C#
-
 - Follow DRY and SOLID. Before adding code, check whether the behavior already exists and extract shared helpers instead of duplicating logic.
 - Prefer small, focused functions with clear names and a single level of abstraction. Use guard clauses and early returns to keep control flow flat.
 - Prefer pure functions when practical. Keep orchestration separate from object construction, formatting, or parsing helpers.
@@ -89,25 +85,6 @@ SERVER_PREFERRED_TOOLS = ["ctx_knowledge", "ctx_session"]
 - `SERVER_ONLY_TOOLS`: error if server unreachable — no local fallback.
 - `SERVER_PREFERRED_TOOLS`: route to the host when configured; fall back locally only when no host is configured at all.
 
-## Hook System (Claude Code / Copilot CLI)
-
-7 hook types registered in `.claude/settings.local.json`:
-
-| Hook | Command | Timeout |
-|------|---------|---------|
-| `PostToolUse.*` | `nebu-ctx hook post-tool-use` | 10s |
-| `PreCompact` | `nebu-ctx hook pre-compact` | 15s |
-| `PreToolUse:Bash\|bash` | `nebu-ctx hook rewrite` | — |
-| `PreToolUse:Read\|read\|...` | `nebu-ctx hook redirect` | — |
-| `SessionStart` | `nebu-ctx hook session-start` | 10s |
-| `Stop` | `nebu-ctx hook stop` | 30s |
-| `UserPromptSubmit` | `nebu-ctx hook user-prompt-submit` | 5s |
-
-- **PreCompact**: reads session state + knowledge, builds `<session_state>` XML ≤2KB, stores to brain, outputs `{"additionalContext":"..."}`.
-- **SessionStart**: on `"compact"/"resume"` source → snapshot + routing XML; on `"startup"` → routing XML only.
-- **UserPromptSubmit**: stores prompt to `ctx_brain` with full project context.
-- All hook logic lives in `client/src/hook_handlers.rs`. CLI dispatch arms are in `main.rs`.
-
 ## Adding a New IToolHandler
 
 1. Create `server/src/NebuCtx.Tools/<ToolName>/<ToolName>ToolHandler.cs` implementing `IToolHandler`.
@@ -125,18 +102,6 @@ SERVER_PREFERRED_TOOLS = ["ctx_knowledge", "ctx_session"]
 - Analytics/unit tests (`AnalyticsToolTests`, `TelemetryStoreTests`) use direct handler instantiation — no factory needed.
 
 **Never use `WebApplicationFactory<Program>` directly** in `IClassFixture<>` — use `NebuCtxTestFactory`.
-
-## Dashboard
-
-15 panels in order: Overview, Live Observatory, Knowledge Graph, Dependency Map, Compression Lab, Agent World, Bug Memory, Brain Memory, Search Explorer, Learning Curves, Symbol Explorer, Call Graph, Route Map, Context Layer, MCP Token.
-
-Dashboard served on port `3333`. MCP server on port `4242`.
-
-## Product Naming
-
-- Binary/package name: `nebu-ctx`.
-- Older internal names (`LeanCtxServer`, `lean-ctx`, `lean_ctx`) are compatibility debt — do not introduce new uses.
-- Environment variables use `NEBULA_CTX_*` prefix (not `LEAN_CTX_*` or `AUTH_TOKEN`).
 
 ## Home Assistant Add-on
 
@@ -191,32 +156,6 @@ For HA addon validation (builds from source):
 ADDON_DOCKERFILE=Dockerfile bash tests/local-addon-test.sh
 ```
 
-## Session Startup Protocol
-
-At the start of every session, retrieve project state before investigating:
-
-```
-ctx(domain="memory", action="recall", query="session state decisions")
-ctx(domain="memory", action="recall", query="build commands version")
-ctx(domain="memory", action="wakeup")
-```
-
-Read [docs/DEVELOPER-KNOWLEDGE.md](docs/DEVELOPER-KNOWLEDGE.md) for non-trivial tasks.
-
-**Pull from memory before touching:**
-- Any unfamiliar file → `ctx(domain="memory", action="recall", query="<topic>")`
-- Adding a new IToolHandler → `ctx(domain="memory", action="recall", query="itoolhandler pattern")`
-- Version bump → `ctx(domain="memory", action="recall", query="version sync rule")`
-- Hook system → `ctx(domain="memory", action="recall", query="hook system")`
-- CLI routing → `ctx(domain="memory", action="recall", query="mcp routing architecture")`
-
-**At session end:**
-```
-ctx(domain="memory", action="save")
-ctx(domain="memory", action="consolidate")
-ctx(domain="memory", action="store", key="session-YYYY-MM-DD", value="<summary>")
-```
-
 ## Practical Guidance
 
 - Before writing a new tool handler, check if a similar one exists under `server/src/NebuCtx.Tools/`.
@@ -224,10 +163,3 @@ ctx(domain="memory", action="store", key="session-YYYY-MM-DD", value="<summary>"
 - Preserve LF line endings in shell scripts (`.gitattributes` handles this; container builds normalize defensively).
 - If a task touches Postgres-backed behavior, validate `ctx(domain="memory", action="recall", ...)` over HTTP before claiming the server path is healthy.
 - `dotnet test` requires no live Postgres — `NebuCtxTestFactory` handles all isolation.
-
-<!-- nebu-ctx -->
-## nebu-ctx
-
-Prefer nebu-ctx MCP tools over native equivalents for token savings.
-Full rules: @LEAN-CTX.md
-<!-- /nebu-ctx -->
