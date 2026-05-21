@@ -119,7 +119,6 @@ impl WorkflowSpec {
                         "ctx".to_string(),
                         "ctx_workflow".to_string(),
                         "ctx_shell".to_string(),
-                        "ctx_metrics".to_string(),
                         "ctx_cost".to_string(),
                         "ctx_heatmap".to_string(),
                         "ctx_handoff".to_string(),

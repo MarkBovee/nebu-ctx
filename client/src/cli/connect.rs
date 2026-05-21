@@ -104,7 +104,7 @@ fn output_json(value: serde_json::Value) -> Result<()> {
     Ok(())
 }
 
-pub fn cmd_gotchas(args: &[String]) {
+pub fn cmd_bug_memory(args: &[String]) {
     let action = args.first().map(|value| value.as_str()).unwrap_or("list");
     let project_root = std::env::current_dir()
         .map(|path| path.to_string_lossy().to_string())
@@ -112,42 +112,34 @@ pub fn cmd_gotchas(args: &[String]) {
 
     match action {
         "list" | "ls" => {
-            let store = core::gotcha_tracker::GotchaStore::load(&project_root);
+            let store = core::bug_memory::BugMemoryStore::load(&project_root);
             println!("{}", store.format_list());
         }
         "clear" => {
-            let mut store = core::gotcha_tracker::GotchaStore::load(&project_root);
-            let count = store.gotchas.len();
+            let mut store = core::bug_memory::BugMemoryStore::load(&project_root);
+            let count = store.failures.len();
             store.clear();
             let _ = store.save(&project_root);
-            println!("Cleared {count} gotchas.");
+            println!("Cleared {count} failure-memory patterns.");
         }
         "export" => {
-            let store = core::gotcha_tracker::GotchaStore::load(&project_root);
-            match serde_json::to_string_pretty(&store.gotchas) {
+            let store = core::bug_memory::BugMemoryStore::load(&project_root);
+            match serde_json::to_string_pretty(&store) {
                 Ok(json) => println!("{json}"),
                 Err(error) => eprintln!("Export failed: {error}"),
             }
         }
         "stats" => {
-            let store = core::gotcha_tracker::GotchaStore::load(&project_root);
-            println!("Bug Memory Stats:");
-            println!("  Active gotchas:      {}", store.gotchas.len());
-            println!(
-                "  Errors detected:     {}",
-                store.stats.total_errors_detected
-            );
-            println!(
-                "  Fixes correlated:    {}",
-                store.stats.total_fixes_correlated
-            );
-            println!("  Bugs prevented:      {}", store.stats.total_prevented);
-            println!("  Promoted to knowledge: {}", store.stats.gotchas_promoted);
-            println!("  Decayed/archived:    {}", store.stats.gotchas_decayed);
-            println!("  Session logs:        {}", store.error_log.len());
+            let store = core::bug_memory::BugMemoryStore::load(&project_root);
+            println!("Failure Memory Stats:");
+            println!("  Failure patterns:    {}", store.failures.len());
+            println!("  Total failures:      {}", store.stats.total_failures);
+            println!("  Shell failures:      {}", store.stats.shell_failures);
+            println!("  MCP shell failures:  {}", store.stats.mcp_shell_failures);
+            println!("  Recent failures:     {}", store.recent.len());
         }
         _ => {
-            println!("Usage: nebu-ctx gotchas [list|clear|export|stats]");
+            println!("Usage: nebu-ctx failures [list|clear|export|stats]");
         }
     }
 }

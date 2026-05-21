@@ -199,13 +199,13 @@ fn agent_init_antigravity_alias() {
     std::fs::create_dir_all(&gemini_dir).unwrap();
 
     let mut cmd = Command::new(nebula_ctx_bin());
-    cmd.args(["init", "--agent", "antigravity", "--global"])
+    cmd.args(["setup", "--agent", "antigravity", "--global"])
         .env("HOME", home.to_str().unwrap())
         .env("LEAN_CTX_DISABLED", "1")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
-    let output = cmd.output().expect("failed to run init");
+    let output = cmd.output().expect("failed to run setup");
     let stderr = String::from_utf8_lossy(&output.stderr);
 
     assert!(
@@ -228,7 +228,7 @@ fn agent_init_antigravity_alias() {
 #[test]
 fn agent_init_unknown_agent_fails() {
     let (_stdout, stderr, code) =
-        run_with_env(&["init", "--agent", "nonexistent_agent"], &[], None);
+        run_with_env(&["setup", "--agent", "nonexistent_agent"], &[], None);
     assert_ne!(code, 0, "unknown agent should fail");
     assert!(
         stderr.contains("Unknown agent"),
@@ -239,7 +239,7 @@ fn agent_init_unknown_agent_fails() {
 #[test]
 fn agent_init_lists_antigravity_in_supported() {
     let (_stdout, stderr, _code) =
-        run_with_env(&["init", "--agent", "nonexistent_agent"], &[], None);
+        run_with_env(&["setup", "--agent", "nonexistent_agent"], &[], None);
     assert!(
         stderr.contains("antigravity"),
         "supported list should include antigravity: {stderr}"
@@ -396,13 +396,13 @@ fn bash_hook_contains_pipe_guard() {
     }
     let bin = nebula_ctx_bin();
     let output = Command::new(&bin)
-        .args(["init", "--dry-run"])
+        .args(["setup", "--dry-run"])
         .env("LEAN_CTX_DISABLED", "1")
         .env("SHELL", "/bin/bash")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("run init --dry-run");
+        .expect("run setup --dry-run");
     let _stdout = String::from_utf8_lossy(&output.stdout);
     let _stderr = String::from_utf8_lossy(&output.stderr);
     // The pipe guard should be in the generated hook

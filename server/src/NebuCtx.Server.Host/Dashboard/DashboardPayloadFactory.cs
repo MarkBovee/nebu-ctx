@@ -60,8 +60,8 @@ public static class DashboardPayloadFactory
             [
                 CreateDomain("overview", "Overview", "System summary, live sessions, and token access.",
                     ("overview", "Overview"), ("live", "Live Observatory"), ("token", "MCP Token")),
-                CreateDomain("memory", "Memory", "Knowledge, brain, and bug memory surfaces.",
-                    ("knowledge", "Knowledge Graph"), ("brain", "Brain Memory"), ("bugs", "Bug Memory")),
+                CreateDomain("memory", "Memory", "Knowledge and brain memory surfaces.",
+                    ("knowledge", "Knowledge Graph"), ("brain", "Brain Memory")),
                 CreateDomain("agents", "Agents", "Agent coordination and multi-actor activity.",
                     ("agents", "Agent World")),
             ],
@@ -484,63 +484,6 @@ public static class DashboardPayloadFactory
             pending_messages = telemetry.Events.Count(item => item.Timestamp >= DateTimeOffset.UtcNow.AddMinutes(-5)),
             shared_contexts = sharedContexts,
             agents,
-        };
-    }
-
-    /// <summary>
-    /// Builds the gotchas payload.
-    /// </summary>
-    /// <returns>Gotchas payload.</returns>
-    public static object BuildGotchasPayload(TelemetryStore telemetryStore)
-    {
-        var telemetry = telemetryStore.GetSnapshot();
-        var gotchas = new List<object>();
-
-        foreach (var command in telemetry.Commands.Values.OrderByDescending(item => item.Count))
-        {
-            var savingsRate = command.InputTokens > 0 ? (double)Math.Max(0, command.InputTokens - command.OutputTokens) / command.InputTokens : 0;
-            if (command.Count == 0 || savingsRate >= 0.2)
-            {
-                continue;
-            }
-
-            gotchas.Add(new
-            {
-                severity = savingsRate < 0.05 ? "Warning" : "Info",
-                category = "compression",
-                trigger = $"{command.Name} returns much more data than it receives",
-                resolution = $"Prefer narrower filters or a lighter view before calling {command.Name} repeatedly.",
-                occurrences = command.Count,
-                confidence = Math.Min(0.95, 0.35 + (command.Count * 0.12)),
-                prevented_count = Math.Max(0, command.Count - 1),
-            });
-        }
-
-        var pressureUtilization = CalculatePressureUtilization(telemetry.TotalOutputTokens);
-        if (pressureUtilization >= 0.5)
-        {
-            gotchas.Add(new
-            {
-                severity = pressureUtilization >= 0.8 ? "Critical" : "Warning",
-                category = "context",
-                trigger = "Context window pressure is rising during live sessions",
-                resolution = "Use map/reference compression modes or split large reads into smaller scoped requests.",
-                occurrences = telemetry.Events.Count,
-                confidence = Math.Min(0.97, 0.5 + pressureUtilization / 2),
-                prevented_count = telemetry.Sessions.Count(session => session.TokensSaved > 0),
-            });
-        }
-
-        var gotchaArray = gotchas.ToArray();
-        return new
-        {
-            gotchas = gotchaArray,
-            stats = new
-            {
-                total_errors_detected = gotchaArray.Sum(gotcha => (int)gotcha.GetType().GetProperty("occurrences")!.GetValue(gotcha)!),
-                total_prevented = gotchaArray.Sum(gotcha => (int)gotcha.GetType().GetProperty("prevented_count")!.GetValue(gotcha)!),
-                total_fixes_correlated = gotchaArray.Count(gotcha => (double)gotcha.GetType().GetProperty("confidence")!.GetValue(gotcha)! >= 0.6),
-            },
         };
     }
 

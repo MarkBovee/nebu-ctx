@@ -1,7 +1,11 @@
 namespace NebuCtx.IntegrationTests;
 
 using System.Text.Json;
+
+using Microsoft.Extensions.Logging.Abstractions;
+
 using NebuCtx.Server.Core;
+using NebuCtx.Server.Core.Services;
 using NebuCtx.Tools.Cost;
 using NebuCtx.Tools.Gain;
 using NebuCtx.Tools.Heatmap;
@@ -26,6 +30,39 @@ public class AnalyticsToolTests
             store.RecordToolCall("ctx_edit", new Dictionary<string, object?> { ["path"] = $"/b/file{i}.cs" }, "r", ctxB);
 
         return store;
+    }
+
+    /// <summary>Natural-language knowledge recall should still surface the underlying stored fact.</summary>
+    [Fact]
+    public async Task KnowledgeService_Recall_ReranksNaturalLanguageQueries()
+    {
+        var knowledgeStore = new InMemoryKnowledgeStore();
+        var sessionStore = new InMemorySessionStore();
+        var service = new KnowledgeService(knowledgeStore, sessionStore, NullLogger<KnowledgeService>.Instance);
+        const string projectId = "proj-memory";
+
+        await service.RememberAsync(projectId, "deployment", "plugin-hooks", "Fixed opencode plugin hooks and setup flow yesterday", 0.95f);
+
+        var results = await service.RecallAsync(projectId, null, "what did we fix yesterday in plugin hooks", 5);
+
+        Assert.NotEmpty(results);
+        Assert.Equal("plugin-hooks", results[0].Key);
+    }
+
+    /// <summary>Brain recall should handle vague recent-work phrasing instead of requiring one exact substring.</summary>
+    [Fact]
+    public async Task BrainService_Recall_ReranksNaturalLanguageQueries()
+    {
+        var brainStore = new InMemoryBrainStore();
+        var service = new BrainService(brainStore, NullLogger<BrainService>.Instance);
+        const string projectId = "proj-brain";
+
+        await service.StoreAsync(projectId, "plugin-hooks", "Fixed opencode plugin hooks and setup flow yesterday");
+
+        var results = await service.RecallAsync(projectId, "what did we fix yesterday in plugin hooks", 5);
+
+        Assert.NotEmpty(results);
+        Assert.Equal("plugin-hooks", results[0].Key);
     }
 
     // ── ctx_gain ──────────────────────────────────────────────────────────────

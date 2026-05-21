@@ -1,7 +1,5 @@
 use nebu_ctx::core::events::{emit, EventKind};
-use nebu_ctx::core::gotcha_tracker::{
-    Gotcha, GotchaCategory, GotchaSeverity, GotchaSource, GotchaStats, GotchaStore,
-};
+use nebu_ctx::core::bug_memory::{BugMemorySource, BugMemoryStore};
 use nebu_ctx::core::knowledge::ProjectKnowledge;
 
 fn main() {
@@ -13,7 +11,7 @@ fn main() {
 
     seed_events();
     seed_knowledge(&project_root);
-    seed_gotchas(&project_root);
+    seed_bug_memory(&project_root);
     seed_feedback();
 
     println!("Done! Restart dashboard to see data.");
@@ -60,7 +58,7 @@ fn seed_events() {
         (
             "ctx_read",
             "full",
-            "src/core/gotcha_tracker.rs",
+            "src/core/bug_memory.rs",
             3600,
             2520,
             11,
@@ -204,48 +202,24 @@ fn seed_events() {
     println!("  {} ThresholdShift events", threshold_shifts.len());
 }
 
-fn seed_gotchas(project_root: &str) {
-    let mut store = GotchaStore::load(project_root);
+fn seed_bug_memory(project_root: &str) {
+    let mut store = BugMemoryStore::load(project_root);
 
-    let gotchas_data = vec![
-        (GotchaCategory::Build, GotchaSeverity::Critical, "error[E0502]: cannot borrow `self` as mutable because it is also borrowed as immutable", "Split the borrow: extract the immutable read into a separate scope or clone the value before the mutable borrow.", 8, 0.92, 5),
-        (GotchaCategory::Build, GotchaSeverity::Warning, "warning: unused variable `result`", "Prefix with underscore: `_result` or remove the binding entirely.", 15, 0.75, 12),
-        (GotchaCategory::Runtime, GotchaSeverity::Critical, "thread 'main' panicked at 'index out of bounds: the len is 0 but the index is 0'", "Check `.is_empty()` before indexing. Use `.get(0)` for Option-based access.", 3, 0.85, 2),
-        (GotchaCategory::Test, GotchaSeverity::Warning, "assertion `left == right` failed: Windows \\r\\n line endings", "Normalize line endings with `.replace('\\r\\n', '\\n')` or use `contains()` instead of exact match.", 6, 0.88, 4),
-        (GotchaCategory::Build, GotchaSeverity::Critical, "error: failed to resolve: use of unresolved module `tui`", "Add `pub mod tui;` to lib.rs and `use nebu_ctx::tui;` in main.rs.", 2, 0.95, 1),
-        (GotchaCategory::Config, GotchaSeverity::Info, "Node.js version mismatch: requires >=22.12.0", "Use nvm to switch: `nvm use 22` or set PATH to correct Node version.", 4, 0.80, 3),
-        (GotchaCategory::Runtime, GotchaSeverity::Warning, "E403 Forbidden: npm publish version already exists", "Bump version in package.json before publishing. Use `npm version patch` for auto-increment.", 2, 0.70, 1),
-        (GotchaCategory::Build, GotchaSeverity::Warning, "error[E0599]: no method named `is_multiple_of` found", "Use nightly or replace with `count % interval == 0`.", 3, 0.82, 2),
+    let failures = vec![
+        ("cargo test", 101, "error[E0502]: cannot borrow `self` as mutable because it is also borrowed as immutable"),
+        ("cargo check", 101, "error[E0599]: no method named `is_multiple_of` found for type `usize`"),
+        ("npm run build", 1, "TypeError: Cannot read properties of undefined (reading 'map')"),
+        ("pytest", 1, "FAILED tests/test_api.py::test_auth_flow - AssertionError: expected 401"),
+        ("docker build .", 1, "error: failed to solve: failed to compute cache key"),
     ];
 
-    for (cat, sev, trigger, resolution, occurrences, confidence, prevented) in gotchas_data {
-        let mut gotcha = Gotcha::new(
-            cat,
-            sev,
-            trigger,
-            resolution,
-            GotchaSource::AutoDetected {
-                command: trigger.to_string(),
-                exit_code: 1,
-            },
-            "seed-session",
-        );
-        gotcha.occurrences = occurrences;
-        gotcha.confidence = confidence;
-        gotcha.prevented_count = prevented;
-        store.gotchas.push(gotcha);
+    for (command, exit_code, output) in failures {
+        store.record_failure(command, exit_code, output, BugMemorySource::Shell);
+        store.record_failure(command, exit_code, output, BugMemorySource::Shell);
     }
 
-    store.stats = GotchaStats {
-        total_errors_detected: 43,
-        total_fixes_correlated: 28,
-        total_prevented: 30,
-        gotchas_promoted: 3,
-        gotchas_decayed: 1,
-    };
-
     let _ = store.save(project_root);
-    println!("  {} gotchas seeded", store.gotchas.len());
+    println!("  {} failure-memory patterns seeded", store.failures.len());
 }
 
 fn seed_feedback() {

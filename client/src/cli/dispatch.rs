@@ -460,11 +460,20 @@ pub fn run() {
                     std::process::exit(1);
                 }
             }
-            "init" => {
-                super::cmd_init(&rest);
-                return;
-            }
             "setup" => {
+                if let Some(mode) = rest.first().map(|s| s.as_str()) {
+                    if matches!(mode, "bash" | "zsh" | "fish" | "powershell" | "pwsh") {
+                        super::cmd_init(&rest);
+                        return;
+                    }
+                }
+                if rest.iter().any(|a| a == "--agent")
+                    || rest.iter().any(|a| a == "--dry-run")
+                    || rest.iter().any(|a| a == "--global" || a == "-g")
+                {
+                    super::cmd_init(&rest);
+                    return;
+                }
                 let non_interactive = rest.iter().any(|a| a == "--non-interactive");
                 let yes = rest.iter().any(|a| a == "--yes" || a == "-y");
                 let fix = rest.iter().any(|a| a == "--fix");
@@ -655,8 +664,8 @@ pub fn run() {
                 }
                 return;
             }
-            "gotchas" | "bugs" => {
-                super::connect::cmd_gotchas(&rest);
+            "failures" | "failure-memory" | "bugs" | "bug-memory" => {
+                super::connect::cmd_bug_memory(&rest);
                 return;
             }
             "buddy" | "pet" => {
@@ -892,13 +901,13 @@ COMMANDS:
     benchmark run [path] [--json]  Run real benchmark on project files
     benchmark report [path]        Generate shareable Markdown report
     cheatsheet                     Command cheat sheet & workflow quick reference
-    setup                          One-command setup: shell + editor + verify
+    setup                          One-command setup: shell + editors + rules
     bootstrap                      Non-interactive setup + fix (zero-config)
     status [--json]                Show setup + MCP + rules status
-    init <shell>                   Print shell hook to stdout (eval pattern, like starship)
+    setup <shell>                  Print shell hook to stdout (eval pattern, like starship)
                                    Supported: bash, zsh, fish, powershell
-    init --global                  Install shell aliases to rc file (file-based)
-    init --agent <name>            Configure MCP for specific editor/agent
+    setup --global                 Install shell aliases to rc file (file-based)
+    setup --agent <name>           Configure MCP for specific editor/agent
     read <file> [-m mode]          Read file with compression
     diff <file1> <file2>           Compressed file diff
     grep <pattern> [path]          Search with compressed output
@@ -913,7 +922,7 @@ COMMANDS:
     tee [list|clear|show <file>|last] Manage output tee files (~/.nebu-ctx/tee/)
     terse [off|lite|full|ultra]    Set agent output verbosity (saves 25-65% output tokens)
     slow-log [list|clear]          Show/clear slow command log (~/.nebu-ctx/slow-commands.log)
-    gotchas [list|clear|export|stats] Bug Memory: view/manage auto-detected error patterns
+    failures [list|clear|export|stats] Failure Memory: view/manage recorded client-side failures
     buddy [show|stats|ascii|json]  Token Guardian: your data-driven coding companion
     doctor [--fix] [--json]        Run diagnostics (and optionally repair)
     safety-levels                  Show compression safety levels per command
@@ -970,27 +979,27 @@ EXAMPLES:
         nebu-ctx sessions list         List all CCP sessions
         nebu-ctx sessions show         Show latest session state
         nebu-ctx discover              Find missed savings in shell history
-        nebu-ctx setup                 One-command setup (shell + editors + verify)
+        nebu-ctx setup                 One-command setup (shell + editors + rules)
         nebu-ctx bootstrap             Non-interactive setup + fix (zero-config)
         nebu-ctx bootstrap --json      Machine-readable bootstrap report
-        nebu-ctx init --global         Install shell aliases (file-based, includes nebu-ctx-on/off)
+        nebu-ctx setup --global        Install shell aliases (file-based, includes nebu-ctx-on/off)
 
-EVAL INIT (starship/zoxide style — always in sync with binary version):
+EVAL SETUP (starship/zoxide style — always in sync with binary version):
     # bash: add to ~/.bashrc
-    eval \"$(nebu-ctx init bash)\"
+    eval \"$(nebu-ctx setup bash)\"
     # zsh: add to ~/.zshrc
-    eval \"$(nebu-ctx init zsh)\"
+    eval \"$(nebu-ctx setup zsh)\"
     # fish: add to ~/.config/fish/config.fish
-    nebu-ctx init fish | source
+    nebu-ctx setup fish | source
     # powershell: add to $PROFILE
-    nebu-ctx init powershell | Invoke-Expression
+    nebu-ctx setup powershell | Invoke-Expression
     nebu-ctx-on                    Enable shell aliases in track mode (full output + stats)
     nebu-ctx-off                   Disable all shell aliases
     nebu-ctx-mode track            Track mode: full output, stats recorded (default)
     nebu-ctx-mode compress         Compress mode: all output compressed (power users)
     nebu-ctx-mode off              Same as nebu-ctx-off
     nebu-ctx-status                Show whether compression is active
-    nebu-ctx init --agent pi       Install Pi Coding Agent extension
+    nebu-ctx setup --agent pi      Install Pi Coding Agent extension
     nebu-ctx doctor                Check PATH, config, MCP, and local edge health
         nebu-ctx doctor --fix --json   Repair + machine-readable report
         nebu-ctx status --json         Machine-readable current status
@@ -1010,7 +1019,7 @@ TROUBLESHOOTING:
     Permanent fix?       nebu-ctx uninstall       (removes all hooks)
     Manual fix?          Edit ~/.zshrc, remove the \"nebu-ctx shell hook\" block
     Binary missing?      Aliases auto-fallback to original commands (safe)
-    Preview init?        nebu-ctx init --global --dry-run
+    Preview setup?       nebu-ctx setup --global --dry-run
 
 WEBSITE: https://nebu-ctx.com
 GITHUB:  https://github.com/MarkBovee/nebu-ctx

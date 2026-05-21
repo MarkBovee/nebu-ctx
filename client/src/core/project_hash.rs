@@ -262,7 +262,7 @@ fn verify_ownership(old_dir: &Path, project_root: &str) -> bool {
     let knowledge_path = old_dir.join("knowledge.json");
     let content = match std::fs::read_to_string(&knowledge_path) {
         Ok(c) => c,
-        Err(_) => return true, // No knowledge.json — safe to migrate gotchas etc.
+        Err(_) => return true, // No knowledge.json — safe to migrate adjacent memory files.
     };
 
     let stored_root: Option<String> = serde_json::from_str::<serde_json::Value>(&content)
@@ -537,12 +537,12 @@ mod tests {
             r#"{"project_root":"/workspace"}"#,
         )
         .unwrap();
-        fs::write(old_dir.join("gotchas.json"), "{}").unwrap();
+        fs::write(old_dir.join("bug-memory.json"), "{}").unwrap();
 
         copy_dir_contents(&old_dir, &new_dir).unwrap();
 
         assert!(new_dir.join("knowledge.json").exists());
-        assert!(new_dir.join("gotchas.json").exists());
+        assert!(new_dir.join("bug-memory.json").exists());
         assert!(
             old_dir.join("knowledge.json").exists(),
             "old dir must remain intact"

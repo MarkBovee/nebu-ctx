@@ -354,15 +354,14 @@ Current panels:
 4. Dependency Map
 5. Compression Lab
 6. Agent World
-7. Bug Memory
-8. Brain Memory
-9. Search Explorer
-10. Learning Curves
-11. Symbol Explorer
-12. Call Graph
-13. Route Map
-14. Context Layer
-15. MCP Token
+7. Brain Memory
+8. Search Explorer
+9. Learning Curves
+10. Symbol Explorer
+11. Call Graph
+12. Route Map
+13. Context Layer
+14. MCP Token
 
 The dashboard is not a separate frontend deployment. It is part of the host process that also serves the MCP HTTP surface.
 
@@ -454,7 +453,7 @@ Open `http://127.0.0.1:3333` or the mapped host URL from your deployment.
 
 ## Agent And Editor Integrations
 
-`nebu-ctx setup` and `nebu-ctx init --agent ...` configure the supported surfaces that exist today.
+`nebu-ctx setup` and `nebu-ctx setup --agent ...` configure the supported surfaces that exist today.
 
 Common integrations:
 
@@ -493,7 +492,7 @@ Depending on the target, the setup path may include:
 
 Shell hook notes:
 
-- `nebu-ctx init --global` now refreshes older PowerShell installs to the current sourced `~/.nebu-ctx/shell-hook.ps1` model
+- `nebu-ctx setup --global` now refreshes older PowerShell installs to the current sourced `~/.nebu-ctx/shell-hook.ps1` model
 - PowerShell now gets the same `nebu-ctx-on`, `nebu-ctx-off`, `nebu-ctx-mode`, and `nebu-ctx-status` helpers as the POSIX shells
 
 ## CLI Surfaces Worth Knowing

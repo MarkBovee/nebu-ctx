@@ -165,15 +165,14 @@ Current panels:
 4. Dependency Map
 5. Compression Lab
 6. Agent World
-7. Bug Memory
-8. Brain Memory
-9. Search Explorer
-10. Learning Curves
-11. Symbol Explorer
-12. Call Graph
-13. Route Map
-14. Context Layer
-15. MCP Token
+7. Brain Memory
+8. Search Explorer
+9. Learning Curves
+10. Symbol Explorer
+11. Call Graph
+12. Route Map
+13. Context Layer
+14. MCP Token
 ```
 
 - [ ] **Step 4: Verify the rewritten routing and dashboard facts**

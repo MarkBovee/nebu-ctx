@@ -252,13 +252,13 @@ fn setup_bootstrap_doctor_status_json_smoke() {
         "env.sh missing docker self-heal snippet"
     );
 
-    // init --agent claude should prefer `claude mcp add-json` when available.
+    // setup --agent claude should prefer `claude mcp add-json` when available.
     let out = Command::new(bin)
-        .args(["init", "--agent", "claude", "--global"])
+        .args(["setup", "--agent", "claude", "--global"])
         .envs(envs.iter().copied())
         .output()
-        .expect("init --agent claude");
-    assert!(out.status.success(), "init --agent claude exit");
+        .expect("setup --agent claude");
+    assert!(out.status.success(), "setup --agent claude exit");
     let saved = std::fs::read_to_string(home.join("claude-mcp.json")).expect("claude-mcp.json");
     let v: serde_json::Value = serde_json::from_str(&saved).expect("claude json parse");
     assert!(
@@ -390,11 +390,11 @@ fn claude_config_dir_fallback_writes_dot_claude_json() {
     envs.push(("PATH", new_path.as_str()));
 
     let out = Command::new(bin)
-        .args(["init", "--agent", "claude", "--global"])
+        .args(["setup", "--agent", "claude", "--global"])
         .envs(envs.iter().copied())
         .output()
-        .expect("init --agent claude");
-    assert!(out.status.success(), "init --agent claude exit");
+        .expect("setup --agent claude");
+    assert!(out.status.success(), "setup --agent claude exit");
 
     let cfg_path = claude_cfg.join(".claude.json");
     let content = std::fs::read_to_string(&cfg_path).expect(".claude.json exists");
@@ -459,7 +459,7 @@ fn init_agent_preserves_agents_md_and_is_idempotent() {
     let home_str = home.to_string_lossy().to_string();
     let data_str = data_dir.to_string_lossy().to_string();
 
-    // Fake claude (success) so init --agent claude prefers `claude mcp add-json`.
+    // Fake claude (success) so setup --agent claude prefers `claude mcp add-json`.
     let claude_path = bin_dir.join(if cfg!(windows) {
         "claude.cmd"
     } else {
@@ -492,12 +492,12 @@ fn init_agent_preserves_agents_md_and_is_idempotent() {
 
     for _ in 0..2 {
         let out = Command::new(bin)
-            .args(["init", "--agent", "claude"])
+            .args(["setup", "--agent", "claude"])
             .current_dir(&project)
             .envs(envs.iter().copied())
             .output()
-            .expect("init --agent claude");
-        assert!(out.status.success(), "init --agent claude exit");
+            .expect("setup --agent claude");
+        assert!(out.status.success(), "setup --agent claude exit");
     }
 
     let agents = std::fs::read_to_string(&agents_path).unwrap();
@@ -555,12 +555,12 @@ fn init_claude_installs_dedicated_rules_file_without_claude_md() {
     }
 
     let out = Command::new(bin)
-        .args(["init", "--agent", "claude", "--global"])
+        .args(["setup", "--agent", "claude", "--global"])
         .current_dir(&project)
         .envs(envs.iter().copied())
         .output()
-        .expect("init --agent claude --global");
-    assert!(out.status.success(), "init --agent claude --global exit");
+        .expect("setup --agent claude --global");
+    assert!(out.status.success(), "setup --agent claude --global exit");
 
     let claude_md_path = home.join(".claude/CLAUDE.md");
     assert!(

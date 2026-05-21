@@ -211,7 +211,7 @@ fn shell_aliases_outcome() -> Outcome {
         Outcome {
             ok: false,
             line: format!(
-                "{BOLD}Shell aliases{RST}  {YELLOW}outdated hook in {} — run {BOLD}nebu-ctx init --global{RST}{YELLOW} to fix (pipe guard missing){RST}",
+                "{BOLD}Shell aliases{RST}  {YELLOW}outdated hook in {} — run {BOLD}nebu-ctx setup --global{RST}{YELLOW} to fix (pipe guard missing){RST}",
                 needs_update.join(", ")
             ),
         }
@@ -460,7 +460,7 @@ fn mcp_config_outcome() -> Outcome {
             String::new()
         };
         let hint = if has_claude {
-            format!("{DIM}(run: nebu-ctx doctor --fix OR nebu-ctx init --agent claude){RST}")
+            format!("{DIM}(run: nebu-ctx doctor --fix OR nebu-ctx setup --agent claude){RST}")
         } else {
             format!("{DIM}(run: nebu-ctx doctor --fix OR nebu-ctx setup){RST}")
         };
@@ -967,7 +967,7 @@ fn claude_truncation_outcome() -> Option<Outcome> {
         Some(Outcome {
             ok: false,
             line: format!(
-                "{BOLD}Claude Code instructions{RST}  {YELLOW}MCP instructions truncated at 2048 chars, no rules file found{RST}  {DIM}(run: nebu-ctx init --agent claude){RST}"
+                "{BOLD}Claude Code instructions{RST}  {YELLOW}MCP instructions truncated at 2048 chars, no rules file found{RST}  {DIM}(run: nebu-ctx setup --agent claude){RST}"
             ),
         })
     }

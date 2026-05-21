@@ -461,7 +461,7 @@ pub fn write_env_sh_for_containers(aliases: &str) {
 # nebu-ctx docker self-heal: re-inject Claude MCP config if Claude overwrote ~/.claude.json
 if command -v claude >/dev/null 2>&1 && command -v nebu-ctx >/dev/null 2>&1; then
     if ! claude mcp list 2>/dev/null | grep -Eq "nebu-ctx|nebu-ctx"; then
-        NEBU_CTX_QUIET=1 nebu-ctx init --agent claude >/dev/null 2>&1
+        NEBU_CTX_QUIET=1 nebu-ctx setup --agent claude >/dev/null 2>&1
   fi
 fi
 "#,
@@ -795,7 +795,7 @@ export EDITOR=vim
         let content = std::fs::read_to_string(&env_sh).expect("env.sh exists");
         assert!(content.contains("nebu-ctx docker self-heal"));
         assert!(content.contains("claude mcp list"));
-        assert!(content.contains("nebu-ctx init --agent claude"));
+        assert!(content.contains("nebu-ctx setup --agent claude"));
 
         std::env::remove_var("NEBU_CTX_DATA_DIR");
     }

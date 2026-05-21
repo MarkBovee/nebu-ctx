@@ -402,8 +402,8 @@ pub fn handle_assistant_output_submit() {
         return;
     };
 
-    let message = extract_first_json_field(&input, &["message", "text", "response"])
-        .unwrap_or_default();
+    let message =
+        extract_first_json_field(&input, &["message", "text", "response"]).unwrap_or_default();
 
     let trimmed = message.trim().to_string();
     if trimmed.is_empty() {

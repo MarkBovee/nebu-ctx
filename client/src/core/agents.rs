@@ -624,7 +624,7 @@ pub struct ContextDepthConfig {
     pub preferred_mode: &'static str,
     pub include_graph: bool,
     pub include_knowledge: bool,
-    pub include_gotchas: bool,
+    pub include_bug_memory: bool,
     pub context_budget_ratio: f64,
 }
 
@@ -637,7 +637,7 @@ impl ContextDepthConfig {
                 preferred_mode: "full",
                 include_graph: true,
                 include_knowledge: true,
-                include_gotchas: true,
+                include_bug_memory: true,
                 context_budget_ratio: 0.7,
             },
             AgentRole::Reviewer => Self {
@@ -646,7 +646,7 @@ impl ContextDepthConfig {
                 preferred_mode: "signatures",
                 include_graph: true,
                 include_knowledge: true,
-                include_gotchas: true,
+                include_bug_memory: true,
                 context_budget_ratio: 0.5,
             },
             AgentRole::Planner => Self {
@@ -655,7 +655,7 @@ impl ContextDepthConfig {
                 preferred_mode: "map",
                 include_graph: true,
                 include_knowledge: true,
-                include_gotchas: false,
+                include_bug_memory: false,
                 context_budget_ratio: 0.3,
             },
             AgentRole::Explorer => Self {
@@ -664,7 +664,7 @@ impl ContextDepthConfig {
                 preferred_mode: "map",
                 include_graph: true,
                 include_knowledge: false,
-                include_gotchas: false,
+                include_bug_memory: false,
                 context_budget_ratio: 0.4,
             },
             AgentRole::Debugger => Self {
@@ -673,7 +673,7 @@ impl ContextDepthConfig {
                 preferred_mode: "full",
                 include_graph: false,
                 include_knowledge: true,
-                include_gotchas: true,
+                include_bug_memory: true,
                 context_budget_ratio: 0.8,
             },
             AgentRole::Tester => Self {
@@ -682,7 +682,7 @@ impl ContextDepthConfig {
                 preferred_mode: "full",
                 include_graph: false,
                 include_knowledge: false,
-                include_gotchas: true,
+                include_bug_memory: true,
                 context_budget_ratio: 0.6,
             },
             AgentRole::Orchestrator => Self {
@@ -691,7 +691,7 @@ impl ContextDepthConfig {
                 preferred_mode: "map",
                 include_graph: true,
                 include_knowledge: true,
-                include_gotchas: false,
+                include_bug_memory: false,
                 context_budget_ratio: 0.2,
             },
         }

@@ -1,6 +1,7 @@
 namespace NebuCtx.IntegrationTests;
 
 using System.Collections.Concurrent;
+
 using NebuCtx.Contracts.Projects;
 using NebuCtx.Storage;
 
@@ -99,11 +100,17 @@ internal sealed class InMemoryBrainStore : IBrainStore
 
     public Task<IReadOnlyList<BrainEntry>> RecallAsync(string projectId, string query, int limit = 10, CancellationToken cancellationToken = default)
     {
+        var terms = query.Split([' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(term => term.Length >= 2)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
         var results = _entries
             .Where(kv => kv.Key.ProjectId == projectId &&
-                (kv.Value.Key.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                 kv.Value.Value.Contains(query, StringComparison.OrdinalIgnoreCase)))
+                terms.Any(term =>
+                    kv.Value.Key.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    kv.Value.Value.Contains(term, StringComparison.OrdinalIgnoreCase)))
             .Select(kv => kv.Value)
+            .OrderByDescending(entry => entry.CreatedAt)
             .Take(limit)
             .ToList();
         return Task.FromResult<IReadOnlyList<BrainEntry>>(results);
@@ -164,13 +171,24 @@ internal sealed class InMemoryKnowledgeStore : IKnowledgeStore
 
     public Task<IReadOnlyList<KnowledgeEntry>> RecallAsync(string projectId, string? category, string query, int limit, CancellationToken cancellationToken = default)
     {
+        var terms = query.Split([' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(term => term.Length >= 2)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
         lock (_lock)
         {
             var results = _facts
                 .Where(f => f.ProjectId == projectId &&
                     (category is null || f.Category == category) &&
-                    (f.Key.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                     f.Value.Contains(query, StringComparison.OrdinalIgnoreCase)))
+                    terms.Any(term =>
+                        f.Category.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                        f.Key.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                        f.Value.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                        f.SourceScope.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                        f.SourceType.Contains(term, StringComparison.OrdinalIgnoreCase)))
+                .OrderByDescending(f => f.LifecycleScore)
+                .ThenByDescending(f => f.Confidence)
+                .ThenByDescending(f => f.UpdatedAt)
                 .Take(limit)
                 .ToList();
             return Task.FromResult<IReadOnlyList<KnowledgeEntry>>(results);

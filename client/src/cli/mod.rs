@@ -704,7 +704,7 @@ pub fn cmd_cheatsheet() {
   ctx_session decision \"...\"      \x1b[2m# record architectural choices\x1b[0m
   ctx_knowledge action=remember   \x1b[2m# store permanent project facts\x1b[0m
   ctx_knowledge action=consolidate \x1b[2m# auto-extract session insights\x1b[0m
-  ctx_metrics                     \x1b[2m# see session statistics\x1b[0m
+  ctx_wrapped                     \x1b[2m# see savings report\x1b[0m
 
 \x1b[1;34m━━━ MULTI-AGENT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m
   ctx_agent action=register       \x1b[2m# announce yourself\x1b[0m
@@ -1029,7 +1029,7 @@ pub fn cmd_init(args: &[String]) {
         } else {
             "~/.bashrc".to_string()
         };
-        qprintln!("\nnebu-ctx init --dry-run\n");
+        qprintln!("\nnebu-ctx setup --dry-run\n");
         qprintln!("  Would modify:  {rc}");
         qprintln!("  Would backup:  {rc}.nebu-ctx.bak");
         qprintln!("  Would alias:   git npm pnpm yarn cargo docker docker-compose kubectl");
@@ -1071,14 +1071,14 @@ pub fn cmd_init(args: &[String]) {
         ".bashrc"
     };
 
-    qprintln!("\nnebu-ctx init complete (24 aliases installed)");
+    qprintln!("\nnebu-ctx setup complete (24 aliases installed)");
     qprintln!();
     qprintln!("  Disable temporarily:  nebu-ctx-off");
     qprintln!("  Re-enable:            nebu-ctx-on");
     qprintln!("  Check status:         nebu-ctx-status");
     qprintln!("  Full uninstall:       nebu-ctx uninstall");
     qprintln!("  Diagnose issues:      nebu-ctx doctor");
-    qprintln!("  Preview changes:      nebu-ctx init --global --dry-run");
+    qprintln!("  Preview changes:      nebu-ctx setup --global --dry-run");
     qprintln!();
     if is_powershell {
         qprintln!("  Restart PowerShell or run: . {rc}");
@@ -1086,7 +1086,7 @@ pub fn cmd_init(args: &[String]) {
         qprintln!("  Restart your shell or run: source ~/{rc}");
     }
     qprintln!();
-    qprintln!("For AI tool integration: nebu-ctx init --agent <tool>");
+    qprintln!("For AI tool integration: nebu-ctx setup --agent <tool>");
     qprintln!("  Supported: aider, amazonq, amp, antigravity, claude, cline, codex, copilot,");
     qprintln!("    crush, cursor, emacs, gemini, hermes, jetbrains, kiro, neovim, opencode,");
     qprintln!("    pi, qwen, roo, sublime, trae, verdent, windsurf");
@@ -1528,7 +1528,7 @@ export EDITOR=vim
         let content = std::fs::read_to_string(&env_sh).expect("env.sh exists");
         assert!(content.contains("nebu-ctx docker self-heal"));
         assert!(content.contains("claude mcp list"));
-        assert!(content.contains("nebu-ctx init --agent claude"));
+        assert!(content.contains("nebu-ctx setup --agent claude"));
 
         std::env::remove_var("NEBU_CTX_DATA_DIR");
     }

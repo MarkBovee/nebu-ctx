@@ -24,7 +24,7 @@ curl -fsSL https://raw.githubusercontent.com/markbovee/nebu-ctx/main/skills/nebu
 After installation, configure the MCP server:
 
 ```bash
-nebu-ctx init --global
+nebu-ctx setup --global
 nebu-ctx doctor --fix
 ```
 
@@ -73,15 +73,15 @@ Use `full` mode only when you will edit the file.
 ## AI Tool Integration
 
 ```bash
-nebu-ctx init --global          # Install shell aliases
-nebu-ctx init --agent claude    # Claude Code PreToolUse hook
-nebu-ctx init --agent cursor    # Cursor hooks.json
-nebu-ctx init --agent gemini    # Gemini CLI BeforeTool hook
-nebu-ctx init --agent codex     # Codex AGENTS.md
-nebu-ctx init --agent windsurf  # .windsurfrules
-nebu-ctx init --agent cline     # .clinerules
-nebu-ctx init --agent crush     # Crush MCP config
-nebu-ctx init --agent copilot   # VS Code / Copilot .vscode/mcp.json
+nebu-ctx setup --global         # Install shell aliases
+nebu-ctx setup --agent claude   # Claude Code PreToolUse hook
+nebu-ctx setup --agent cursor   # Cursor hooks.json
+nebu-ctx setup --agent gemini   # Gemini CLI BeforeTool hook
+nebu-ctx setup --agent codex    # Codex AGENTS.md
+nebu-ctx setup --agent windsurf # .windsurfrules
+nebu-ctx setup --agent cline    # .clinerules
+nebu-ctx setup --agent crush    # Crush MCP config
+nebu-ctx setup --agent copilot  # VS Code / Copilot .vscode/mcp.json
 ```
 
 ## Multi-Agent & Knowledge (v2.7.0+)

@@ -8,7 +8,7 @@ using NebuCtx.Server.Core;
 
 /// <summary>
 /// Dashboard analytics endpoints: stats, session, gain, mcp, agents, events,
-/// pipeline-stats, context-ledger, intent, feedback, gotchas, buddy.
+/// pipeline-stats, context-ledger, intent, feedback, and buddy.
 /// </summary>
 public static class DashboardAnalyticsEndpoints
 {
@@ -88,9 +88,6 @@ public static class DashboardAnalyticsEndpoints
             var projects = await projectRegistry.ListAsync(ct);
             return Results.Ok(DashboardPayloadFactory.BuildFeedbackPayload(telemetryStore, projects));
         });
-
-        app.MapGet("/gotchas", (TelemetryStore telemetryStore) =>
-            Results.Ok(DashboardPayloadFactory.BuildGotchasPayload(telemetryStore)));
 
         app.MapGet("/buddy", async (
             ProjectRegistry projectRegistry,

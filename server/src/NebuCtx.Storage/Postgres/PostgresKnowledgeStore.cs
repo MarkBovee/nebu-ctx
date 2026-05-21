@@ -1,6 +1,7 @@
 namespace NebuCtx.Storage.Postgres;
 
 using System.Text.Json;
+
 using Npgsql;
 
 /// <summary>
@@ -110,18 +111,43 @@ public sealed class PostgresKnowledgeStore : IKnowledgeStore
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(cancellationToken);
 
-        // Full-text search across key and value using ILIKE; optionally scoped to a category.
-        var sql = category is null
-            ? "SELECT project_id, category, key, value, confidence, created_at, updated_at, logical_key, promotion_identity, source_type, source_scope, lifecycle_status, lifecycle_score, confirmation_count, last_confirmed_at, retrieval_count, last_retrieved_at, history_json FROM knowledge_entries WHERE project_id = @project_id AND (key ILIKE @query OR value ILIKE @query) ORDER BY lifecycle_score DESC, confidence DESC LIMIT @limit"
-            : "SELECT project_id, category, key, value, confidence, created_at, updated_at, logical_key, promotion_identity, source_type, source_scope, lifecycle_status, lifecycle_score, confirmation_count, last_confirmed_at, retrieval_count, last_retrieved_at, history_json FROM knowledge_entries WHERE project_id = @project_id AND category = @category AND (key ILIKE @query OR value ILIKE @query) ORDER BY lifecycle_score DESC, confidence DESC LIMIT @limit";
+        var terms = query
+            .Split([' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(term => term.Trim())
+            .Where(term => term.Length >= 2)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (terms.Length == 0)
+        {
+            return [];
+        }
+
+        var filters = new List<string> { "project_id = @project_id" };
+        if (category is not null)
+        {
+            filters.Add("category = @category");
+        }
+
+        var matchClauses = new List<string>();
+        for (var index = 0; index < terms.Length; index++)
+        {
+            matchClauses.Add($"(category ILIKE @term{index} OR key ILIKE @term{index} OR value ILIKE @term{index} OR source_scope ILIKE @term{index} OR source_type ILIKE @term{index})");
+        }
+
+        filters.Add($"({string.Join(" OR ", matchClauses)})");
+        var sql = $"SELECT project_id, category, key, value, confidence, created_at, updated_at, logical_key, promotion_identity, source_type, source_scope, lifecycle_status, lifecycle_score, confirmation_count, last_confirmed_at, retrieval_count, last_retrieved_at, history_json FROM knowledge_entries WHERE {string.Join(" AND ", filters)} ORDER BY lifecycle_score DESC, confidence DESC, updated_at DESC LIMIT @limit";
 
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("project_id", projectId);
-        cmd.Parameters.AddWithValue("query", $"%{query}%");
         cmd.Parameters.AddWithValue("limit", limit);
         if (category is not null)
         {
             cmd.Parameters.AddWithValue("category", category);
+        }
+        for (var index = 0; index < terms.Length; index++)
+        {
+            cmd.Parameters.AddWithValue($"term{index}", $"%{terms[index]}%");
         }
 
         return await ReadEntriesAsync(cmd, cancellationToken);

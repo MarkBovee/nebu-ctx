@@ -259,7 +259,7 @@ pub struct BuddyState {
     pub stats: BuddyStats,
     pub speech: String,
     pub tokens_saved: u64,
-    pub bugs_prevented: u64,
+    pub failures_seen: u64,
     pub streak_days: u32,
     pub ascii_art: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -277,19 +277,19 @@ impl BuddyState {
             .saturating_sub(store.total_output_tokens);
 
         let project_root = detect_project_root_for_buddy();
-        let gotcha_store = if !project_root.is_empty() {
-            super::gotcha_tracker::GotchaStore::load(&project_root)
+        let bug_store = if !project_root.is_empty() {
+            super::bug_memory::BugMemoryStore::load(&project_root)
         } else {
-            super::gotcha_tracker::GotchaStore::new("none")
+            super::bug_memory::BugMemoryStore::new("none")
         };
 
-        let bugs_prevented = gotcha_store.stats.total_prevented;
-        let errors_detected = gotcha_store.stats.total_errors_detected;
+        let failures_seen = bug_store.stats.total_failures;
+        let errors_detected = failures_seen;
 
         let species = Species::from_commands(&store.commands);
         let rarity = Rarity::from_tokens_saved(tokens_saved);
 
-        let xp = tokens_saved / 1000 + store.total_commands * 5 + bugs_prevented * 100;
+        let xp = tokens_saved / 1000 + store.total_commands * 5 + failures_seen * 10;
         let level = ((xp as f64 / 50.0).sqrt().floor() as u32).min(99);
         let xp_next_level = ((level + 1) as u64) * ((level + 1) as u64) * 50;
 
@@ -303,14 +303,14 @@ impl BuddyState {
         let mood = compute_mood(
             compression_rate,
             errors_detected,
-            bugs_prevented,
+            failures_seen,
             streak_days,
             &store,
         );
 
         let rpg_stats = compute_rpg_stats(
             compression_rate,
-            bugs_prevented,
+            failures_seen,
             errors_detected,
             streak_days,
             store.commands.len(),
@@ -322,7 +322,7 @@ impl BuddyState {
         let name = generate_name(seed);
         let sprite = render_sprite_pack(&traits, &mood, level);
         let ascii_art = sprite.base.clone();
-        let speech = generate_speech(&mood, tokens_saved, bugs_prevented, streak_days);
+        let speech = generate_speech(&mood, tokens_saved, failures_seen, streak_days);
 
         Self {
             name,
@@ -335,7 +335,7 @@ impl BuddyState {
             stats: rpg_stats,
             speech,
             tokens_saved,
-            bugs_prevented,
+            failures_seen,
             streak_days,
             ascii_art,
             ascii_frames: sprite.frames,
@@ -540,7 +540,7 @@ fn sprite_lines_for_tick(state: &BuddyState, tick: Option<u64>) -> &[String] {
 fn compute_mood(
     compression: u8,
     errors: u64,
-    prevented: u64,
+    failures_seen: u64,
     streak: u32,
     store: &super::stats::StatsStore,
 ) -> Mood {
@@ -564,9 +564,9 @@ fn compute_mood(
 
     if compression > 60 && errors == 0 && streak >= 7 {
         Mood::Ecstatic
-    } else if compression > 40 || prevented > 0 {
+    } else if compression > 40 || failures_seen == 0 {
         Mood::Happy
-    } else if recent_errors || (errors > 5 && prevented == 0) {
+    } else if recent_errors || errors > 5 {
         Mood::Worried
     } else {
         Mood::Content
@@ -579,7 +579,7 @@ fn compute_mood(
 
 fn compute_rpg_stats(
     compression: u8,
-    prevented: u64,
+    failures_seen: u64,
     errors: u64,
     streak: u32,
     unique_cmds: usize,
@@ -588,11 +588,11 @@ fn compute_rpg_stats(
     let compression_stat = compression.min(100);
 
     let vigilance = if errors > 0 {
-        ((prevented as f64 / errors as f64) * 80.0).min(100.0) as u8
-    } else if prevented > 0 {
+        (100.0_f64 - (errors.min(20) as f64 * 4.0)).max(20.0) as u8
+    } else if failures_seen == 0 {
         100
     } else {
-        20
+        60
     };
 
     let endurance = (streak * 5).min(100) as u8;
@@ -667,11 +667,11 @@ fn generate_name(seed: u64) -> String {
 // Speech bubble
 // ---------------------------------------------------------------------------
 
-fn generate_speech(mood: &Mood, tokens_saved: u64, bugs_prevented: u64, streak: u32) -> String {
+fn generate_speech(mood: &Mood, tokens_saved: u64, failures_seen: u64, streak: u32) -> String {
     match mood {
         Mood::Ecstatic => {
-            if bugs_prevented > 0 {
-                format!("{bugs_prevented} bugs prevented! We're unstoppable!")
+            if failures_seen == 0 {
+                "No client failures recorded. Clean run!".to_string()
             } else {
                 format!("{} tokens saved! On fire!", format_compact(tokens_saved))
             }
@@ -679,8 +679,8 @@ fn generate_speech(mood: &Mood, tokens_saved: u64, bugs_prevented: u64, streak: 
         Mood::Happy => {
             if streak >= 3 {
                 format!("{streak}-day streak! Keep going!")
-            } else if bugs_prevented > 0 {
-                format!("Caught {bugs_prevented} bugs before they happened!")
+            } else if failures_seen == 0 {
+                "No recent client failures. Nice.".to_string()
             } else {
                 format!("{} tokens saved so far!", format_compact(tokens_saved))
             }
@@ -996,7 +996,7 @@ pub fn format_buddy_full(state: &BuddyState, theme: &super::theme::Theme) -> Str
     out.push(format!(
         "  {m}Tokens saved: {}  |  Bugs prevented: {}{r}",
         format_compact(state.tokens_saved),
-        state.bugs_prevented,
+        state.failures_seen,
     ));
     out.push(String::new());
 

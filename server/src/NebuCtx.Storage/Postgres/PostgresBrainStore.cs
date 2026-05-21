@@ -70,20 +70,34 @@ public sealed class PostgresBrainStore : IBrainStore
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(cancellationToken);
 
-        // Simple text search for MVP — full-text or embedding search comes later
+        var terms = query
+            .Split([' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(term => term.Trim())
+            .Where(term => term.Length >= 2)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (terms.Length == 0)
+        {
+            return [];
+        }
+
+        var clauses = new List<string>();
+        for (var index = 0; index < terms.Length; index++)
+        {
+            clauses.Add($"(key ILIKE @term{index} OR value ILIKE @term{index})");
+        }
+
         await using var cmd = new NpgsqlCommand(
-            """
-            SELECT key, value, created_at FROM brain_entries
-            WHERE project_id = @project_id
-              AND (key ILIKE @query OR value ILIKE @query)
-            ORDER BY created_at DESC
-            LIMIT @limit
-            """,
+            $"SELECT key, value, created_at FROM brain_entries WHERE project_id = @project_id AND ({string.Join(" OR ", clauses)}) ORDER BY created_at DESC LIMIT @limit",
             conn);
 
         cmd.Parameters.AddWithValue("project_id", projectId);
-        cmd.Parameters.AddWithValue("query", $"%{query}%");
         cmd.Parameters.AddWithValue("limit", limit);
+        for (var index = 0; index < terms.Length; index++)
+        {
+            cmd.Parameters.AddWithValue($"term{index}", $"%{terms[index]}%");
+        }
 
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
         var entries = new List<BrainEntry>();

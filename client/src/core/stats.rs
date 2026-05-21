@@ -928,7 +928,7 @@ pub fn format_cep_report() -> String {
                     .to_string(),
             );
             o.push(format!(
-                "     Run {sec}nebu-ctx init{r} to update rules, then restart your AI session."
+                "     Run {sec}nebu-ctx setup{r} to update rules, then restart your AI session."
             ));
             o.push(format!(
                 "     Run {sec}nebu-ctx doctor{r} for detailed adoption diagnostics."
@@ -1304,20 +1304,20 @@ pub fn format_gain_themed_at(t: &Theme, tick: Option<u64>) -> String {
         o.push(String::new());
     }
 
-    // Bug Memory stats
+    // Failure Memory stats
     {
         let project_root = std::env::current_dir()
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_default();
         if !project_root.is_empty() {
-            let gotcha_store = crate::core::gotcha_tracker::GotchaStore::load(&project_root);
-            if gotcha_store.stats.total_errors_detected > 0 || !gotcha_store.gotchas.is_empty() {
+            let bug_store = crate::core::bug_memory::BugMemoryStore::load(&project_root);
+            if bug_store.stats.total_failures > 0 || !bug_store.failures.is_empty() {
                 let a = t.accent.fg();
-                o.push(format!("    {a}🧠 Bug Memory{r}"));
+                o.push(format!("    {a}🧠 Failure Memory{r}"));
                 o.push(format!(
-                    "    {m}   Active gotchas: {}{r}   Bugs prevented: {}{r}",
-                    gotcha_store.gotchas.len(),
-                    gotcha_store.stats.total_prevented,
+                    "    {m}   Failure patterns: {}{r}   Total failures: {}{r}",
+                    bug_store.failures.len(),
+                    bug_store.stats.total_failures,
                     m = t.muted.fg(),
                 ));
                 o.push(String::new());
@@ -1329,7 +1329,9 @@ pub fn format_gain_themed_at(t: &Theme, tick: Option<u64>) -> String {
     o.push(format!(
         "    {m}🐛 Found a bug? Run: nebu-ctx report-issue{r}"
     ));
-    o.push(format!("    {m}🧠 View bug memory: nebu-ctx gotchas{r}"));
+    o.push(format!(
+        "    {m}🧠 View failure memory: nebu-ctx failures{r}"
+    ));
 
     o.push(String::new());
     o.push(String::new());
