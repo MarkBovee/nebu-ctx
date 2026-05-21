@@ -1048,6 +1048,81 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     }
 
     /// <summary>
+    /// Dashboard project delete clears hosted project data and removes the project record.
+    /// </summary>
+    [Fact]
+    public async Task DashboardProjectDelete_ClearsHostedProjectData()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "dashboard-delete-project",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/example/dashboard-delete-project.git",
+                Host = "github.com",
+                Owner = "example",
+                RepoName = "dashboard-delete-project",
+                DefaultBranch = "main",
+            },
+            CheckoutBinding = new CheckoutBinding
+            {
+                ProjectId = "ignored",
+                LocalRoot = "/tmp/dashboard-delete-project",
+                Branch = "main",
+                ClientLabel = "test-client",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, resolveResponse.StatusCode);
+
+        var resolved = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolved?.Project?.ProjectId);
+        var projectId = resolved!.Project!.ProjectId;
+
+        var brainStoreResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_brain",
+            ProjectId = projectId,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "store",
+                ["key"] = "delete-me",
+                ["value"] = "temporary memory",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, brainStoreResponse.StatusCode);
+
+        var rememberResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            ProjectId = projectId,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "remember",
+                ["category"] = "testing",
+                ["key"] = "delete-me",
+                ["value"] = "temporary fact",
+                ["confidence"] = 0.9,
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, rememberResponse.StatusCode);
+
+        var deleteResponse = await _client.DeleteAsync($"/api/projects/{projectId}");
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+
+        using var deleteDoc = JsonDocument.Parse(await deleteResponse.Content.ReadAsStringAsync());
+        Assert.True(deleteDoc.RootElement.GetProperty("deleted").GetBoolean());
+        Assert.Equal(projectId, deleteDoc.RootElement.GetProperty("projectId").GetString());
+
+        var projectListResponse = await _client.GetAsync("/api/projects");
+        Assert.Equal(HttpStatusCode.OK, projectListResponse.StatusCode);
+        using var projectListDoc = JsonDocument.Parse(await projectListResponse.Content.ReadAsStringAsync());
+        Assert.DoesNotContain(projectListDoc.RootElement.GetProperty("projects").EnumerateArray(), item => item.GetProperty("project_id").GetString() == projectId);
+
+        var memoryResponse = await _client.GetAsync($"/api/dashboard/projects/{projectId}/memory");
+        Assert.Equal(HttpStatusCode.NotFound, memoryResponse.StatusCode);
+    }
+
+    /// <summary>
     /// Tool calls with the same repository fingerprint reuse the same canonical project across different local roots.
     /// </summary>
     [Fact]

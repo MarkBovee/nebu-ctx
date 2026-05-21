@@ -82,6 +82,14 @@ public interface ICheckoutBindingStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>All bindings for the project.</returns>
     Task<IReadOnlyList<CheckoutBinding>> GetBindingsAsync(string projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes all checkout bindings for a project.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of bindings deleted.</returns>
+    Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -142,6 +150,15 @@ public interface IBrainStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Number of entries deleted.</returns>
     Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes all brain entries for a project whose key starts with the provided prefix.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="keyPrefix">Entry key prefix to delete.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of entries deleted.</returns>
+    Task<int> DeleteByPrefixAsync(string projectId, string keyPrefix, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -384,6 +401,14 @@ public interface ISessionStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Number of sessions deleted.</returns>
     Task<int> DeleteOlderThanAsync(string projectId, int daysOld, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes all persisted sessions for a project.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of sessions deleted.</returns>
+    Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -491,6 +516,14 @@ public interface ICodeIndexStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Matching file entries ordered by token count descending.</returns>
     Task<IReadOnlyList<IndexedFile>> SearchFilesAsync(string projectId, string? query, int limit = 100, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes all indexed files, symbols, and call edges for a project.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True when project index data existed and was cleared.</returns>
+    Task<bool> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

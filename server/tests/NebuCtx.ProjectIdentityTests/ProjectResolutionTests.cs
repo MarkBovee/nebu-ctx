@@ -20,7 +20,13 @@ public class ProjectResolutionTests
     {
         _projectStore = new InMemoryProjectStore();
         var bindingStore = new InMemoryCheckoutBindingStore();
-        _registry = new ProjectRegistry(_projectStore, bindingStore);
+        _registry = new ProjectRegistry(
+            _projectStore,
+            bindingStore,
+            new InMemoryBrainStore(),
+            new InMemoryKnowledgeStore(),
+            new InMemorySessionStore(),
+            new InMemoryCodeIndexStore());
     }
 
     /// <summary>
@@ -333,5 +339,73 @@ public class ProjectResolutionTests
 
             return Task.FromResult<IReadOnlyList<CheckoutBinding>>(bindings);
         }
+
+        /// <inheritdoc />
+        public Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default)
+        {
+            if (!_bindingsByProject.TryRemove(projectId, out var bindings))
+            {
+                return Task.FromResult(0);
+            }
+
+            return Task.FromResult(bindings.Count);
+        }
+    }
+
+    private sealed class InMemoryBrainStore : IBrainStore
+    {
+        public Task<Dictionary<string, object?>?> GetStatusAsync(string projectId, CancellationToken cancellationToken = default)
+            => Task.FromResult<Dictionary<string, object?>?>(null);
+
+        public Task StoreAsync(string projectId, string key, string value, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<IReadOnlyList<BrainEntry>> RecallAsync(string projectId, string query, int limit = 10, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<BrainEntry>>([]);
+
+        public Task<IReadOnlyList<BrainEntry>> ListAllAsync(string projectId, int limit = 200, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<BrainEntry>>([]);
+
+        public Task<bool> DeleteAsync(string projectId, string key, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+
+        public Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default)
+            => Task.FromResult(0);
+
+        public Task<int> DeleteByPrefixAsync(string projectId, string keyPrefix, CancellationToken cancellationToken = default)
+            => Task.FromResult(0);
+    }
+
+    private sealed class InMemoryKnowledgeStore : IKnowledgeStore
+    {
+        public Task UpsertFactAsync(KnowledgeEntry entry, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<KnowledgeEntry?> GetFactAsync(string projectId, string category, string key, CancellationToken cancellationToken = default) => Task.FromResult<KnowledgeEntry?>(null);
+        public Task<IReadOnlyList<KnowledgeEntry>> RecallAsync(string projectId, string? category, string query, int limit, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<KnowledgeEntry>>([]);
+        public Task<IReadOnlyList<(string Category, int Count)>> GetCategoriesAsync(string projectId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<(string Category, int Count)>>([]);
+        public Task<int> GetFactCountAsync(string projectId, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<IReadOnlyList<KnowledgeEntry>> ListAllForProjectAsync(string projectId, int limit = 500, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<KnowledgeEntry>>([]);
+        public Task<bool> RemoveFactAsync(string projectId, string category, string key, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> ReassignProjectAsync(string fromProjectId, string toProjectId, CancellationToken cancellationToken = default) => Task.FromResult(0);
+    }
+
+    private sealed class InMemorySessionStore : ISessionStore
+    {
+        public Task<CloudSessionState?> LoadLatestAsync(string projectId, CancellationToken cancellationToken = default) => Task.FromResult<CloudSessionState?>(null);
+        public Task<CloudSessionState?> LoadByIdAsync(string projectId, string sessionId, CancellationToken cancellationToken = default) => Task.FromResult<CloudSessionState?>(null);
+        public Task SaveAsync(string projectId, CloudSessionState state, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<CloudSessionSummary>> ListAsync(string projectId, int limit, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CloudSessionSummary>>([]);
+        public Task<int> DeleteOlderThanAsync(string projectId, int daysOld, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default) => Task.FromResult(0);
+    }
+
+    private sealed class InMemoryCodeIndexStore : ICodeIndexStore
+    {
+        public Task SyncIndexAsync(string projectId, IReadOnlyList<IndexedFile> files, IReadOnlyList<IndexedSymbol> symbols, IReadOnlyList<IndexedCallEdge> edges, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<CodeIndexStats> GetStatsAsync(string projectId, CancellationToken cancellationToken = default) => Task.FromResult(new CodeIndexStats());
+        public Task<IReadOnlyList<IndexedSymbol>> SearchSymbolsAsync(string projectId, string? query, string? kind, int limit = 200, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<IndexedSymbol>>([]);
+        public Task<IReadOnlyList<IndexedCallEdge>> GetEdgesAsync(string projectId, int limit = 5000, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<IndexedCallEdge>>([]);
+        public Task<IReadOnlyList<IndexedFile>> SearchFilesAsync(string projectId, string? query, int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<IndexedFile>>([]);
+        public Task<bool> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default) => Task.FromResult(false);
     }
 }

@@ -180,4 +180,20 @@ public sealed class PostgresBrainStore : IBrainStore
 
         return await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
+
+    /// <inheritdoc />
+    public async Task<int> DeleteByPrefixAsync(string projectId, string keyPrefix, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        await using var cmd = new NpgsqlCommand(
+            "DELETE FROM brain_entries WHERE project_id = @project_id AND key LIKE @key_prefix",
+            conn);
+
+        cmd.Parameters.AddWithValue("project_id", projectId);
+        cmd.Parameters.AddWithValue("key_prefix", $"{keyPrefix}%");
+
+        return await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
 }

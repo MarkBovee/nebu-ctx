@@ -11,16 +11,28 @@ public sealed class ProjectRegistry
 {
     private readonly IProjectStore _projectStore;
     private readonly ICheckoutBindingStore _bindingStore;
+    private readonly IBrainStore _brainStore;
+    private readonly IKnowledgeStore _knowledgeStore;
+    private readonly ISessionStore _sessionStore;
+    private readonly ICodeIndexStore _codeIndexStore;
 
     /// <summary>
     /// Initializes the project registry.
     /// </summary>
     /// <param name="projectStore">Project persistence store.</param>
     /// <param name="bindingStore">Checkout binding persistence store.</param>
-    public ProjectRegistry(IProjectStore projectStore, ICheckoutBindingStore bindingStore)
+    /// <param name="brainStore">Brain persistence store.</param>
+    /// <param name="knowledgeStore">Knowledge persistence store.</param>
+    /// <param name="sessionStore">Session persistence store.</param>
+    /// <param name="codeIndexStore">Code index persistence store.</param>
+    public ProjectRegistry(IProjectStore projectStore, ICheckoutBindingStore bindingStore, IBrainStore brainStore, IKnowledgeStore knowledgeStore, ISessionStore sessionStore, ICodeIndexStore codeIndexStore)
     {
         _projectStore = projectStore;
         _bindingStore = bindingStore;
+        _brainStore = brainStore;
+        _knowledgeStore = knowledgeStore;
+        _sessionStore = sessionStore;
+        _codeIndexStore = codeIndexStore;
     }
 
     /// <summary>
@@ -184,6 +196,42 @@ public sealed class ProjectRegistry
     }
 
     /// <summary>
+    /// Deletes a project and clears dependent project-scoped stores first.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Delete summary payload.</returns>
+    public async Task<ProjectDeleteResult> DeleteProjectAsync(string projectId, CancellationToken cancellationToken = default)
+    {
+        var project = await _projectStore.GetProjectAsync(projectId, cancellationToken);
+        if (project is null)
+        {
+            return new ProjectDeleteResult
+            {
+                ProjectId = projectId,
+                Deleted = false,
+            };
+        }
+
+        var checkoutBindingsDeleted = await _bindingStore.ClearProjectAsync(projectId, cancellationToken);
+        var sessionsDeleted = await _sessionStore.ClearProjectAsync(projectId, cancellationToken);
+        var brainEntriesDeleted = await _brainStore.ClearProjectAsync(projectId, cancellationToken);
+        var knowledgeEntriesDeleted = await _knowledgeStore.ClearProjectAsync(projectId, cancellationToken);
+        await _codeIndexStore.ClearProjectAsync(projectId, cancellationToken);
+        var deleted = await _projectStore.DeleteProjectAsync(projectId, cancellationToken);
+
+        return new ProjectDeleteResult
+        {
+            ProjectId = projectId,
+            Deleted = deleted,
+            CheckoutBindingsDeleted = checkoutBindingsDeleted,
+            SessionsDeleted = sessionsDeleted,
+            BrainEntriesDeleted = brainEntriesDeleted,
+            KnowledgeEntriesDeleted = knowledgeEntriesDeleted,
+        };
+    }
+
+    /// <summary>
     /// Generates a stable, unique project identifier.
     /// Format: "proj_" prefix + short GUID for readability.
     /// </summary>
@@ -191,4 +239,28 @@ public sealed class ProjectRegistry
     {
         return $"proj_{Guid.NewGuid():N}";
     }
+}
+
+/// <summary>
+/// Result payload for project delete operations.
+/// </summary>
+public sealed class ProjectDeleteResult
+{
+    /// <summary>Project identifier.</summary>
+    public required string ProjectId { get; set; }
+
+    /// <summary>Whether the project record was deleted.</summary>
+    public bool Deleted { get; set; }
+
+    /// <summary>Number of checkout bindings removed.</summary>
+    public int CheckoutBindingsDeleted { get; set; }
+
+    /// <summary>Number of hosted sessions removed.</summary>
+    public int SessionsDeleted { get; set; }
+
+    /// <summary>Number of brain entries removed.</summary>
+    public int BrainEntriesDeleted { get; set; }
+
+    /// <summary>Number of knowledge entries removed.</summary>
+    public int KnowledgeEntriesDeleted { get; set; }
 }

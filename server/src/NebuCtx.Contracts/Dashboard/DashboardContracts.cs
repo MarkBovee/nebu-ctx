@@ -550,6 +550,30 @@ public sealed class ProjectMemoryResponse
     public required string ProjectName { get; set; }
 
     /// <summary>
+    /// Source file count from project metadata.
+    /// </summary>
+    [JsonPropertyName("source_file_count")]
+    public int SourceFileCount { get; set; }
+
+    /// <summary>
+    /// Total file count from project metadata.
+    /// </summary>
+    [JsonPropertyName("total_file_count")]
+    public int TotalFileCount { get; set; }
+
+    /// <summary>
+    /// Creation timestamp for the project record.
+    /// </summary>
+    [JsonPropertyName("project_created_at")]
+    public DateTimeOffset ProjectCreatedAt { get; set; }
+
+    /// <summary>
+    /// Marker flags that help operators identify cleanup candidates quickly.
+    /// </summary>
+    [JsonPropertyName("flags")]
+    public ProjectMemoryFlagsResponse Flags { get; set; } = new();
+
+    /// <summary>
     /// Persisted knowledge facts for the project.
     /// </summary>
     [JsonPropertyName("knowledge")]
@@ -820,6 +844,12 @@ public sealed class ProjectBrainEntryResponse
     public required string Key { get; set; }
 
     /// <summary>
+    /// Derived brain entry type for dashboard filtering.
+    /// </summary>
+    [JsonPropertyName("entry_type")]
+    public string EntryType { get; set; } = "other";
+
+    /// <summary>
     /// Brain value.
     /// </summary>
     [JsonPropertyName("value")]
@@ -830,4 +860,26 @@ public sealed class ProjectBrainEntryResponse
     /// </summary>
     [JsonPropertyName("created_at")]
     public DateTimeOffset CreatedAt { get; set; }
+}
+
+/// <summary>
+/// Operator flags for project memory cleanup workflows.
+/// </summary>
+public sealed class ProjectMemoryFlagsResponse
+{
+    /// <summary>True when project contains no knowledge and no brain entries.</summary>
+    [JsonPropertyName("is_empty")]
+    public bool IsEmpty { get; set; }
+
+    /// <summary>True when slug looks like a test, demo, temp, or scratch project.</summary>
+    [JsonPropertyName("is_test_project")]
+    public bool IsTestProject { get; set; }
+
+    /// <summary>True when duplicate slug was detected by project diagnostics.</summary>
+    [JsonPropertyName("has_duplicate_slug")]
+    public bool HasDuplicateSlug { get; set; }
+
+    /// <summary>True when duplicate fingerprint was detected by project diagnostics.</summary>
+    [JsonPropertyName("has_duplicate_fingerprint")]
+    public bool HasDuplicateFingerprint { get; set; }
 }

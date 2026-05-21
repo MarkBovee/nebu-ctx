@@ -137,4 +137,18 @@ public sealed class PostgresSessionStore : ISessionStore
 
         return await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
+
+    /// <inheritdoc />
+    public async Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        await using var cmd = new NpgsqlCommand(
+            "DELETE FROM session_state WHERE project_id = @project_id",
+            conn);
+        cmd.Parameters.AddWithValue("project_id", projectId);
+
+        return await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
 }

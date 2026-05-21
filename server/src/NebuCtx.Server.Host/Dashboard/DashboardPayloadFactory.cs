@@ -76,10 +76,17 @@ public static class DashboardPayloadFactory
     /// <returns>Project memory payload.</returns>
     public static ProjectMemoryResponse BuildProjectMemoryPayload(ProjectRecord project, IReadOnlyList<KnowledgeEntry> knowledgeEntries, IReadOnlyList<BrainEntry> brainEntries, Dictionary<string, object?>? triage = null)
     {
+        var sourceFileCount = (int)(project.ProjectMetadata?.Summary.SourceFileCount ?? 0);
+        var totalFileCount = (int)(project.ProjectMetadata?.Summary.TotalFileCount ?? 0);
+
         return new ProjectMemoryResponse
         {
             ProjectId = project.ProjectId,
             ProjectName = project.Slug,
+            SourceFileCount = sourceFileCount,
+            TotalFileCount = totalFileCount,
+            ProjectCreatedAt = project.CreatedAt,
+            Flags = BuildProjectMemoryFlags(project, knowledgeEntries, brainEntries, sourceFileCount, totalFileCount),
             Knowledge = knowledgeEntries
                 .OrderBy(entry => entry.Category, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase)
@@ -120,6 +127,7 @@ public static class DashboardPayloadFactory
                 .Select(entry => new ProjectBrainEntryResponse
                 {
                     Key = entry.Key,
+                    EntryType = ClassifyBrainEntryType(entry.Key, entry.Value),
                     Value = entry.Value,
                     CreatedAt = entry.CreatedAt,
                 })
@@ -128,6 +136,50 @@ public static class DashboardPayloadFactory
             Triage = BuildMemoryTriage(triage),
             Wakeup = BuildWakeupEntries(knowledgeEntries),
         };
+    }
+
+    /// <summary>
+    /// Builds project-level cleanup flags for dashboard operator workflows.
+    /// </summary>
+    private static ProjectMemoryFlagsResponse BuildProjectMemoryFlags(ProjectRecord project, IReadOnlyList<KnowledgeEntry> knowledgeEntries, IReadOnlyList<BrainEntry> brainEntries, int sourceFileCount, int totalFileCount)
+    {
+        var slug = project.Slug ?? string.Empty;
+        var looksLikeTestProject = slug.Contains("test", StringComparison.OrdinalIgnoreCase)
+            || slug.Contains("demo", StringComparison.OrdinalIgnoreCase)
+            || slug.Contains("tmp", StringComparison.OrdinalIgnoreCase)
+            || slug.Contains("temp", StringComparison.OrdinalIgnoreCase)
+            || slug.Contains("scratch", StringComparison.OrdinalIgnoreCase);
+
+        return new ProjectMemoryFlagsResponse
+        {
+            IsEmpty = knowledgeEntries.Count == 0 && brainEntries.Count == 0 && sourceFileCount == 0 && totalFileCount == 0,
+            IsTestProject = looksLikeTestProject,
+            HasDuplicateSlug = false,
+            HasDuplicateFingerprint = false,
+        };
+    }
+
+    /// <summary>
+    /// Classifies a brain entry using existing key/value conventions so UI can filter without schema changes.
+    /// </summary>
+    private static string ClassifyBrainEntryType(string key, string value)
+    {
+        if (key.StartsWith("user-prompt-", StringComparison.OrdinalIgnoreCase) || value.StartsWith("user_prompt:", StringComparison.OrdinalIgnoreCase))
+        {
+            return "user_prompt";
+        }
+
+        if (key.StartsWith("assistant-output-", StringComparison.OrdinalIgnoreCase) || value.StartsWith("assistant_output:", StringComparison.OrdinalIgnoreCase))
+        {
+            return "assistant_output";
+        }
+
+        if (key.StartsWith("session-", StringComparison.OrdinalIgnoreCase))
+        {
+            return "session_summary";
+        }
+
+        return "other";
     }
 
     /// <summary>
@@ -321,6 +373,7 @@ public static class DashboardPayloadFactory
                 project_id = kvp.Key,
                 project_name = projects.FirstOrDefault(p => p.ProjectId == kvp.Key)?.Slug ?? kvp.Key,
                 key = e.Key,
+                entry_type = ClassifyBrainEntryType(e.Key, e.Value),
                 value = e.Value,
                 created_at = e.CreatedAt,
             }))

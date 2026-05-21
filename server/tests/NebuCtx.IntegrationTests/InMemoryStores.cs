@@ -76,6 +76,16 @@ internal sealed class InMemoryCheckoutBindingStore : ICheckoutBindingStore
     public Task<IReadOnlyList<CheckoutBinding>> GetBindingsAsync(string projectId, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<CheckoutBinding>>(
             _bindings.TryGetValue(projectId, out var list) ? list.ToList() : []);
+
+    public Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default)
+    {
+        if (!_bindings.TryRemove(projectId, out var list))
+        {
+            return Task.FromResult(0);
+        }
+
+        return Task.FromResult(list.Count);
+    }
 }
 
 internal sealed class InMemoryBrainStore : IBrainStore
@@ -136,6 +146,15 @@ internal sealed class InMemoryBrainStore : IBrainStore
     public Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default)
     {
         var keys = _entries.Keys.Where(k => k.ProjectId == projectId).ToList();
+        foreach (var k in keys) _entries.TryRemove(k, out _);
+        return Task.FromResult(keys.Count);
+    }
+
+    public Task<int> DeleteByPrefixAsync(string projectId, string keyPrefix, CancellationToken cancellationToken = default)
+    {
+        var keys = _entries.Keys
+            .Where(k => k.ProjectId == projectId && k.Key.StartsWith(keyPrefix, StringComparison.OrdinalIgnoreCase))
+            .ToList();
         foreach (var k in keys) _entries.TryRemove(k, out _);
         return Task.FromResult(keys.Count);
     }
@@ -351,6 +370,16 @@ internal sealed class InMemorySessionStore : ISessionStore
         foreach (var key in old) _sessions.TryRemove(key, out _);
         return Task.FromResult(old.Count);
     }
+
+    public Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default)
+    {
+        var keys = _sessions
+            .Where(kv => kv.Key.ProjectId == projectId)
+            .Select(kv => kv.Key)
+            .ToList();
+        foreach (var key in keys) _sessions.TryRemove(key, out _);
+        return Task.FromResult(keys.Count);
+    }
 }
 
 internal sealed class InMemoryCodeIndexStore : ICodeIndexStore
@@ -407,5 +436,10 @@ internal sealed class InMemoryCodeIndexStore : ICodeIndexStore
             .Take(limit)
             .ToList();
         return Task.FromResult<IReadOnlyList<IndexedFile>>(results);
+    }
+
+    public Task<bool> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(_index.TryRemove(projectId, out _));
     }
 }

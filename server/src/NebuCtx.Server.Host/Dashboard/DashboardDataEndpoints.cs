@@ -152,6 +152,17 @@ public static class DashboardDataEndpoints
             });
         });
 
+        app.MapDelete("/projects/{projectId}", async (
+            string projectId,
+            ProjectRegistry projectRegistry,
+            CancellationToken ct) =>
+        {
+            var result = await projectRegistry.DeleteProjectAsync(projectId, ct);
+            return result.Deleted
+                ? Results.Ok(result)
+                : Results.NotFound(result);
+        });
+
         app.MapGet("/dashboard/projects/{projectId}/memory", async (
             string projectId,
             ProjectRegistry projectRegistry,
@@ -170,8 +181,19 @@ public static class DashboardDataEndpoints
             var knowledgeEntries = await knowledgeStore.ListAllForProjectAsync(projectId, cancellationToken: ct);
             var brainEntries = await brainStore.ListAllAsync(projectId, cancellationToken: ct);
             var triage = await knowledgeService.TriageAsync(projectId, apply: false, cancellationToken: ct);
+            var duplicateSlugProjectIds = ProjectIdentityDiagnostics
+                .FindDuplicateSlugGroups(projects)
+                .SelectMany(group => group.ProjectIds)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var duplicateFingerprintProjectIds = ProjectIdentityDiagnostics
+                .FindDuplicateFingerprintGroups(projects)
+                .SelectMany(group => group.ProjectIds)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var payload = DashboardPayloadFactory.BuildProjectMemoryPayload(project, knowledgeEntries, brainEntries, triage);
+            payload.Flags.HasDuplicateSlug = duplicateSlugProjectIds.Contains(projectId);
+            payload.Flags.HasDuplicateFingerprint = duplicateFingerprintProjectIds.Contains(projectId);
 
-            return Results.Ok(DashboardPayloadFactory.BuildProjectMemoryPayload(project, knowledgeEntries, brainEntries, triage));
+            return Results.Ok(payload);
         });
 
         app.MapPost("/dashboard/projects/{projectId}/memory/triage", async (
@@ -205,6 +227,29 @@ public static class DashboardDataEndpoints
         {
             var count = await brainStore.ClearProjectAsync(projectId, ct);
             return Results.Ok(new { deleted = count, project_id = projectId });
+        });
+
+        app.MapDelete("/dashboard/projects/{projectId}/memory/brain/type/{entryType}", async (
+            string projectId,
+            string entryType,
+            IBrainStore brainStore,
+            CancellationToken ct) =>
+        {
+            var prefix = entryType.ToLowerInvariant() switch
+            {
+                "user_prompt" => "user-prompt-",
+                "assistant_output" => "assistant-output-",
+                "session_summary" => "session-",
+                _ => string.Empty,
+            };
+
+            if (string.IsNullOrEmpty(prefix))
+            {
+                return Results.BadRequest(new { error = "unknown brain entry type", entry_type = entryType });
+            }
+
+            var count = await brainStore.DeleteByPrefixAsync(projectId, prefix, ct);
+            return Results.Ok(new { deleted = count, project_id = projectId, entry_type = entryType });
         });
 
         app.MapDelete("/dashboard/projects/{projectId}/memory/knowledge/{category}/{key}", async (

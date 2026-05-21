@@ -301,4 +301,23 @@ public sealed class PostgresCodeIndexStore : ICodeIndexStore
 
         return files;
     }
+
+    /// <inheritdoc />
+    public async Task<bool> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        await using var cmd = new NpgsqlCommand(
+            """
+            DELETE FROM project_call_edges WHERE project_id = @project_id;
+            DELETE FROM project_symbols WHERE project_id = @project_id;
+            DELETE FROM project_files WHERE project_id = @project_id;
+            """,
+            conn);
+        cmd.Parameters.AddWithValue("project_id", projectId);
+
+        var affected = await cmd.ExecuteNonQueryAsync(cancellationToken);
+        return affected > 0;
+    }
 }

@@ -2010,6 +2010,49 @@ async function clearBrainProject(projectId, name) {
   } catch (e) { alert('Failed to clear project memories.'); }
 }
 
+async function deleteProject(projectId, name) {
+  if (!confirm(`Delete project "${name}" and all hosted memory/index data? This cannot be undone.`)) return;
+  try {
+    await apiFetch(`/api/projects/${encodeURIComponent(projectId)}`, { method: 'DELETE' });
+    const knowledgeContainer = $('view-knowledge');
+    if (knowledgeContainer) delete knowledgeContainer.dataset.built;
+    _cachedProjectList = null;
+    closeDetail();
+    await loadBrain();
+    await loadKnowledge();
+  } catch (e) {
+    alert('Failed to delete project.');
+  }
+}
+
+function projectFlagTags(project) {
+  const tags = [];
+  if (project.has_duplicate_slug) tags.push('<span class="tag ty">duplicate slug</span>');
+  if (project.has_duplicate_fingerprint) tags.push('<span class="tag ty">duplicate fingerprint</span>');
+  if ((project.source_file_count || 0) === 0 && (project.total_file_count || 0) === 0 && (project.memory_count || 0) === 0 && (project.fact_count || 0) === 0) tags.push('<span class="tag ty">empty</span>');
+  if (/test|demo|tmp|temp|scratch/i.test(project.project_name || project.slug || '')) tags.push('<span class="tag ty">test/demo</span>');
+  return tags.join(' ');
+}
+
+function brainTypeBadge(entryType) {
+  if (entryType === 'user_prompt') return '<span class="tag tp">prompt</span>';
+  if (entryType === 'assistant_output') return '<span class="tag tb">assistant</span>';
+  if (entryType === 'session_summary') return '<span class="tag tg">session</span>';
+  return '<span class="tag ty">other</span>';
+}
+
+async function clearBrainEntryType(projectId, name, entryType, label) {
+  if (!confirm(`Clear all ${label} entries for "${name}"? This cannot be undone.`)) return;
+  try {
+    await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory/brain/type/${encodeURIComponent(entryType)}`, { method: 'DELETE' });
+    const select = $('memoryProjectSelect');
+    await loadProjectMemory(select ? select.value : projectId);
+    await loadBrain();
+  } catch (e) {
+    alert(`Failed to clear ${label} entries.`);
+  }
+}
+
 async function deleteKnowledgeFact(projectId, category, key) {
   if (!confirm(`Delete knowledge fact "${key}"?`)) return;
   try {
@@ -2035,14 +2078,59 @@ async function loadProjectMemory(projectId) {
     const payload = await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory`, { timeoutMs: 5000 });
     const knowledge = payload.knowledge || [];
     const brain = payload.brain || [];
+    const flags = payload.flags || {};
+    const health = payload.health || {};
     const latestKnowledge = knowledge.length ? new Date(knowledge.reduce((latest, item) => item.updated_at > latest ? item.updated_at : latest, knowledge[0].updated_at)).toLocaleString() : '—';
     const latestBrain = brain.length ? new Date(brain[0].created_at).toLocaleString() : '—';
+    const brainTypeCounts = brain.reduce((acc, entry) => {
+      const key = entry.entry_type || 'other';
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
     host.innerHTML = `
       <div class="row r4" style="margin-bottom:16px">
         <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${knowledge.length}</div><div class="hl">Project Facts</div></div>
         <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${brain.length}</div><div class="hl">Project Memories</div></div>
         <div class="hc"><div class="hv" style="color:var(--blue);font-size:16px">${esc(latestKnowledge)}</div><div class="hl">Latest Fact</div></div>
         <div class="hc"><div class="hv" style="color:var(--yellow);font-size:16px">${esc(latestBrain)}</div><div class="hl">Latest Memory</div></div>
+      </div>
+      <div class="row r4" style="margin-bottom:16px">
+        <div class="hc"><div class="hv" style="color:var(--blue);font-size:24px">${payload.source_file_count || 0}</div><div class="hl">Source Files</div></div>
+        <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${health.current_facts || 0}</div><div class="hl">Current Facts</div></div>
+        <div class="hc"><div class="hv" style="color:var(--yellow);font-size:24px">${health.non_current_facts || 0}</div><div class="hl">Non-current</div></div>
+        <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${Math.round((health.average_lifecycle_score || 0) * 100)}%</div><div class="hl">Lifecycle Health</div></div>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div>
+            <h3 style="margin:0 0 4px 0">Project Admin</h3>
+            <div style="font-size:12px;color:var(--muted)">Project <code>${esc(payload.project_id)}</code> · slug <code>${esc(payload.project_name)}</code></div>
+            <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+              ${flags.is_empty ? '<span class="tag ty">empty</span>' : ''}
+              ${flags.is_test_project ? '<span class="tag ty">test/demo</span>' : ''}
+              ${flags.has_duplicate_slug ? '<span class="tag ty">duplicate slug</span>' : ''}
+              ${flags.has_duplicate_fingerprint ? '<span class="tag ty">duplicate fingerprint</span>' : ''}
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button onclick="clearKnowledgeProject(${jsArg(payload.project_id)},${jsArg(payload.project_name)})" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear knowledge</button>
+            <button onclick="clearBrainProject(${jsArg(payload.project_id)},${jsArg(payload.project_name)})" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear brain</button>
+            <button onclick="deleteProject(${jsArg(payload.project_id)},${jsArg(payload.project_name)})" style="font-size:11px;color:#fff;background:rgba(248,113,113,0.9);border:1px solid rgba(248,113,113,0.5);border-radius:6px;padding:4px 10px;cursor:pointer">Delete project</button>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div>
+            <h3 style="margin:0 0 4px 0">Brain Cleanup</h3>
+            <div style="font-size:12px;color:var(--muted)">Bulk cleanup by entry type using existing hook-generated key prefixes.</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${(brainTypeCounts.user_prompt || 0) ? `<button onclick="clearBrainEntryType(${jsArg(payload.project_id)},${jsArg(payload.project_name)},'user_prompt','prompt')" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear prompts (${brainTypeCounts.user_prompt})</button>` : ''}
+            ${(brainTypeCounts.assistant_output || 0) ? `<button onclick="clearBrainEntryType(${jsArg(payload.project_id)},${jsArg(payload.project_name)},'assistant_output','assistant output')" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear assistant (${brainTypeCounts.assistant_output})</button>` : ''}
+            ${(brainTypeCounts.session_summary || 0) ? `<button onclick="clearBrainEntryType(${jsArg(payload.project_id)},${jsArg(payload.project_name)},'session_summary','session summary')" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear sessions (${brainTypeCounts.session_summary})</button>` : ''}
+          </div>
+        </div>
       </div>
       <div class="row r11">
         <div class="card">
@@ -2068,7 +2156,7 @@ async function loadProjectMemory(projectId) {
             const ago = Math.round((Date.now() - d.getTime()) / 86400000);
             const dateStr = ago === 0 ? 'today' : ago === 1 ? 'yesterday' : ago + 'd ago';
             return `<tr>
-              <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(e.key)}</td>
+              <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(e.key)}<div style="margin-top:4px">${brainTypeBadge(e.entry_type)}</div></td>
               <td style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.value)}">${esc(e.value)}</td>
               <td class="r" style="font-size:11px;color:var(--muted)" title="${esc(e.created_at)}">${dateStr}</td>
               <td style="padding:4px 6px;width:28px"><button onclick="deleteBrainEntry(${jsArg(payload.project_id)},${jsArg(e.key)})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px" title="Delete">×</button></td>
@@ -2102,12 +2190,22 @@ async function loadBrain() {
     const memoryProjects = projects.length
       ? projects.map(project => {
           const rows = byProject[project.slug] || byProject[project.project_id] || [];
-          return { project_id: project.project_id, project_name: project.slug || project.project_id, memory_count: rows.length };
+          return {
+            project_id: project.project_id,
+            project_name: project.slug || project.project_id,
+            memory_count: rows.length,
+            source_file_count: project.source_file_count || 0,
+            total_file_count: project.total_file_count || 0,
+            has_duplicate_slug: !!project.has_duplicate_slug,
+            has_duplicate_fingerprint: !!project.has_duplicate_fingerprint,
+          };
         })
       : projectNames.map(proj => {
           const rows = byProject[proj];
           return { project_id: rows[0].project_id || '', project_name: proj, memory_count: rows.length };
         });
+    const emptyProjects = memoryProjects.filter(project => (project.source_file_count || 0) === 0 && project.memory_count === 0);
+    const testProjects = memoryProjects.filter(project => /test|demo|tmp|temp|scratch/i.test(project.project_name || ''));
     const projectOptions = memoryProjects
       .filter(project => project.project_id)
       .map(project => `<option value="${esc(project.project_id)}">${esc(project.project_name)} (${project.memory_count})</option>`)
@@ -2118,6 +2216,11 @@ async function loadBrain() {
         <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${total}</div><div class="hl">Total Memories</div></div>
         <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${memoryProjects.length}</div><div class="hl">Projects</div></div>
         <div class="hc"><div class="hv" style="color:var(--blue);font-size:24px">${entries.length > 0 ? new Date(entries[0].created_at).toLocaleDateString() : '—'}</div><div class="hl">Latest Entry</div></div>
+      </div>
+      <div class="row r3" style="margin-bottom:16px">
+        <div class="hc"><div class="hv" style="color:var(--yellow);font-size:24px">${emptyProjects.length}</div><div class="hl">Empty Projects</div></div>
+        <div class="hc"><div class="hv" style="color:var(--yellow);font-size:24px">${testProjects.length}</div><div class="hl">Test/Demo Projects</div></div>
+        <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${memoryProjects.filter(project => project.has_duplicate_slug || project.has_duplicate_fingerprint).length}</div><div class="hl">Flagged Projects</div></div>
       </div>
       ${(duplicateSlugGroups.length || duplicateFingerprintGroups.length) ? `<div class="card" style="margin-bottom:16px;border-color:rgba(251,191,36,0.28);background:rgba(251,191,36,0.06)">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
@@ -2135,6 +2238,18 @@ async function loadBrain() {
           ${duplicateFingerprintGroups.slice(0, 6).map(group => `<div>fingerprint duplicate -> canonical <code>${esc(group.canonical_project_id)}</code>, ${group.count} projects</div>`).join('')}
         </div>
       </div>` : ''}
+      ${memoryProjects.length ? `<div class="card" style="margin-bottom:16px">
+        <div class="card-header" style="margin-bottom:12px"><h3>Project Health</h3></div>
+        <div style="overflow-x:auto"><table><thead><tr><th>Project</th><th class="r">Memories</th><th class="r">Source</th><th>Flags</th><th></th></tr></thead><tbody>
+          ${memoryProjects.map(project => `<tr>
+            <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(project.project_name)}</td>
+            <td class="r">${project.memory_count}</td>
+            <td class="r">${project.source_file_count || 0}</td>
+            <td>${projectFlagTags(project) || '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
+            <td style="white-space:nowrap">${project.project_id ? `<button onclick="loadProjectMemory(${jsArg(project.project_id)})" style="font-size:11px;color:var(--blue);background:rgba(96,165,250,0.08);border:1px solid rgba(96,165,250,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Inspect</button>` : ''}</td>
+          </tr>`).join('')}
+        </tbody></table></div>
+      </div>` : ''}
       <div class="card" style="margin-bottom:16px">
         <div class="card-header" style="margin-bottom:12px">
           <h3>Memory Admin</h3>
@@ -2150,7 +2265,10 @@ async function loadBrain() {
         return `<div class="card" style="margin-bottom:16px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
             <h3 style="margin:0">${esc(proj)} <span class="tag tg" style="margin-left:6px">${rows.length} memories</span></h3>
-            ${projId ? `<button onclick="clearBrainProject(${jsArg(projId)},${jsArg(proj)})" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear all</button>` : ''}
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              ${(projects.find(p => p.project_id === projId) ? projectFlagTags(projects.find(p => p.project_id === projId)) : '')}
+              ${projId ? `<button onclick="clearBrainProject(${jsArg(projId)},${jsArg(proj)})" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear all</button>` : ''}
+            </div>
           </div>
           <div style="overflow-x:auto">
           <table>
@@ -2160,7 +2278,7 @@ async function loadBrain() {
               const ago = Math.round((Date.now() - d.getTime()) / 86400000);
               const dateStr = ago === 0 ? 'today' : ago === 1 ? 'yesterday' : ago + 'd ago';
               return `<tr>
-                <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(e.key)}</td>
+                <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(e.key)}<div style="margin-top:4px">${brainTypeBadge(e.entry_type)}</div></td>
                 <td style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.value)}">${esc(e.value)}</td>
                 <td class="r" style="font-size:11px;color:var(--muted)" title="${esc(e.created_at)}">${dateStr}</td>
                 <td style="padding:4px 6px;width:28px">${e.project_id ? `<button onclick="deleteBrainEntry(${jsArg(e.project_id)},${jsArg(e.key)})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px" title="Delete">×</button>` : ''}</td>
