@@ -443,7 +443,8 @@ impl ServerHandler for NebuCtxServer {
             }
         }
 
-        let skip_auto_context = (name == "ctx"
+        let skip_auto_context = name == "ctx_shell"
+            || (name == "ctx"
             && args.as_ref().is_some_and(|args| {
                 let domain = args.get("domain").and_then(|value| value.as_str());
                 let action = args.get("action").and_then(|value| value.as_str());
@@ -1387,6 +1388,74 @@ mod tests {
             .any(|fact| fact.key == "demo-placeholder"
                 && !fact.is_current()
                 && fact.supersedes.as_deref() == Some("triage:junk")));
+
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
+        std::env::remove_var("NEBU_CTX_HOME");
+    }
+
+    #[test]
+    fn ctx_shell_does_not_prepend_auto_context() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let data = tempfile::tempdir().unwrap();
+        let repo = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", data.path());
+        std::env::set_var("NEBU_CTX_HOME", data.path());
+        std::fs::create_dir(repo.path().join(".git")).unwrap();
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let engine = crate::engine::ContextEngine::with_project_root(repo.path());
+        let text = rt
+            .block_on(engine.call_tool_text(
+                "ctx_shell",
+                Some(serde_json::json!({
+                    "command": "printf shell-clean"
+                })),
+            ))
+            .expect("ctx_shell should succeed");
+
+        assert!(text.contains("shell-clean"), "unexpected shell text: {text}");
+        assert!(
+            !text.contains("--- AUTO CONTEXT ---") && !text.contains("PROJECT OVERVIEW"),
+            "ctx_shell should not leak auto context into normal shell output: {text}"
+        );
+
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
+        std::env::remove_var("NEBU_CTX_HOME");
+    }
+
+    #[test]
+    fn ctx_read_allows_explicit_path_outside_project_root_with_warning() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let data = tempfile::tempdir().unwrap();
+        let repo = tempfile::tempdir().unwrap();
+        let other = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", data.path());
+        std::env::set_var("NEBU_CTX_HOME", data.path());
+        std::fs::create_dir(repo.path().join(".git")).unwrap();
+        std::fs::write(other.path().join("outside.txt"), "outside-root\n").unwrap();
+
+        let outside_path = other.path().join("outside.txt").to_string_lossy().to_string();
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let engine = crate::engine::ContextEngine::with_project_root(repo.path());
+        let text = rt
+            .block_on(engine.call_tool_text(
+                "ctx_read",
+                Some(serde_json::json!({
+                    "path": outside_path,
+                    "mode": "full"
+                })),
+            ))
+            .expect("ctx_read should allow explicit outside-root path");
+
+        assert!(text.contains("[warning: path outside project root; using explicit path:"));
+        assert!(text.contains("outside-root"), "unexpected read text: {text}");
 
         std::env::remove_var("NEBU_CTX_DATA_DIR");
         std::env::remove_var("NEBU_CTX_HOME");

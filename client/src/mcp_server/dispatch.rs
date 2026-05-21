@@ -5,6 +5,21 @@ use super::execute::execute_command_in;
 use super::helpers::*;
 use crate::tools::NebuCtxServer;
 
+fn prepend_warning(output: String, warning: Option<String>) -> String {
+    match warning {
+        Some(warning) => format!("{warning}\n{output}"),
+        None => output,
+    }
+}
+
+fn prepend_warnings(output: String, warnings: Vec<String>) -> String {
+    if warnings.is_empty() {
+        return output;
+    }
+
+    format!("{}\n{output}", warnings.join("\n"))
+}
+
 fn looks_like_windows_absolute_path(path: &str) -> bool {
     path.len() >= 3
         && path.as_bytes()[0].is_ascii_alphabetic()
@@ -42,9 +57,9 @@ impl NebuCtxServer {
     ) -> Result<String, ErrorData> {
         Ok(match name {
             "ctx_read" => {
-                let path = match get_str(args, "path") {
+                let (path, path_warning) = match get_str(args, "path") {
                     Some(p) => self
-                        .resolve_path(&p)
+                        .resolve_path_or_warn(&p)
                         .await
                         .map_err(|e| ErrorData::invalid_params(e, None))?,
                     None => return Err(ErrorData::invalid_params("path is required", None)),
@@ -97,7 +112,7 @@ impl NebuCtxServer {
                 let output_tokens = crate::core::tokens::count_tokens(&output);
                 let saved = original.saturating_sub(output_tokens);
                 let is_cache_hit = output.contains(" cached ");
-                let output = format!("{stale_note}{output}");
+                let output = prepend_warning(format!("{stale_note}{output}"), path_warning);
                 let file_ref = cache.file_ref_map().get(&path).cloned();
                 drop(cache);
                 let mut ensured_root: Option<String> = None;
@@ -215,12 +230,16 @@ impl NebuCtxServer {
                 let raw_paths = get_str_array(args, "paths")
                     .ok_or_else(|| ErrorData::invalid_params("paths array is required", None))?;
                 let mut paths = Vec::with_capacity(raw_paths.len());
+                let mut path_warnings = Vec::new();
                 for p in raw_paths {
-                    paths.push(
-                        self.resolve_path(&p)
-                            .await
-                            .map_err(|e| ErrorData::invalid_params(e, None))?,
-                    );
+                    let (resolved, warning) = self
+                        .resolve_path_or_warn(&p)
+                        .await
+                        .map_err(|e| ErrorData::invalid_params(e, None))?;
+                    if let Some(warning) = warning {
+                        path_warnings.push(warning);
+                    }
+                    paths.push(resolved);
                 }
                 let mode = get_str(args, "mode").unwrap_or_else(|| "full".to_string());
                 let current_task = {
@@ -249,11 +268,11 @@ impl NebuCtxServer {
                     Some(mode),
                 )
                 .await;
-                output
+                prepend_warnings(output, path_warnings)
             }
             "ctx_tree" => {
-                let path = self
-                    .resolve_path(&get_str(args, "path").unwrap_or_else(|| ".".to_string()))
+                let (path, path_warning) = self
+                    .resolve_path_or_warn(&get_str(args, "path").unwrap_or_else(|| ".".to_string()))
                     .await
                     .map_err(|e| ErrorData::invalid_params(e, None))?;
                 let depth = get_int(args, "depth").unwrap_or(3) as usize;
@@ -267,7 +286,7 @@ impl NebuCtxServer {
                 } else {
                     String::new()
                 };
-                format!("{result}{savings_note}")
+                prepend_warning(format!("{result}{savings_note}"), path_warning)
             }
             "ctx_shell" => {
                 let command = get_str(args, "command")
@@ -278,13 +297,15 @@ impl NebuCtxServer {
                     return Ok(rejection);
                 }
 
-                let explicit_cwd = match get_str(args, "cwd") {
-                    Some(cwd) => Some(
-                        self.resolve_path(&cwd)
+                let (explicit_cwd, cwd_warning) = match get_str(args, "cwd") {
+                    Some(cwd) => {
+                        let (resolved, warning) = self
+                            .resolve_path_or_warn(&cwd)
                             .await
-                            .map_err(|e| ErrorData::invalid_params(e, None))?,
-                    ),
-                    None => None,
+                            .map_err(|e| ErrorData::invalid_params(e, None))?;
+                        (Some(resolved), warning)
+                    }
+                    None => (None, None),
                 };
                 let effective_cwd = {
                     let session = self.session.read().await;
@@ -400,13 +421,13 @@ impl NebuCtxServer {
                     String::new()
                 };
 
-                format!("{result_out}{savings_note}{tee_hint}")
+                prepend_warning(format!("{result_out}{savings_note}{tee_hint}"), cwd_warning)
             }
             "ctx_search" => {
                 let pattern = get_str(args, "pattern")
                     .ok_or_else(|| ErrorData::invalid_params("pattern is required", None))?;
-                let path = self
-                    .resolve_path(&get_str(args, "path").unwrap_or_else(|| ".".to_string()))
+                let (path, path_warning) = self
+                    .resolve_path_or_warn(&get_str(args, "path").unwrap_or_else(|| ".".to_string()))
                     .await
                     .map_err(|e| ErrorData::invalid_params(e, None))?;
                 let ext = get_str(args, "ext");
@@ -453,7 +474,7 @@ impl NebuCtxServer {
                 } else {
                     String::new()
                 };
-                format!("{result}{savings_note}")
+                prepend_warning(format!("{result}{savings_note}"), path_warning)
             }
             "ctx_compress" => {
                 let include_sigs = get_bool(args, "include_signatures").unwrap_or(true);
@@ -1007,8 +1028,8 @@ impl NebuCtxServer {
             "ctx_semantic_search" => {
                 let query = get_str(args, "query")
                     .ok_or_else(|| ErrorData::invalid_params("query is required", None))?;
-                let path = self
-                    .resolve_path(&get_str(args, "path").unwrap_or_else(|| ".".to_string()))
+                let (path, path_warning) = self
+                    .resolve_path_or_warn(&get_str(args, "path").unwrap_or_else(|| ".".to_string()))
                     .await
                     .map_err(|e| ErrorData::invalid_params(e, None))?;
                 let top_k = get_int(args, "top_k").unwrap_or(10) as usize;
@@ -1031,7 +1052,7 @@ impl NebuCtxServer {
                 };
                 self.record_call("ctx_semantic_search", 0, 0, Some("semantic".to_string()))
                     .await;
-                result
+                prepend_warning(result, path_warning)
             }
             "ctx_symbol" => {
                 let sym_name = get_str(args, "name")
@@ -1117,8 +1138,8 @@ impl NebuCtxServer {
                 result
             }
             "ctx_outline" => {
-                let path = self
-                    .resolve_path(
+                let (path, path_warning) = self
+                    .resolve_path_or_warn(
                         &get_str(args, "path")
                             .ok_or_else(|| ErrorData::invalid_params("path is required", None))?,
                     )
@@ -1129,7 +1150,7 @@ impl NebuCtxServer {
                 let sent = crate::core::tokens::count_tokens(&result);
                 let saved = original.saturating_sub(sent);
                 self.record_call("ctx_outline", original, saved, kind).await;
-                result
+                prepend_warning(result, path_warning)
             }
             "ctx_feedback" => {
                 let action = get_str(args, "action").unwrap_or_else(|| "report".to_string());

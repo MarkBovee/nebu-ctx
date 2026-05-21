@@ -224,7 +224,8 @@ pub fn shell_efficiency_hint(
         return None;
     }
 
-    let savings_pct = ((input_tokens - output_tokens) as f64 / input_tokens as f64) * 100.0;
+    let savings_pct =
+        (input_tokens.saturating_sub(output_tokens) as f64 / input_tokens as f64) * 100.0;
     if savings_pct >= 20.0 {
         return None;
     }
@@ -295,6 +296,13 @@ mod tests {
         let state = AutonomyState::new();
         let hint = shell_efficiency_hint(&state, "cargo build", 100, 95);
         assert!(hint.is_none());
+    }
+
+    #[test]
+    fn shell_hint_does_not_underflow_when_output_exceeds_input() {
+        let state = AutonomyState::new();
+        let hint = shell_efficiency_hint(&state, "grep -rn foo .", 10, 20);
+        assert!(hint.is_some());
     }
 
     #[test]

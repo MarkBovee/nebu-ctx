@@ -202,15 +202,16 @@ impl NebuCtxServer {
         }
     }
 
-    /// Resolves a (possibly relative) tool path against the session's project_root.
-    /// Absolute paths and "." are returned as-is. Relative paths like "src/main.rs"
-    /// are joined with project_root so tools work regardless of the server's cwd.
-    pub async fn resolve_path(&self, path: &str) -> Result<String, String> {
+    async fn resolve_path_candidate(
+        &self,
+        path: &str,
+    ) -> Result<(String, std::path::PathBuf, String, bool), String> {
         let normalized = crate::hooks::normalize_tool_path(path);
         if normalized.is_empty() || normalized == "." {
-            return Ok(normalized);
+            return Ok((normalized, std::path::PathBuf::from("."), ".".to_string(), false));
         }
         let p = std::path::Path::new(&normalized);
+        let input_is_absolute = p.is_absolute() || looks_like_windows_absolute_path(&normalized);
 
         let (resolved, jail_root) = {
             let session = self.session.read().await;
@@ -222,7 +223,7 @@ impl NebuCtxServer {
                 .to_string();
 
             let resolved =
-                if p.is_absolute() || looks_like_windows_absolute_path(&normalized) || p.exists() {
+                if input_is_absolute || p.exists() {
                     std::path::PathBuf::from(&normalized)
                 } else if let Some(ref root) = session.project_root {
                     let joined = std::path::Path::new(root).join(&normalized);
@@ -237,17 +238,26 @@ impl NebuCtxServer {
                     std::path::Path::new(cwd).join(&normalized)
                 } else {
                     std::path::Path::new(&jail_root).join(&normalized)
-                };
+            };
 
             (resolved, jail_root)
         };
 
-        let jail_root_path = std::path::Path::new(&jail_root);
-        let jailed = match crate::core::pathjail::jail_path(&resolved, jail_root_path) {
-            Ok(p) => p,
+        Ok((normalized, resolved, jail_root, input_is_absolute))
+    }
+
+    async fn jail_resolved_candidate(
+        &self,
+        resolved: &std::path::Path,
+        jail_root: &str,
+        input_is_absolute: bool,
+    ) -> Result<std::path::PathBuf, String> {
+        let jail_root_path = std::path::Path::new(jail_root);
+        match crate::core::pathjail::jail_path(resolved, jail_root_path) {
+            Ok(path) => Ok(path),
             Err(e) => {
-                if p.is_absolute() {
-                    if let Some(new_root) = maybe_derive_project_root_from_absolute(&resolved) {
+                if input_is_absolute {
+                    if let Some(new_root) = maybe_derive_project_root_from_absolute(resolved) {
                         let current_root_is_weak = !has_project_marker(jail_root_path)
                             || is_suspicious_root(jail_root_path);
                         let allow_reroot = self
@@ -270,27 +280,71 @@ impl NebuCtxServer {
                                 .or_else(|| Some(new_root_str.clone()));
                             let _ = session.save();
 
-                            crate::core::pathjail::jail_path(&resolved, &new_root)?
+                            crate::core::pathjail::jail_path(resolved, &new_root)
                         } else {
-                            return Err(e);
+                            Err(e)
                         }
                     } else {
-                        return Err(e);
+                        Err(e)
                     }
                 } else {
-                    return Err(e);
+                    Err(e)
                 }
             }
-        };
+        }
+    }
+
+    /// Resolves a (possibly relative) tool path against the session's project_root.
+    /// Absolute paths and "." are returned as-is. Relative paths like "src/main.rs"
+    /// are joined with project_root so tools work regardless of the server's cwd.
+    pub async fn resolve_path(&self, path: &str) -> Result<String, String> {
+        let (normalized, resolved, jail_root, input_is_absolute) =
+            self.resolve_path_candidate(path).await?;
+        if normalized.is_empty() || normalized == "." {
+            return Ok(normalized);
+        }
+
+        let jailed = self
+            .jail_resolved_candidate(&resolved, &jail_root, input_is_absolute)
+            .await?;
 
         Ok(crate::hooks::normalize_tool_path(
             &jailed.to_string_lossy().replace('\\', "/"),
         ))
     }
 
-    pub async fn resolve_path_or_passthrough(&self, path: &str) -> String {
-        self.resolve_path(path)
+    pub async fn resolve_path_or_warn(
+        &self,
+        path: &str,
+    ) -> Result<(String, Option<String>), String> {
+        let (normalized, resolved, jail_root, input_is_absolute) =
+            self.resolve_path_candidate(path).await?;
+        if normalized.is_empty() || normalized == "." {
+            return Ok((normalized, None));
+        }
+
+        match self
+            .jail_resolved_candidate(&resolved, &jail_root, input_is_absolute)
             .await
+        {
+            Ok(jailed) => Ok((
+                crate::hooks::normalize_tool_path(&jailed.to_string_lossy().replace('\\', "/")),
+                None,
+            )),
+            Err(e) if e.contains("path escapes project root") => Ok((
+                crate::hooks::normalize_tool_path(&resolved.to_string_lossy().replace('\\', "/")),
+                Some(format!(
+                    "[warning: path outside project root; using explicit path: {normalized}]"
+                )),
+            )),
+            Err(e) => Err(e),
+        }
+    }
+
+    pub async fn resolve_path_or_passthrough(&self, path: &str) -> String {
+        self.resolve_path_or_warn(path)
+            .await
+            .map(|(resolved, _)| resolved)
             .unwrap_or_else(|_| path.to_string())
     }
 
@@ -991,6 +1045,29 @@ mod resolve_path_tests {
             .await
             .unwrap_err();
         assert!(err.contains("path escapes project root"));
+
+        let session = server.session.read().await;
+        assert_eq!(session.project_root.as_deref(), Some(root_value.as_str()));
+    }
+
+    #[tokio::test]
+    async fn resolve_path_or_warn_allows_absolute_path_outside_root() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("root");
+        let other = tmp.path().join("other");
+        let root_value = create_git_root(&root);
+        create_git_root(&other);
+        std::fs::write(other.join("b.txt"), "no").unwrap();
+
+        let server = NebuCtxServer::new_with_project_root(Some(root.to_string_lossy().to_string()));
+
+        let (resolved, warning) = server
+            .resolve_path_or_warn(&other.join("b.txt").to_string_lossy())
+            .await
+            .unwrap();
+
+        assert!(resolved.ends_with("/b.txt") || resolved.ends_with("\\b.txt"));
+        assert!(warning.is_some());
 
         let session = server.session.read().await;
         assert_eq!(session.project_root.as_deref(), Some(root_value.as_str()));
