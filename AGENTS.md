@@ -76,7 +76,7 @@
 ```
 Public MCP surface = ["ctx_read", "ctx_search", "ctx_tree", "ctx_shell", "ctx"]
 
-SERVER_ONLY_TOOLS      = ["ctx_brain", "ctx_routes", "ctx_gain", "ctx_cost", "ctx_heatmap", "ctx_stats"]
+SERVER_ONLY_TOOLS      = ["ctx_brain", "ctx_gain", "ctx_cost", "ctx_heatmap", "ctx_stats"]
 SERVER_PREFERRED_TOOLS = ["ctx_knowledge", "ctx_session"]
 ```
 

@@ -4,7 +4,6 @@ using System.Globalization;
 using NebuCtx.Contracts.Dashboard;
 using NebuCtx.Contracts.Projects;
 using NebuCtx.Server.Core;
-using NebuCtx.Server.Core.Routing;
 using NebuCtx.Storage;
 
 /// <summary>
@@ -581,47 +580,12 @@ public static class DashboardPayloadFactory
     }
 
     /// <summary>
-    /// Builds the routes payload from the known .NET host routes.
-    /// </summary>
-    /// <returns>Route payload expected by the dashboard route view.</returns>
-    public static object BuildRoutesPayload()
-    {
-        var routes = RouteCatalog.GetAll()
-            .Select(route => new
-            {
-                method = route.Method,
-                path = route.Path,
-                handler = route.Handler,
-                file = route.File,
-                line = route.Line,
-            })
-            .ToArray();
-
-        return new
-        {
-            routes,
-            indexed_file_count = routes.Length,
-            route_candidate_count = routes.Length,
-        };
-    }
-
-    /// <summary>
-    /// Builds a symbol payload from registered tools and known route handlers.
+    /// Builds a symbol payload from registered tools.
     /// </summary>
     /// <param name="toolRegistry">Tool registry.</param>
     /// <returns>Symbol list.</returns>
     public static object[] BuildSymbolsPayload(ToolRegistry toolRegistry)
     {
-        var routeSymbols = RouteCatalog.GetAll().Select(route => new
-        {
-            name = route.Handler,
-            kind = "route",
-            file = route.File,
-            start_line = route.Line,
-            end_line = route.Line,
-            is_exported = true,
-        });
-
         var toolSymbols = toolRegistry.GetRegisteredTools().Tools.Select(tool => new
         {
             name = tool.Name,
@@ -632,18 +596,17 @@ public static class DashboardPayloadFactory
             is_exported = true,
         });
 
-        return routeSymbols.Concat(toolSymbols).Cast<object>().ToArray();
+        return toolSymbols.Cast<object>().ToArray();
     }
 
     /// <summary>
-    /// Builds a search index payload from the known routes and tool definitions.
+    /// Builds a search index payload from tool definitions.
     /// </summary>
     /// <param name="toolRegistry">Tool registry.</param>
     /// <returns>Search index payload.</returns>
     public static object BuildSearchIndexPayload(ToolRegistry toolRegistry)
     {
         var tools = toolRegistry.GetRegisteredTools().Tools;
-        var routes = RouteCatalog.GetAll();
         var topChunks = tools.Select(tool => new
         {
             symbol_name = tool.Name,
@@ -656,11 +619,10 @@ public static class DashboardPayloadFactory
 
         return new
         {
-            doc_count = routes.Count + tools.Count,
+            doc_count = tools.Count,
             chunk_count = topChunks.Length,
             language_distribution = new Dictionary<string, int>
             {
-                ["route"] = routes.Count,
                 ["tool"] = tools.Count,
             },
             top_chunks_by_token_count = topChunks,
@@ -668,7 +630,7 @@ public static class DashboardPayloadFactory
     }
 
     /// <summary>
-    /// Builds dashboard search results by matching against route paths and tool names.
+    /// Builds dashboard search results by matching against tool names and descriptions.
     /// </summary>
     /// <param name="query">Search query.</param>
     /// <param name="limit">Maximum result count.</param>
@@ -684,20 +646,6 @@ public static class DashboardPayloadFactory
         var normalizedQuery = query.Trim();
         var maxResults = limit is > 0 ? limit.Value : 20;
 
-        var routeResults = RouteCatalog.GetAll()
-            .Where(route => route.Path.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase)
-                || route.Handler.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase))
-            .Select(route => new
-            {
-                score = ScoreMatch(route.Path, normalizedQuery),
-                symbol_name = route.Handler,
-                kind = "route",
-                file_path = route.File,
-                start_line = route.Line,
-                end_line = route.Line,
-                snippet = $"{route.Method} {route.Path} handled by {route.Handler}",
-            });
-
         var toolResults = toolRegistry.GetRegisteredTools().Tools
             .Where(tool => tool.Name.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase)
                 || tool.Description.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase))
@@ -712,7 +660,7 @@ public static class DashboardPayloadFactory
                 snippet = tool.Description,
             });
 
-        var results = routeResults.Concat(toolResults)
+        var results = toolResults
             .OrderByDescending(result => result.score)
             .Take(maxResults)
             .Cast<object>()
@@ -722,38 +670,11 @@ public static class DashboardPayloadFactory
     }
 
     /// <summary>
-    /// Builds a lightweight graph payload that exposes known source files.
+    /// Builds a lightweight graph payload that exposes known projects.
     /// </summary>
     /// <returns>Graph payload compatible with the legacy dashboard.</returns>
     public static object BuildGraphPayload(IReadOnlyList<ProjectRecord> projects)
     {
-        var routeFiles = RouteCatalog.GetAll()
-            .GroupBy(route => route.File, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                group => group.Key,
-                group => (object)new Dictionary<string, object?>
-                {
-                    ["path"] = group.Key,
-                    ["language"] = InferLanguage(group.Key),
-                    ["route_count"] = group.Count(),
-                    ["token_count"] = group.Count() * 32,
-                    ["primary_handler"] = group.First().Handler,
-                },
-                StringComparer.OrdinalIgnoreCase);
-
-        // Keep the bootstrap file visible in the graph so existing operator views
-        // still show the host entrypoint alongside the routed endpoint modules.
-        routeFiles.TryAdd(
-            "NebuCtx.Server.Host/Program.cs",
-            new Dictionary<string, object?>
-            {
-                ["path"] = "NebuCtx.Server.Host/Program.cs",
-                ["language"] = "csharp",
-                ["route_count"] = 0,
-                ["token_count"] = 96,
-                ["primary_handler"] = "Program",
-            });
-
         var projectFiles = projects
             .Where(project => project.ProjectMetadata is not null)
             .ToDictionary(
@@ -762,19 +683,12 @@ public static class DashboardPayloadFactory
                 {
                     ["path"] = $"project/{project.Slug}",
                     ["language"] = project.ProjectMetadata!.Summary.Languages.FirstOrDefault()?.Language ?? "unknown",
-                    ["route_count"] = 0,
                     ["token_count"] = EstimateProjectTokenCount(project),
-                    ["primary_handler"] = project.ProjectId,
                     ["project_id"] = project.ProjectId,
                     ["source_file_count"] = project.ProjectMetadata!.Summary.SourceFileCount,
                     ["total_file_count"] = project.ProjectMetadata!.Summary.TotalFileCount,
                 },
                 StringComparer.OrdinalIgnoreCase);
-
-        foreach (var pair in projectFiles)
-        {
-            routeFiles[pair.Key] = pair.Value;
-        }
 
         var edges = projects
             .Where(project => project.ProjectMetadata is not null)
@@ -791,15 +705,15 @@ public static class DashboardPayloadFactory
         return new
         {
             // nodes mirrors files for API consumers that pre-date the files field.
-            nodes = routeFiles.Values.ToArray(),
+            nodes = projectFiles.Values.ToArray(),
             edges,
-            files = routeFiles,
-            indexed_file_count = routeFiles.Count,
+            files = projectFiles,
+            indexed_file_count = projectFiles.Count,
         };
     }
 
     /// <summary>
-    /// Builds the call graph payload from the current tool and route metadata.
+    /// Builds the call graph payload from the current tool metadata.
     /// </summary>
     /// <param name="toolRegistry">Tool registry.</param>
     /// <returns>Call graph payload.</returns>
@@ -808,9 +722,9 @@ public static class DashboardPayloadFactory
         return new
         {
             edges = Array.Empty<object>(),
-            indexed_file_count = RouteCatalog.GetAll().Count,
+            indexed_file_count = 0,
             indexed_symbol_count = BuildSymbolsPayload(toolRegistry).Length,
-            analyzed_file_count = RouteCatalog.GetAll().Count,
+            analyzed_file_count = 0,
         };
     }
 
@@ -1360,35 +1274,8 @@ public static class DashboardPayloadFactory
     }
 
     /// <summary>
-    /// Infers a lightweight language label from the source file path.
-    /// </summary>
-    /// <param name="filePath">Source file path.</param>
-    /// <returns>Language label for dashboard grouping.</returns>
-    private static string InferLanguage(string filePath)
-    {
-        if (filePath.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
-        {
-            return "csharp";
-        }
-
-        if (filePath.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
-        {
-            return "html";
-        }
-
-        if (filePath.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
-            || filePath.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
-            || filePath.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
-        {
-            return "text";
-        }
-
-        return "unknown";
-    }
-
-    /// <summary>
-    /// Resolves a human-friendly project label from the known project list.
-    /// </summary>
+     /// Resolves a human-friendly project label from the known project list.
+     /// </summary>
     /// <param name="projects">Known projects.</param>
     /// <param name="projectId">Project identifier.</param>
     /// <returns>Project slug when found, otherwise the raw project identifier.</returns>
@@ -1492,11 +1379,6 @@ public static class DashboardPayloadFactory
             return "memory";
         }
 
-        if (toolName.Contains("route", StringComparison.OrdinalIgnoreCase))
-        {
-            return "routing";
-        }
-
         return "tool-execution";
     }
 
@@ -1511,17 +1393,8 @@ public static class DashboardPayloadFactory
     {
         if (string.Equals(path, "NebuCtx.Tools", StringComparison.OrdinalIgnoreCase))
         {
-        var lines = toolRegistry.GetRegisteredTools().Tools.Select(tool => $"tool {tool.Name} => {tool.Description}").ToArray();
-        return (path, "csharp", string.Join(Environment.NewLine, lines), toolRegistry.GetRegisteredTools().Tools.Select(tool => tool.Name).Take(8).ToArray());
-        }
-
-        var matchingRoutes = RouteCatalog.GetAll()
-            .Where(route => string.Equals(route.File, path, StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-        if (matchingRoutes.Length > 0)
-        {
-            var original = string.Join(Environment.NewLine, matchingRoutes.Select(route => $"{route.Method} {route.Path} handled by {route.Handler} ({route.File}:{route.Line})"));
-            return (path, InferLanguage(path), original, matchingRoutes.Select(route => route.Handler).Distinct(StringComparer.OrdinalIgnoreCase).ToArray());
+            var lines = toolRegistry.GetRegisteredTools().Tools.Select(tool => $"tool {tool.Name} => {tool.Description}").ToArray();
+            return (path, "csharp", string.Join(Environment.NewLine, lines), toolRegistry.GetRegisteredTools().Tools.Select(tool => tool.Name).Take(8).ToArray());
         }
 
         if (path.StartsWith("project/", StringComparison.OrdinalIgnoreCase))

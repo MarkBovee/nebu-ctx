@@ -42,7 +42,6 @@ pub mod ctx_prefetch;
 pub mod ctx_preload;
 pub mod ctx_read;
 pub mod ctx_response;
-pub mod ctx_routes;
 pub mod ctx_search;
 pub mod ctx_semantic_search;
 pub mod ctx_session;

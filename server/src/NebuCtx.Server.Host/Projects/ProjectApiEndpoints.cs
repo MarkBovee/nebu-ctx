@@ -93,6 +93,11 @@ public static class ProjectApiEndpoints
     {
         if (!string.IsNullOrWhiteSpace(request.ProjectId))
         {
+            if (!await projectRegistry.ExistsAsync(request.ProjectId, cancellationToken))
+            {
+                throw new InvalidOperationException($"Unknown project_id '{request.ProjectId}'. Resolve the project first before calling tools.");
+            }
+
             await projectRegistry.SyncProjectMetadataAsync(request.ProjectId, request.ProjectMetadata, cancellationToken);
             if (request.CheckoutBinding is not null)
             {

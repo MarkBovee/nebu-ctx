@@ -6,14 +6,24 @@ pub fn handle(
     value: Option<&str>,
     session_id: Option<&str>,
 ) -> String {
+    let scoped_project_root = current_project_root(session);
+
     match action {
         "status" => session.format_compact(),
 
         "load" => {
-            let loaded = if let Some(id) = session_id {
-                SessionState::load_by_id(id)
+            let loaded = if let Some(root) = scoped_project_root.as_deref() {
+                if let Some(id) = session_id {
+                    SessionState::load_by_id_for_project_root(root, id)
+                } else {
+                    SessionState::load_latest_for_project_root(root)
+                }
             } else {
-                SessionState::load_latest()
+                if let Some(id) = session_id {
+                    SessionState::load_by_id(id)
+                } else {
+                    SessionState::load_latest()
+                }
             };
 
             match loaded {
@@ -63,7 +73,10 @@ pub fn handle(
         }
 
         "list" => {
-            let sessions = SessionState::list_sessions();
+            let sessions = scoped_project_root
+                .as_deref()
+                .map(SessionState::list_sessions_for_project_root)
+                .unwrap_or_else(SessionState::list_sessions);
             if sessions.is_empty() {
                 return "No sessions found.".to_string();
             }
@@ -83,7 +96,10 @@ pub fn handle(
         }
 
         "cleanup" => {
-            let removed = SessionState::cleanup_old_sessions(7);
+            let removed = scoped_project_root
+                .as_deref()
+                .map(|root| SessionState::cleanup_old_sessions_for_project_root(root, 7))
+                .unwrap_or_else(|| SessionState::cleanup_old_sessions(7));
             format!("Cleaned up {removed} old session(s) (>7 days).")
         }
 
@@ -98,10 +114,18 @@ pub fn handle(
         },
 
         "restore" => {
-            let snapshot = if let Some(id) = session_id {
-                SessionState::load_compaction_snapshot(id)
+            let snapshot = if let Some(root) = scoped_project_root.as_deref() {
+                if let Some(id) = session_id {
+                    SessionState::load_compaction_snapshot_for_project_root(root, id)
+                } else {
+                    SessionState::load_latest_snapshot_for_project_root(root)
+                }
             } else {
-                SessionState::load_latest_snapshot()
+                if let Some(id) = session_id {
+                    SessionState::load_compaction_snapshot(id)
+                } else {
+                    SessionState::load_latest_snapshot()
+                }
             };
             match snapshot {
                 Some(s) => format!("Session restored from compaction snapshot:\n{s}"),
@@ -113,6 +137,23 @@ pub fn handle(
 
         _ => format!("Unknown action: {action}. Use: status, load, save, task, finding, decision, reset, list, cleanup, snapshot, restore, resume"),
     }
+}
+
+fn current_project_root(session: &SessionState) -> Option<String> {
+    session
+        .project_root
+        .clone()
+        .or_else(|| {
+            session
+                .shell_cwd
+                .as_deref()
+                .and_then(crate::core::protocol::detect_project_root)
+        })
+        .or_else(|| {
+            std::env::current_dir()
+                .ok()
+                .and_then(|cwd| crate::core::protocol::detect_project_root(cwd.to_string_lossy().as_ref()))
+        })
 }
 
 fn parse_finding_value(value: &str) -> (Option<String>, Option<u32>, &str) {

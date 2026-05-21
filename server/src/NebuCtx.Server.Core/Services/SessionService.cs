@@ -46,6 +46,7 @@ public sealed class SessionService
     {
         var state = await _sessionStore.LoadLatestAsync(projectId, cancellationToken) ?? new CloudSessionState();
         state.Task = description;
+        state.ToolCalls++;
         await _sessionStore.SaveAsync(projectId, state, cancellationToken);
 
         _logger.LogInformation("Session task set for project {ProjectId}: {Task}", projectId, description);
@@ -63,6 +64,7 @@ public sealed class SessionService
     {
         var state = await _sessionStore.LoadLatestAsync(projectId, cancellationToken) ?? new CloudSessionState();
         state.Findings.Add(finding);
+        state.ToolCalls++;
         await _sessionStore.SaveAsync(projectId, state, cancellationToken);
 
         _logger.LogInformation("Session finding added for project {ProjectId}", projectId);
@@ -80,6 +82,7 @@ public sealed class SessionService
     {
         var state = await _sessionStore.LoadLatestAsync(projectId, cancellationToken) ?? new CloudSessionState();
         state.Decisions.Add(decision);
+        state.ToolCalls++;
         await _sessionStore.SaveAsync(projectId, state, cancellationToken);
 
         _logger.LogInformation("Session decision recorded for project {ProjectId}", projectId);
@@ -95,6 +98,7 @@ public sealed class SessionService
     public async Task<string> SaveAsync(string projectId, CancellationToken cancellationToken = default)
     {
         var state = await _sessionStore.LoadLatestAsync(projectId, cancellationToken) ?? new CloudSessionState();
+        state.ToolCalls++;
         await _sessionStore.SaveAsync(projectId, state, cancellationToken);
         return $"Session {state.SessionId} saved (v{state.Version}).";
     }

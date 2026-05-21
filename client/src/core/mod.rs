@@ -66,7 +66,6 @@ pub mod property_graph;
 pub mod prospective_memory;
 pub mod protocol;
 pub mod quality;
-pub mod route_extractor;
 pub mod safety_needles;
 pub mod sandbox;
 pub mod sanitize;

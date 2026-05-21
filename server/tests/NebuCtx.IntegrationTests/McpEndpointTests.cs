@@ -193,28 +193,8 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     }
 
     /// <summary>
-    /// Tool call with ctx_routes returns known routes and respects path filtering.
-    /// </summary>
-    [Fact]
-    public async Task ToolCall_Routes_ReturnsKnownRoutes()
-    {
-        var request = new ToolCallRequest
-        {
-            Name = "ctx_routes",
-            Arguments = new Dictionary<string, object?> { ["path"] = "/api" },
-        };
-
-        var response = await _client.PostAsJsonAsync("/v1/tools/call", request);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        var payload = await response.Content.ReadAsStringAsync();
-        Assert.Contains("/api/routes", payload, StringComparison.Ordinal);
-        Assert.DoesNotContain("/v1/projects", payload, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// Tool call with unknown tool returns 400 Bad Request.
-    /// </summary>
+     /// Tool call with unknown tool returns 400 Bad Request.
+     /// </summary>
     [Fact]
     public async Task ToolCall_UnknownTool_Returns400()
     {
@@ -1200,21 +1180,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     }
 
     /// <summary>
-    /// Dashboard routes endpoint returns the known .NET host route map.
-    /// </summary>
-    [Fact]
-    public async Task DashboardRoutes_ReturnsKnownRoutes()
-    {
-        var response = await _client.GetAsync("/api/routes");
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        var payload = await response.Content.ReadAsStringAsync();
-        Assert.Contains("/v1/tools/call", payload, StringComparison.Ordinal);
-        Assert.Contains("/api/search", payload, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// Dashboard search index endpoint returns route and tool metadata.
+    /// Dashboard search index endpoint returns tool metadata.
     /// </summary>
     [Fact]
     public async Task DashboardSearchIndex_ReturnsMetadata()
@@ -1262,9 +1228,9 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
 
         var payload = await response.Content.ReadAsStringAsync();
         Assert.Contains("files", payload, StringComparison.Ordinal);
-        Assert.Contains("NebuCtx.Server.Host/Program.cs", payload, StringComparison.Ordinal);
         Assert.Contains("project/nebu-ctx", payload, StringComparison.Ordinal);
         Assert.Contains("project-language", payload, StringComparison.Ordinal);
+        Assert.Contains("indexed_file_count", payload, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -1601,7 +1567,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
 
         var secondResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
         {
-            Name = "ctx_routes",
+            Name = "ctx_brain",
             ProjectSlug = "nebu-ctx",
             RepositoryFingerprint = fingerprint,
             WorkspaceBinding = new CheckoutBinding
@@ -1613,7 +1579,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
             },
             Arguments = new Dictionary<string, object?>
             {
-                ["path"] = "/api",
+                ["action"] = "status",
             },
         });
         Assert.Equal(HttpStatusCode.OK, secondResponse.StatusCode);
@@ -1679,7 +1645,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
 
         var toolCallResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
         {
-            Name = "ctx_routes",
+            Name = "ctx_brain",
             ProjectSlug = "nebu-ctx",
             RepositoryFingerprint = fingerprint,
             WorkspaceBinding = new CheckoutBinding
@@ -1691,7 +1657,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
             },
             Arguments = new Dictionary<string, object?>
             {
-                ["path"] = "/api",
+                ["action"] = "status",
             },
         });
         Assert.Equal(HttpStatusCode.OK, toolCallResponse.StatusCode);
@@ -1700,7 +1666,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
         var buddyPayload = await (await _client.GetAsync("/api/buddy")).Content.ReadAsStringAsync();
         var feedbackPayload = await (await _client.GetAsync("/api/feedback")).Content.ReadAsStringAsync();
         var intentPayload = await (await _client.GetAsync("/api/intent")).Content.ReadAsStringAsync();
-        var compressionPayload = await (await _client.GetAsync("/api/compression-demo?path=NebuCtx.Tools&task=routes")).Content.ReadAsStringAsync();
+        var compressionPayload = await (await _client.GetAsync("/api/compression-demo?path=NebuCtx.Tools&task=brain")).Content.ReadAsStringAsync();
 
         Assert.Contains(actorLabel, agentsPayload, StringComparison.Ordinal);
         Assert.Contains("thin-client", agentsPayload, StringComparison.Ordinal);
@@ -1709,7 +1675,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
         Assert.Contains("learned_thresholds", feedbackPayload, StringComparison.Ordinal);
         Assert.Contains("rust", feedbackPayload, StringComparison.Ordinal);
         Assert.Contains("task_type", intentPayload, StringComparison.Ordinal);
-        Assert.Contains("routing", intentPayload, StringComparison.Ordinal);
+        Assert.Contains("memory", intentPayload, StringComparison.Ordinal);
         Assert.Contains("original_tokens", compressionPayload, StringComparison.Ordinal);
         Assert.Contains("modes", compressionPayload, StringComparison.Ordinal);
         Assert.Contains("task", compressionPayload, StringComparison.Ordinal);
@@ -1726,5 +1692,104 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
 
         var payload = await response.Content.ReadAsStringAsync();
         Assert.Contains("ctx_brain", payload, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+     /// Hosted private handlers should honor numeric JsonElement arguments for limit/days.
+     /// </summary>
+    [Fact]
+    public async Task HostedKnowledgeAndSessionHandlers_HonorNumericArguments()
+    {
+        var fingerprint = new RepositoryFingerprint
+        {
+            RemoteUrl = "https://github.com/MarkBovee/nebu-ctx.git",
+            Host = "github.com",
+            Owner = "MarkBovee",
+            RepoName = "nebu-ctx",
+            DefaultBranch = "main",
+        };
+
+        for (var index = 0; index < 3; index++)
+        {
+            var rememberResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+            {
+                Name = "ctx_knowledge",
+                ProjectSlug = "nebu-ctx",
+                RepositoryFingerprint = fingerprint,
+                Arguments = new Dictionary<string, object?>
+                {
+                    ["action"] = "remember",
+                    ["category"] = "decision",
+                    ["key"] = $"json-limit-{index}",
+                    ["value"] = $"json limit item {index}",
+                },
+            });
+            Assert.Equal(HttpStatusCode.OK, rememberResponse.StatusCode);
+        }
+
+        var recallResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            ProjectSlug = "nebu-ctx",
+            RepositoryFingerprint = fingerprint,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "recall",
+                ["query"] = "json limit item",
+                ["limit"] = JsonDocument.Parse("1").RootElement,
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, recallResponse.StatusCode);
+        var recallPayload = await recallResponse.Content.ReadAsStringAsync();
+        Assert.Contains("\"count\":1", recallPayload, StringComparison.Ordinal);
+
+        var taskResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_session",
+            ProjectSlug = "nebu-ctx",
+            RepositoryFingerprint = fingerprint,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "task",
+                ["value"] = "json arg session",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, taskResponse.StatusCode);
+
+        var listResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_session",
+            ProjectSlug = "nebu-ctx",
+            RepositoryFingerprint = fingerprint,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "list",
+                ["limit"] = JsonDocument.Parse("1").RootElement,
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var listPayload = await listResponse.Content.ReadAsStringAsync();
+        Assert.Contains("\"count\":1", listPayload, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Explicit project ids must resolve to a canonical project before tools accept them.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_WithUnknownProjectId_ReturnsConflict()
+    {
+        var response = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_session",
+            ProjectId = "proj_missing",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "status",
+            },
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Unknown project_id", payload, StringComparison.Ordinal);
     }
 }

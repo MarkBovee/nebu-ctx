@@ -1080,23 +1080,6 @@ impl NebuCtxServer {
                 self.record_call("ctx_graph_diagram", 0, 0, kind).await;
                 result
             }
-            "ctx_routes" => {
-                let method = get_str(args, "method");
-                let path_prefix = get_str(args, "path");
-                let session = self.session.read().await;
-                let project_root = session
-                    .project_root
-                    .clone()
-                    .unwrap_or_else(|| ".".to_string());
-                drop(session);
-                let result = crate::tools::ctx_routes::handle(
-                    method.as_deref(),
-                    path_prefix.as_deref(),
-                    &project_root,
-                );
-                self.record_call("ctx_routes", 0, 0, None).await;
-                result
-            }
             "ctx_callers" => {
                 let symbol = get_str(args, "symbol")
                     .ok_or_else(|| ErrorData::invalid_params("symbol is required", None))?;
@@ -1539,6 +1522,6 @@ mod tests {
             "c:\\Users\\markb\\Projects\\Spotify\\oauth.js"
         ));
         assert!(!looks_like_windows_absolute_path("src/package.json"));
-        assert!(!looks_like_windows_absolute_path("/api/routes"));
+        assert!(!looks_like_windows_absolute_path("/api/search"));
     }
 }

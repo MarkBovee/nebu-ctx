@@ -94,11 +94,13 @@ fn upsert_source_line(rc_path: &std::path::Path, source_line: &str) {
     backup_shell_config(rc_path);
 
     if let Ok(existing) = std::fs::read_to_string(rc_path) {
-        if existing.contains(".nebu-ctx/shell-hook.") {
+        if existing.contains(source_line.trim()) {
             return;
         }
 
-        let cleaned = if existing.contains("nebu-ctx shell hook") {
+        let cleaned = if existing.contains("nebu-ctx shell hook")
+            || existing.contains(".nebu-ctx/shell-hook.")
+        {
             remove_nebu_ctx_block(&existing)
         } else {
             existing
@@ -509,6 +511,13 @@ pub fn remove_nebu_ctx_block(content: &str) -> String {
     if content.contains("# nebu-ctx shell hook — end") {
         return remove_nebu_ctx_block_by_marker(content);
     }
+
+    if content.contains(".nebu-ctx/shell-hook.")
+        || content.contains("$nebuCtxHook = Join-Path $HOME \".nebu-ctx\"")
+    {
+        return remove_nebu_ctx_source_block(content);
+    }
+
     remove_nebu_ctx_block_legacy(content)
 }
 
@@ -559,6 +568,35 @@ fn remove_nebu_ctx_block_legacy(content: &str) -> String {
         result.push_str(line);
         result.push('\n');
     }
+    result
+}
+
+fn remove_nebu_ctx_source_block(content: &str) -> String {
+    let mut result = String::new();
+    let mut lines = content.lines().peekable();
+
+    while let Some(line) = lines.next() {
+        if line.contains("# nebu-ctx shell hook") {
+            while let Some(next) = lines.peek() {
+                let trimmed = next.trim();
+                let is_source_line = next.contains(".nebu-ctx/shell-hook.")
+                    || trimmed == "fish_add_path \"$HOME/.cargo/bin\""
+                    || trimmed.starts_with("if test -f \"$HOME/.nebu-ctx/shell-hook.fish\"")
+                    || trimmed == "source \"$HOME/.nebu-ctx/shell-hook.fish\""
+                    || trimmed == "end"
+                    || trimmed.starts_with("$nebuCtxHook = Join-Path $HOME \".nebu-ctx\"")
+                    || trimmed.starts_with("if (Test-Path $nebuCtxHook)");
+                if !is_source_line {
+                    break;
+                }
+                lines.next();
+            }
+            continue;
+        }
+        result.push_str(line);
+        result.push('\n');
+    }
+
     result
 }
 
@@ -780,6 +818,23 @@ export EDITOR=vim
             result.contains("export EDITOR"),
             "trailing content preserved"
         );
+    }
+
+    #[test]
+    fn test_remove_nebu_ctx_source_block_fish_format() {
+        let input = r#"# existing config
+
+# nebu-ctx shell hook
+fish_add_path "$HOME/.cargo/bin"
+if test -f "$HOME/.nebu-ctx/shell-hook.fish"
+    source "$HOME/.nebu-ctx/shell-hook.fish"
+end
+
+set -gx EDITOR vim
+"#;
+        let result = remove_nebu_ctx_block(input);
+        assert!(!result.contains("shell-hook.fish"));
+        assert!(result.contains("set -gx EDITOR vim"));
     }
 
     #[test]

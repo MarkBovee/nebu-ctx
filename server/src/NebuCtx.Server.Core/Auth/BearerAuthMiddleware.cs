@@ -83,8 +83,16 @@ public sealed class BearerAuthMiddleware
     /// </summary>
     private bool IsAuthExempt(HttpContext context)
     {
+        var path = context.Request.Path;
+        var dashboardPath = path == "/"
+            || path.Equals("/index.html", StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/dashboard", StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/logo.png", StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/favicon.ico", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase);
+
         return context.Request.Path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase)
-            || (_dashboardDisableAuth && context.Connection.LocalPort == _dashboardPort);
+            || (_dashboardDisableAuth && context.Connection.LocalPort == _dashboardPort && dashboardPath);
     }
 
     /// <summary>

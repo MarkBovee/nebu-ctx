@@ -1,5 +1,6 @@
 namespace NebuCtx.Tools.Session;
 
+using System.Text.Json;
 using NebuCtx.Server.Core;
 using NebuCtx.Server.Core.Services;
 
@@ -112,6 +113,12 @@ public sealed class SessionToolHandler : IToolHandler
     private static int? GetIntArg(Dictionary<string, object?> arguments, string key)
     {
         if (!arguments.TryGetValue(key, out var v)) return null;
-        return v is int i ? i : (int.TryParse(v?.ToString(), out var parsed) ? parsed : null);
+        return v switch
+        {
+            int integer => integer,
+            JsonElement { ValueKind: JsonValueKind.Number } json when json.TryGetInt32(out var parsedJson) => parsedJson,
+            JsonElement { ValueKind: JsonValueKind.String } json when int.TryParse(json.GetString(), out var parsedJson) => parsedJson,
+            _ => int.TryParse(v?.ToString(), out var parsed) ? parsed : null,
+        };
     }
 }

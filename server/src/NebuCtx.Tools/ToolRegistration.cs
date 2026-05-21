@@ -8,7 +8,6 @@ using NebuCtx.Tools.Cost;
 using NebuCtx.Tools.Gain;
 using NebuCtx.Tools.Heatmap;
 using NebuCtx.Tools.Knowledge;
-using NebuCtx.Tools.Routes;
 using NebuCtx.Tools.Session;
 using NebuCtx.Tools.Stats;
 
@@ -30,7 +29,6 @@ public static class ToolRegistration
         services.AddSingleton<IToolHandler, GainToolHandler>();
         services.AddSingleton<IToolHandler, HeatmapToolHandler>();
         services.AddSingleton<IToolHandler, KnowledgeToolHandler>();
-        services.AddSingleton<IToolHandler, RoutesToolHandler>();
         services.AddSingleton<IToolHandler, SessionToolHandler>();
         services.AddSingleton<IToolHandler, StatsToolHandler>();
 

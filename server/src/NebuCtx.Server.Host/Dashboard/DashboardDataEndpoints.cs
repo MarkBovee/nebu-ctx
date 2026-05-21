@@ -9,7 +9,7 @@ using NebuCtx.Storage;
 
 /// <summary>
 /// Dashboard data endpoints: knowledge, brain, graph, call-graph, projects,
-/// symbols, routes, search, search-index, compression-demo.
+/// symbols, search, search-index, compression-demo.
 /// </summary>
 public static class DashboardDataEndpoints
 {
@@ -256,9 +256,6 @@ public static class DashboardDataEndpoints
                 serverSymbols = serverSymbols.Where(s => s.ToString()?.Contains(q, StringComparison.OrdinalIgnoreCase) == true);
             return Results.Ok(serverSymbols.ToArray());
         });
-
-        // Routes
-        app.MapGet("/routes", () => Results.Ok(DashboardPayloadFactory.BuildRoutesPayload()));
 
         // Search
         app.MapGet("/search-index", async (

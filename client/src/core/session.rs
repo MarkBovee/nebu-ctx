@@ -604,6 +604,14 @@ impl SessionState {
         std::fs::read_to_string(&path).ok()
     }
 
+    pub fn load_compaction_snapshot_for_project_root(
+        project_root: &str,
+        session_id: &str,
+    ) -> Option<String> {
+        Self::load_by_id_for_project_root(project_root, session_id)?;
+        Self::load_compaction_snapshot(session_id)
+    }
+
     pub fn load_latest_snapshot() -> Option<String> {
         let dir = sessions_dir()?;
         let mut snapshots: Vec<(std::time::SystemTime, PathBuf)> = std::fs::read_dir(&dir)
@@ -621,6 +629,40 @@ impl SessionState {
         snapshots
             .first()
             .and_then(|(_, path)| std::fs::read_to_string(path).ok())
+    }
+
+    pub fn load_latest_snapshot_for_project_root(project_root: &str) -> Option<String> {
+        let dir = sessions_dir()?;
+        let target_root =
+            crate::core::pathutil::safe_canonicalize_or_self(std::path::Path::new(project_root));
+        let mut snapshots: Vec<(std::time::SystemTime, PathBuf)> = std::fs::read_dir(&dir)
+            .ok()?
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().to_string_lossy().ends_with("_snapshot.txt"))
+            .filter_map(|e| {
+                let meta = e.metadata().ok()?;
+                let modified = meta.modified().ok()?;
+                Some((modified, e.path()))
+            })
+            .collect();
+
+        snapshots.sort_by_key(|x| std::cmp::Reverse(x.0));
+        for (_, path) in snapshots {
+            let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
+                continue;
+            };
+            let Some(session_id) = file_name.strip_suffix("_snapshot.txt") else {
+                continue;
+            };
+            let Some(session) = Self::load_by_id(session_id) else {
+                continue;
+            };
+            if session_matches_project_root(&session, &target_root) {
+                return std::fs::read_to_string(path).ok();
+            }
+        }
+
+        None
     }
 
     /// Build a compact resume block for post-compaction injection.
@@ -724,6 +766,13 @@ impl SessionState {
         Self::load_by_id(&pointer.id)
     }
 
+    pub fn load_by_id_for_project_root(project_root: &str, id: &str) -> Option<Self> {
+        let target_root =
+            crate::core::pathutil::safe_canonicalize_or_self(std::path::Path::new(project_root));
+        let session = Self::load_by_id(id)?;
+        session_matches_project_root(&session, &target_root).then_some(session)
+    }
+
     pub fn load_latest_for_project_root(project_root: &str) -> Option<Self> {
         let dir = sessions_dir()?;
         let target_root =
@@ -805,6 +854,49 @@ impl SessionState {
         summaries
     }
 
+    pub fn list_sessions_for_project_root(project_root: &str) -> Vec<SessionSummary> {
+        let dir = match sessions_dir() {
+            Some(d) => d,
+            None => return Vec::new(),
+        };
+        let target_root =
+            crate::core::pathutil::safe_canonicalize_or_self(std::path::Path::new(project_root));
+
+        let mut summaries = Vec::new();
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()) != Some("json") {
+                    continue;
+                }
+                if path.file_name().and_then(|n| n.to_str()) == Some("latest.json") {
+                    continue;
+                }
+                let Some(id) = path.file_stem().and_then(|n| n.to_str()) else {
+                    continue;
+                };
+                let Some(session) = Self::load_by_id(id) else {
+                    continue;
+                };
+                if !session_matches_project_root(&session, &target_root) {
+                    continue;
+                }
+                summaries.push(SessionSummary {
+                    id: session.id,
+                    started_at: session.started_at,
+                    updated_at: session.updated_at,
+                    version: session.version,
+                    task: session.task.as_ref().map(|t| t.description.clone()),
+                    tool_calls: session.stats.total_tool_calls,
+                    tokens_saved: session.stats.total_tokens_saved,
+                });
+            }
+        }
+
+        summaries.sort_by_key(|x| std::cmp::Reverse(x.updated_at));
+        summaries
+    }
+
     pub fn cleanup_old_sessions(max_age_days: i64) -> u32 {
         let dir = match sessions_dir() {
             Some(d) => d,
@@ -834,6 +926,46 @@ impl SessionState {
                             removed += 1;
                         }
                     }
+                }
+            }
+        }
+
+        removed
+    }
+
+    pub fn cleanup_old_sessions_for_project_root(project_root: &str, max_age_days: i64) -> u32 {
+        let dir = match sessions_dir() {
+            Some(d) => d,
+            None => return 0,
+        };
+        let target_root =
+            crate::core::pathutil::safe_canonicalize_or_self(std::path::Path::new(project_root));
+
+        let cutoff = Utc::now() - chrono::Duration::days(max_age_days);
+        let latest = Self::load_latest_for_project_root(project_root).map(|s| s.id);
+        let mut removed = 0u32;
+
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()) != Some("json") {
+                    continue;
+                }
+                let filename = path.file_stem().and_then(|n| n.to_str()).unwrap_or("");
+                if filename == "latest" || filename.starts_with('.') {
+                    continue;
+                }
+                if latest.as_deref() == Some(filename) {
+                    continue;
+                }
+                let Some(session) = Self::load_by_id(filename) else {
+                    continue;
+                };
+                if !session_matches_project_root(&session, &target_root) {
+                    continue;
+                }
+                if session.updated_at < cutoff && std::fs::remove_file(&path).is_ok() {
+                    removed += 1;
                 }
             }
         }
@@ -1111,5 +1243,50 @@ mod tests {
         let snapshot = session.build_compaction_snapshot();
         assert!(snapshot.contains("calls=42"));
         assert!(snapshot.contains("saved=10000"));
+    }
+
+    #[test]
+    fn scoped_session_load_and_snapshot_stay_within_project_root() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let tmp = tempfile::tempdir().unwrap();
+        let data_dir = tmp.path().join("data");
+        let project_a = tmp.path().join("project-a");
+        let project_b = tmp.path().join("project-b");
+        std::fs::create_dir_all(&data_dir).unwrap();
+        std::fs::create_dir_all(project_a.join(".git")).unwrap();
+        std::fs::create_dir_all(project_b.join(".git")).unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", &data_dir);
+
+        let mut session_a = SessionState::new();
+        session_a.project_root = Some(project_a.to_string_lossy().to_string());
+        session_a.set_task("project a task", None);
+        session_a.save().unwrap();
+        session_a.save_compaction_snapshot().unwrap();
+
+        let mut session_b = SessionState::new();
+        session_b.project_root = Some(project_b.to_string_lossy().to_string());
+        session_b.set_task("project b task", None);
+        session_b.save().unwrap();
+        session_b.save_compaction_snapshot().unwrap();
+
+        let scoped = SessionState::load_latest_for_project_root(&project_a.to_string_lossy())
+            .expect("project-scoped session should load");
+        assert_eq!(scoped.id, session_a.id);
+
+        let by_id = SessionState::load_by_id_for_project_root(
+            &project_a.to_string_lossy(),
+            &session_b.id,
+        );
+        assert!(
+            by_id.is_none(),
+            "cross-project session ids must not load into another workspace"
+        );
+
+        let snapshot = SessionState::load_latest_snapshot_for_project_root(&project_a.to_string_lossy())
+            .expect("project-scoped snapshot should load");
+        assert!(snapshot.contains("project a task"));
+        assert!(!snapshot.contains("project b task"));
+
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
     }
 }

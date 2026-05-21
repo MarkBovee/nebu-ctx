@@ -75,4 +75,36 @@ public class BearerAuthMiddlewareTests
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
     }
+
+    /// <summary>
+    /// Verifies that MCP write routes on the dashboard port still require auth.
+    /// </summary>
+    [Fact]
+    public async Task InvokeAsync_McpRouteOnDashboardPort_StillRequiresToken()
+    {
+        var nextCalled = false;
+        var middleware = new BearerAuthMiddleware(
+            async context =>
+            {
+                nextCalled = true;
+                context.Response.StatusCode = StatusCodes.Status200OK;
+                await Task.CompletedTask;
+            },
+            Options.Create(new ServerOptions
+            {
+                AuthToken = "secret-token",
+                DashboardDisableAuth = true,
+                DashboardPort = 3333,
+            }),
+            NullLogger<BearerAuthMiddleware>.Instance);
+
+        var context = new DefaultHttpContext();
+        context.Request.Path = "/v1/tools/call";
+        context.Connection.LocalPort = 3333;
+
+        await middleware.InvokeAsync(context);
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
+    }
 }

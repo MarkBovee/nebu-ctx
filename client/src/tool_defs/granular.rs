@@ -807,17 +807,6 @@ code block instead of the entire file. 90-97% fewer tokens than full file read."
             }),
         ),
         tool_def(
-            "ctx_routes",
-            "List HTTP routes/endpoints extracted from the project. Supports Express, Flask, FastAPI, Actix, Spring, Rails, Next.js.",
-            json!({
-                "type": "object",
-                "properties": {
-                    "method": { "type": "string", "description": "Optional: GET, POST, PUT, DELETE" },
-                    "path": { "type": "string", "description": "Optional: path prefix filter, e.g. /api/users" }
-                }
-            }),
-        ),
-        tool_def(
             "ctx_compress_memory",
             "Compress a memory/config file (CLAUDE.md, .cursorrules, etc.) to save tokens on every session start. \
 Preserves code blocks, URLs, paths, headings, tables. Creates .original.md backup.",
@@ -1060,7 +1049,6 @@ pull (receive shared files), list (show all shared contexts), clear (remove your
         ("ctx_compress_memory", "Compress a memory/config file (CLAUDE.md, .cursorrules) preserving code, URLs, paths. Creates .original.md backup.", json!({"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]})),
         ("ctx_callers", "Find all symbols that call a given function/method.", json!({"type": "object", "properties": {"symbol": {"type": "string"}, "file": {"type": "string"}}, "required": ["symbol"]})),
         ("ctx_callees", "Find all functions/methods called by a given symbol.", json!({"type": "object", "properties": {"symbol": {"type": "string"}, "file": {"type": "string"}}, "required": ["symbol"]})),
-        ("ctx_routes", "List HTTP routes/endpoints extracted from the project. Supports Express, Flask, FastAPI, Actix, Spring, Rails, Next.js.", json!({"type": "object", "properties": {"method": {"type": "string"}, "path": {"type": "string"}}})),
         ("ctx_graph_diagram", "Generate a Mermaid diagram of the dependency or call graph.", json!({"type": "object", "properties": {"file": {"type": "string"}, "depth": {"type": "integer"}, "kind": {"type": "string"}}})),
         ("ctx_expand", "Retrieve archived tool output (zero-loss). Large outputs are auto-archived; use this to retrieve full details. Actions: retrieve (default), list.", json!({"type": "object", "properties": {"id": {"type": "string", "description": "Archive ID from the [Archived: ...] hint"}, "action": {"type": "string", "description": "retrieve (default) or list"}, "start_line": {"type": "integer", "description": "Start line for range retrieval"}, "end_line": {"type": "integer", "description": "End line for range retrieval"}, "search": {"type": "string", "description": "Search pattern to filter archived output"}, "session_id": {"type": "string", "description": "Filter list by session ID"}}})),
     ]

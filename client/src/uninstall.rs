@@ -184,12 +184,37 @@ fn remove_shell_hook(home: &Path) -> bool {
 }
 
 fn remove_source_lines(content: &str) -> String {
-    content
-        .lines()
-        .filter(|line| !line.contains(".nebu-ctx/shell-hook."))
-        .collect::<Vec<_>>()
-        .join("\n")
-        + "\n"
+    let mut result = String::new();
+    let mut lines = content.lines().peekable();
+
+    while let Some(line) = lines.next() {
+        if line.contains("# nebu-ctx shell hook") {
+            while let Some(next) = lines.peek() {
+                let trimmed = next.trim();
+                let is_source_line = next.contains(".nebu-ctx/shell-hook.")
+                    || trimmed == "fish_add_path \"$HOME/.cargo/bin\""
+                    || trimmed.starts_with("if test -f \"$HOME/.nebu-ctx/shell-hook.fish\"")
+                    || trimmed == "source \"$HOME/.nebu-ctx/shell-hook.fish\""
+                    || trimmed == "end"
+                    || trimmed.starts_with("$nebuCtxHook = Join-Path $HOME \".nebu-ctx\"")
+                    || trimmed.starts_with("if (Test-Path $nebuCtxHook)");
+                if !is_source_line {
+                    break;
+                }
+                lines.next();
+            }
+            continue;
+        }
+
+        if line.contains(".nebu-ctx/shell-hook.") {
+            continue;
+        }
+
+        result.push_str(line);
+        result.push('\n');
+    }
+
+    result
 }
 
 fn remove_mcp_configs(home: &Path) -> bool {
@@ -749,5 +774,13 @@ command = \"other\"
             result.contains("[mcp_servers.other]"),
             "other content should be preserved"
         );
+    }
+
+    #[test]
+    fn remove_source_lines_cleans_current_fish_source_block() {
+        let input = "# shell\n# nebu-ctx shell hook\nfish_add_path \"$HOME/.cargo/bin\"\nif test -f \"$HOME/.nebu-ctx/shell-hook.fish\"\n    source \"$HOME/.nebu-ctx/shell-hook.fish\"\nend\nset -gx EDITOR vim\n";
+        let cleaned = remove_source_lines(input);
+        assert!(!cleaned.contains("shell-hook.fish"));
+        assert!(cleaned.contains("set -gx EDITOR vim"));
     }
 }

@@ -5,7 +5,12 @@ use std::path::Path;
 /// returns the outermost ancestor containing `.git`, a workspace marker, or a known
 /// monorepo config file — so the whole monorepo is treated as one project.
 pub fn detect_project_root(file_path: &str) -> Option<String> {
-    let mut dir = Path::new(file_path).parent()?;
+    let path = Path::new(file_path);
+    let mut dir = if path.is_dir() {
+        path
+    } else {
+        path.parent()?
+    };
     let mut best: Option<String> = None;
     let home = dirs::home_dir().map(|path| crate::core::pathutil::safe_canonicalize_or_self(&path));
 

@@ -80,6 +80,10 @@ pub fn run() {
             }
             "-t" | "--track" => {
                 let cmd_args = &args[2..];
+                if cmd_args.is_empty() {
+                    eprintln!("Usage: nebu-ctx -t \"command\" or nebu-ctx -t <exe> [args...]");
+                    std::process::exit(1);
+                }
                 let tracked_name = cmd_args
                     .first()
                     .map(|s| core::stats::normalize_command(s))
@@ -105,6 +109,11 @@ pub fn run() {
                 };
                 fire_shell_telemetry(tracked_name, command_preview);
                 std::process::exit(code);
+            }
+            "init" => {
+                eprintln!("nebu-ctx: `init` is deprecated; use `setup` instead.");
+                super::cmd_init(&rest);
+                return;
             }
             "shell" | "--shell" => {
                 shell::interactive();

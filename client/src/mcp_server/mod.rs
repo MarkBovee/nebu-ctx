@@ -12,7 +12,6 @@ use crate::tools::{CrpMode, NebuCtxServer};
 /// Tools that ONLY exist on the configured server. No local fallback when offline.
 pub const SERVER_ONLY_TOOLS: &[&str] = &[
     "ctx_brain",
-    "ctx_routes",
     "ctx_gain",
     "ctx_cost",
     "ctx_heatmap",
@@ -325,7 +324,6 @@ impl ServerHandler for NebuCtxServer {
                         _ => return Err(ErrorData::invalid_params("Unknown agents action", None)),
                     },
                     "inspect" => match action {
-                        "routes" => "ctx_routes",
                         "dedup" => "ctx_dedup",
                         _ => return Err(ErrorData::invalid_params("Unknown inspect action", None)),
                     },
@@ -396,7 +394,8 @@ impl ServerHandler for NebuCtxServer {
             // When a server is configured, fail hard rather than silently
             // writing to local JSON. Local fallback only applies when no server
             // server has been set up at all.
-            let server_is_configured = crate::server_client::ServerClient::load().is_ok();
+            let server_is_configured =
+                matches!(crate::config::load_connection(), Ok(Some(_)) | Err(_));
             match route_to_server(name, args).await {
                 ServerRoutingResult::Success(s) => {
                     // Record telemetry so the dashboard reflects hosted tool usage.
@@ -776,10 +775,16 @@ async fn route_to_server(
     let arguments = args.clone().unwrap_or_default();
 
     let result = tokio::task::spawn_blocking(move || {
-        let client = match crate::server_client::ServerClient::load() {
-            Ok(c) => c,
-            Err(_) => return ServerRoutingResult::NotConfigured,
+        let connection = match crate::config::load_connection() {
+            Ok(Some(connection)) => connection,
+            Ok(None) => return ServerRoutingResult::NotConfigured,
+            Err(error) => {
+                return ServerRoutingResult::Error(format!(
+                    "Saved server connection is invalid: {error}\nRun: nebu-ctx connect --endpoint <url> --token <token>"
+                ))
+            }
         };
+        let client = crate::server_client::ServerClient::new(connection);
         let current_directory = match std::env::current_dir() {
             Ok(d) => d,
             Err(e) => {
@@ -1128,6 +1133,62 @@ mod tests {
             !text.contains("requires a server connection"),
             "Public memory recall should not hard-require the hosted ctx_brain path: {text}"
         );
+    }
+
+    #[test]
+    fn memory_search_stays_project_scoped_locally() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let data = tempfile::tempdir().unwrap();
+        let repo_a = tempfile::tempdir().unwrap();
+        let repo_b = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", data.path());
+        std::env::set_var("NEBU_CTX_HOME", data.path());
+        std::env::remove_var("NEBU_CTX_HTTP_TOKEN");
+        std::fs::create_dir(repo_a.path().join(".git")).unwrap();
+        std::fs::create_dir(repo_b.path().join(".git")).unwrap();
+
+        let repo_a_root = repo_a.path().to_string_lossy().to_string();
+        let repo_b_root = repo_b.path().to_string_lossy().to_string();
+        let mut knowledge_a = crate::core::knowledge::ProjectKnowledge::load_or_create(&repo_a_root);
+        let mut knowledge_b = crate::core::knowledge::ProjectKnowledge::load_or_create(&repo_b_root);
+        let _ = knowledge_a.remember(
+            "decision",
+            "owner",
+            "local search should stay in repo a",
+            "session-a",
+            0.9,
+        );
+        let _ = knowledge_b.remember(
+            "decision",
+            "owner",
+            "other project only",
+            "session-b",
+            0.9,
+        );
+        knowledge_a.save().unwrap();
+        knowledge_b.save().unwrap();
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let engine = crate::engine::ContextEngine::with_project_root(repo_a.path());
+        let text = rt
+            .block_on(engine.call_tool_text(
+                "ctx",
+                Some(serde_json::json!({
+                    "domain": "memory",
+                    "action": "search",
+                    "query": "local repo a"
+                })),
+            ))
+            .expect("memory search should succeed locally");
+
+        assert!(text.contains("local search should stay in repo a"));
+        assert!(!text.contains("other project only"));
+
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
+        std::env::remove_var("NEBU_CTX_HOME");
     }
 
     #[test]

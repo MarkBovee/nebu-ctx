@@ -98,6 +98,17 @@ public sealed class ProjectRegistry
     }
 
     /// <summary>
+    /// Returns true when the provided project identifier exists in the canonical registry.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True when the project exists.</returns>
+    public async Task<bool> ExistsAsync(string projectId, CancellationToken cancellationToken = default)
+    {
+        return await _projectStore.GetProjectAsync(projectId, cancellationToken) is not null;
+    }
+
+    /// <summary>
     /// Lists all registered projects.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
