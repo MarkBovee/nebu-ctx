@@ -25,7 +25,6 @@ pub struct ProjectKnowledgeSummary {
     pub project_hash: String,
     pub active_facts: usize,
     pub archived_facts: usize,
-    pub patterns: usize,
     pub history: usize,
     pub updated_at: DateTime<Utc>,
 }
@@ -124,7 +123,6 @@ fn build_report(project_root_override: Option<&str>) -> Result<(TokenReport, Pat
         project_hash: k.project_hash.clone(),
         active_facts: k.facts.iter().filter(|f| f.is_current()).count(),
         archived_facts: k.facts.iter().filter(|f| !f.is_current()).count(),
-        patterns: k.patterns.len(),
         history: k.history.len(),
         updated_at: k.updated_at,
     });
@@ -202,8 +200,8 @@ fn print_human(report: &TokenReport, path: &Path) {
 
     if let Some(k) = &report.knowledge {
         println!(
-            "  knowledge: {} active, {} archived, {} patterns, {} history",
-            k.active_facts, k.archived_facts, k.patterns, k.history
+            "  knowledge: {} active, {} archived, {} history",
+            k.active_facts, k.archived_facts, k.history
         );
     } else {
         println!("  knowledge: (none)");

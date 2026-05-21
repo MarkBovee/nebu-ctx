@@ -87,13 +87,16 @@ public sealed class CtxToolHandler : IToolHandler
             "cleanup" => await _sessionService.CleanupAsync(context.ProjectId, GetIntArg(arguments, "days") ?? 7, cancellationToken),
             "store" or "set" or "remember" => await ExecuteRememberAsync(arguments, context, cancellationToken),
             "recall" => await ExecuteRecallAsync(arguments, context, cancellationToken),
+            "search" => await ExecuteRecallAsync(arguments, context, cancellationToken),
+            "categories" => await ExecuteCategoriesAsync(context, cancellationToken),
+            "timeline" => await ExecuteTimelineAsync(arguments, context, cancellationToken),
             "consolidate" => await _knowledgeService.ConsolidateAsync(context.ProjectId, cancellationToken),
             "promote" => await ExecutePromoteAsync(arguments, context, cancellationToken),
             "upkeep" => await _knowledgeService.UpkeepAsync(context.ProjectId, cancellationToken),
             "wakeup" => await _knowledgeService.BuildWakeupAsync(context.ProjectId, cancellationToken),
             "triage" => await ExecuteTriageAsync(arguments, context, cancellationToken),
             "remove" => await ExecuteRemoveAsync(arguments, context, cancellationToken),
-            _ => throw new ArgumentException("Unknown hosted memory action. Use one of: task, finding, decision, save, load, status, reset, list, cleanup, store, set, remember, recall, consolidate, promote, upkeep, wakeup, triage, remove"),
+            _ => throw new ArgumentException("Unknown hosted memory action. Use one of: task, finding, decision, save, load, status, reset, list, cleanup, store, set, remember, recall, search, categories, timeline, consolidate, promote, upkeep, wakeup, triage, remove"),
         };
     }
 
@@ -143,6 +146,35 @@ public sealed class CtxToolHandler : IToolHandler
                 retrieval_count = entry.RetrievalCount,
                 last_retrieved_at = entry.LastRetrievedAt,
             }),
+        };
+    }
+
+    /// <summary>
+    /// Lists hosted knowledge categories through the public memory domain.
+    /// </summary>
+    private async Task<object> ExecuteCategoriesAsync(ToolExecutionContext context, CancellationToken cancellationToken)
+    {
+        var categories = await _knowledgeService.GetCategoriesAsync(context.ProjectId, cancellationToken);
+        return new
+        {
+            count = categories.Count,
+            categories = categories.Select(category => new { category = category.Category, facts = category.Count }),
+        };
+    }
+
+    /// <summary>
+    /// Lists hosted knowledge timeline entries through the public memory domain.
+    /// </summary>
+    private async Task<object> ExecuteTimelineAsync(Dictionary<string, object?> arguments, ToolExecutionContext context, CancellationToken cancellationToken)
+    {
+        var category = GetStringArg(arguments, "category") ?? throw new ArgumentException("'category' is required for memory timeline.");
+        var limit = GetIntArg(arguments, "limit") ?? 50;
+        var entries = await _knowledgeService.GetTimelineAsync(context.ProjectId, category, limit, cancellationToken);
+        return new
+        {
+            category,
+            count = entries.Count,
+            entries,
         };
     }
 

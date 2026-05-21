@@ -332,9 +332,22 @@ impl NebuCtxServer {
                 let cwd_clone = effective_cwd.clone();
                 let crp_mode = self.crp_mode;
 
+                let project_root_for_bug_memory = effective_cwd.clone();
                 let (result_out, original, saved, tee_hint) =
                     tokio::task::spawn_blocking(move || {
-                        let (output, _real_exit_code) = execute_command_in(&cmd_clone, &cwd_clone);
+                        let (output, real_exit_code) = execute_command_in(&cmd_clone, &cwd_clone);
+
+                        if real_exit_code != 0 {
+                            let resolved_root = crate::core::protocol::detect_project_root_or_cwd(
+                                &project_root_for_bug_memory,
+                            );
+                            crate::core::bug_memory::record_mcp_shell_failure(
+                                &resolved_root,
+                                &cmd_clone,
+                                real_exit_code,
+                                &output,
+                            );
+                        }
 
                         // Perform heavy token counting and compression here, off the main thread
                         if raw {
@@ -366,12 +379,6 @@ impl NebuCtxServer {
                                 }
                                 _ => String::new(),
                             };
-
-                            // Gotcha detection logic (moved inside blocking task)
-                            // Note: We don't have access to session here easily,
-                            // but we can pass the relevant data if needed.
-                            // For now, focusing on the core perf fix.
-
                             (result, original, saved, tee_hint)
                         }
                     })
@@ -455,44 +462,6 @@ impl NebuCtxServer {
                     crate::tools::ctx_compress::handle(&cache, include_sigs, self.crp_mode);
                 drop(cache);
                 self.record_call("ctx_compress", 0, 0, None).await;
-                result
-            }
-            "ctx_benchmark" => {
-                let path = match get_str(args, "path") {
-                    Some(p) => self
-                        .resolve_path(&p)
-                        .await
-                        .map_err(|e| ErrorData::invalid_params(e, None))?,
-                    None => return Err(ErrorData::invalid_params("path is required", None)),
-                };
-                let action = get_str(args, "action").unwrap_or_default();
-                let result = if action == "project" {
-                    let fmt = get_str(args, "format").unwrap_or_default();
-                    let bench = crate::core::benchmark::run_project_benchmark(&path);
-                    match fmt.as_str() {
-                        "json" => crate::core::benchmark::format_json(&bench),
-                        "markdown" | "md" => crate::core::benchmark::format_markdown(&bench),
-                        _ => crate::core::benchmark::format_terminal(&bench),
-                    }
-                } else {
-                    crate::tools::ctx_benchmark::handle(&path, self.crp_mode)
-                };
-                self.record_call("ctx_benchmark", 0, 0, None).await;
-                result
-            }
-            "ctx_metrics" => {
-                let cache = self.cache.read().await;
-                let calls = self.tool_calls.read().await;
-                let mut result = crate::tools::ctx_metrics::handle(&cache, &calls, self.crp_mode);
-                drop(cache);
-                drop(calls);
-                let stats = self.pipeline_stats.read().await;
-                if stats.runs > 0 {
-                    result.push_str("\n\n--- PIPELINE METRICS ---\n");
-                    result.push_str(&stats.format_summary());
-                }
-                drop(stats);
-                self.record_call("ctx_metrics", 0, 0, None).await;
                 result
             }
             "ctx_analyze" => {
@@ -727,69 +696,6 @@ impl NebuCtxServer {
                     .await;
                 result
             }
-            "ctx_cache" => {
-                let action = get_str(args, "action")
-                    .ok_or_else(|| ErrorData::invalid_params("action is required", None))?;
-                let mut cache = self.cache.write().await;
-                let result = match action.as_str() {
-                    "status" => {
-                        let entries = cache.get_all_entries();
-                        if entries.is_empty() {
-                            "Cache empty — no files tracked.".to_string()
-                        } else {
-                            let mut lines = vec![format!("Cache: {} file(s)", entries.len())];
-                            for (path, entry) in &entries {
-                                let fref = cache
-                                    .file_ref_map()
-                                    .get(*path)
-                                    .map(|s| s.as_str())
-                                    .unwrap_or("F?");
-                                lines.push(format!(
-                                    "  {fref}={} [{}L, {}t, read {}x]",
-                                    crate::core::protocol::shorten_path(path),
-                                    entry.line_count,
-                                    entry.original_tokens,
-                                    entry.read_count
-                                ));
-                            }
-                            lines.join("\n")
-                        }
-                    }
-                    "clear" => {
-                        let count = cache.clear();
-                        format!("Cache cleared — {count} file(s) removed. Next ctx_read will return full content.")
-                    }
-                    "invalidate" => {
-                        let path = match get_str(args, "path") {
-                            Some(p) => self
-                                .resolve_path(&p)
-                                .await
-                                .map_err(|e| ErrorData::invalid_params(e, None))?,
-                            None => {
-                                return Err(ErrorData::invalid_params(
-                                    "path is required for invalidate",
-                                    None,
-                                ))
-                            }
-                        };
-                        if cache.invalidate(&path) {
-                            format!(
-                                "Invalidated cache for {}. Next ctx_read will return full content.",
-                                crate::core::protocol::shorten_path(&path)
-                            )
-                        } else {
-                            format!(
-                                "{} was not in cache.",
-                                crate::core::protocol::shorten_path(&path)
-                            )
-                        }
-                    }
-                    _ => "Unknown action. Use: status, clear, invalidate".to_string(),
-                };
-                drop(cache);
-                self.record_call("ctx_cache", 0, 0, Some(action)).await;
-                result
-            }
             "ctx_session" => {
                 let action = get_str(args, "action")
                     .ok_or_else(|| ErrorData::invalid_params("action is required", None))?;
@@ -814,8 +720,6 @@ impl NebuCtxServer {
                 let value = get_str(args, "value");
                 let query = get_str(args, "query");
                 let mode = get_str(args, "mode");
-                let pattern_type = get_str(args, "pattern_type");
-                let examples = get_str_array(args, "examples");
                 let raw_items = args.as_ref().and_then(|map| map.get("items"));
                 let confidence: Option<f32> = args
                     .as_ref()
@@ -833,39 +737,11 @@ impl NebuCtxServer {
                 drop(session);
 
                 if action == "gotcha" {
-                    let trigger = get_str(args, "trigger").unwrap_or_default();
-                    let resolution = get_str(args, "resolution").unwrap_or_default();
-                    let severity = get_str(args, "severity").unwrap_or_default();
-                    let cat = category.as_deref().unwrap_or("convention");
-
-                    if trigger.is_empty() || resolution.is_empty() {
-                        self.record_call("ctx_knowledge", 0, 0, Some(action)).await;
-                        return Ok(
-                            "ERROR: trigger and resolution are required for gotcha action"
-                                .to_string(),
-                        );
-                    }
-
-                    let mut store = crate::core::gotcha_tracker::GotchaStore::load(&project_root);
-                    let msg = match store.report_gotcha(
-                        &trigger,
-                        &resolution,
-                        cat,
-                        &severity,
-                        &session_id,
-                    ) {
-                        Some(gotcha) => {
-                            let conf = (gotcha.confidence * 100.0) as u32;
-                            let label = gotcha.category.short_label();
-                            format!("Gotcha recorded: [{label}] {trigger} (confidence: {conf}%)")
-                        }
-                        None => format!(
-                            "Gotcha noted: {trigger} (evicted by higher-confidence entries)"
-                        ),
-                    };
-                    let _ = store.save(&project_root);
                     self.record_call("ctx_knowledge", 0, 0, Some(action)).await;
-                    return Ok(msg);
+                    return Ok(
+                        "ERROR: gotcha action was removed. Failure Memory now records real client-side command failures automatically."
+                            .to_string(),
+                    );
                 }
 
                 let result = crate::tools::ctx_knowledge::handle(
@@ -876,8 +752,6 @@ impl NebuCtxServer {
                     value.as_deref(),
                     query.as_deref(),
                     &session_id,
-                    pattern_type.as_deref(),
-                    examples,
                     confidence,
                     mode.as_deref(),
                     raw_items,
@@ -1159,48 +1033,6 @@ impl NebuCtxServer {
                     .await;
                 result
             }
-            "ctx_execute" => {
-                let action = get_str(args, "action").unwrap_or_default();
-
-                let result = if action == "batch" {
-                    let items_str = get_str(args, "items").ok_or_else(|| {
-                        ErrorData::invalid_params("items is required for batch", None)
-                    })?;
-                    let items: Vec<serde_json::Value> =
-                        serde_json::from_str(&items_str).map_err(|e| {
-                            ErrorData::invalid_params(format!("Invalid items JSON: {e}"), None)
-                        })?;
-                    let batch: Vec<(String, String)> = items
-                        .iter()
-                        .filter_map(|item| {
-                            let lang = item.get("language")?.as_str()?.to_string();
-                            let code = item.get("code")?.as_str()?.to_string();
-                            Some((lang, code))
-                        })
-                        .collect();
-                    crate::tools::ctx_execute::handle_batch(&batch)
-                } else if action == "file" {
-                    let raw_path = get_str(args, "path").ok_or_else(|| {
-                        ErrorData::invalid_params("path is required for action=file", None)
-                    })?;
-                    let path = self.resolve_path(&raw_path).await.map_err(|e| {
-                        ErrorData::invalid_params(format!("path rejected: {e}"), None)
-                    })?;
-                    let intent = get_str(args, "intent");
-                    crate::tools::ctx_execute::handle_file(&path, intent.as_deref())
-                } else {
-                    let language = get_str(args, "language")
-                        .ok_or_else(|| ErrorData::invalid_params("language is required", None))?;
-                    let code = get_str(args, "code")
-                        .ok_or_else(|| ErrorData::invalid_params("code is required", None))?;
-                    let intent = get_str(args, "intent");
-                    let timeout = get_int(args, "timeout").map(|t| t as u64);
-                    crate::tools::ctx_execute::handle(&language, &code, intent.as_deref(), timeout)
-                };
-
-                self.record_call("ctx_execute", 0, 0, Some(action)).await;
-                result
-            }
             "ctx_symbol" => {
                 let sym_name = get_str(args, "name")
                     .ok_or_else(|| ErrorData::invalid_params("name is required", None))?;
@@ -1248,15 +1080,6 @@ impl NebuCtxServer {
                 self.record_call("ctx_graph_diagram", 0, 0, kind).await;
                 result
             }
-            "ctx_expand" => {
-                let args_val = args
-                    .as_ref()
-                    .map(|m| serde_json::Value::Object(m.clone()))
-                    .unwrap_or(serde_json::Value::Null);
-                let result = crate::tools::ctx_expand::handle(&args_val);
-                self.record_call("ctx_expand", 0, 0, None).await;
-                result
-            }
             "ctx_routes" => {
                 let method = get_str(args, "method");
                 let path_prefix = get_str(args, "path");
@@ -1272,18 +1095,6 @@ impl NebuCtxServer {
                     &project_root,
                 );
                 self.record_call("ctx_routes", 0, 0, None).await;
-                result
-            }
-            "ctx_compress_memory" => {
-                let path = self
-                    .resolve_path(
-                        &get_str(args, "path")
-                            .ok_or_else(|| ErrorData::invalid_params("path is required", None))?,
-                    )
-                    .await
-                    .map_err(|e| ErrorData::invalid_params(e, None))?;
-                let result = crate::tools::ctx_compress_memory::handle(&path);
-                self.record_call("ctx_compress_memory", 0, 0, None).await;
                 result
             }
             "ctx_callers" => {
@@ -1335,12 +1146,6 @@ impl NebuCtxServer {
                 let sent = crate::core::tokens::count_tokens(&result);
                 let saved = original.saturating_sub(sent);
                 self.record_call("ctx_outline", original, saved, kind).await;
-                result
-            }
-            "ctx_discover_tools" => {
-                let query = get_str(args, "query").unwrap_or_default();
-                let result = crate::tool_defs::discover_tools(&query);
-                self.record_call("ctx_discover_tools", 0, 0, None).await;
                 result
             }
             "ctx_feedback" => {

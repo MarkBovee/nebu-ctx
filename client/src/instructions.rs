@@ -91,7 +91,7 @@ fn build_full_instructions(crp_mode: CrpMode, client_name: &str) -> String {
         Some(root) => {
             let knowledge = crate::core::knowledge::ProjectKnowledge::load(root);
             match knowledge {
-                Some(k) if !k.facts.is_empty() || !k.patterns.is_empty() => {
+                Some(k) if !k.facts.is_empty() => {
                     let aaak = k.format_aaak();
                     if aaak.is_empty() {
                         String::new()
@@ -107,12 +107,8 @@ fn build_full_instructions(crp_mode: CrpMode, client_name: &str) -> String {
 
     let gotcha_block = match &project_root_for_blocks {
         Some(root) => {
-            let store = crate::core::gotcha_tracker::GotchaStore::load(root);
-            let files: Vec<String> = loaded_session
-                .as_ref()
-                .map(|s| s.files_touched.iter().map(|ft| ft.path.clone()).collect())
-                .unwrap_or_default();
-            let block = store.format_injection_block(&files);
+            let store = crate::core::bug_memory::BugMemoryStore::load(root);
+            let block = store.format_injection_block();
             if block.is_empty() {
                 String::new()
             } else {

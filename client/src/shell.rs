@@ -226,6 +226,7 @@ pub fn exec_argv_compressed(args: &[String]) -> i32 {
     exec_buffered_argv(args, &joined, &cfg)
 }
 
+#[cfg(test)]
 fn exec_direct(args: &[String]) -> i32 {
     match spawn_direct_inherit(args) {
         Ok(s) => s.code().unwrap_or(1),
@@ -414,6 +415,18 @@ fn finalize_buffered_output(
         if let Some(path) = save_tee(command, &full_output) {
             eprintln!("[nebu-ctx: full output -> {path} (redacted, 24h TTL)]");
         }
+    }
+
+    if exit_code != 0 {
+        let project_root = std::env::current_dir()
+            .map(|path| crate::core::protocol::detect_project_root_or_cwd(&path.to_string_lossy()))
+            .unwrap_or_default();
+        crate::core::bug_memory::record_shell_failure(
+            &project_root,
+            command,
+            exit_code,
+            &full_output,
+        );
     }
 
     let threshold = cfg.slow_command_threshold_ms;

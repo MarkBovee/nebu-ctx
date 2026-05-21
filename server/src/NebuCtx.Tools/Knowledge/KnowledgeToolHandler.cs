@@ -6,7 +6,7 @@ using System.Text.Json;
 
 /// <summary>
 /// Tool handler for ctx_knowledge — project-scoped categorized knowledge store.
-/// Actions: remember, recall, status, remove, categories, consolidate, promote, upkeep, wakeup, triage.
+/// Actions: remember, recall, search, status, remove, categories, timeline, consolidate, promote, upkeep, wakeup, triage.
 /// </summary>
 public sealed class KnowledgeToolHandler : IToolHandler
 {
@@ -25,7 +25,7 @@ public sealed class KnowledgeToolHandler : IToolHandler
     public string Name => "ctx_knowledge";
 
     /// <inheritdoc />
-    public string Description => "Project-scoped categorized knowledge store. Actions: remember, recall, status, remove, categories, consolidate, promote, upkeep, wakeup, triage.";
+    public string Description => "Project-scoped categorized knowledge store. Actions: remember, recall, search, status, remove, categories, timeline, consolidate, promote, upkeep, wakeup, triage.";
 
     /// <inheritdoc />
     public Dictionary<string, object?> InputSchema => new()
@@ -36,8 +36,8 @@ public sealed class KnowledgeToolHandler : IToolHandler
             ["action"] = new Dictionary<string, object?>
             {
                 ["type"] = "string",
-                ["description"] = "Action: remember, recall, status, remove, categories, consolidate, promote, upkeep, wakeup, triage",
-                ["enum"] = new[] { "remember", "recall", "status", "remove", "categories", "consolidate", "promote", "upkeep", "wakeup", "triage" },
+                ["description"] = "Action: remember, recall, search, status, remove, categories, timeline, consolidate, promote, upkeep, wakeup, triage",
+                ["enum"] = new[] { "remember", "recall", "search", "status", "remove", "categories", "timeline", "consolidate", "promote", "upkeep", "wakeup", "triage" },
             },
             ["mode"] = new Dictionary<string, object?>
             {
@@ -67,12 +67,12 @@ public sealed class KnowledgeToolHandler : IToolHandler
             ["query"] = new Dictionary<string, object?>
             {
                 ["type"] = "string",
-                ["description"] = "Text search query. Required for recall.",
+                ["description"] = "Text search query. Required for recall and search.",
             },
             ["limit"] = new Dictionary<string, object?>
             {
                 ["type"] = "integer",
-                ["description"] = "Maximum results for recall (default: 10).",
+                ["description"] = "Maximum results for recall/search (default: 10).",
             },
             ["items"] = new Dictionary<string, object?>
             {
@@ -105,15 +105,17 @@ public sealed class KnowledgeToolHandler : IToolHandler
         {
             "remember"   => await ExecuteRememberAsync(arguments, context, cancellationToken),
             "recall"     => await ExecuteRecallAsync(arguments, context, cancellationToken),
+            "search"     => await ExecuteRecallAsync(arguments, context, cancellationToken),
+            "categories" => await ExecuteCategoriesAsync(context, cancellationToken),
+            "timeline"   => await ExecuteTimelineAsync(arguments, context, cancellationToken),
             "status"     => await _knowledgeService.GetStatusAsync(context.ProjectId, cancellationToken),
             "remove"     => await ExecuteRemoveAsync(arguments, context, cancellationToken),
-            "categories" => await ExecuteCategoriesAsync(context, cancellationToken),
             "consolidate" => await _knowledgeService.ConsolidateAsync(context.ProjectId, cancellationToken),
             "promote"     => await ExecutePromoteAsync(arguments, context, cancellationToken),
             "upkeep"      => await _knowledgeService.UpkeepAsync(context.ProjectId, cancellationToken),
             "wakeup"      => await _knowledgeService.BuildWakeupAsync(context.ProjectId, cancellationToken),
             "triage"      => await ExecuteTriageAsync(arguments, context, cancellationToken),
-            _             => throw new ArgumentException($"Unknown knowledge action: '{action}'. Use: remember, recall, status, remove, categories, consolidate, promote, upkeep, wakeup, triage"),
+            _             => throw new ArgumentException($"Unknown knowledge action: '{action}'. Use: remember, recall, search, status, remove, categories, timeline, consolidate, promote, upkeep, wakeup, triage"),
         };
     }
 
@@ -194,6 +196,22 @@ public sealed class KnowledgeToolHandler : IToolHandler
         {
             count = categories.Count,
             categories = categories.Select(c => new { category = c.Category, facts = c.Count }),
+        };
+    }
+
+    /// <summary>
+    /// Lists hosted knowledge timeline entries for a category.
+    /// </summary>
+    private async Task<object> ExecuteTimelineAsync(Dictionary<string, object?> arguments, ToolExecutionContext context, CancellationToken cancellationToken)
+    {
+        var category = GetStringArg(arguments, "category") ?? throw new ArgumentException("'category' is required for timeline.");
+        var limit = GetIntArg(arguments, "limit") ?? 50;
+        var entries = await _knowledgeService.GetTimelineAsync(context.ProjectId, category, limit, cancellationToken);
+        return new
+        {
+            category,
+            count = entries.Count,
+            entries,
         };
     }
 

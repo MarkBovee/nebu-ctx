@@ -1,9 +1,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 const MAX_FACTS: usize = 200;
-const MAX_PATTERNS: usize = 50;
 const MAX_HISTORY: usize = 100;
 const CONTRADICTION_THRESHOLD: f32 = 0.5;
 
@@ -12,7 +12,6 @@ pub struct ProjectKnowledge {
     pub project_root: String,
     pub project_hash: String,
     pub facts: Vec<KnowledgeFact>,
-    pub patterns: Vec<ProjectPattern>,
     pub history: Vec<ConsolidatedInsight>,
     pub updated_at: DateTime<Utc>,
 }
@@ -58,15 +57,6 @@ pub enum ContradictionSeverity {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProjectPattern {
-    pub pattern_type: String,
-    pub description: String,
-    pub examples: Vec<String>,
-    pub source_session: String,
-    pub created_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConsolidatedInsight {
     pub summary: String,
     pub from_sessions: Vec<String>,
@@ -94,7 +84,6 @@ impl ProjectKnowledge {
             project_hash: hash_project_root(&project_root),
             project_root,
             facts: Vec::new(),
-            patterns: Vec::new(),
             history: Vec::new(),
             updated_at: Utc::now(),
         }
@@ -243,32 +232,23 @@ impl ProjectKnowledge {
     }
 
     pub fn recall(&self, query: &str) -> Vec<&KnowledgeFact> {
-        let q = query.to_lowercase();
-        let terms: Vec<&str> = q.split_whitespace().collect();
+        let query = QueryProfile::new(query);
+        if query.tokens.is_empty() {
+            return Vec::new();
+        }
 
         let mut results: Vec<(&KnowledgeFact, f32)> = self
             .facts
             .iter()
             .filter(|f| f.is_current())
-            .filter_map(|f| {
-                let searchable = format!(
-                    "{} {} {} {}",
-                    f.category.to_lowercase(),
-                    f.key.to_lowercase(),
-                    f.value.to_lowercase(),
-                    f.source_session
-                );
-                let match_count = terms.iter().filter(|t| searchable.contains(**t)).count();
-                if match_count > 0 {
-                    let relevance = (match_count as f32 / terms.len() as f32) * f.confidence;
-                    Some((f, relevance))
-                } else {
-                    None
-                }
-            })
+            .filter_map(|f| score_fact_for_query(f, &query).map(|score| (f, score)))
             .collect();
 
-        results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        results.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| sort_fact_for_output(a.0, b.0))
+        });
         results.into_iter().map(|(f, _)| f).collect()
     }
 
@@ -317,7 +297,7 @@ impl ProjectKnowledge {
         facts
     }
 
-    pub fn list_rooms(&self) -> Vec<(String, usize)> {
+    pub fn list_categories(&self) -> Vec<(String, usize)> {
         let mut categories: std::collections::BTreeMap<String, usize> =
             std::collections::BTreeMap::new();
         for f in &self.facts {
@@ -326,40 +306,6 @@ impl ProjectKnowledge {
             }
         }
         categories.into_iter().collect()
-    }
-
-    pub fn add_pattern(
-        &mut self,
-        pattern_type: &str,
-        description: &str,
-        examples: Vec<String>,
-        session_id: &str,
-    ) {
-        if let Some(existing) = self
-            .patterns
-            .iter_mut()
-            .find(|p| p.pattern_type == pattern_type && p.description == description)
-        {
-            for ex in &examples {
-                if !existing.examples.contains(ex) {
-                    existing.examples.push(ex.clone());
-                }
-            }
-            return;
-        }
-
-        self.patterns.push(ProjectPattern {
-            pattern_type: pattern_type.to_string(),
-            description: description.to_string(),
-            examples,
-            source_session: session_id.to_string(),
-            created_at: Utc::now(),
-        });
-
-        if self.patterns.len() > MAX_PATTERNS {
-            self.patterns.truncate(MAX_PATTERNS);
-        }
-        self.updated_at = Utc::now();
     }
 
     pub fn consolidate(&mut self, summary: &str, session_ids: Vec<String>) {
@@ -393,13 +339,13 @@ impl ProjectKnowledge {
 
         if !current_facts.is_empty() {
             out.push_str("PROJECT KNOWLEDGE:\n");
-            let mut rooms: Vec<(String, usize)> = self.list_rooms();
-            rooms.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+            let mut categories: Vec<(String, usize)> = self.list_categories();
+            categories.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
-            let total_rooms = rooms.len();
-            rooms.truncate(crate::core::budgets::KNOWLEDGE_SUMMARY_ROOMS_LIMIT);
+            let total_categories = categories.len();
+            categories.truncate(crate::core::budgets::KNOWLEDGE_SUMMARY_ROOMS_LIMIT);
 
-            for (cat, _count) in rooms {
+            for (cat, _count) in categories {
                 out.push_str(&format!("  [{cat}]\n"));
 
                 let mut facts_in_cat: Vec<&KnowledgeFact> = current_facts
@@ -430,34 +376,10 @@ impl ProjectKnowledge {
                 }
             }
 
-            if total_rooms > crate::core::budgets::KNOWLEDGE_SUMMARY_ROOMS_LIMIT {
+            if total_categories > crate::core::budgets::KNOWLEDGE_SUMMARY_ROOMS_LIMIT {
                 out.push_str(&format!(
-                    "  … +{} more rooms\n",
-                    total_rooms - crate::core::budgets::KNOWLEDGE_SUMMARY_ROOMS_LIMIT
-                ));
-            }
-        }
-
-        if !self.patterns.is_empty() {
-            out.push_str("PROJECT PATTERNS:\n");
-            let mut patterns = self.patterns.clone();
-            patterns.sort_by(|a, b| {
-                b.created_at
-                    .cmp(&a.created_at)
-                    .then_with(|| a.pattern_type.cmp(&b.pattern_type))
-                    .then_with(|| a.description.cmp(&b.description))
-            });
-            let total = patterns.len();
-            patterns.truncate(crate::core::budgets::KNOWLEDGE_PATTERNS_LIMIT);
-            for p in &patterns {
-                let ty = crate::core::sanitize::neutralize_metadata(&p.pattern_type);
-                let desc = crate::core::sanitize::neutralize_metadata(&p.description);
-                out.push_str(&format!("  [{ty}] {desc}\n"));
-            }
-            if total > crate::core::budgets::KNOWLEDGE_PATTERNS_LIMIT {
-                out.push_str(&format!(
-                    "  … +{} more\n",
-                    total - crate::core::budgets::KNOWLEDGE_PATTERNS_LIMIT
+                    "  … +{} more categories\n",
+                    total_categories - crate::core::budgets::KNOWLEDGE_SUMMARY_ROOMS_LIMIT
                 ));
             }
         }
@@ -473,17 +395,17 @@ impl ProjectKnowledge {
         let current_facts: Vec<&KnowledgeFact> =
             self.facts.iter().filter(|f| f.is_current()).collect();
 
-        if current_facts.is_empty() && self.patterns.is_empty() {
+        if current_facts.is_empty() {
             return String::new();
         }
 
         let mut out = String::new();
 
-        let mut rooms: Vec<(String, usize)> = self.list_rooms();
-        rooms.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-        rooms.truncate(crate::core::budgets::KNOWLEDGE_AAAK_ROOMS_LIMIT);
+        let mut categories: Vec<(String, usize)> = self.list_categories();
+        categories.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+        categories.truncate(crate::core::budgets::KNOWLEDGE_AAAK_ROOMS_LIMIT);
 
-        for (cat, _count) in rooms {
+        for (cat, _count) in categories {
             let mut facts_in_cat: Vec<&KnowledgeFact> = current_facts
                 .iter()
                 .copied()
@@ -506,26 +428,6 @@ impl ProjectKnowledge {
                 crate::core::sanitize::neutralize_metadata(&cat.to_uppercase()),
                 items.join("|")
             ));
-        }
-
-        if !self.patterns.is_empty() {
-            let mut patterns = self.patterns.clone();
-            patterns.sort_by(|a, b| {
-                b.created_at
-                    .cmp(&a.created_at)
-                    .then_with(|| a.pattern_type.cmp(&b.pattern_type))
-                    .then_with(|| a.description.cmp(&b.description))
-            });
-            patterns.truncate(crate::core::budgets::KNOWLEDGE_PATTERNS_LIMIT);
-            let pat_items: Vec<String> = patterns
-                .iter()
-                .map(|p| {
-                    let ty = crate::core::sanitize::neutralize_metadata(&p.pattern_type);
-                    let desc = crate::core::sanitize::neutralize_metadata(&p.description);
-                    format!("{ty}.{desc}")
-                })
-                .collect();
-            out.push_str(&format!("PAT:{}\n", pat_items.join("|")));
         }
 
         if out.is_empty() {
@@ -622,7 +524,7 @@ impl ProjectKnowledge {
         if !legacy.project_root.trim().is_empty() {
             return Ok(false);
         }
-        if legacy.facts.is_empty() && legacy.patterns.is_empty() && legacy.history.is_empty() {
+        if legacy.facts.is_empty() && legacy.history.is_empty() {
             return Ok(false);
         }
 
@@ -632,12 +534,6 @@ impl ProjectKnowledge {
             format!(
                 "{}|{}|{}|{}|{}",
                 f.category, f.key, f.value, f.source_session, f.created_at
-            )
-        }
-        fn pattern_key(p: &ProjectPattern) -> String {
-            format!(
-                "{}|{}|{}|{}",
-                p.pattern_type, p.description, p.source_session, p.created_at
             )
         }
         fn history_key(h: &ConsolidatedInsight) -> String {
@@ -657,14 +553,6 @@ impl ProjectKnowledge {
             }
         }
 
-        let mut seen_patterns: std::collections::HashSet<String> =
-            target.patterns.iter().map(pattern_key).collect();
-        for p in legacy.patterns {
-            if seen_patterns.insert(pattern_key(&p)) {
-                target.patterns.push(p);
-            }
-        }
-
         let mut seen_history: std::collections::HashSet<String> =
             target.history.iter().map(history_key).collect();
         for h in legacy.history {
@@ -681,12 +569,6 @@ impl ProjectKnowledge {
         });
         if target.facts.len() > MAX_FACTS {
             target.facts.truncate(MAX_FACTS);
-        }
-        target
-            .patterns
-            .sort_by_key(|x| std::cmp::Reverse(x.created_at));
-        if target.patterns.len() > MAX_PATTERNS {
-            target.patterns.truncate(MAX_PATTERNS);
         }
         target
             .history
@@ -711,9 +593,8 @@ impl ProjectKnowledge {
     }
 
     pub fn recall_for_output(&mut self, query: &str, limit: usize) -> (Vec<KnowledgeFact>, usize) {
-        let q = query.to_lowercase();
-        let terms: Vec<&str> = q.split_whitespace().filter(|t| !t.is_empty()).collect();
-        if terms.is_empty() {
+        let query = QueryProfile::new(query);
+        if query.tokens.is_empty() {
             return (Vec::new(), 0);
         }
 
@@ -728,20 +609,7 @@ impl ProjectKnowledge {
             .enumerate()
             .filter(|(_, f)| f.is_current())
             .filter_map(|(idx, f)| {
-                let searchable = format!(
-                    "{} {} {} {}",
-                    f.category.to_lowercase(),
-                    f.key.to_lowercase(),
-                    f.value.to_lowercase(),
-                    f.source_session
-                );
-                let match_count = terms.iter().filter(|t| searchable.contains(**t)).count();
-                if match_count > 0 {
-                    let relevance = (match_count as f32 / terms.len() as f32) * f.confidence;
-                    Some(Scored { idx, relevance })
-                } else {
-                    None
-                }
+                score_fact_for_query(f, &query).map(|relevance| Scored { idx, relevance })
             })
             .collect();
 
@@ -846,6 +714,180 @@ fn string_similarity(a: &str, b: &str) -> f32 {
     intersection as f32 / union as f32
 }
 
+#[derive(Debug, Clone)]
+struct QueryProfile {
+    raw: String,
+    normalized: String,
+    tokens: Vec<String>,
+    is_recent_query: bool,
+}
+
+impl QueryProfile {
+    fn new(query: &str) -> Self {
+        let raw = sanitize_query_text(query);
+        let normalized = normalize_search_text(&raw);
+        let tokens = tokenize_search_text(&normalized);
+        let is_recent_query = contains_recent_intent(query, &tokens);
+        Self {
+            raw,
+            normalized,
+            tokens,
+            is_recent_query,
+        }
+    }
+}
+
+fn sanitize_query_text(query: &str) -> String {
+    let trimmed = query.trim();
+    if trimmed.len() <= 220 {
+        return trimmed.to_string();
+    }
+
+    for segment in trimmed
+        .lines()
+        .rev()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        if (12..=220).contains(&segment.len()) {
+            return segment.to_string();
+        }
+    }
+
+    trimmed[trimmed.len() - 220..].trim().to_string()
+}
+
+fn normalize_search_text(text: &str) -> String {
+    text.chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else if ch.is_alphanumeric() {
+                ch.to_lowercase().next().unwrap_or(ch)
+            } else {
+                ' '
+            }
+        })
+        .collect()
+}
+
+fn tokenize_search_text(text: &str) -> Vec<String> {
+    text.split_whitespace()
+        .filter(|token| token.len() >= 2)
+        .filter(|token| !is_search_stopword(token))
+        .map(ToString::to_string)
+        .collect()
+}
+
+fn is_search_stopword(token: &str) -> bool {
+    matches!(
+        token,
+        "the"
+            | "and"
+            | "for"
+            | "with"
+            | "from"
+            | "that"
+            | "this"
+            | "what"
+            | "when"
+            | "where"
+            | "which"
+            | "were"
+            | "have"
+            | "about"
+            | "into"
+            | "then"
+            | "than"
+            | "just"
+            | "does"
+            | "did"
+            | "our"
+            | "your"
+    )
+}
+
+fn contains_recent_intent(raw_query: &str, tokens: &[String]) -> bool {
+    let raw = raw_query.to_lowercase();
+    raw.contains("yesterday")
+        || raw.contains("today")
+        || raw.contains("latest")
+        || raw.contains("recent")
+        || raw.contains("fixes")
+        || raw.contains("changes")
+        || tokens
+            .iter()
+            .any(|token| matches!(token.as_str(), "fix" | "fixed" | "change"))
+}
+
+fn fact_tokens(fact: &KnowledgeFact) -> HashSet<String> {
+    tokenize_search_text(&normalize_search_text(&format!(
+        "{} {} {} {}",
+        fact.category, fact.key, fact.value, fact.source_session
+    )))
+    .into_iter()
+    .collect()
+}
+
+fn score_fact_for_query(fact: &KnowledgeFact, query: &QueryProfile) -> Option<f32> {
+    let fact_tokens = fact_tokens(fact);
+    if fact_tokens.is_empty() {
+        return None;
+    }
+
+    let normalized_fact = normalize_search_text(&format!(
+        "{} {} {} {}",
+        fact.category, fact.key, fact.value, fact.source_session
+    ));
+    let exact_hits = query
+        .tokens
+        .iter()
+        .filter(|token| fact_tokens.contains(token.as_str()))
+        .count();
+    let partial_hits = query
+        .tokens
+        .iter()
+        .filter(|token| normalized_fact.contains(token.as_str()))
+        .count();
+    let phrase_hit =
+        (!query.normalized.is_empty() && normalized_fact.contains(&query.normalized)) as u8 as f32;
+
+    if exact_hits == 0 && partial_hits == 0 && phrase_hit == 0.0 {
+        return None;
+    }
+
+    let token_count = query.tokens.len().max(1) as f32;
+    let coverage = exact_hits as f32 / token_count;
+    let partial = partial_hits as f32 / token_count;
+    let mut score = coverage * 0.65 + partial * 0.15 + phrase_hit * 0.20;
+    score *= 0.6 + fact.confidence.clamp(0.0, 1.0) * 0.4;
+
+    if query.is_recent_query {
+        score += fact
+            .last_retrieved
+            .or(Some(fact.last_confirmed))
+            .map(|ts| {
+                let days = Utc::now().signed_duration_since(ts).num_days();
+                if days <= 1 {
+                    0.25
+                } else if days <= 7 {
+                    0.12
+                } else if days <= 30 {
+                    0.05
+                } else {
+                    0.0
+                }
+            })
+            .unwrap_or(0.0);
+    }
+
+    if query.raw.len() > 80 && phrase_hit == 0.0 && coverage < 0.34 {
+        score *= 0.75;
+    }
+
+    Some(score)
+}
+
 fn knowledge_dir(project_hash: &str) -> Result<PathBuf, String> {
     Ok(crate::core::data_dir::nebu_ctx_data_dir()?
         .join("knowledge")
@@ -928,6 +970,22 @@ mod tests {
     }
 
     #[test]
+    fn recall_handles_recent_fix_queries_better() {
+        let mut k = ProjectKnowledge::new("/tmp/test-project");
+        k.remember(
+            "deployment",
+            "plugin-hooks",
+            "Fixed opencode plugin hooks and setup flow yesterday",
+            "session-1",
+            0.95,
+        );
+
+        let results = k.recall("what did we fix yesterday in plugin hooks");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].key, "plugin-hooks");
+    }
+
+    #[test]
     fn upsert_existing_fact() {
         let mut k = ProjectKnowledge::new("/tmp/test");
         k.remember("arch", "db", "PostgreSQL", "s1", 0.7);
@@ -986,14 +1044,14 @@ mod tests {
     }
 
     #[test]
-    fn list_rooms() {
+    fn list_categories() {
         let mut k = ProjectKnowledge::new("/tmp/test");
         k.remember("architecture", "auth", "JWT", "s1", 0.9);
         k.remember("architecture", "db", "PG", "s1", 0.9);
         k.remember("deploy", "host", "AWS", "s1", 0.8);
 
-        let rooms = k.list_rooms();
-        assert_eq!(rooms.len(), 2);
+        let categories = k.list_categories();
+        assert_eq!(categories.len(), 2);
     }
 
     #[test]
@@ -1022,16 +1080,9 @@ mod tests {
     fn format_summary_output() {
         let mut k = ProjectKnowledge::new("/tmp/test");
         k.remember("architecture", "auth", "JWT RS256", "s1", 0.9);
-        k.add_pattern(
-            "naming",
-            "snake_case for functions",
-            vec!["get_user()".into()],
-            "s1",
-        );
         let summary = k.format_summary();
         assert!(summary.contains("PROJECT KNOWLEDGE:"));
         assert!(summary.contains("auth: JWT RS256"));
-        assert!(summary.contains("PROJECT PATTERNS:"));
     }
 
     #[test]

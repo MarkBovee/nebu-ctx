@@ -27,9 +27,11 @@ const SERVER_PREFERRED_TOOLS: &[&str] = &["ctx_knowledge", "ctx_session"];
 const SERVER_KNOWLEDGE_ACTIONS: &[&str] = &[
     "remember",
     "recall",
+    "search",
     "status",
     "remove",
     "categories",
+    "timeline",
     "consolidate",
     "promote",
     "upkeep",
@@ -249,7 +251,7 @@ impl ServerHandler for NebuCtxServer {
                 let resolved = match domain {
                     "memory" => match action {
                         "task" | "finding" | "decision" | "save" | "load" | "status" | "reset" | "list" | "cleanup" => "ctx_session",
-                        "recall" | "pattern" | "consolidate" | "promote" | "upkeep" | "triage" | "gotcha" | "timeline" | "rooms" | "search" | "wakeup" | "remove" | "export" | "embeddings_status" | "embeddings_reset" | "embeddings_reindex" => "ctx_knowledge",
+                        "recall" | "search" | "consolidate" | "promote" | "upkeep" | "triage" | "timeline" | "categories" | "wakeup" | "remove" => "ctx_knowledge",
                         "store" | "set" | "remember" => {
                             args.insert("action".to_string(), serde_json::Value::String("remember".to_string()));
                             if !args.contains_key("category") {
@@ -258,7 +260,7 @@ impl ServerHandler for NebuCtxServer {
                             "ctx_knowledge"
                         }
                         _ => return Err(ErrorData::invalid_params(
-                            "Unknown memory action. Use one of: task, finding, decision, save, load, status, reset, list, cleanup, store, set, remember, recall, pattern, consolidate, promote, upkeep, triage, gotcha, timeline, rooms, search, wakeup, remove, export",
+                            "Unknown memory action. Use one of: task, finding, decision, save, load, status, reset, list, cleanup, store, set, remember, recall, search, categories, timeline, consolidate, promote, upkeep, triage, wakeup, remove",
                             None,
                         )),
                     },
@@ -311,8 +313,6 @@ impl ServerHandler for NebuCtxServer {
                             "ctx_feedback"
                         }
                         "wrapped" => "ctx_wrapped",
-                        "metrics" => "ctx_metrics",
-                        "benchmark" => "ctx_benchmark",
                         "analyze" => "ctx_analyze",
                         "discover" => "ctx_discover",
                         _ => return Err(ErrorData::invalid_params("Unknown analytics action", None)),
@@ -326,19 +326,6 @@ impl ServerHandler for NebuCtxServer {
                     },
                     "inspect" => match action {
                         "routes" => "ctx_routes",
-                        "cache_status" => {
-                            args.insert("action".to_string(), serde_json::Value::String("status".to_string()));
-                            "ctx_cache"
-                        }
-                        "cache_clear" => {
-                            args.insert("action".to_string(), serde_json::Value::String("clear".to_string()));
-                            "ctx_cache"
-                        }
-                        "cache_invalidate" => {
-                            args.insert("action".to_string(), serde_json::Value::String("invalidate".to_string()));
-                            "ctx_cache"
-                        }
-                        "execute" => "ctx_execute",
                         "dedup" => "ctx_dedup",
                         _ => return Err(ErrorData::invalid_params("Unknown inspect action", None)),
                     },
@@ -905,14 +892,14 @@ pub fn derive_project_root_from_cwd() -> Option<String> {
 }
 
 pub fn tool_descriptions_for_test() -> Vec<(&'static str, &'static str)> {
-    crate::tool_defs::list_all_tool_defs()
+    crate::tool_defs::public_discoverable_tool_defs()
         .into_iter()
         .map(|(name, desc, _)| (name, desc))
         .collect()
 }
 
 pub fn tool_schemas_json_for_test() -> String {
-    crate::tool_defs::list_all_tool_defs()
+    crate::tool_defs::public_discoverable_tool_defs()
         .iter()
         .map(|(name, _, schema)| format!("{}: {}", name, schema))
         .collect::<Vec<_>>()
@@ -1165,8 +1152,38 @@ mod tests {
                 .expect("memory write alias should succeed");
 
             assert!(
-                text.contains("Remembered") || text.contains("remembered"),
+                text.contains("Remembered")
+                    || text.contains("remembered")
+                    || text.contains("\"remembered\":true")
+                    || text.contains("\"ok\":true"),
                 "memory action {action} should store knowledge instead of failing: {text}"
+            );
+        }
+    }
+
+    #[test]
+    fn public_memory_gateway_rejects_local_only_knowledge_actions() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let engine = crate::engine::ContextEngine::new();
+
+        for action in ["pattern", "export", "embeddings_status", "embeddings_reset", "embeddings_reindex"] {
+            let err = rt
+                .block_on(engine.call_tool_text(
+                    "ctx",
+                    Some(serde_json::json!({
+                        "domain": "memory",
+                        "action": action,
+                    })),
+                ))
+                .expect_err("local-only knowledge actions should stay off the public memory gateway");
+
+            let text = err.to_string();
+            assert!(
+                text.contains("Unknown memory action") || text.contains("tool call error"),
+                "expected public memory gateway rejection for {action}: {text}"
             );
         }
     }
@@ -1397,8 +1414,8 @@ mod tests {
         assert!(prefers_server_route("ctx_knowledge", &args("upkeep")));
         assert!(prefers_server_route("ctx_knowledge", &args("triage")));
         assert!(prefers_server_route("ctx_knowledge", &args("wakeup")));
-        assert!(!prefers_server_route("ctx_knowledge", &args("timeline")));
-        assert!(!prefers_server_route("ctx_knowledge", &args("rooms")));
+        assert!(prefers_server_route("ctx_knowledge", &args("timeline")));
+        assert!(prefers_server_route("ctx_knowledge", &args("categories")));
         assert!(prefers_server_route("ctx_session", &args("status")));
     }
 

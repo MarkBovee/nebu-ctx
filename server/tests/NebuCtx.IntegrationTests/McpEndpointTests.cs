@@ -321,6 +321,135 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     }
 
     /// <summary>
+    /// Hosted ctx_knowledge search aliases to the same recall path used by the client memory gateway.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_CtxKnowledgeSearch_ReturnsHostedKnowledge()
+    {
+        var fingerprint = new RepositoryFingerprint
+        {
+            RemoteUrl = "https://github.com/example/knowledge-search-alias.git",
+            Host = "github.com",
+            Owner = "example",
+            RepoName = "knowledge-search-alias",
+            DefaultBranch = "main",
+        };
+
+        var rememberResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            RepositoryFingerprint = fingerprint,
+            ProjectSlug = "knowledge-search-alias",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "remember",
+                ["category"] = "deployment",
+                ["key"] = "plugin-hooks",
+                ["value"] = "Fixed opencode plugin hooks and setup flow yesterday",
+                ["confidence"] = 0.95,
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, rememberResponse.StatusCode);
+
+        var searchResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            RepositoryFingerprint = fingerprint,
+            ProjectSlug = "knowledge-search-alias",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "search",
+                ["query"] = "what did we fix yesterday in plugin hooks",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, searchResponse.StatusCode);
+
+        var searchPayload = await searchResponse.Content.ReadAsStringAsync();
+        Assert.Contains("plugin-hooks", searchPayload, StringComparison.Ordinal);
+        Assert.Contains("Fixed opencode plugin hooks and setup flow yesterday", searchPayload, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Hosted knowledge categories and timeline are available through both private and public memory contracts.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_HostedKnowledgeCategoriesAndTimeline_ReturnKnowledgeViews()
+    {
+        var fingerprint = new RepositoryFingerprint
+        {
+            RemoteUrl = "https://github.com/example/knowledge-views.git",
+            Host = "github.com",
+            Owner = "example",
+            RepoName = "knowledge-views",
+            DefaultBranch = "main",
+        };
+
+        var rememberOne = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            RepositoryFingerprint = fingerprint,
+            ProjectSlug = "knowledge-views",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "remember",
+                ["category"] = "deployment",
+                ["key"] = "plugin-hooks",
+                ["value"] = "Initial plugin hook fix",
+                ["confidence"] = 0.8,
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, rememberOne.StatusCode);
+
+        var rememberTwo = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            RepositoryFingerprint = fingerprint,
+            ProjectSlug = "knowledge-views",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "remember",
+                ["category"] = "deployment",
+                ["key"] = "plugin-hooks",
+                ["value"] = "Final plugin hook fix with setup cleanup",
+                ["confidence"] = 0.95,
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, rememberTwo.StatusCode);
+
+        var categoriesResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx",
+            RepositoryFingerprint = fingerprint,
+            ProjectSlug = "knowledge-views",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["domain"] = "memory",
+                ["action"] = "categories",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, categoriesResponse.StatusCode);
+        var categoriesPayload = await categoriesResponse.Content.ReadAsStringAsync();
+        Assert.Contains("deployment", categoriesPayload, StringComparison.Ordinal);
+
+        var timelineResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx",
+            RepositoryFingerprint = fingerprint,
+            ProjectSlug = "knowledge-views",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["domain"] = "memory",
+                ["action"] = "timeline",
+                ["category"] = "deployment",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, timelineResponse.StatusCode);
+        var timelinePayload = await timelineResponse.Content.ReadAsStringAsync();
+        Assert.Contains("Initial plugin hook fix", timelinePayload, StringComparison.Ordinal);
+        Assert.Contains("Final plugin hook fix with setup cleanup", timelinePayload, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Project resolution endpoint creates a canonical project and persists the workspace binding.
     /// </summary>
     [Fact]
@@ -1508,7 +1637,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     }
 
     /// <summary>
-    /// Dashboard operator views return derived payloads for agents, buddy, gotchas, learning, intent, and compression demo.
+    /// Dashboard operator views return derived payloads for agents, buddy, learning, intent, and compression demo.
     /// </summary>
     [Fact]
     public async Task DashboardOperatorViews_ReturnDerivedPayloads()
@@ -1569,7 +1698,6 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
 
         var agentsPayload = await (await _client.GetAsync("/api/agents")).Content.ReadAsStringAsync();
         var buddyPayload = await (await _client.GetAsync("/api/buddy")).Content.ReadAsStringAsync();
-        var gotchasPayload = await (await _client.GetAsync("/api/gotchas")).Content.ReadAsStringAsync();
         var feedbackPayload = await (await _client.GetAsync("/api/feedback")).Content.ReadAsStringAsync();
         var intentPayload = await (await _client.GetAsync("/api/intent")).Content.ReadAsStringAsync();
         var compressionPayload = await (await _client.GetAsync("/api/compression-demo?path=NebuCtx.Tools&task=routes")).Content.ReadAsStringAsync();
@@ -1578,8 +1706,6 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
         Assert.Contains("thin-client", agentsPayload, StringComparison.Ordinal);
         Assert.Contains("Nebby", buddyPayload, StringComparison.Ordinal);
         Assert.Contains("rarity", buddyPayload, StringComparison.Ordinal);
-        Assert.Contains("gotchas", gotchasPayload, StringComparison.Ordinal);
-        Assert.Contains("compression", gotchasPayload, StringComparison.Ordinal);
         Assert.Contains("learned_thresholds", feedbackPayload, StringComparison.Ordinal);
         Assert.Contains("rust", feedbackPayload, StringComparison.Ordinal);
         Assert.Contains("task_type", intentPayload, StringComparison.Ordinal);

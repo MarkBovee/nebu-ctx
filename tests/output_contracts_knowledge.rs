@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use nebula_ctx::core::knowledge::ProjectKnowledge;
 
 #[test]
@@ -68,49 +66,24 @@ fn ctx_knowledge_recall_is_budgeted_and_deterministic() {
 }
 
 #[test]
-fn ctx_knowledge_export_is_file_backed_not_json_stdout() {
-    let _g = nebula_ctx::core::data_dir::test_env_lock();
-    let tmp = tempfile::tempdir().expect("tempdir");
-    let data_dir = tmp.path().join("data");
-    std::fs::create_dir_all(&data_dir).expect("create data dir");
+fn ctx_knowledge_rejects_removed_local_only_actions() {
+    for action in ["export", "pattern"] {
+        let out = nebula_ctx::tools::ctx_knowledge::handle(
+            ".",
+            action,
+            None,
+            None,
+            None,
+            None,
+            "s1",
+            None,
+            None,
+            None,
+        );
 
-    std::env::set_var("LEAN_CTX_DATA_DIR", data_dir.to_string_lossy().to_string());
-
-    let project_root = tmp.path().join("proj");
-    std::fs::create_dir_all(&project_root).expect("create project root");
-    let project_root_str = project_root.to_string_lossy().to_string();
-
-    let mut knowledge = ProjectKnowledge::load_or_create(&project_root_str);
-    knowledge.remember("arch", "db", "MySQL", "s1", 0.8);
-    knowledge.save().expect("save knowledge");
-
-    let out = nebula_ctx::tools::ctx_knowledge::handle(
-        &project_root_str,
-        "export",
-        None,
-        None,
-        None,
-        None,
-        "s1",
-        None,
-        None,
-        None,
-    );
-
-    assert!(
-        out.starts_with("Export saved: "),
-        "export must return a compact confirmation"
-    );
-    assert!(
-        !out.trim_start().starts_with('{'),
-        "export must not print full JSON to stdout"
-    );
-
-    let path_str = out
-        .strip_prefix("Export saved: ")
-        .and_then(|s| s.split_whitespace().next())
-        .expect("extract export path");
-    assert!(Path::new(path_str).exists(), "export file must exist");
-
-    std::env::remove_var("LEAN_CTX_DATA_DIR");
+        assert!(
+            out.contains("Unknown action"),
+            "removed actions should fail clearly for {action}: {out}"
+        );
+    }
 }

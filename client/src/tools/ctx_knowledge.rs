@@ -16,8 +16,6 @@ pub fn handle(
     value: Option<&str>,
     query: Option<&str>,
     session_id: &str,
-    pattern_type: Option<&str>,
-    examples: Option<Vec<String>>,
     confidence: Option<f32>,
     mode: Option<&str>,
     raw_items: Option<&Value>,
@@ -25,23 +23,21 @@ pub fn handle(
     match action {
         "remember" => handle_remember(project_root, category, key, value, session_id, confidence),
         "recall" => handle_recall(project_root, category, query, session_id),
-        "pattern" => handle_pattern(project_root, pattern_type, value, examples, session_id),
         "status" => handle_status(project_root),
         "remove" => handle_remove(project_root, category, key),
-        "export" => handle_export(project_root),
         "consolidate" => handle_consolidate(project_root),
         "promote" => handle_promote_batch(project_root, raw_items, session_id),
         "upkeep" => handle_upkeep(project_root),
         "triage" => handle_triage(project_root, mode),
         "timeline" => handle_timeline(project_root, category),
-        "rooms" => handle_rooms(project_root),
+        "categories" => handle_categories(project_root),
         "search" => handle_search(query),
         "wakeup" => handle_wakeup(project_root),
         "embeddings_status" => handle_embeddings_status(project_root),
         "embeddings_reset" => handle_embeddings_reset(project_root),
         "embeddings_reindex" => handle_embeddings_reindex(project_root),
         _ => format!(
-            "Unknown action: {action}. Use: remember, recall, pattern, status, remove, export, consolidate, promote, upkeep, triage, timeline, rooms, search, wakeup, embeddings_status, embeddings_reset, embeddings_reindex"
+            "Unknown action: {action}. Use: remember, recall, status, remove, consolidate, promote, upkeep, triage, timeline, categories, search, wakeup, embeddings_status, embeddings_reset, embeddings_reindex"
         ),
     }
 }
@@ -531,30 +527,6 @@ fn rehydrate_from_archives(
     any
 }
 
-fn handle_pattern(
-    project_root: &str,
-    pattern_type: Option<&str>,
-    value: Option<&str>,
-    examples: Option<Vec<String>>,
-    session_id: &str,
-) -> String {
-    let pt = match pattern_type {
-        Some(p) => p,
-        None => return "Error: pattern_type is required".to_string(),
-    };
-    let desc = match value {
-        Some(v) => v,
-        None => return "Error: value (description) is required for pattern".to_string(),
-    };
-    let exs = examples.unwrap_or_default();
-    let mut knowledge = ProjectKnowledge::load_or_create(project_root);
-    knowledge.add_pattern(pt, desc, exs, session_id);
-    match knowledge.save() {
-        Ok(()) => format!("Pattern [{pt}] added: {desc}"),
-        Err(e) => format!("Pattern added but save failed: {e}"),
-    }
-}
-
 fn handle_status(project_root: &str) -> String {
     let knowledge = match ProjectKnowledge::load(project_root) {
         Some(k) => k,
@@ -567,10 +539,9 @@ fn handle_status(project_root: &str) -> String {
     let archived_facts = knowledge.facts.len() - current_facts;
 
     let mut out = format!(
-        "Project Knowledge: {} active facts ({} archived), {} patterns, {} history entries\n",
+        "Project Knowledge: {} active facts ({} archived), {} history entries\n",
         current_facts,
         archived_facts,
-        knowledge.patterns.len(),
         knowledge.history.len()
     );
     out.push_str(&format!(
@@ -578,11 +549,11 @@ fn handle_status(project_root: &str) -> String {
         knowledge.updated_at.format("%Y-%m-%d %H:%M UTC")
     ));
 
-    let rooms = knowledge.list_rooms();
-    if !rooms.is_empty() {
-        out.push_str("Rooms: ");
-        let room_strs: Vec<String> = rooms.iter().map(|(c, n)| format!("{c}({n})")).collect();
-        out.push_str(&room_strs.join(", "));
+    let categories = knowledge.list_categories();
+    if !categories.is_empty() {
+        out.push_str("Categories: ");
+        let category_strs: Vec<String> = categories.iter().map(|(c, n)| format!("{c}({n})")).collect();
+        out.push_str(&category_strs.join(", "));
         out.push('\n');
     }
 
@@ -620,42 +591,6 @@ fn handle_remove(project_root: &str, category: Option<&str>, key: Option<&str>) 
         }
     } else {
         format!("No fact found: [{cat}] {k}")
-    }
-}
-
-fn handle_export(project_root: &str) -> String {
-    let knowledge = match ProjectKnowledge::load(project_root) {
-        Some(k) => k,
-        None => return "No knowledge to export.".to_string(),
-    };
-    let data_dir = match crate::core::data_dir::nebu_ctx_data_dir() {
-        Ok(d) => d,
-        Err(e) => return format!("Export failed: {e}"),
-    };
-
-    let export_dir = data_dir.join("exports").join("knowledge");
-    let ts = Utc::now().format("%Y%m%d-%H%M%S");
-    let filename = format!(
-        "knowledge-{}-{ts}.json",
-        short_hash(&knowledge.project_hash)
-    );
-    let path = export_dir.join(filename);
-
-    match serde_json::to_string_pretty(&knowledge) {
-        Ok(mut json) => {
-            json.push('\n');
-            match crate::config_io::write_atomic_with_backup(&path, &json) {
-                Ok(()) => format!(
-                    "Export saved: {} (active facts: {}, patterns: {}, history: {})",
-                    path.display(),
-                    knowledge.facts.iter().filter(|f| f.is_current()).count(),
-                    knowledge.patterns.len(),
-                    knowledge.history.len()
-                ),
-                Err(e) => format!("Export failed: {e}"),
-            }
-        }
-        Err(e) => format!("Export failed: {e}"),
     }
 }
 
@@ -715,10 +650,9 @@ fn handle_consolidate(project_root: &str) -> String {
     match knowledge.save() {
         Ok(()) => format!(
             "Consolidated {consolidated} items from session {} into project knowledge.\n\
-             Facts: {}, Patterns: {}, History: {}",
+             Facts: {}, History: {}",
             session.id,
             knowledge.facts.len(),
-            knowledge.patterns.len(),
             knowledge.history.len()
         ),
         Err(e) => format!("Consolidation done but save failed: {e}"),
@@ -789,29 +723,29 @@ fn handle_timeline(project_root: &str, category: Option<&str>) -> String {
     out
 }
 
-fn handle_rooms(project_root: &str) -> String {
+fn handle_categories(project_root: &str) -> String {
     let knowledge = match ProjectKnowledge::load(project_root) {
         Some(k) => k,
         None => return "No knowledge stored yet.".to_string(),
     };
 
-    let rooms = knowledge.list_rooms();
-    if rooms.is_empty() {
-        return "No knowledge rooms yet. Use ctx_knowledge(action=\"remember\", category=\"...\") to create rooms.".to_string();
+    let categories = knowledge.list_categories();
+    if categories.is_empty() {
+        return "No knowledge categories yet. Use ctx_knowledge(action=\"remember\", category=\"...\") to create categories.".to_string();
     }
 
-    let mut rooms = rooms;
-    rooms.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-    let total = rooms.len();
-    rooms.truncate(crate::core::budgets::KNOWLEDGE_ROOMS_LIMIT);
+    let mut categories = categories;
+    categories.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    let total = categories.len();
+    categories.truncate(crate::core::budgets::KNOWLEDGE_ROOMS_LIMIT);
 
     let mut out = format!(
-        "Knowledge Rooms (showing {}/{} rooms, project: {}):\n",
-        rooms.len(),
+        "Knowledge Categories (showing {}/{} categories, project: {}):\n",
+        categories.len(),
         total,
         short_hash(&knowledge.project_hash)
     );
-    for (cat, count) in &rooms {
+    for (cat, count) in &categories {
         out.push_str(&format!("  [{cat}] {count} fact(s)\n"));
     }
     out
@@ -822,6 +756,11 @@ fn handle_search(query: Option<&str>) -> String {
         Some(q) => q,
         None => return "Error: query is required for search".to_string(),
     };
+
+    let search_profile = SearchProfile::new(q);
+    if search_profile.tokens.is_empty() {
+        return format!("No results found for '{q}' across all sessions and projects.");
+    }
 
     let data_dir = match crate::core::data_dir::nebu_ctx_data_dir() {
         Ok(d) => d,
@@ -836,8 +775,6 @@ fn handle_search(query: Option<&str>) -> String {
 
     let knowledge_dir = data_dir.join("knowledge");
 
-    let q_lower = q.to_lowercase();
-    let terms: Vec<&str> = q_lower.split_whitespace().collect();
     let mut results = Vec::new();
 
     if knowledge_dir.exists() {
@@ -847,22 +784,17 @@ fn handle_search(query: Option<&str>) -> String {
                 if let Ok(content) = std::fs::read_to_string(&knowledge_file) {
                     if let Ok(knowledge) = serde_json::from_str::<ProjectKnowledge>(&content) {
                         for fact in &knowledge.facts {
-                            let searchable = format!(
-                                "{} {} {}",
-                                fact.category.to_lowercase(),
-                                fact.key.to_lowercase(),
-                                fact.value.to_lowercase()
-                            );
-                            let match_count =
-                                terms.iter().filter(|t| searchable.contains(**t)).count();
-                            if match_count > 0 {
+                            if let Some(score) = search_profile.score_text(&format!(
+                                "{} {} {} {}",
+                                fact.category, fact.key, fact.value, knowledge.project_root
+                            )) {
                                 results.push((
                                     knowledge.project_root.clone(),
                                     fact.category.clone(),
                                     fact.key.clone(),
                                     fact.value.clone(),
                                     fact.confidence,
-                                    match_count as f32 / terms.len() as f32,
+                                    score,
                                 ));
                             }
                         }
@@ -884,9 +816,7 @@ fn handle_search(query: Option<&str>) -> String {
             if let Ok(json) = std::fs::read_to_string(&path) {
                 if let Ok(session) = serde_json::from_str::<SessionState>(&json) {
                     for finding in &session.findings {
-                        let searchable = finding.summary.to_lowercase();
-                        let match_count = terms.iter().filter(|t| searchable.contains(**t)).count();
-                        if match_count > 0 {
+                        if let Some(score) = search_profile.score_text(&finding.summary) {
                             let project = session
                                 .project_root
                                 .clone()
@@ -897,14 +827,12 @@ fn handle_search(query: Option<&str>) -> String {
                                 session.id.clone(),
                                 finding.summary.clone(),
                                 0.6,
-                                match_count as f32 / terms.len() as f32,
+                                score,
                             ));
                         }
                     }
                     for decision in &session.decisions {
-                        let searchable = decision.summary.to_lowercase();
-                        let match_count = terms.iter().filter(|t| searchable.contains(**t)).count();
-                        if match_count > 0 {
+                        if let Some(score) = search_profile.score_text(&decision.summary) {
                             let project = session
                                 .project_root
                                 .clone()
@@ -915,7 +843,7 @@ fn handle_search(query: Option<&str>) -> String {
                                 session.id.clone(),
                                 decision.summary.clone(),
                                 0.7,
-                                match_count as f32 / terms.len() as f32,
+                                score,
                             ));
                         }
                     }
@@ -925,7 +853,9 @@ fn handle_search(query: Option<&str>) -> String {
     }
 
     if results.is_empty() {
-        return format!("No results found for '{q}' across all sessions and projects.");
+        return fallback_search_from_wakeup(q).unwrap_or_else(|| {
+            format!("No results found for '{q}' across all sessions and projects.")
+        });
     }
 
     results.sort_by(|a, b| {
@@ -948,6 +878,144 @@ fn handle_search(query: Option<&str>) -> String {
         ));
     }
     out
+}
+
+#[derive(Debug, Clone)]
+struct SearchProfile {
+    normalized: String,
+    tokens: Vec<String>,
+}
+
+impl SearchProfile {
+    fn new(query: &str) -> Self {
+        let normalized = normalize_search_text(query.trim());
+        let tokens = tokenize_search_text(&normalized);
+        Self { normalized, tokens }
+    }
+
+    fn score_text(&self, text: &str) -> Option<f32> {
+        let normalized = normalize_search_text(text);
+        let token_count = self.tokens.len().max(1) as f32;
+        let exact_hits = self
+            .tokens
+            .iter()
+            .filter(|token| {
+                normalized
+                    .split_whitespace()
+                    .any(|part| part == token.as_str())
+            })
+            .count();
+        let partial_hits = self
+            .tokens
+            .iter()
+            .filter(|token| normalized.contains(token.as_str()))
+            .count();
+        let phrase_hit =
+            (!self.normalized.is_empty() && normalized.contains(&self.normalized)) as u8 as f32;
+
+        if exact_hits == 0 && partial_hits == 0 && phrase_hit == 0.0 {
+            return None;
+        }
+
+        Some(
+            exact_hits as f32 / token_count * 0.7
+                + partial_hits as f32 / token_count * 0.15
+                + phrase_hit * 0.15,
+        )
+    }
+}
+
+fn normalize_search_text(text: &str) -> String {
+    text.chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else if ch.is_alphanumeric() {
+                ch.to_lowercase().next().unwrap_or(ch)
+            } else {
+                ' '
+            }
+        })
+        .collect()
+}
+
+fn tokenize_search_text(text: &str) -> Vec<String> {
+    text.split_whitespace()
+        .filter(|token| token.len() >= 2)
+        .filter(|token| {
+            !matches!(
+                *token,
+                "the"
+                    | "and"
+                    | "for"
+                    | "with"
+                    | "from"
+                    | "that"
+                    | "this"
+                    | "what"
+                    | "when"
+                    | "where"
+                    | "which"
+                    | "were"
+                    | "have"
+                    | "about"
+                    | "into"
+                    | "then"
+                    | "than"
+                    | "just"
+                    | "does"
+                    | "did"
+                    | "our"
+                    | "your"
+                    | "yesterday"
+                    | "today"
+                    | "latest"
+                    | "recent"
+                    | "changes"
+                    | "change"
+                    | "fixes"
+                    | "fixed"
+                    | "work"
+                    | "worked"
+            )
+        })
+        .map(ToString::to_string)
+        .collect()
+}
+
+fn fallback_search_from_wakeup(query: &str) -> Option<String> {
+    let profile = SearchProfile::new(query);
+    let root = std::env::current_dir().ok()?;
+    let knowledge = ProjectKnowledge::load(root.to_string_lossy().as_ref())?;
+    let wakeup = knowledge.format_wakeup();
+    if wakeup.is_empty() {
+        return None;
+    }
+
+    let mut lines = Vec::new();
+    for part in wakeup
+        .strip_prefix("FACTS:")
+        .unwrap_or(&wakeup)
+        .split('|')
+        .filter(|entry| !entry.trim().is_empty())
+    {
+        if profile.score_text(part).is_some() {
+            lines.push(part.to_string());
+        }
+    }
+
+    if lines.is_empty() {
+        return None;
+    }
+
+    Some(format!(
+        "Cross-session search '{query}' (wakeup fallback):\n{}",
+        lines
+            .into_iter()
+            .map(|line| format!("  {line}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    ))
 }
 
 fn handle_wakeup(project_root: &str) -> String {

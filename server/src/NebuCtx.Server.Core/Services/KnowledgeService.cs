@@ -1,13 +1,15 @@
 namespace NebuCtx.Server.Core.Services;
 
 using System.Globalization;
-using NebuCtx.Storage;
-using Microsoft.Extensions.Logging;
 using System.Text.Json;
+
+using Microsoft.Extensions.Logging;
+
+using NebuCtx.Storage;
 
 /// <summary>
 /// Knowledge service. Provides project-scoped categorized fact operations
-/// for the ctx_knowledge tool (remember, recall, status, remove, categories).
+/// for the ctx_knowledge tool (remember, recall/search, status, remove, categories, timeline).
 /// </summary>
 public sealed class KnowledgeService
 {
@@ -87,7 +89,7 @@ public sealed class KnowledgeService
                 {
                     Value = existing.Value,
                     Confidence = existing.Confidence,
-                PromotionIdentity = string.IsNullOrWhiteSpace(existing.PromotionIdentity) ? identity : existing.PromotionIdentity,
+                    PromotionIdentity = string.IsNullOrWhiteSpace(existing.PromotionIdentity) ? identity : existing.PromotionIdentity,
                     SourceType = existing.SourceType,
                     SourceScope = existing.SourceScope,
                     ValidFrom = existing.CreatedAt == default ? existing.LastConfirmedAt ?? createdAt : existing.CreatedAt,
@@ -180,6 +182,71 @@ public sealed class KnowledgeService
     public Task<IReadOnlyList<(string Category, int Count)>> GetCategoriesAsync(string projectId, CancellationToken cancellationToken = default)
     {
         return _knowledgeStore.GetCategoriesAsync(projectId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Builds a hosted timeline view for all facts in a category, including historical revisions.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="category">Fact category.</param>
+    /// <param name="limit">Maximum number of timeline rows to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Timeline entries ordered from oldest to newest.</returns>
+    public async Task<IReadOnlyList<Dictionary<string, object?>>> GetTimelineAsync(string projectId, string category, int limit = 50, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(category)) throw new ArgumentException("Category is required.", nameof(category));
+
+        var entries = await _knowledgeStore.ListAllForProjectAsync(projectId, 1000, cancellationToken);
+        var rows = new List<Dictionary<string, object?>>();
+
+        foreach (var entry in entries.Where(entry => string.Equals(entry.Category, category, StringComparison.OrdinalIgnoreCase)))
+        {
+            foreach (var history in entry.History)
+            {
+                rows.Add(new Dictionary<string, object?>
+                {
+                    ["category"] = entry.Category,
+                    ["key"] = entry.Key,
+                    ["value"] = history.Value,
+                    ["status"] = "archived",
+                    ["valid_from"] = history.ValidFrom,
+                    ["valid_until"] = history.SupersededAt,
+                    ["confidence"] = history.Confidence,
+                    ["confirmation_count"] = 1,
+                    ["promotion_identity"] = history.PromotionIdentity,
+                    ["source_type"] = history.SourceType,
+                    ["source_scope"] = history.SourceScope,
+                });
+            }
+
+            rows.Add(new Dictionary<string, object?>
+            {
+                ["category"] = entry.Category,
+                ["key"] = entry.Key,
+                ["value"] = entry.Value,
+                ["status"] = string.Equals(entry.LifecycleStatus, "current", StringComparison.OrdinalIgnoreCase) ? "current" : entry.LifecycleStatus,
+                ["valid_from"] = entry.CreatedAt,
+                ["valid_until"] = null,
+                ["confidence"] = entry.Confidence,
+                ["confirmation_count"] = entry.ConfirmationCount,
+                ["promotion_identity"] = entry.PromotionIdentity,
+                ["source_type"] = entry.SourceType,
+                ["source_scope"] = entry.SourceScope,
+            });
+        }
+
+        var ordered = rows
+            .OrderBy(row => row["valid_from"] as DateTimeOffset? ?? DateTimeOffset.MinValue)
+            .ThenBy(row => row["key"]?.ToString(), StringComparer.Ordinal)
+            .ThenBy(row => row["value"]?.ToString(), StringComparer.Ordinal)
+            .ToList();
+
+        if (limit > 0 && ordered.Count > limit)
+        {
+            ordered = ordered[^limit..];
+        }
+
+        return ordered;
     }
 
     /// <summary>
@@ -719,7 +786,16 @@ public sealed class KnowledgeService
     /// </summary>
     private async Task<IReadOnlyList<KnowledgeEntry>> RecallAndRefreshAsync(string projectId, string? category, string query, int limit, CancellationToken cancellationToken)
     {
-        var entries = await _knowledgeStore.RecallAsync(projectId, category, query, limit, cancellationToken);
+        var overscan = Math.Max(limit * 4, 24);
+        var entries = await _knowledgeStore.RecallAsync(projectId, category, query, overscan, cancellationToken);
+        var reranked = RerankKnowledgeEntries(entries, query, category, limit);
+        if (reranked.Count == 0)
+        {
+            var allFacts = await _knowledgeStore.ListAllForProjectAsync(projectId, 1000, cancellationToken);
+            reranked = RerankKnowledgeEntries(allFacts, query, category, limit);
+        }
+
+        entries = reranked;
         if (entries.Count == 0)
         {
             return entries;
@@ -735,6 +811,139 @@ public sealed class KnowledgeService
         }
 
         return entries;
+    }
+
+    /// <summary>
+    /// Re-ranks knowledge entries with query-aware scoring so vague natural-language recall still surfaces relevant facts.
+    /// </summary>
+    private static IReadOnlyList<KnowledgeEntry> RerankKnowledgeEntries(
+        IEnumerable<KnowledgeEntry> entries,
+        string query,
+        string? category,
+        int limit)
+    {
+        var profile = SearchProfile.Create(query);
+        if (profile.Terms.Count == 0)
+        {
+            return [];
+        }
+
+        return entries
+            .Where(entry => string.IsNullOrWhiteSpace(category)
+                || string.Equals(entry.Category, category, StringComparison.OrdinalIgnoreCase))
+            .Select(entry => new { Entry = entry, Score = ScoreKnowledgeEntry(entry, profile) })
+            .Where(item => item.Score > 0f)
+            .OrderByDescending(item => item.Score)
+            .ThenByDescending(item => item.Entry.LifecycleScore)
+            .ThenByDescending(item => item.Entry.Confidence)
+            .ThenByDescending(item => item.Entry.UpdatedAt)
+            .Take(limit)
+            .Select(item => item.Entry)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Scores a knowledge entry against a natural-language query.
+    /// </summary>
+    private static float ScoreKnowledgeEntry(KnowledgeEntry entry, SearchProfile profile)
+    {
+        var haystack = NormalizeSearchText($"{entry.Category} {entry.Key} {entry.Value} {entry.SourceType} {entry.SourceScope}");
+        var exactTerms = haystack.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var exactHits = profile.Terms.Count(term => exactTerms.Contains(term, StringComparer.Ordinal));
+        var partialHits = profile.Terms.Count(term => haystack.Contains(term, StringComparison.Ordinal));
+        var phraseHit = !string.IsNullOrWhiteSpace(profile.Normalized)
+            && haystack.Contains(profile.Normalized, StringComparison.Ordinal)
+            ? 1f
+            : 0f;
+        if (exactHits == 0 && partialHits == 0 && phraseHit == 0f)
+        {
+            return 0f;
+        }
+
+        var tokenCount = Math.Max(1, profile.Terms.Count);
+        var score = (exactHits / (float)tokenCount) * 0.6f
+            + (partialHits / (float)tokenCount) * 0.2f
+            + phraseHit * 0.2f;
+        score *= 0.6f + Math.Clamp(entry.Confidence, 0f, 1f) * 0.4f;
+        if (profile.RecentIntent)
+        {
+            var ageDays = Math.Max(0d, (DateTimeOffset.UtcNow - (entry.LastRetrievedAt ?? entry.LastConfirmedAt ?? entry.UpdatedAt)).TotalDays);
+            score += ageDays switch
+            {
+                <= 1d => 0.25f,
+                <= 7d => 0.12f,
+                <= 30d => 0.05f,
+                _ => 0f,
+            };
+        }
+
+        return score;
+    }
+
+    /// <summary>
+    /// Shared normalized search profile for hosted memory recall.
+    /// </summary>
+    private sealed record SearchProfile(string Normalized, IReadOnlyList<string> Terms, bool RecentIntent)
+    {
+        /// <summary>
+        /// Builds a normalized query profile with stopword filtering.
+        /// </summary>
+        public static SearchProfile Create(string query)
+        {
+            var sanitized = SanitizeQueryText(query);
+            var normalized = NormalizeSearchText(sanitized);
+            var terms = normalized
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(term => term.Length >= 2)
+                .Where(term => !IsStopword(term))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            var recentIntent = query.Contains("yesterday", StringComparison.OrdinalIgnoreCase)
+                || query.Contains("today", StringComparison.OrdinalIgnoreCase)
+                || query.Contains("latest", StringComparison.OrdinalIgnoreCase)
+                || query.Contains("recent", StringComparison.OrdinalIgnoreCase)
+                || query.Contains("fixes", StringComparison.OrdinalIgnoreCase)
+                || query.Contains("changes", StringComparison.OrdinalIgnoreCase);
+            return new SearchProfile(normalized, terms, recentIntent);
+        }
+    }
+
+    /// <summary>
+    /// Trims noisy agent-prefixed search queries down to the likely user intent.
+    /// </summary>
+    private static string SanitizeQueryText(string query)
+    {
+        var trimmed = query.Trim();
+        if (trimmed.Length <= 220)
+        {
+            return trimmed;
+        }
+
+        foreach (var line in trimmed.Split('\n').Reverse().Select(line => line.Trim()))
+        {
+            if (line.Length is >= 12 and <= 220)
+            {
+                return line;
+            }
+        }
+
+        return trimmed[^220..].Trim();
+    }
+
+    /// <summary>
+    /// Normalizes free text into a token-friendly lowercase string.
+    /// </summary>
+    private static string NormalizeSearchText(string value)
+    {
+        return new string(value.Select(ch => char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : ' ').ToArray());
+    }
+
+    /// <summary>
+    /// Drops low-signal words so natural-language memory queries focus on the real subject.
+    /// </summary>
+    private static bool IsStopword(string term)
+    {
+        return term is "the" or "and" or "for" or "with" or "from" or "that" or "this" or "what" or "when" or "where" or "which" or "were" or "have" or "about" or "into" or "then" or "than" or "just" or "does" or "did" or "our" or "your" or "yesterday" or "today" or "latest" or "recent" or "changes" or "change" or "fixes" or "fixed" or "work" or "worked";
     }
 
     /// <summary>

@@ -30,6 +30,7 @@ fn recall_rehydrates_from_archive_when_active_set_empty() {
         None,
         None,
         None,
+        None,
     );
 
     assert!(
