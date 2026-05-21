@@ -24,6 +24,7 @@
   <a href="#how-it-works">How It Works</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#tool-routing">Tool Routing</a> ·
+  <a href="docs/MEMORY.md">Memory</a> ·
   <a href="#dashboard">Dashboard</a> ·
   <a href="#development">Development</a>
 </p>
@@ -320,6 +321,8 @@ curl -fsS \
 ```
 
 For operator inspection, the dashboard exposes per-project memory on `GET /api/dashboard/projects/{projectId}/memory` and triage apply on `POST /api/dashboard/projects/{projectId}/memory/triage?mode=apply`.
+
+Full memory flow docs, including hooks, storage layers, recall paths, and dashboard cleanup proposal: `docs/MEMORY.md`.
 
 ## Hook System
 
