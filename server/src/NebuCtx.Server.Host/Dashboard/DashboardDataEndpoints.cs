@@ -165,6 +165,7 @@ public static class DashboardDataEndpoints
 
         app.MapGet("/dashboard/projects/{projectId}/memory", async (
             string projectId,
+            HttpRequest request,
             ProjectRegistry projectRegistry,
             IKnowledgeStore knowledgeStore,
             IBrainStore brainStore,
@@ -180,7 +181,13 @@ public static class DashboardDataEndpoints
 
             var knowledgeEntries = await knowledgeStore.ListAllForProjectAsync(projectId, cancellationToken: ct);
             var brainEntries = await brainStore.ListAllAsync(projectId, cancellationToken: ct);
-            var triage = await knowledgeService.TriageAsync(projectId, apply: false, cancellationToken: ct);
+            var includeTriage = string.Equals(request.Query["include_triage"], "true", StringComparison.OrdinalIgnoreCase);
+            Dictionary<string, object?>? triage = null;
+            if (includeTriage)
+            {
+                triage = await knowledgeService.TriageAsync(projectId, apply: false, cancellationToken: ct);
+            }
+
             var duplicateSlugProjectIds = ProjectIdentityDiagnostics
                 .FindDuplicateSlugGroups(projects)
                 .SelectMany(group => group.ProjectIds)
@@ -235,7 +242,21 @@ public static class DashboardDataEndpoints
             IBrainStore brainStore,
             CancellationToken ct) =>
         {
-            var count = await brainStore.DeleteByPrefixAsync(projectId, entryType, ct);
+            var entries = await brainStore.ListAllAsync(projectId, 1000, ct);
+            var keys = entries
+                .Where(entry => string.Equals(entry.Kind, entryType, StringComparison.OrdinalIgnoreCase))
+                .Select(entry => entry.Key)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            var count = 0;
+            foreach (var key in keys)
+            {
+                if (await brainStore.DeleteAsync(projectId, key, ct))
+                {
+                    count++;
+                }
+            }
+
             return Results.Ok(new { deleted = count, project_id = projectId, entry_type = entryType });
         });
 

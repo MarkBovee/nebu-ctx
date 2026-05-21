@@ -55,7 +55,7 @@ pub fn resolve_project_root(path: Option<&str>) -> Result<String, String> {
 pub fn build_preview(project_root: &str) -> Result<BootstrapPreview, String> {
     let root = Path::new(project_root);
     let metadata = project_metadata::build_project_metadata(root).map_err(|e| e.to_string())?;
-    let index = ProjectIndex::load(project_root);
+    let index = Some(crate::core::graph_index::scan(project_root));
 
     let stack = detect_stack(&metadata.summary.markers, &metadata.summary.languages);
     let entrypoints = detect_entrypoints(root, index.as_ref());
@@ -527,5 +527,63 @@ mod tests {
             .unwrap();
         assert_eq!(entry.payload["tool_name"], "ctx_knowledge");
         assert_eq!(entry.payload["arguments"]["action"], "promote");
+    }
+
+    #[test]
+    fn preview_refreshes_stale_index_paths() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let tmp = tempfile::tempdir().unwrap();
+        let data_dir = tmp.path().join("data");
+        std::fs::create_dir_all(&data_dir).unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", &data_dir);
+
+        let root = tmp.path().join("project");
+        std::fs::create_dir_all(root.join("client/assets/skills/project-bootstrap/scripts")).unwrap();
+        std::fs::create_dir_all(root.join("skills/project-bootstrap/scripts")).unwrap();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(root.join("Cargo.toml"), "[package]\nname='demo'\n").unwrap();
+        std::fs::write(root.join("src/main.rs"), "fn main() {}\n").unwrap();
+        std::fs::write(root.join("client/assets/skills/project-bootstrap/scripts/install.sh"), "#!/bin/sh\n").unwrap();
+        std::fs::write(root.join("skills/project-bootstrap/scripts/install.sh"), "#!/bin/sh\n").unwrap();
+
+        let project_root = root.to_string_lossy().to_string();
+        let index_dir = crate::core::graph_index::ProjectIndex::index_dir(&project_root).unwrap();
+        std::fs::create_dir_all(&index_dir).unwrap();
+        let stale_index = serde_json::json!({
+            "version": 6,
+            "project_root": project_root,
+            "last_scan": "now",
+            "files": {
+                "client/assets/skills/nebu-ctx/scripts/install.sh": {
+                    "path": "client/assets/skills/nebu-ctx/scripts/install.sh",
+                    "hash": "stale",
+                    "language": "sh",
+                    "line_count": 1,
+                    "token_count": 1,
+                    "exports": ["main"],
+                    "summary": "stale"
+                },
+                "skills/nebu-ctx/scripts/install.sh": {
+                    "path": "skills/nebu-ctx/scripts/install.sh",
+                    "hash": "stale",
+                    "language": "sh",
+                    "line_count": 1,
+                    "token_count": 1,
+                    "exports": ["main"],
+                    "summary": "stale"
+                }
+            },
+            "edges": [],
+            "symbols": {}
+        });
+        std::fs::write(index_dir.join("index.json"), serde_json::to_string(&stale_index).unwrap()).unwrap();
+
+        let preview = build_preview(&root.to_string_lossy()).unwrap();
+        let joined_entrypoints = preview.entrypoints.join("\n");
+        assert!(joined_entrypoints.contains("src/main.rs"));
+        assert!(!joined_entrypoints.contains("client/assets/skills/nebu-ctx/scripts/install.sh"));
+        assert!(!joined_entrypoints.contains("skills/nebu-ctx/scripts/install.sh"));
+
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
     }
 }

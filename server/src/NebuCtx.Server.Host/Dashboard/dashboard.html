@@ -1975,7 +1975,7 @@ async function loadAgents() {
 async function deleteBrainEntry(projectId, key) {
   if (!confirm(`Delete memory "${key}"?`)) return;
   try {
-    await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory/brain/${encodeURIComponent(key)}`, { method: 'DELETE' });
+    await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory/brain/${encodeURIComponent(key)}`, { method: 'DELETE', timeoutMs: 8000 });
     loadBrain();
   } catch (e) { alert('Failed to delete entry.'); }
 }
@@ -2005,7 +2005,7 @@ async function loadDomainNav() {
 async function clearBrainProject(projectId, name) {
   if (!confirm(`Clear all memories for "${name}"? This cannot be undone.`)) return;
   try {
-    await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory/brain`, { method: 'DELETE' });
+    await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory/brain`, { method: 'DELETE', timeoutMs: 12000 });
     loadBrain();
   } catch (e) { alert('Failed to clear project memories.'); }
 }
@@ -2013,7 +2013,7 @@ async function clearBrainProject(projectId, name) {
 async function deleteProject(projectId, name) {
   if (!confirm(`Delete project "${name}" and all hosted memory/index data? This cannot be undone.`)) return;
   try {
-    await apiFetch(`/api/projects/${encodeURIComponent(projectId)}`, { method: 'DELETE' });
+    await apiFetch(`/api/projects/${encodeURIComponent(projectId)}`, { method: 'DELETE', timeoutMs: 12000 });
     const knowledgeContainer = $('view-knowledge');
     if (knowledgeContainer) delete knowledgeContainer.dataset.built;
     _cachedProjectList = null;
@@ -2044,7 +2044,7 @@ function brainTypeBadge(entryType) {
 async function clearBrainEntryType(projectId, name, entryType, label) {
   if (!confirm(`Clear all ${label} entries for "${name}"? This cannot be undone.`)) return;
   try {
-    await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory/brain/type/${encodeURIComponent(entryType)}`, { method: 'DELETE' });
+    await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory/brain/type/${encodeURIComponent(entryType)}`, { method: 'DELETE', timeoutMs: 12000 });
     const select = $('memoryProjectSelect');
     await loadProjectMemory(select ? select.value : projectId);
     await loadBrain();
@@ -2056,7 +2056,7 @@ async function clearBrainEntryType(projectId, name, entryType, label) {
 async function deleteKnowledgeFact(projectId, category, key) {
   if (!confirm(`Delete knowledge fact "${key}"?`)) return;
   try {
-    await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory/knowledge/${encodeURIComponent(category)}/${encodeURIComponent(key)}`, { method: 'DELETE' });
+    await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory/knowledge/${encodeURIComponent(category)}/${encodeURIComponent(key)}`, { method: 'DELETE', timeoutMs: 8000 });
     const select = $('memoryProjectSelect');
     await loadProjectMemory(select ? select.value : projectId);
   } catch (e) { alert('Failed to delete knowledge fact.'); }
@@ -2065,7 +2065,7 @@ async function deleteKnowledgeFact(projectId, category, key) {
 async function clearKnowledgeProject(projectId, name) {
   if (!confirm(`Clear all knowledge facts for "${name}"? This cannot be undone.`)) return;
   try {
-    await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory/knowledge`, { method: 'DELETE' });
+    await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory/knowledge`, { method: 'DELETE', timeoutMs: 12000 });
     await loadProjectMemory(projectId);
   } catch (e) { alert('Failed to clear project knowledge.'); }
 }
@@ -2075,7 +2075,7 @@ async function loadProjectMemory(projectId) {
   if (!host || !projectId) return;
   host.innerHTML = '<div class="loading-state">Loading project memory...</div>';
   try {
-    const payload = await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory`, { timeoutMs: 5000 });
+    const payload = await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory`, { timeoutMs: 12000 });
     const knowledge = payload.knowledge || [];
     const brain = payload.brain || [];
     const flags = payload.flags || {};

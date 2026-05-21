@@ -1210,8 +1210,12 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
 
         var memoryPayload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
         Assert.NotNull(memoryPayload);
-        Assert.NotNull(memoryPayload!.Triage);
-        Assert.Equal("preview", memoryPayload.Triage!.Mode);
+        Assert.Null(memoryPayload!.Triage);
+
+        var memoryWithTriage = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory?include_triage=true");
+        Assert.NotNull(memoryWithTriage);
+        Assert.NotNull(memoryWithTriage!.Triage);
+        Assert.Equal("preview", memoryWithTriage.Triage!.Mode);
     }
 
     /// <summary>
@@ -1282,11 +1286,15 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
 
         var payload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
         Assert.NotNull(payload);
-        Assert.NotNull(payload!.Triage);
-        Assert.Equal("preview", payload.Triage!.Mode);
+        Assert.Null(payload!.Triage);
         Assert.Single(payload.Knowledge, item => item.Category == "decision" && item.LifecycleStatus == "current");
         Assert.Contains(payload.Knowledge, item => item.Key == "dup-b" && item.LifecycleStatus == "merged");
         Assert.Contains(payload.Knowledge, item => item.Key == "demo-placeholder" && item.LifecycleStatus == "junk");
+
+        var payloadWithTriage = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory?include_triage=true");
+        Assert.NotNull(payloadWithTriage);
+        Assert.NotNull(payloadWithTriage!.Triage);
+        Assert.Equal("preview", payloadWithTriage.Triage!.Mode);
     }
 
     /// <summary>
@@ -1372,6 +1380,79 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
 
         var memoryResponse = await _client.GetAsync($"/api/dashboard/projects/{projectId}/memory");
         Assert.Equal(HttpStatusCode.NotFound, memoryResponse.StatusCode);
+    }
+
+    /// <summary>
+    /// Dashboard brain cleanup by entry type deletes entries by stored kind, not by key prefix.
+    /// </summary>
+    [Fact]
+    public async Task DashboardProjectMemoryBrainTypeDelete_UsesEntryKind()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "dashboard-brain-type-delete",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/example/dashboard-brain-type-delete.git",
+                Host = "github.com",
+                Owner = "example",
+                RepoName = "dashboard-brain-type-delete",
+                DefaultBranch = "main",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, resolveResponse.StatusCode);
+
+        var resolved = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolved?.Project?.ProjectId);
+        var projectId = resolved!.Project!.ProjectId;
+
+        foreach (var arguments in new[]
+                 {
+                     new Dictionary<string, object?>
+                     {
+                         ["action"] = "ingest",
+                         ["key"] = "prompt-001",
+                         ["value"] = "user asked for cleanup",
+                         ["kind"] = "user_prompt",
+                         ["category"] = "workflow",
+                         ["source_type"] = "hook",
+                         ["source_scope"] = "session-1",
+                         ["promotion_identity"] = "hook:session-1:user-prompt",
+                         ["logical_key"] = "workflow:user-prompt:1",
+                     },
+                     new Dictionary<string, object?>
+                     {
+                         ["action"] = "ingest",
+                         ["key"] = "assistant-001",
+                         ["value"] = "assistant replied",
+                         ["kind"] = "assistant_output",
+                         ["category"] = "workflow",
+                         ["source_type"] = "hook",
+                         ["source_scope"] = "session-1",
+                         ["promotion_identity"] = "hook:session-1:assistant-output",
+                         ["logical_key"] = "workflow:assistant-output:1",
+                     },
+                 })
+        {
+            var ingestResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+            {
+                Name = "ctx_brain",
+                ProjectId = projectId,
+                Arguments = arguments,
+            });
+            Assert.Equal(HttpStatusCode.OK, ingestResponse.StatusCode);
+        }
+
+        var deleteResponse = await _client.DeleteAsync($"/api/dashboard/projects/{projectId}/memory/brain/type/user_prompt");
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+
+        using var deleteDoc = JsonDocument.Parse(await deleteResponse.Content.ReadAsStringAsync());
+        Assert.Equal(1, deleteDoc.RootElement.GetProperty("deleted").GetInt32());
+
+        var payload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
+        Assert.NotNull(payload);
+        Assert.DoesNotContain(payload!.Brain, item => item.EntryType == "user_prompt");
+        Assert.Contains(payload.Brain, item => item.EntryType == "assistant_output");
     }
 
     /// <summary>
