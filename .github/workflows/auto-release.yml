@@ -83,6 +83,5 @@ jobs:
             if [ "$COUNT" -gt "$KEEP" ]; then
               echo "Deleting old release: $tag"
               gh release delete "$tag" --repo MarkBovee/nebu-ctx --yes || true
-              git push origin ":refs/tags/$tag" 2>/dev/null || true
             fi
           done <<< "$RELEASES"
