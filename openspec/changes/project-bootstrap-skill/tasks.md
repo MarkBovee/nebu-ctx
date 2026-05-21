@@ -1,6 +1,6 @@
 ## 1. Skill Surface And Flow
 
-- [x] 1.1 Add a new user-invokable `nebu-ctx` project-bootstrap skill with clear trigger phrases and a preview-first flow
+- [x] 1.1 Add a new user-invokable `project-bootstrap` skill with clear trigger phrases and a preview-first flow
 - [x] 1.2 Wire the skill into the maintained skill install/discovery path so it is available to supported agents again
 
 ## 2. Bootstrap Engine

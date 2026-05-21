@@ -182,11 +182,14 @@ fn remove_block(content: &str, start: &str, end: &str) -> String {
 }
 
 fn install_claude_skill(home: &std::path::Path) {
-    let skill_md = include_str!("../../assets/skills/nebu-ctx/SKILL.md");
-    let install_sh = include_str!("../../assets/skills/nebu-ctx/scripts/install.sh");
+    let skill_md = include_str!("../../assets/skills/project-bootstrap/SKILL.md");
+    let install_sh = include_str!("../../assets/skills/project-bootstrap/scripts/install.sh");
 
     for claude_dir in claude_content_dirs(home) {
-        let skill_dir = claude_dir.join("skills/nebu-ctx");
+        let skill_dir = claude_dir.join(format!(
+            "skills/{}",
+            crate::core::editor_registry::PROJECT_BOOTSTRAP_SKILL_NAME
+        ));
         let _ = std::fs::create_dir_all(skill_dir.join("scripts"));
 
         let skill_path = skill_dir.join("SKILL.md");

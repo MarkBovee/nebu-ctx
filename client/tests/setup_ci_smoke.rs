@@ -335,9 +335,11 @@ fn bootstrap_configures_opencode_plugin_rules_and_skill() {
 
     assert!(home.join(".config/opencode/plugins/nebu-ctx.ts").exists());
     assert!(home.join(".config/opencode/rules/nebu-ctx.md").exists());
-    assert!(home.join(".config/opencode/skills/nebu-ctx/SKILL.md").exists());
     assert!(home
-        .join(".config/opencode/skills/nebu-ctx/scripts/install.sh")
+        .join(".config/opencode/skills/project-bootstrap/SKILL.md")
+        .exists());
+    assert!(home
+        .join(".config/opencode/skills/project-bootstrap/scripts/install.sh")
         .exists());
 
     let (code, out) = run_json(bin, &["status", "--json"], &envs);
@@ -370,10 +372,12 @@ fn bootstrap_configures_opencode_plugin_rules_and_skill() {
 #[test]
 fn skill_asset_mentions_project_bootstrap_flow() {
     let skill = std::fs::read_to_string(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/skills/nebu-ctx/SKILL.md"),
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("assets/skills/project-bootstrap/SKILL.md"),
     )
     .expect("read skill asset");
 
+    assert!(skill.contains("name: project-bootstrap"));
     assert!(skill.contains("nebu-ctx project-bootstrap preview"));
     assert!(skill.contains("Preview does not store anything by itself."));
 }

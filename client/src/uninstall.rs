@@ -321,6 +321,10 @@ fn remove_mcp_configs(home: &Path) -> bool {
 }
 
 fn remove_rules_files(home: &Path) -> bool {
+    let claude_skill_files = [
+        home.join(".claude/skills/project-bootstrap/SKILL.md"),
+        home.join(".claude/skills/project-bootstrap/scripts/install.sh"),
+    ];
     let rules_files: Vec<(&str, PathBuf)> = vec![
         (
             "Claude Code",
@@ -381,6 +385,17 @@ fn remove_rules_files(home: &Path) -> bool {
     ];
 
     let mut removed = false;
+    for path in &claude_skill_files {
+        if path.exists() {
+            if let Err(e) = fs::remove_file(path) {
+                eprintln!("  ✗ Failed to remove {}: {e}", path.display());
+            } else {
+                println!("  ✓ Removed {}", shorten(path, home));
+                removed = true;
+            }
+        }
+    }
+
     for (name, path) in &rules_files {
         if !path.exists() {
             continue;

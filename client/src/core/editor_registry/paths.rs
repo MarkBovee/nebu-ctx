@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+pub const PROJECT_BOOTSTRAP_SKILL_NAME: &str = "project-bootstrap";
+
 pub fn zed_settings_path(home: &std::path::Path) -> PathBuf {
     if cfg!(target_os = "macos") {
         home.join("Library/Application Support/Zed/settings.json")
@@ -145,7 +147,9 @@ pub fn opencode_plugin_path(home: &Path) -> PathBuf {
 }
 
 pub fn opencode_skill_dir(home: &Path) -> PathBuf {
-    opencode_config_dir(home).join("skills").join("nebu-ctx")
+    opencode_config_dir(home)
+        .join("skills")
+        .join(PROJECT_BOOTSTRAP_SKILL_NAME)
 }
 
 pub fn opencode_skill_path(home: &Path) -> PathBuf {

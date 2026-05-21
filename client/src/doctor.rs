@@ -945,7 +945,10 @@ fn claude_truncation_outcome() -> Option<Outcome> {
     }
 
     let rules_path = crate::core::editor_registry::claude_rules_dir(&home).join("nebu-ctx.md");
-    let skill_path = home.join(".claude/skills/nebu-ctx/SKILL.md");
+    let skill_path = home.join(format!(
+        ".claude/skills/{}/SKILL.md",
+        crate::core::editor_registry::PROJECT_BOOTSTRAP_SKILL_NAME
+    ));
 
     let has_rules = rules_path.exists();
     let has_skill = skill_path.exists();

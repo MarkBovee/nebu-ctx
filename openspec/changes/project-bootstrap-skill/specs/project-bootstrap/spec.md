@@ -5,7 +5,7 @@
 
 #### Scenario: User asks to map the project
 - **WHEN** a user explicitly asks the agent to map, scan, or bootstrap a project
-- **THEN** the agent SHALL be able to invoke a dedicated `nebu-ctx` project-bootstrap skill
+- **THEN** the agent SHALL be able to invoke a dedicated `project-bootstrap` skill
 - **AND** the workflow SHALL summarize the project using existing project signals instead of dumping the entire repository tree or raw file contents into memory
 
 ### Requirement: Project bootstrap is preview-first
