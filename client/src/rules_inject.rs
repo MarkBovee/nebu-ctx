@@ -41,7 +41,7 @@ File mutation stays on native Edit/Write/Delete tools.
 
 Use private tool names only when documenting nebu-ctx internals. User-facing guidance should recommend only the 5 public tools.
 
-Fallback only if a nebu-ctx tool is unavailable: use native equivalents.
+fallback only if a nebu-ctx tool is unavailable: use native equivalents.
 <!-- /lean-ctx -->"#;
 
 // ---------------------------------------------------------------------------
@@ -77,7 +77,8 @@ Use native Edit/StrReplace/Write/Delete tools for mutations.
 - `ctx(domain="context", action="compress")` when context grows large
 - `ctx(domain="memory", action="save"|"recall"|"store"|"consolidate")` when useful facts or session state should persist
 
-Fallback only if a nebu-ctx tool is unavailable: use native equivalents.
+fallback only if a nebu-ctx tool is unavailable: use native equivalents.
+Project bootstrap: use `nebu-ctx project-bootstrap preview` when user asks to map/bootstrap project knowledge; only `apply` after review.
 <!-- /lean-ctx -->"#;
 
 // ---------------------------------------------------------------------------
@@ -115,6 +116,7 @@ CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalen
 
 - Use `ctx(domain="memory", action="save"|"recall")` to carry forward task state and working memory.
 - Use `ctx(domain="memory", action="store"|"recall"|"wakeup"|"consolidate")` for durable facts that should survive future sessions.
+- For repo mapping/bootstrap, preview candidate facts first with `nebu-ctx project-bootstrap preview`; do not silently persist on first scan.
 - Stop/compact hooks already consolidate the current session into the nebu-ctx server; keep new facts there instead of relying on chat history.
 
 ## File editing

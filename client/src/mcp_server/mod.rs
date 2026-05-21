@@ -1194,6 +1194,7 @@ mod tests {
 
     #[test]
     fn memory_write_aliases_do_not_require_category() {
+        let _lock = crate::core::data_dir::test_env_lock();
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -1217,7 +1218,8 @@ mod tests {
                 text.contains("Remembered")
                     || text.contains("remembered")
                     || text.contains("\"remembered\":true")
-                    || text.contains("\"ok\":true"),
+                    || text.contains("\"ok\":true")
+                    || text.contains("\"ok\": true"),
                 "memory action {action} should store knowledge instead of failing: {text}"
             );
         }

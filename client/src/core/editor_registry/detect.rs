@@ -4,16 +4,6 @@ use super::paths::*;
 use super::types::{ConfigType, EditorTarget};
 
 pub fn build_targets(home: &Path) -> Vec<EditorTarget> {
-    #[cfg(windows)]
-    let opencode_cfg = home.join(".config/opencode/opencode.json");
-    #[cfg(not(windows))]
-    let opencode_cfg = home.join(".config/opencode/opencode.json");
-
-    #[cfg(windows)]
-    let opencode_detect = home.join(".config/opencode");
-    #[cfg(not(windows))]
-    let opencode_detect = home.join(".config/opencode");
-
     vec![
         EditorTarget {
             name: "Cursor",
@@ -81,8 +71,8 @@ pub fn build_targets(home: &Path) -> Vec<EditorTarget> {
         EditorTarget {
             name: "OpenCode",
             agent_key: "opencode".to_string(),
-            config_path: opencode_cfg,
-            detect_path: opencode_detect,
+            config_path: opencode_config_path(home),
+            detect_path: opencode_config_dir(home),
             config_type: ConfigType::OpenCode,
         },
         EditorTarget {

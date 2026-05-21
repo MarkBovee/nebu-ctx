@@ -288,7 +288,7 @@ fn setup_bootstrap_doctor_status_json_smoke() {
 }
 
 #[test]
-fn bootstrap_configures_opencode_plugin_and_rules() {
+fn bootstrap_configures_opencode_plugin_rules_and_skill() {
     let bin = env!("CARGO_BIN_EXE_nebu-ctx");
 
     let tmp = tempfile::tempdir().unwrap();
@@ -335,6 +335,47 @@ fn bootstrap_configures_opencode_plugin_and_rules() {
 
     assert!(home.join(".config/opencode/plugins/nebu-ctx.ts").exists());
     assert!(home.join(".config/opencode/rules/nebu-ctx.md").exists());
+    assert!(home.join(".config/opencode/skills/nebu-ctx/SKILL.md").exists());
+    assert!(home
+        .join(".config/opencode/skills/nebu-ctx/scripts/install.sh")
+        .exists());
+
+    let (code, out) = run_json(bin, &["status", "--json"], &envs);
+    assert_eq!(code, 0, "status exit code");
+    let status: StatusReport = serde_json::from_str(&out).expect("status JSON parse");
+    let opencode = status
+        .mcp_targets
+        .iter()
+        .find(|target| target.name == "OpenCode")
+        .expect("OpenCode target present");
+    assert_eq!(opencode.state, "configured");
+    assert_eq!(
+        opencode.note.as_deref(),
+        Some("rules + plugin + skill installed")
+    );
+
+    let out = Command::new(bin)
+        .args(["doctor"])
+        .envs(envs.iter().copied())
+        .output()
+        .expect("doctor");
+    assert!(out.status.success(), "doctor exit");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("OpenCode instructions") && stdout.contains("rules + skill installed"),
+        "doctor should report OpenCode rules + skill; got:\n{stdout}"
+    );
+}
+
+#[test]
+fn skill_asset_mentions_project_bootstrap_flow() {
+    let skill = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/skills/nebu-ctx/SKILL.md"),
+    )
+    .expect("read skill asset");
+
+    assert!(skill.contains("nebu-ctx project-bootstrap preview"));
+    assert!(skill.contains("Preview does not store anything by itself."));
 }
 
 #[test]

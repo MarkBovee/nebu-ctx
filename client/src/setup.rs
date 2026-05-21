@@ -660,14 +660,10 @@ pub fn configure_agent_mcp(agent: &str) -> Result<(), String> {
             ConfigType::McpJson,
         ),
         "opencode" => {
-            #[cfg(windows)]
-            let opencode_path = home.join(".config/opencode/opencode.json");
-            #[cfg(not(windows))]
-            let opencode_path = home.join(".config/opencode/opencode.json");
             push(
                 &mut targets,
                 "OpenCode",
-                opencode_path,
+                crate::core::editor_registry::opencode_config_path(&home),
                 ConfigType::OpenCode,
             );
         }

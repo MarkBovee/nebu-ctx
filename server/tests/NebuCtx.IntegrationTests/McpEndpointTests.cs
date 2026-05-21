@@ -538,6 +538,258 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     }
 
     /// <summary>
+    /// Brain ingest persists semantic fact metadata and refreshes the public memory projection.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_BrainIngest_PersistsSemanticFactAndProjectsToKnowledge()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "brain-ingest",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/example/brain-ingest.git",
+                Host = "github.com",
+                Owner = "example",
+                RepoName = "brain-ingest",
+                DefaultBranch = "main",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, resolveResponse.StatusCode);
+
+        var resolved = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolved?.Project?.ProjectId);
+        var projectId = resolved!.Project!.ProjectId;
+
+        var ingestResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_brain",
+            ProjectId = projectId,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "ingest",
+                ["key"] = "primary-ide",
+                ["value"] = "OpenCode",
+                ["kind"] = "preference",
+                ["category"] = "workflow",
+                ["source_type"] = "idle_flush",
+                ["source_scope"] = "session-123",
+                ["promotion_identity"] = "idle-flush:session-123:workflow:primary-ide",
+                ["logical_key"] = "workflow:primary-ide",
+                ["confidence"] = 0.98,
+                ["evidence"] = "derived from user-stated primary IDE",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, ingestResponse.StatusCode);
+
+        var payload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
+        Assert.NotNull(payload);
+        var brain = Assert.Single(payload!.Brain, item => item.Key == "primary-ide");
+        Assert.Equal("preference", brain.EntryType);
+        Assert.Equal("workflow", brain.Category);
+        Assert.Equal("idle_flush", brain.SourceType);
+        Assert.Equal("current", brain.LifecycleStatus);
+        Assert.Equal("workflow:primary-ide", brain.LogicalKey);
+        Assert.Equal("OpenCode", brain.Value);
+        Assert.Contains(payload.Knowledge, item => item.Category == "workflow" && item.Key == "primary-ide" && item.Value == "OpenCode");
+        Assert.Contains(payload.Wakeup, item => item.Category == "workflow" && item.Key == "primary-ide");
+    }
+
+    /// <summary>
+    /// Replaying the same brain ingest does not create duplicate active facts.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_BrainIngest_ReplayKeepsSingleActiveFact()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "brain-ingest-replay",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/example/brain-ingest-replay.git",
+                Host = "github.com",
+                Owner = "example",
+                RepoName = "brain-ingest-replay",
+                DefaultBranch = "main",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, resolveResponse.StatusCode);
+
+        var resolved = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolved?.Project?.ProjectId);
+        var projectId = resolved!.Project!.ProjectId;
+
+        var arguments = new Dictionary<string, object?>
+        {
+            ["action"] = "ingest",
+            ["key"] = "primary-ide",
+            ["value"] = "OpenCode",
+            ["kind"] = "preference",
+            ["category"] = "workflow",
+            ["source_type"] = "idle_flush",
+            ["source_scope"] = "session-123",
+            ["promotion_identity"] = "idle-flush:session-123:workflow:primary-ide",
+            ["logical_key"] = "workflow:primary-ide",
+            ["confidence"] = 0.98,
+            ["evidence"] = "derived from user-stated primary IDE",
+        };
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var ingestResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+            {
+                Name = "ctx_brain",
+                ProjectId = projectId,
+                Arguments = arguments,
+            });
+            Assert.Equal(HttpStatusCode.OK, ingestResponse.StatusCode);
+        }
+
+        var payload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
+        Assert.NotNull(payload);
+        Assert.Single(payload!.Brain, item => item.Key == "primary-ide" && item.LifecycleStatus == "current");
+        Assert.Single(payload.Knowledge, item => item.Category == "workflow" && item.Key == "primary-ide" && item.LifecycleStatus == "current");
+    }
+
+    /// <summary>
+    /// A newer fact with the same logical key supersedes the prior active brain fact.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_BrainIngest_SupersedesPriorFactWithSameLogicalKey()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "brain-ingest-supersession",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/example/brain-ingest-supersession.git",
+                Host = "github.com",
+                Owner = "example",
+                RepoName = "brain-ingest-supersession",
+                DefaultBranch = "main",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, resolveResponse.StatusCode);
+
+        var resolved = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolved?.Project?.ProjectId);
+        var projectId = resolved!.Project!.ProjectId;
+
+        foreach (var item in new[]
+                 {
+                     new Dictionary<string, object?>
+                     {
+                         ["action"] = "ingest",
+                         ["key"] = "primary-ide-opencode",
+                         ["value"] = "OpenCode",
+                         ["kind"] = "preference",
+                         ["category"] = "workflow",
+                         ["source_type"] = "idle_flush",
+                         ["source_scope"] = "session-100",
+                         ["promotion_identity"] = "idle-flush:session-100:workflow:primary-ide",
+                         ["logical_key"] = "workflow:primary-ide",
+                         ["confidence"] = 0.95,
+                     },
+                     new Dictionary<string, object?>
+                     {
+                         ["action"] = "ingest",
+                         ["key"] = "primary-ide-cursor",
+                         ["value"] = "Cursor",
+                         ["kind"] = "preference",
+                         ["category"] = "workflow",
+                         ["source_type"] = "idle_flush",
+                         ["source_scope"] = "session-101",
+                         ["promotion_identity"] = "idle-flush:session-101:workflow:primary-ide",
+                         ["logical_key"] = "workflow:primary-ide",
+                         ["confidence"] = 0.95,
+                     },
+                 })
+        {
+            var ingestResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+            {
+                Name = "ctx_brain",
+                ProjectId = projectId,
+                Arguments = item,
+            });
+            Assert.Equal(HttpStatusCode.OK, ingestResponse.StatusCode);
+        }
+
+        var payload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
+        Assert.NotNull(payload);
+        Assert.Contains(payload!.Brain, item => item.Key == "primary-ide-opencode" && item.LifecycleStatus == "superseded");
+        Assert.Contains(payload.Brain, item => item.Key == "primary-ide-cursor" && item.LifecycleStatus == "current");
+    }
+
+    /// <summary>
+    /// A correction fact invalidates the prior active brain fact for the same logical key.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_BrainIngest_CorrectionInvalidatesPriorFact()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "brain-ingest-invalidation",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/example/brain-ingest-invalidation.git",
+                Host = "github.com",
+                Owner = "example",
+                RepoName = "brain-ingest-invalidation",
+                DefaultBranch = "main",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, resolveResponse.StatusCode);
+
+        var resolved = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolved?.Project?.ProjectId);
+        var projectId = resolved!.Project!.ProjectId;
+
+        foreach (var item in new[]
+                 {
+                     new Dictionary<string, object?>
+                     {
+                         ["action"] = "ingest",
+                         ["key"] = "test-runner-jest",
+                         ["value"] = "jest",
+                         ["kind"] = "fact",
+                         ["category"] = "testing",
+                         ["source_type"] = "stop",
+                         ["source_scope"] = "session-201",
+                         ["promotion_identity"] = "stop:session-201:testing:test-runner",
+                         ["logical_key"] = "testing:test-runner",
+                         ["confidence"] = 0.80,
+                     },
+                     new Dictionary<string, object?>
+                     {
+                         ["action"] = "ingest",
+                         ["key"] = "test-runner-vitest",
+                         ["value"] = "vitest",
+                         ["kind"] = "correction",
+                         ["category"] = "testing",
+                         ["source_type"] = "stop",
+                         ["source_scope"] = "session-202",
+                         ["promotion_identity"] = "stop:session-202:testing:test-runner",
+                         ["logical_key"] = "testing:test-runner",
+                         ["confidence"] = 0.92,
+                     },
+                 })
+        {
+            var ingestResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+            {
+                Name = "ctx_brain",
+                ProjectId = projectId,
+                Arguments = item,
+            });
+            Assert.Equal(HttpStatusCode.OK, ingestResponse.StatusCode);
+        }
+
+        var payload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
+        Assert.NotNull(payload);
+        Assert.Contains(payload!.Brain, item => item.Key == "test-runner-jest" && item.LifecycleStatus == "invalidated");
+        Assert.Contains(payload.Brain, item => item.Key == "test-runner-vitest" && item.LifecycleStatus == "current" && item.EntryType == "correction");
+    }
+
+    /// <summary>
     /// Knowledge consolidate promotes the latest server session findings and decisions into project knowledge.
     /// </summary>
     [Fact]

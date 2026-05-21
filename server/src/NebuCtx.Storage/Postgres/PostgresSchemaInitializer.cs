@@ -23,6 +23,7 @@ public static class PostgresSchemaInitializer
 
         await EnsureProjectMetadataColumnAsync(conn, cancellationToken);
         await EnsureKnowledgeLifecycleColumnsAsync(conn, cancellationToken);
+        await EnsureBrainFactColumnsAsync(conn, cancellationToken);
         await EnsureTelemetryCommandPreviewColumnAsync(conn, cancellationToken);
         await MigrateWorkspaceBindingsTableAsync(conn, cancellationToken);
     }
@@ -71,6 +72,44 @@ public static class PostgresSchemaInitializer
                OR source_scope = ''
                OR lifecycle_score = 0.0
                OR last_confirmed_at IS NULL;
+            """,
+            conn);
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Adds typed fact columns to brain_entries when upgrading existing databases.
+    /// </summary>
+    /// <param name="conn">Open Postgres connection.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private static async Task EnsureBrainFactColumnsAsync(NpgsqlConnection conn, CancellationToken cancellationToken)
+    {
+        await using var cmd = new NpgsqlCommand(
+            """
+            ALTER TABLE brain_entries ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+            ALTER TABLE brain_entries ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'fact';
+            ALTER TABLE brain_entries ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'general';
+            ALTER TABLE brain_entries ADD COLUMN IF NOT EXISTS logical_key TEXT NOT NULL DEFAULT '';
+            ALTER TABLE brain_entries ADD COLUMN IF NOT EXISTS promotion_identity TEXT NOT NULL DEFAULT '';
+            ALTER TABLE brain_entries ADD COLUMN IF NOT EXISTS source_type TEXT NOT NULL DEFAULT 'legacy';
+            ALTER TABLE brain_entries ADD COLUMN IF NOT EXISTS source_scope TEXT NOT NULL DEFAULT '';
+            ALTER TABLE brain_entries ADD COLUMN IF NOT EXISTS lifecycle_status TEXT NOT NULL DEFAULT 'legacy';
+            ALTER TABLE brain_entries ADD COLUMN IF NOT EXISTS confidence REAL NOT NULL DEFAULT 1.0;
+            ALTER TABLE brain_entries ADD COLUMN IF NOT EXISTS evidence TEXT NOT NULL DEFAULT '';
+            ALTER TABLE brain_entries ADD COLUMN IF NOT EXISTS superseded_by TEXT NOT NULL DEFAULT '';
+            ALTER TABLE brain_entries ADD COLUMN IF NOT EXISTS invalidated_by TEXT NOT NULL DEFAULT '';
+            UPDATE brain_entries
+            SET updated_at = COALESCE(updated_at, created_at),
+                logical_key = CASE WHEN logical_key = '' THEN key ELSE logical_key END,
+                promotion_identity = CASE WHEN promotion_identity = '' THEN concat('legacy:', project_id, ':', key) ELSE promotion_identity END,
+                source_scope = CASE WHEN source_scope = '' THEN project_id ELSE source_scope END,
+                lifecycle_status = CASE WHEN lifecycle_status = '' THEN 'legacy' ELSE lifecycle_status END
+            WHERE logical_key = ''
+               OR promotion_identity = ''
+               OR source_scope = ''
+               OR lifecycle_status = '';
+            CREATE INDEX IF NOT EXISTS idx_brain_entries_project_state ON brain_entries (project_id, lifecycle_status, updated_at DESC);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_brain_entries_project_identity ON brain_entries (project_id, promotion_identity);
             """,
             conn);
         await cmd.ExecuteNonQueryAsync(cancellationToken);
@@ -145,6 +184,18 @@ public static class PostgresSchemaInitializer
             key          TEXT NOT NULL,
             value        TEXT NOT NULL,
             created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            kind         TEXT NOT NULL DEFAULT 'fact',
+            category     TEXT NOT NULL DEFAULT 'general',
+            logical_key  TEXT NOT NULL DEFAULT '',
+            promotion_identity TEXT NOT NULL DEFAULT '',
+            source_type  TEXT NOT NULL DEFAULT 'legacy',
+            source_scope TEXT NOT NULL DEFAULT '',
+            lifecycle_status TEXT NOT NULL DEFAULT 'legacy',
+            confidence   REAL NOT NULL DEFAULT 1.0,
+            evidence     TEXT NOT NULL DEFAULT '',
+            superseded_by TEXT NOT NULL DEFAULT '',
+            invalidated_by TEXT NOT NULL DEFAULT '',
             PRIMARY KEY (project_id, key)
         );
 

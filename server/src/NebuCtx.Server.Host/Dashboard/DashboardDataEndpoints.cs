@@ -235,20 +235,7 @@ public static class DashboardDataEndpoints
             IBrainStore brainStore,
             CancellationToken ct) =>
         {
-            var prefix = entryType.ToLowerInvariant() switch
-            {
-                "user_prompt" => "user-prompt-",
-                "assistant_output" => "assistant-output-",
-                "session_summary" => "session-",
-                _ => string.Empty,
-            };
-
-            if (string.IsNullOrEmpty(prefix))
-            {
-                return Results.BadRequest(new { error = "unknown brain entry type", entry_type = entryType });
-            }
-
-            var count = await brainStore.DeleteByPrefixAsync(projectId, prefix, ct);
+            var count = await brainStore.DeleteByPrefixAsync(projectId, entryType, ct);
             return Results.Ok(new { deleted = count, project_id = projectId, entry_type = entryType });
         });
 

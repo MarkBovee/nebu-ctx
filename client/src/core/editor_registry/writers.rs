@@ -606,6 +606,32 @@ fn install_opencode_support_files_for_config(config_path: &std::path::Path) -> R
     let plugin_content = include_str!("../../templates/opencode-plugin.ts");
     crate::config_io::write_atomic_with_backup(&plugin_path, plugin_content)?;
 
+    let skill_dir = config_dir.join("skills").join("nebu-ctx");
+    install_embedded_skill(&skill_dir)?;
+
+    Ok(())
+}
+
+fn install_embedded_skill(skill_dir: &std::path::Path) -> Result<(), String> {
+    std::fs::create_dir_all(skill_dir.join("scripts")).map_err(|e| e.to_string())?;
+
+    let skill_path = skill_dir.join("SKILL.md");
+    let skill_md = include_str!("../../../assets/skills/nebu-ctx/SKILL.md");
+    crate::config_io::write_atomic_with_backup(&skill_path, skill_md)?;
+
+    let script_path = skill_dir.join("scripts/install.sh");
+    let install_sh = include_str!("../../../assets/skills/nebu-ctx/scripts/install.sh");
+    crate::config_io::write_atomic_with_backup(&script_path, install_sh)?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(mut perms) = std::fs::metadata(&script_path).map(|meta| meta.permissions()) {
+            perms.set_mode(0o755);
+            let _ = std::fs::set_permissions(&script_path, perms);
+        }
+    }
+
     Ok(())
 }
 
@@ -1228,6 +1254,8 @@ args = ["x"]
         assert_eq!(json["plugin"], serde_json::json!(["./plugins/nebu-ctx.ts"]));
         assert!(dir.path().join("rules/nebu-ctx.md").exists());
         assert!(dir.path().join("plugins/nebu-ctx.ts").exists());
+        assert!(dir.path().join("skills/nebu-ctx/SKILL.md").exists());
+        assert!(dir.path().join("skills/nebu-ctx/scripts/install.sh").exists());
     }
 
     #[test]
@@ -1250,6 +1278,7 @@ args = ["x"]
         assert_eq!(plugins.len(), 2);
         assert_eq!(plugins[0][0], "./plugins/skill-router.js");
         assert_eq!(plugins[1], serde_json::json!("./plugins/nebu-ctx.ts"));
+        assert!(dir.path().join("skills/nebu-ctx/SKILL.md").exists());
     }
 
     #[test]
@@ -1267,6 +1296,8 @@ args = ["x"]
         assert!(plugin.contains("message.updated"));
         assert!(plugin.contains("message.part.updated"));
         assert!(plugin.contains("assistant-output-submit"));
+        assert!(plugin.contains("tool-activity"));
+        assert!(plugin.contains("idle-flush"));
         assert!(plugin.contains("session.compacted"));
         assert!(plugin.contains("session.idle"));
         assert!(!plugin.contains("lean-ctx hook rewrite-inline"));

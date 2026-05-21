@@ -123,13 +123,26 @@ fn build_status_report() -> Result<(StatusReport, std::path::PathBuf), String> {
             }
         };
 
+        let note = if detected && t.agent_key == "opencode" {
+            let note = opencode_support_note(&home);
+            if note.starts_with("missing ") {
+                warnings.push(
+                    "OpenCode support files incomplete — run `nebu-ctx setup --agent opencode`"
+                        .to_string(),
+                );
+            }
+            Some(note)
+        } else {
+            None
+        };
+
         if detected {
             mcp_targets.push(McpTargetStatus {
                 name: t.name.to_string(),
                 detected,
                 config_path,
                 state,
-                note: None,
+                note,
             });
         }
     }
@@ -169,6 +182,25 @@ fn build_status_report() -> Result<(StatusReport, std::path::PathBuf), String> {
     };
 
     Ok((report, path))
+}
+
+fn opencode_support_note(home: &std::path::Path) -> String {
+    let mut missing = Vec::new();
+    if !crate::core::editor_registry::opencode_rules_path(home).exists() {
+        missing.push("rules");
+    }
+    if !crate::core::editor_registry::opencode_plugin_path(home).exists() {
+        missing.push("plugin");
+    }
+    if !crate::core::editor_registry::opencode_skill_path(home).exists() {
+        missing.push("skill");
+    }
+
+    if missing.is_empty() {
+        "rules + plugin + skill installed".to_string()
+    } else {
+        format!("missing {}", missing.join(" + "))
+    }
 }
 
 fn print_human(report: &StatusReport, path: &std::path::Path) {

@@ -98,13 +98,36 @@ internal sealed class InMemoryBrainStore : IBrainStore
         return Task.FromResult<Dictionary<string, object?>?>(new Dictionary<string, object?>
         {
             ["entry_count"] = entries.Count,
+            ["active_fact_count"] = entries.Count(entry => string.Equals(entry.LifecycleStatus, "current", StringComparison.OrdinalIgnoreCase)),
             ["project_id"] = projectId,
         });
     }
 
     public Task StoreAsync(string projectId, string key, string value, CancellationToken cancellationToken = default)
     {
-        _entries[(projectId, key)] = new BrainEntry { Key = key, Value = value, CreatedAt = DateTimeOffset.UtcNow };
+        _entries[(projectId, key)] = new BrainEntry
+        {
+            ProjectId = projectId,
+            Key = key,
+            Value = value,
+            Kind = "legacy",
+            Category = "legacy",
+            LogicalKey = key,
+            PromotionIdentity = $"legacy:{projectId}:{key}",
+            SourceType = "legacy",
+            SourceScope = projectId,
+            LifecycleStatus = "legacy",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        };
+        return Task.CompletedTask;
+    }
+
+    public Task StoreFactAsync(BrainEntry entry, CancellationToken cancellationToken = default)
+    {
+        entry.UpdatedAt = entry.UpdatedAt == default ? DateTimeOffset.UtcNow : entry.UpdatedAt;
+        entry.CreatedAt = entry.CreatedAt == default ? entry.UpdatedAt : entry.CreatedAt;
+        _entries[(entry.ProjectId, entry.Key)] = entry;
         return Task.CompletedTask;
     }
 
@@ -153,7 +176,9 @@ internal sealed class InMemoryBrainStore : IBrainStore
     public Task<int> DeleteByPrefixAsync(string projectId, string keyPrefix, CancellationToken cancellationToken = default)
     {
         var keys = _entries.Keys
-            .Where(k => k.ProjectId == projectId && k.Key.StartsWith(keyPrefix, StringComparison.OrdinalIgnoreCase))
+            .Where(k => k.ProjectId == projectId && (
+                k.Key.StartsWith(keyPrefix, StringComparison.OrdinalIgnoreCase)
+                || (_entries.TryGetValue(k, out var entry) && string.Equals(entry.Kind, keyPrefix, StringComparison.OrdinalIgnoreCase))))
             .ToList();
         foreach (var k in keys) _entries.TryRemove(k, out _);
         return Task.FromResult(keys.Count);

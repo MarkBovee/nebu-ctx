@@ -127,9 +127,18 @@ public static class DashboardPayloadFactory
                 .Select(entry => new ProjectBrainEntryResponse
                 {
                     Key = entry.Key,
-                    EntryType = ClassifyBrainEntryType(entry.Key, entry.Value),
+                    EntryType = ClassifyBrainEntryType(entry),
+                    Category = entry.Category,
+                    LifecycleStatus = entry.LifecycleStatus,
+                    SourceType = entry.SourceType,
+                    SourceScope = entry.SourceScope,
+                    LogicalKey = entry.LogicalKey,
+                    PromotionIdentity = entry.PromotionIdentity,
+                    Confidence = entry.Confidence,
+                    Evidence = entry.Evidence,
                     Value = entry.Value,
                     CreatedAt = entry.CreatedAt,
+                    UpdatedAt = entry.UpdatedAt,
                 })
                 .ToArray(),
             Health = BuildMemoryHealth(knowledgeEntries),
@@ -162,21 +171,11 @@ public static class DashboardPayloadFactory
     /// <summary>
     /// Classifies a brain entry using existing key/value conventions so UI can filter without schema changes.
     /// </summary>
-    private static string ClassifyBrainEntryType(string key, string value)
+    private static string ClassifyBrainEntryType(BrainEntry entry)
     {
-        if (key.StartsWith("user-prompt-", StringComparison.OrdinalIgnoreCase) || value.StartsWith("user_prompt:", StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(entry.Kind))
         {
-            return "user_prompt";
-        }
-
-        if (key.StartsWith("assistant-output-", StringComparison.OrdinalIgnoreCase) || value.StartsWith("assistant_output:", StringComparison.OrdinalIgnoreCase))
-        {
-            return "assistant_output";
-        }
-
-        if (key.StartsWith("session-", StringComparison.OrdinalIgnoreCase))
-        {
-            return "session_summary";
+            return entry.Kind;
         }
 
         return "other";
@@ -373,9 +372,18 @@ public static class DashboardPayloadFactory
                 project_id = kvp.Key,
                 project_name = projects.FirstOrDefault(p => p.ProjectId == kvp.Key)?.Slug ?? kvp.Key,
                 key = e.Key,
-                entry_type = ClassifyBrainEntryType(e.Key, e.Value),
+                entry_type = ClassifyBrainEntryType(e),
+                category = e.Category,
+                lifecycle_status = e.LifecycleStatus,
+                source_type = e.SourceType,
+                source_scope = e.SourceScope,
+                logical_key = e.LogicalKey,
+                promotion_identity = e.PromotionIdentity,
+                confidence = e.Confidence,
+                evidence = e.Evidence,
                 value = e.Value,
                 created_at = e.CreatedAt,
+                updated_at = e.UpdatedAt,
             }))
             .OrderByDescending(e => e.created_at)
             .Cast<object>()

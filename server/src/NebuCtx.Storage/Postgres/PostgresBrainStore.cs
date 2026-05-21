@@ -32,10 +32,17 @@ public sealed class PostgresBrainStore : IBrainStore
 
         var entryCount = (long)(await cmd.ExecuteScalarAsync(cancellationToken) ?? 0L);
 
+        await using var activeCmd = new NpgsqlCommand(
+            "SELECT COUNT(*) FROM brain_entries WHERE project_id = @project_id AND lifecycle_status = 'current'",
+            conn);
+        activeCmd.Parameters.AddWithValue("project_id", projectId);
+        var activeFactCount = (long)(await activeCmd.ExecuteScalarAsync(cancellationToken) ?? 0L);
+
         return new Dictionary<string, object?>
         {
             ["project_id"] = projectId,
             ["entry_count"] = entryCount,
+            ["active_fact_count"] = activeFactCount,
             ["store"] = "postgres",
         };
     }
@@ -43,23 +50,67 @@ public sealed class PostgresBrainStore : IBrainStore
     /// <inheritdoc />
     public async Task StoreAsync(string projectId, string key, string value, CancellationToken cancellationToken = default)
     {
+        await StoreFactAsync(new BrainEntry
+        {
+            Key = key,
+            Value = value,
+            ProjectId = projectId,
+            Kind = "legacy",
+            Category = "legacy",
+            LogicalKey = key,
+            PromotionIdentity = $"legacy:{projectId}:{key}",
+            SourceType = "legacy",
+            SourceScope = projectId,
+            LifecycleStatus = "legacy",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        }, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task StoreFactAsync(BrainEntry entry, CancellationToken cancellationToken = default)
+    {
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(cancellationToken);
 
         await using var cmd = new NpgsqlCommand(
             """
-            INSERT INTO brain_entries (project_id, key, value, created_at)
-            VALUES (@project_id, @key, @value, @created_at)
+            INSERT INTO brain_entries (project_id, key, value, created_at, updated_at, kind, category, logical_key, promotion_identity, source_type, source_scope, lifecycle_status, confidence, evidence, superseded_by, invalidated_by)
+            VALUES (@project_id, @key, @value, @created_at, @updated_at, @kind, @category, @logical_key, @promotion_identity, @source_type, @source_scope, @lifecycle_status, @confidence, @evidence, @superseded_by, @invalidated_by)
             ON CONFLICT (project_id, key) DO UPDATE SET
                 value = EXCLUDED.value,
-                created_at = EXCLUDED.created_at
+                created_at = EXCLUDED.created_at,
+                updated_at = EXCLUDED.updated_at,
+                kind = EXCLUDED.kind,
+                category = EXCLUDED.category,
+                logical_key = EXCLUDED.logical_key,
+                promotion_identity = EXCLUDED.promotion_identity,
+                source_type = EXCLUDED.source_type,
+                source_scope = EXCLUDED.source_scope,
+                lifecycle_status = EXCLUDED.lifecycle_status,
+                confidence = EXCLUDED.confidence,
+                evidence = EXCLUDED.evidence,
+                superseded_by = EXCLUDED.superseded_by,
+                invalidated_by = EXCLUDED.invalidated_by
             """,
             conn);
 
-        cmd.Parameters.AddWithValue("project_id", projectId);
-        cmd.Parameters.AddWithValue("key", key);
-        cmd.Parameters.AddWithValue("value", value);
-        cmd.Parameters.AddWithValue("created_at", DateTimeOffset.UtcNow);
+        cmd.Parameters.AddWithValue("project_id", entry.ProjectId);
+        cmd.Parameters.AddWithValue("key", entry.Key);
+        cmd.Parameters.AddWithValue("value", entry.Value);
+        cmd.Parameters.AddWithValue("created_at", entry.CreatedAt == default ? DateTimeOffset.UtcNow : entry.CreatedAt);
+        cmd.Parameters.AddWithValue("updated_at", entry.UpdatedAt == default ? DateTimeOffset.UtcNow : entry.UpdatedAt);
+        cmd.Parameters.AddWithValue("kind", entry.Kind);
+        cmd.Parameters.AddWithValue("category", entry.Category);
+        cmd.Parameters.AddWithValue("logical_key", entry.LogicalKey);
+        cmd.Parameters.AddWithValue("promotion_identity", entry.PromotionIdentity);
+        cmd.Parameters.AddWithValue("source_type", entry.SourceType);
+        cmd.Parameters.AddWithValue("source_scope", entry.SourceScope);
+        cmd.Parameters.AddWithValue("lifecycle_status", entry.LifecycleStatus);
+        cmd.Parameters.AddWithValue("confidence", entry.Confidence);
+        cmd.Parameters.AddWithValue("evidence", entry.Evidence);
+        cmd.Parameters.AddWithValue("superseded_by", entry.SupersededBy);
+        cmd.Parameters.AddWithValue("invalidated_by", entry.InvalidatedBy);
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -89,7 +140,7 @@ public sealed class PostgresBrainStore : IBrainStore
         }
 
         await using var cmd = new NpgsqlCommand(
-            $"SELECT key, value, created_at FROM brain_entries WHERE project_id = @project_id AND ({string.Join(" OR ", clauses)}) ORDER BY created_at DESC LIMIT @limit",
+            $"SELECT key, value, created_at, updated_at, kind, category, logical_key, promotion_identity, source_type, source_scope, lifecycle_status, confidence, evidence, superseded_by, invalidated_by FROM brain_entries WHERE project_id = @project_id AND ({string.Join(" OR ", clauses)}) ORDER BY updated_at DESC LIMIT @limit",
             conn);
 
         cmd.Parameters.AddWithValue("project_id", projectId);
@@ -106,9 +157,22 @@ public sealed class PostgresBrainStore : IBrainStore
         {
             entries.Add(new BrainEntry
             {
+                ProjectId = projectId,
                 Key = reader.GetString(0),
                 Value = reader.GetString(1),
-                CreatedAt = reader.GetDateTime(2),
+                CreatedAt = reader.GetFieldValue<DateTimeOffset>(2),
+                UpdatedAt = reader.GetFieldValue<DateTimeOffset>(3),
+                Kind = reader.GetString(4),
+                Category = reader.GetString(5),
+                LogicalKey = reader.GetString(6),
+                PromotionIdentity = reader.GetString(7),
+                SourceType = reader.GetString(8),
+                SourceScope = reader.GetString(9),
+                LifecycleStatus = reader.GetString(10),
+                Confidence = reader.GetFloat(11),
+                Evidence = reader.GetString(12),
+                SupersededBy = reader.GetString(13),
+                InvalidatedBy = reader.GetString(14),
             });
         }
 
@@ -123,9 +187,9 @@ public sealed class PostgresBrainStore : IBrainStore
 
         await using var cmd = new NpgsqlCommand(
             """
-            SELECT key, value, created_at FROM brain_entries
+            SELECT key, value, created_at, updated_at, kind, category, logical_key, promotion_identity, source_type, source_scope, lifecycle_status, confidence, evidence, superseded_by, invalidated_by FROM brain_entries
             WHERE project_id = @project_id
-            ORDER BY created_at DESC
+            ORDER BY updated_at DESC
             LIMIT @limit
             """,
             conn);
@@ -140,9 +204,22 @@ public sealed class PostgresBrainStore : IBrainStore
         {
             entries.Add(new BrainEntry
             {
+                ProjectId = projectId,
                 Key = reader.GetString(0),
                 Value = reader.GetString(1),
-                CreatedAt = reader.GetDateTime(2),
+                CreatedAt = reader.GetFieldValue<DateTimeOffset>(2),
+                UpdatedAt = reader.GetFieldValue<DateTimeOffset>(3),
+                Kind = reader.GetString(4),
+                Category = reader.GetString(5),
+                LogicalKey = reader.GetString(6),
+                PromotionIdentity = reader.GetString(7),
+                SourceType = reader.GetString(8),
+                SourceScope = reader.GetString(9),
+                LifecycleStatus = reader.GetString(10),
+                Confidence = reader.GetFloat(11),
+                Evidence = reader.GetString(12),
+                SupersededBy = reader.GetString(13),
+                InvalidatedBy = reader.GetString(14),
             });
         }
 

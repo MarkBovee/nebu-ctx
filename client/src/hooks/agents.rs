@@ -886,37 +886,7 @@ fn install_copilot_pretooluse_hook(global: bool) {
     let rewrite_cmd = format!("{binary} hook rewrite");
     let redirect_cmd = format!("{binary} hook redirect");
 
-    let hook_config = serde_json::json!({
-        "version": 1,
-        "hooks": {
-            "preToolUse": [
-                {
-                    "type": "command",
-                    "bash": rewrite_cmd,
-                    "timeoutSec": 15
-                },
-                {
-                    "type": "command",
-                    "bash": redirect_cmd,
-                    "timeoutSec": 5
-                }
-            ],
-            "postToolUse": [
-                {
-                    "type": "command",
-                    "bash": format!("{binary} hook post-tool-use"),
-                    "timeoutSec": 10
-                }
-            ],
-            "postSession": [
-                {
-                    "type": "command",
-                    "bash": format!("{binary} hook stop"),
-                    "timeoutSec": 30
-                }
-            ]
-        }
-    });
+    let hook_config = copilot_hook_payload(&binary, rewrite_cmd, redirect_cmd);
 
     let hook_path = if global {
         let Some(home) = dirs::home_dir() else { return };
@@ -969,6 +939,44 @@ fn install_copilot_pretooluse_hook(global: bool) {
     if !mcp_server_quiet_mode() {
         println!("Installed Copilot hooks at {}", hook_path.display());
     }
+}
+
+fn copilot_hook_payload(
+    binary: &str,
+    rewrite_cmd: String,
+    redirect_cmd: String,
+) -> serde_json::Value {
+    serde_json::json!({
+        "version": 1,
+        "hooks": {
+            "preToolUse": [
+                {
+                    "type": "command",
+                    "bash": rewrite_cmd,
+                    "timeoutSec": 15
+                },
+                {
+                    "type": "command",
+                    "bash": redirect_cmd,
+                    "timeoutSec": 5
+                }
+            ],
+            "postToolUse": [
+                {
+                    "type": "command",
+                    "bash": format!("{binary} hook post-tool-use"),
+                    "timeoutSec": 10
+                }
+            ],
+            "postSession": [
+                {
+                    "type": "command",
+                    "bash": format!("{binary} hook stop"),
+                    "timeoutSec": 30
+                }
+            ]
+        }
+    })
 }
 
 fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
@@ -1122,8 +1130,8 @@ pub(super) fn install_opencode_hook() {
     let target = crate::core::editor_registry::EditorTarget {
         name: "OpenCode",
         agent_key: "opencode".to_string(),
-        config_path: home.join(".config/opencode/opencode.json"),
-        detect_path: home.join(".config/opencode"),
+        config_path: crate::core::editor_registry::opencode_config_path(&home),
+        detect_path: crate::core::editor_registry::opencode_config_dir(&home),
         config_type: crate::core::editor_registry::ConfigType::OpenCode,
     };
 
@@ -1153,7 +1161,7 @@ pub(super) fn install_opencode_hook() {
 
 #[cfg(test)]
 mod memory_hook_tests {
-    use super::claude_hook_payload;
+    use super::{claude_hook_payload, copilot_hook_payload};
 
     #[test]
     fn claude_hook_payload_contains_memory_lifecycle_hooks() {
@@ -1168,6 +1176,21 @@ mod memory_hook_tests {
         assert!(hooks.contains_key("UserPromptSubmit"));
         assert!(hooks.contains_key("PreCompact"));
         assert!(hooks.contains_key("Stop"));
+    }
+
+    #[test]
+    fn copilot_hook_payload_routes_shared_memory_handlers() {
+        let payload = copilot_hook_payload(
+            "nebu-ctx",
+            "nebu-ctx hook rewrite".to_string(),
+            "nebu-ctx hook redirect".to_string(),
+        );
+
+        let hooks = payload["hooks"].as_object().unwrap();
+        assert!(hooks.contains_key("postToolUse"));
+        assert!(hooks.contains_key("postSession"));
+        assert_eq!(hooks["postToolUse"][0]["bash"], "nebu-ctx hook post-tool-use");
+        assert_eq!(hooks["postSession"][0]["bash"], "nebu-ctx hook stop");
     }
 }
 

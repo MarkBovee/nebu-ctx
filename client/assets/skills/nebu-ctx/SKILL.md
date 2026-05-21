@@ -35,6 +35,19 @@ Always prefer `nebu-ctx -c <command>` over running commands directly when:
 - You are reading files and only need the structure or API surface
 - You want to check token savings for the current session
 
+Use `nebu-ctx project-bootstrap preview` when the user asks to map, scan, or bootstrap a repository for memory.
+Use `nebu-ctx project-bootstrap apply` only after the previewed candidate facts are approved.
+
+## Project Bootstrap Skill Flow
+
+```bash
+nebu-ctx project-bootstrap preview [--path <repo>]   # Build project map + candidate facts
+nebu-ctx project-bootstrap apply [--path <repo>]     # Persist approved facts through canonical memory paths
+```
+
+Preview summarizes stack, entrypoints, tests, infra, modules, and workflow signals.
+Preview does not store anything by itself.
+
 ## Shell commands (use instead of raw exec)
 
 ```bash

@@ -38,6 +38,7 @@ Cached? fresh=true or lines:N-M.
 
 Use ctx(domain=memory|context|graph|analytics|agents|inspect, action=...).
 Memory/state: ctx(domain=memory, action=recall|store|task|finding|decision|save|load|status|wakeup|consolidate).
+Project mapping/bootstrap: preview first with `nebu-ctx project-bootstrap preview`, apply only after explicit confirmation.
 Graph/analysis: ctx(domain=graph, action=related|symbol|impact|architecture|callers|callees|diagram|build|status).
 Analytics: ctx(domain=analytics, action=report|cost|heatmap|stats|feedback|wrapped|benchmark|analyze|discover|metrics).
 ctx_shell raw=true for uncompressed.
@@ -138,6 +139,7 @@ Cached? Use fresh=true, start_line=N, or lines:N-M.\n\
 \n\
 Use ctx(domain=memory|context|graph|analytics|agents|inspect, action=...) for higher-level workflows.\n\
 Examples: ctx(domain=memory, action=recall, query=...) | ctx(domain=context, action=overview, task=...) | ctx(domain=graph, action=impact, path=...) | ctx(domain=agents, action=handoff, ...).\n\
+When user asks to map/bootstrap repo knowledge, use `nebu-ctx project-bootstrap preview` first, not direct background memory writes.\n\
 ctx_shell raw=true for uncompressed output.\n\
 \n\
 CEP v1: 1.ACT FIRST 2.DELTA ONLY (Fn refs) 3.STRUCTURED (+/-/~) 4.ONE LINE PER ACTION 5.QUALITY ANCHOR\n\

@@ -11,16 +11,19 @@ using NebuCtx.Storage;
 public sealed class BrainService
 {
     private readonly IBrainStore _brainStore;
+    private readonly KnowledgeService _knowledgeService;
     private readonly ILogger<BrainService> _logger;
 
     /// <summary>
     /// Initializes the brain service.
     /// </summary>
     /// <param name="brainStore">Brain memory store.</param>
+    /// <param name="knowledgeService">Knowledge service used for public projection refresh.</param>
     /// <param name="logger">Logger for brain operations.</param>
-    public BrainService(IBrainStore brainStore, ILogger<BrainService> logger)
+    public BrainService(IBrainStore brainStore, KnowledgeService knowledgeService, ILogger<BrainService> logger)
     {
         _brainStore = brainStore;
+        _knowledgeService = knowledgeService;
         _logger = logger;
     }
 
@@ -34,7 +37,7 @@ public sealed class BrainService
     {
         _logger.LogDebug("Getting brain status for project {ProjectId}", projectId);
         var status = await _brainStore.GetStatusAsync(projectId, cancellationToken);
-        return status ?? new Dictionary<string, object?> { ["project_id"] = projectId, ["entry_count"] = 0 };
+        return status ?? new Dictionary<string, object?> { ["project_id"] = projectId, ["entry_count"] = 0, ["active_fact_count"] = 0 };
     }
 
     /// <summary>
@@ -53,6 +56,43 @@ public sealed class BrainService
 
         _logger.LogInformation("Storing brain entry '{Key}' for project {ProjectId}", key, projectId);
         await _brainStore.StoreAsync(projectId, key, value, cancellationToken);
+    }
+
+    /// <summary>
+    /// Stores or updates a canonical brain fact and refreshes the public memory projection.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="entry">Brain fact entry.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task StoreFactAsync(string projectId, BrainEntry entry, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(entry.Key);
+        entry.ProjectId = projectId;
+        if (string.IsNullOrWhiteSpace(entry.LogicalKey))
+        {
+            entry.LogicalKey = NormalizeToken(entry.Key);
+        }
+
+        if (string.IsNullOrWhiteSpace(entry.PromotionIdentity))
+        {
+            entry.PromotionIdentity = $"brain:{NormalizeToken(projectId)}:{NormalizeToken(entry.LogicalKey)}";
+        }
+
+        if (entry.CreatedAt == default)
+        {
+            entry.CreatedAt = DateTimeOffset.UtcNow;
+        }
+
+        entry.UpdatedAt = DateTimeOffset.UtcNow;
+        if (string.IsNullOrWhiteSpace(entry.LifecycleStatus))
+        {
+            entry.LifecycleStatus = "current";
+        }
+
+        await ApplySupersessionAsync(projectId, entry, cancellationToken);
+
+        await _brainStore.StoreFactAsync(entry, cancellationToken);
+        await ProjectToKnowledgeAsync(projectId, entry, cancellationToken);
     }
 
     /// <summary>
@@ -80,6 +120,16 @@ public sealed class BrainService
     }
 
     /// <summary>
+    /// Deletes a specific brain entry by key.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="key">Brain entry key.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True when the entry existed and was deleted.</returns>
+    public Task<bool> DeleteAsync(string projectId, string key, CancellationToken cancellationToken = default)
+        => _brainStore.DeleteAsync(projectId, key, cancellationToken);
+
+    /// <summary>
     /// Re-ranks brain entries with lightweight token scoring so natural-language recall is more forgiving.
     /// </summary>
     private static IReadOnlyList<BrainEntry> RerankEntries(IEnumerable<BrainEntry> entries, string query, int limit)
@@ -105,7 +155,7 @@ public sealed class BrainService
     /// </summary>
     private static float ScoreEntry(BrainEntry entry, SearchProfile profile)
     {
-        var haystack = NormalizeSearchText($"{entry.Key} {entry.Value}");
+        var haystack = NormalizeSearchText($"{entry.Key} {entry.Value} {entry.Kind} {entry.Category} {entry.Evidence}");
         var exactTerms = haystack.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var exactHits = profile.Terms.Count(term => exactTerms.Contains(term, StringComparer.Ordinal));
         var partialHits = profile.Terms.Count(term => haystack.Contains(term, StringComparison.Ordinal));
@@ -179,4 +229,72 @@ public sealed class BrainService
     /// Lightweight normalized query profile.
     /// </summary>
     private sealed record SearchProfile(string Normalized, IReadOnlyList<string> Terms, bool RecentIntent);
+
+    private async Task ProjectToKnowledgeAsync(string projectId, BrainEntry entry, CancellationToken cancellationToken)
+    {
+        if (string.Equals(entry.LifecycleStatus, "invalidated", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(entry.LifecycleStatus, "legacy", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var category = string.IsNullOrWhiteSpace(entry.Category) ? entry.Kind : entry.Category;
+        var sourceType = string.IsNullOrWhiteSpace(entry.SourceType) ? "brain" : entry.SourceType;
+        var sourceScope = string.IsNullOrWhiteSpace(entry.SourceScope) ? projectId : entry.SourceScope;
+        await _knowledgeService.RememberAsync(
+            projectId,
+            category,
+            entry.Key,
+            entry.Value,
+            entry.Confidence,
+            sourceType,
+            sourceScope,
+            entry.PromotionIdentity,
+            cancellationToken);
+    }
+
+    private async Task ApplySupersessionAsync(string projectId, BrainEntry entry, CancellationToken cancellationToken)
+    {
+        if (!string.Equals(entry.LifecycleStatus, "current", StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(entry.LogicalKey))
+        {
+            return;
+        }
+
+        var existing = await _brainStore.ListAllAsync(projectId, 500, cancellationToken);
+        foreach (var prior in existing)
+        {
+            if (!string.Equals(prior.LogicalKey, entry.LogicalKey, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(prior.PromotionIdentity, entry.PromotionIdentity, StringComparison.Ordinal)
+                || !string.Equals(prior.LifecycleStatus, "current", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            prior.LifecycleStatus = string.Equals(entry.Kind, "correction", StringComparison.OrdinalIgnoreCase)
+                ? "invalidated"
+                : "superseded";
+            prior.SupersededBy = string.Equals(prior.LifecycleStatus, "superseded", StringComparison.OrdinalIgnoreCase)
+                ? entry.PromotionIdentity
+                : prior.SupersededBy;
+            prior.InvalidatedBy = string.Equals(prior.LifecycleStatus, "invalidated", StringComparison.OrdinalIgnoreCase)
+                ? entry.PromotionIdentity
+                : prior.InvalidatedBy;
+            prior.UpdatedAt = entry.UpdatedAt;
+            await _brainStore.StoreFactAsync(prior, cancellationToken);
+        }
+    }
+
+    private static string NormalizeToken(string value)
+    {
+        var lowered = value.Trim().ToLowerInvariant();
+        var chars = lowered.Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray();
+        var normalized = new string(chars);
+        while (normalized.Contains("--", StringComparison.Ordinal))
+        {
+            normalized = normalized.Replace("--", "-", StringComparison.Ordinal);
+        }
+
+        return string.IsNullOrWhiteSpace(normalized.Trim('-')) ? "unknown" : normalized.Trim('-');
+    }
 }

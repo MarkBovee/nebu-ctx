@@ -180,10 +180,10 @@ mod tests {
 
         let (endpoint, received_paths) = spawn_replay_server(4);
         crate::config::save_connection(&endpoint, "test-token").unwrap();
-        enqueue_replay_fixtures(tmp.path());
+        let fixture_ids = enqueue_replay_fixtures(tmp.path());
 
         assert_eq!(flush_pending(), 3);
-        wait_for_empty_outbox();
+        wait_for_replayed_entries_to_clear(&fixture_ids);
 
         let mut paths = Vec::new();
         let required_paths = [
@@ -209,9 +209,13 @@ mod tests {
         assert!(paths.contains(&"/v1/index/sync".to_string()));
     }
 
-    fn wait_for_empty_outbox() {
+    fn wait_for_replayed_entries_to_clear(expected_ids: &[String]) {
         for _ in 0..20 {
-            if crate::core::sync_outbox::load_entries().unwrap().is_empty() {
+            let entries = crate::core::sync_outbox::load_entries().unwrap();
+            if expected_ids
+                .iter()
+                .all(|expected_id| entries.iter().all(|entry| &entry.id != expected_id))
+            {
                 return;
             }
 
@@ -219,12 +223,14 @@ mod tests {
         }
 
         let entries = crate::core::sync_outbox::load_entries().unwrap();
-        panic!("expected empty outbox after replay, found: {entries:?}");
+        panic!(
+            "expected replay fixture entries to clear after replay, found: {entries:?}"
+        );
     }
 
-    fn enqueue_replay_fixtures(root: &std::path::Path) {
+    fn enqueue_replay_fixtures(root: &std::path::Path) -> Vec<String> {
         let context = replay_project_context(root);
-        crate::core::sync_outbox::enqueue(
+        let telemetry_id = crate::core::sync_outbox::enqueue(
             crate::core::sync_outbox::OutboxOperationKind::TelemetryIngest,
             serde_json::to_value(TelemetryIngestRequest {
                 tool_name: "ctx_read".to_string(),
@@ -241,7 +247,7 @@ mod tests {
         )
         .unwrap();
 
-        crate::core::sync_outbox::enqueue(
+        let tool_call_id = crate::core::sync_outbox::enqueue(
             crate::core::sync_outbox::OutboxOperationKind::ServerToolCall,
             serde_json::to_value(crate::server_client::QueuedServerToolCall {
                 tool_name: "ctx_brain".to_string(),
@@ -256,7 +262,7 @@ mod tests {
         )
         .unwrap();
 
-        crate::core::sync_outbox::enqueue(
+        let index_sync_id = crate::core::sync_outbox::enqueue(
             crate::core::sync_outbox::OutboxOperationKind::CodeIndexSync,
             serde_json::to_value(crate::server_client::QueuedIndexSync {
                 project_context: (&context).into(),
@@ -286,6 +292,8 @@ mod tests {
             .unwrap(),
         )
         .unwrap();
+
+        vec![telemetry_id, tool_call_id, index_sync_id]
     }
 
     fn replay_project_context(root: &std::path::Path) -> crate::models::ProjectContext {

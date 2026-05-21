@@ -19,7 +19,7 @@ fn extract_command_from_hook_input(input: &str) -> Option<String> {
 }
 
 fn extract_tool_name(input: &str) -> Option<String> {
-    extract_first_json_field(input, &["tool_name", "toolName"])
+    extract_first_json_field(input, &["tool_name", "toolName", "tool"])
 }
 
 fn drain_sync_outbox() {
@@ -221,10 +221,8 @@ pub fn handle_rewrite_inline() {
     print!("{cmd}");
 }
 
-/// Session-end handler: consolidate local session facts into `knowledge.json`,
-/// then forward every promoted fact to the server via `ctx_knowledge`.
-/// Always snapshots the session summary to `ctx_brain` regardless of whether
-/// any facts were promoted.
+/// Session-end handler: consolidate local session facts, flush local journal,
+/// and forward derived brain facts to the server-backed canonical memory.
 /// Wired to Claude Code `Stop` and Copilot CLI `postSession`.
 pub fn handle_stop() {
     drain_sync_outbox();
@@ -243,16 +241,49 @@ pub fn handle_stop() {
 
     let promoted = outcome.as_ref().map(|o| o.promoted).unwrap_or(0);
     if promoted > 0 {
-        // Forward promoted facts to the server so they land in PostgreSQL.
         post_promoted_facts_to_server(&project_root);
     }
 
-    // Always snapshot session summary to brain (even if no knowledge facts promoted).
-    if let Some(session) =
-        crate::core::session::SessionState::load_latest_for_project_root(&project_root)
-    {
-        crate::server_client::post_session_to_brain(&session);
+    let session_id = crate::core::session::SessionState::load_latest_for_project_root(&project_root)
+        .map(|session| session.id)
+        .unwrap_or_else(|| "sessionless".to_string());
+    let _ = crate::core::brain_memory::record_lifecycle_marker(
+        &project_root,
+        Some(&session_id),
+        "hook-stop",
+        crate::core::brain_memory::LifecycleEventKind::SessionStop,
+        "session stop flush",
+    );
+    let _ = crate::core::brain_memory::flush_to_brain(&project_root, "stop");
+}
+
+/// Idle flush hook: persists derived brain facts without treating the session as stopped.
+/// Used by OpenCode when a session goes idle but may still continue later.
+pub fn handle_idle_flush() {
+    drain_sync_outbox();
+    let input = read_stdin_string().unwrap_or_default();
+    let project_root = std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    if project_root.is_empty() {
+        return;
     }
+
+    let session_id = extract_first_json_field(&input, &["session_id", "sessionID"])
+        .or_else(|| {
+            crate::core::session::SessionState::load_latest_for_project_root(&project_root)
+                .map(|session| session.id)
+        })
+        .unwrap_or_else(|| "sessionless".to_string());
+    let _ = crate::core::brain_memory::record_lifecycle_marker(
+        &project_root,
+        Some(&session_id),
+        "hook-idle-flush",
+        crate::core::brain_memory::LifecycleEventKind::IdleFlush,
+        "idle flush",
+    );
+    let _ = crate::core::brain_memory::flush_to_brain(&project_root, "idle_flush");
 }
 
 /// PreCompact hook: fired by Claude Code just before it compacts the context window.
@@ -260,10 +291,11 @@ pub fn handle_stop() {
 /// Reads the current local session state and knowledge facts, builds a compact
 /// XML `<session_state>` snapshot (≤2KB), and outputs it as `additionalContext`
 /// so Claude Code injects it into the post-compaction context automatically.
-/// Also fires an async save to the server-backed brain so the state survives cross-session.
+/// Also flushes local journal and derived facts to canonical brain memory.
 ///
 /// Wired to Claude Code `PreCompact`.
 pub fn handle_pre_compact() {
+    let input = read_stdin_string().unwrap_or_default();
     drain_sync_outbox();
     let project_root = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
@@ -271,13 +303,21 @@ pub fn handle_pre_compact() {
 
     let xml = build_session_snapshot_xml(&project_root, "compaction");
 
-    // Fire async server save so state lands in PostgreSQL (same as handle_stop does).
     if !project_root.is_empty() {
-        if let Some(session) =
-            crate::core::session::SessionState::load_latest_for_project_root(&project_root)
-        {
-            crate::server_client::post_session_to_brain(&session);
-        }
+        let session_id = extract_first_json_field(&input, &["session_id", "sessionID"])
+            .or_else(|| {
+                crate::core::session::SessionState::load_latest_for_project_root(&project_root)
+                    .map(|session| session.id)
+            })
+            .unwrap_or_else(|| "sessionless".to_string());
+        let _ = crate::core::brain_memory::record_lifecycle_marker(
+            &project_root,
+            Some(&session_id),
+            "hook-pre-compact",
+            crate::core::brain_memory::LifecycleEventKind::PreCompact,
+            "pre compact flush",
+        );
+        let _ = crate::core::brain_memory::flush_to_brain(&project_root, "pre_compact");
         post_promoted_facts_to_server(&project_root);
     }
 
@@ -310,6 +350,18 @@ pub fn handle_session_start() {
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
 
+    if !project_root.is_empty() {
+        let session_id = extract_first_json_field(&input, &["session_id", "sessionID"])
+            .unwrap_or_else(|| "sessionless".to_string());
+        let _ = crate::core::brain_memory::record_lifecycle_marker(
+            &project_root,
+            Some(&session_id),
+            "hook-session-start",
+            crate::core::brain_memory::LifecycleEventKind::SessionStart,
+            &format!("session start {source}"),
+        );
+    }
+
     let additional = if source == "compact" || source == "resume" {
         // After compact/resume: inject session state so agent picks up exactly where it left off.
         let snapshot = build_session_snapshot_xml(&project_root, &source);
@@ -338,30 +390,9 @@ pub fn handle_session_start() {
     }
 }
 
-fn truncate_for_memory(text: &str, limit: usize) -> String {
-    text.chars().take(limit).collect()
-}
-
-fn store_brain_entry(project_root: &str, key_prefix: &str, value_prefix: &str, text: &str) {
-    if project_root.is_empty() {
-        return;
-    }
-
-    let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));
-    let mut args = serde_json::Map::new();
-    args.insert("action".to_string(), serde_json::json!("store"));
-    let key = format!("{key_prefix}-{}", chrono::Utc::now().timestamp_millis());
-    args.insert("key".to_string(), serde_json::Value::String(key));
-    let value = format!("{value_prefix}: {}", truncate_for_memory(text, 800));
-    args.insert("value".to_string(), serde_json::Value::String(value));
-    let _ = crate::server_client::queue_or_call_tool("ctx_brain", args, &ctx);
-}
-
 /// UserPromptSubmit hook: fired by Claude Code when the user submits a prompt.
 ///
-/// Captures the raw prompt for session continuity tracking. Stores it in the
-/// server-backed brain so the pre-compact snapshot can include the user's most recent
-/// intent. Must be fast — fires async and exits immediately.
+/// Captures the raw prompt into the local journal for later fact extraction.
 ///
 /// Wired to Claude Code `UserPromptSubmit`.
 pub fn handle_user_prompt_submit() {
@@ -385,14 +416,15 @@ pub fn handle_user_prompt_submit() {
         return;
     }
 
-    // Store the user prompt in brain so PreCompact can surface recent intent.
     let project_root = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
     if project_root.is_empty() {
         return;
     }
-    store_brain_entry(&project_root, "user-prompt", "user_prompt", &trimmed);
+    let session_id = extract_first_json_field(&input, &["session_id", "sessionID"]);
+    let source = extract_first_json_field(&input, &["source", "editor"]).unwrap_or_else(|| "hook".to_string());
+    let _ = crate::core::brain_memory::record_user_turn(&project_root, session_id.as_deref(), &source, &trimmed);
 }
 
 /// AssistantOutputSubmit hook: fired by editor plugins when assistant text is
@@ -421,12 +453,13 @@ pub fn handle_assistant_output_submit() {
     let project_root = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
-    store_brain_entry(
-        &project_root,
-        "assistant-output",
-        "assistant_output",
-        &trimmed,
-    );
+    if project_root.is_empty() {
+        return;
+    }
+
+    let session_id = extract_first_json_field(&input, &["session_id", "sessionID"]);
+    let source = extract_first_json_field(&input, &["source", "editor"]).unwrap_or_else(|| "hook".to_string());
+    let _ = crate::core::brain_memory::record_assistant_turn(&project_root, session_id.as_deref(), &source, &trimmed);
 }
 
 /// Builds a compact XML `<session_state>` block (≤2KB) from local session state
@@ -590,6 +623,23 @@ pub fn handle_post_tool_use() {
     };
 
     let tool_name = extract_tool_name(&input).unwrap_or_else(|| "unknown".to_string());
+    let command = extract_command_from_hook_input(&input);
+    let tool_response = extract_first_json_field(&input, &["tool_response", "tool_result"]);
+    let session_id = extract_first_json_field(&input, &["session_id", "sessionID"]);
+    let project_root = std::env::current_dir()
+        .ok()
+        .map(|dir| dir.to_string_lossy().to_string())
+        .unwrap_or_default();
+    if !project_root.is_empty() {
+        let _ = crate::core::brain_memory::record_tool_activity(
+            &project_root,
+            session_id.as_deref(),
+            "hook-post-tool-use",
+            &tool_name,
+            command.as_deref(),
+            tool_response.as_deref(),
+        );
+    }
 
     // Prefer Claude Code's nested usage.{input,output}_tokens; fall back to
     // byte-length proxy when those fields are absent.
@@ -619,8 +669,9 @@ pub fn handle_post_tool_use() {
             (bytes / 4) as i64
         });
 
-    let command_preview = extract_command_from_hook_input(&input)
-        .and_then(|command| crate::core::sanitize::telemetry_command_preview(&command));
+    let command_preview = command
+        .as_deref()
+        .and_then(crate::core::sanitize::telemetry_command_preview);
     let project_context = std::env::current_dir()
         .ok()
         .map(|dir| crate::git_context::discover_project_context(&dir));
@@ -646,6 +697,38 @@ pub fn handle_post_tool_use() {
             .filter(|slug| !slug.is_empty()),
         command_preview,
     });
+}
+
+/// Tool activity hook: records tool activity into the local journal without
+/// emitting telemetry. Used by OpenCode, which already has separate token-savings
+/// telemetry and does not share Claude/Copilot post-tool hook payloads.
+pub fn handle_tool_activity() {
+    let Some(input) = read_stdin_string() else {
+        return;
+    };
+
+    let tool_name = extract_tool_name(&input).unwrap_or_else(|| "unknown".to_string());
+    let command = extract_command_from_hook_input(&input);
+    let tool_response = extract_first_json_field(&input, &["tool_response", "tool_result", "output"]);
+    let session_id = extract_first_json_field(&input, &["session_id", "sessionID"]);
+    let source = extract_first_json_field(&input, &["source", "editor"])
+        .unwrap_or_else(|| "hook-tool-activity".to_string());
+    let project_root = std::env::current_dir()
+        .ok()
+        .map(|dir| dir.to_string_lossy().to_string())
+        .unwrap_or_default();
+    if project_root.is_empty() {
+        return;
+    }
+
+    let _ = crate::core::brain_memory::record_tool_activity(
+        &project_root,
+        session_id.as_deref(),
+        &source,
+        &tool_name,
+        command.as_deref(),
+        tool_response.as_deref(),
+    );
 }
 
 fn resolve_binary() -> String {

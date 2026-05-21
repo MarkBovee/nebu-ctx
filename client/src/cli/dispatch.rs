@@ -1,6 +1,6 @@
 use crate::{
-    core, doctor, hook_handlers, mcp_stdio, report, setup, shell, status, sync_cli, token_report,
-    tools, uninstall,
+    core, doctor, hook_handlers, mcp_stdio, project_bootstrap, report, setup, shell, status,
+    sync_cli, token_report, tools, uninstall,
 };
 use anyhow::Result;
 
@@ -546,6 +546,65 @@ pub fn run() {
                 }
                 return;
             }
+            "project-bootstrap" => {
+                let action = rest.first().map(|value| value.as_str()).unwrap_or("preview");
+                let json = rest.iter().any(|arg| arg == "--json");
+                let path = super::option_value(&rest, &["--path"]);
+                let project_root = match project_bootstrap::resolve_project_root(path.as_deref()) {
+                    Ok(root) => root,
+                    Err(error) => {
+                        eprintln!("{error}");
+                        std::process::exit(1);
+                    }
+                };
+                let preview = match project_bootstrap::build_preview(&project_root) {
+                    Ok(preview) => preview,
+                    Err(error) => {
+                        eprintln!("{error}");
+                        std::process::exit(1);
+                    }
+                };
+
+                match action {
+                    "preview" => {
+                        if json {
+                            println!(
+                                "{}",
+                                serde_json::to_string_pretty(&preview)
+                                    .unwrap_or_else(|_| "{}".to_string())
+                            );
+                        } else {
+                            println!("{}", project_bootstrap::format_preview(&preview));
+                        }
+                    }
+                    "apply" => {
+                        let report = match project_bootstrap::apply_preview(&project_root, &preview)
+                        {
+                            Ok(report) => report,
+                            Err(error) => {
+                                eprintln!("{error}");
+                                std::process::exit(1);
+                            }
+                        };
+                        if json {
+                            println!(
+                                "{}",
+                                serde_json::to_string_pretty(&report)
+                                    .unwrap_or_else(|_| "{}".to_string())
+                            );
+                        } else {
+                            println!("{}", project_bootstrap::format_apply(&report));
+                        }
+                    }
+                    _ => {
+                        eprintln!(
+                            "Usage: nebu-ctx project-bootstrap [preview|apply] [--path <dir>] [--json]"
+                        );
+                        std::process::exit(1);
+                    }
+                }
+                return;
+            }
             "status" => {
                 let code = status::run_cli(&rest);
                 if code != 0 {
@@ -691,7 +750,9 @@ pub fn run() {
                     "codex-session-start" => hook_handlers::handle_codex_session_start(),
                     "rewrite-inline" => hook_handlers::handle_rewrite_inline(),
                     "stop" => hook_handlers::handle_stop(),
+                    "idle-flush" => hook_handlers::handle_idle_flush(),
                     "post-tool-use" => hook_handlers::handle_post_tool_use(),
+                    "tool-activity" => hook_handlers::handle_tool_activity(),
                     "pre-compact" => hook_handlers::handle_pre_compact(),
                     "session-start" => hook_handlers::handle_session_start(),
                     "user-prompt-submit" => hook_handlers::handle_user_prompt_submit(),
@@ -731,7 +792,7 @@ pub fn run() {
                         });
                     }
                     _ => {
-                        eprintln!("Usage: nebu-ctx hook <rewrite|redirect|copilot|codex-pretooluse|codex-session-start|rewrite-inline|stop|post-tool-use|pre-compact|session-start|user-prompt-submit|assistant-output-submit|telemetry>");
+                        eprintln!("Usage: nebu-ctx hook <rewrite|redirect|copilot|codex-pretooluse|codex-session-start|rewrite-inline|stop|idle-flush|post-tool-use|tool-activity|pre-compact|session-start|user-prompt-submit|assistant-output-submit|telemetry>");
                         eprintln!("  Internal commands used by agent hooks (Claude, Cursor, Copilot, etc.)");
                         std::process::exit(1);
                     }
@@ -912,6 +973,7 @@ COMMANDS:
     cheatsheet                     Command cheat sheet & workflow quick reference
     setup                          One-command setup: shell + editors + rules
     bootstrap                      Non-interactive setup + fix (zero-config)
+    project-bootstrap [preview|apply] Preview project map + candidate facts, then apply explicitly
     status [--json]                Show setup + MCP + rules status
     setup <shell>                  Print shell hook to stdout (eval pattern, like starship)
                                    Supported: bash, zsh, fish, powershell
@@ -991,6 +1053,8 @@ EXAMPLES:
         nebu-ctx setup                 One-command setup (shell + editors + rules)
         nebu-ctx bootstrap             Non-interactive setup + fix (zero-config)
         nebu-ctx bootstrap --json      Machine-readable bootstrap report
+        nebu-ctx project-bootstrap preview      Review candidate project facts first
+        nebu-ctx project-bootstrap apply        Store approved bootstrap facts
         nebu-ctx setup --global        Install shell aliases (file-based, includes nebu-ctx-on/off)
 
 EVAL SETUP (starship/zoxide style — always in sync with binary version):

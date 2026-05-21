@@ -687,6 +687,7 @@ pub fn cmd_cheatsheet() {
 \x1b[1;33m━━━ BEFORE YOU START ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m
   ctx_session load               \x1b[2m# restore previous session\x1b[0m
   ctx_overview task=\"...\"         \x1b[2m# task-aware file map\x1b[0m
+  nebu-ctx project-bootstrap preview \x1b[2m# map repo + preview facts first\x1b[0m
   ctx_graph action=build          \x1b[2m# index project (first time)\x1b[0m
   ctx_knowledge action=recall     \x1b[2m# check stored project facts\x1b[0m
 
@@ -702,6 +703,7 @@ pub fn cmd_cheatsheet() {
 \x1b[1;35m━━━ AFTER CODING ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m
   ctx_session finding \"...\"       \x1b[2m# record what you discovered\x1b[0m
   ctx_session decision \"...\"      \x1b[2m# record architectural choices\x1b[0m
+  nebu-ctx project-bootstrap apply \x1b[2m# persist reviewed bootstrap facts\x1b[0m
   ctx_knowledge action=remember   \x1b[2m# store permanent project facts\x1b[0m
   ctx_knowledge action=consolidate \x1b[2m# auto-extract session insights\x1b[0m
   ctx_wrapped                     \x1b[2m# see savings report\x1b[0m

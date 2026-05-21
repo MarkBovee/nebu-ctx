@@ -282,13 +282,16 @@ mod tests {
 
     #[test]
     fn store_save_load_roundtrip() {
-        let dir = std::env::temp_dir().join("bandit-test");
+        let _lock = crate::core::data_dir::test_env_lock();
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", tmp.path());
+
+        let dir = tmp.path().join("bandit-test");
         let root = dir.to_string_lossy().to_string();
         let mut store = BanditStore::default();
         store.get_or_create("rs_medium");
         store.save(&root).unwrap();
         let loaded = BanditStore::load(&root);
         assert!(loaded.bandits.contains_key("rs_medium"));
-        let _ = std::fs::remove_dir_all(&dir);
     }
 }

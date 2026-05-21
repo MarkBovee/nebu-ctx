@@ -360,6 +360,9 @@ public class ProjectResolutionTests
         public Task StoreAsync(string projectId, string key, string value, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
+        public Task StoreFactAsync(BrainEntry entry, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
         public Task<IReadOnlyList<BrainEntry>> RecallAsync(string projectId, string query, int limit = 10, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<BrainEntry>>([]);
 

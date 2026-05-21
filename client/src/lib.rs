@@ -18,6 +18,7 @@ pub mod mcp_server;
 pub mod mcp_stdio;
 pub mod models;
 pub mod project_metadata;
+pub mod project_bootstrap;
 pub mod proxy_autostart;
 pub mod proxy_setup;
 pub mod report;

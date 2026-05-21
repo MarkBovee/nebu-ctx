@@ -850,6 +850,54 @@ public sealed class ProjectBrainEntryResponse
     public string EntryType { get; set; } = "other";
 
     /// <summary>
+    /// Brain fact category.
+    /// </summary>
+    [JsonPropertyName("category")]
+    public string Category { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Lifecycle state.
+    /// </summary>
+    [JsonPropertyName("lifecycle_status")]
+    public string LifecycleStatus { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Provenance source type.
+    /// </summary>
+    [JsonPropertyName("source_type")]
+    public string SourceType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Provenance scope.
+    /// </summary>
+    [JsonPropertyName("source_scope")]
+    public string SourceScope { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Stable logical key.
+    /// </summary>
+    [JsonPropertyName("logical_key")]
+    public string LogicalKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Stable promotion identity.
+    /// </summary>
+    [JsonPropertyName("promotion_identity")]
+    public string PromotionIdentity { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Confidence score.
+    /// </summary>
+    [JsonPropertyName("confidence")]
+    public float Confidence { get; set; }
+
+    /// <summary>
+    /// Optional evidence text.
+    /// </summary>
+    [JsonPropertyName("evidence")]
+    public string Evidence { get; set; } = string.Empty;
+
+    /// <summary>
     /// Brain value.
     /// </summary>
     [JsonPropertyName("value")]
@@ -860,6 +908,12 @@ public sealed class ProjectBrainEntryResponse
     /// </summary>
     [JsonPropertyName("created_at")]
     public DateTimeOffset CreatedAt { get; set; }
+
+    /// <summary>
+    /// Last update time.
+    /// </summary>
+    [JsonPropertyName("updated_at")]
+    public DateTimeOffset UpdatedAt { get; set; }
 }
 
 /// <summary>

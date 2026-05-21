@@ -346,6 +346,20 @@ fn remove_rules_files(home: &Path) -> bool {
         ("Cline", home.join(".cline/rules/nebu-ctx.md")),
         ("Roo Code", home.join(".roo/rules/nebu-ctx.md")),
         ("OpenCode", home.join(".config/opencode/rules/nebu-ctx.md")),
+        (
+            "OpenCode plugin",
+            crate::core::editor_registry::opencode_plugin_path(home),
+        ),
+        (
+            "OpenCode skill",
+            crate::core::editor_registry::opencode_skill_path(home),
+        ),
+        (
+            "OpenCode skill install script",
+            crate::core::editor_registry::opencode_skill_dir(home)
+                .join("scripts")
+                .join("install.sh"),
+        ),
         ("Continue", home.join(".continue/rules/nebu-ctx.md")),
         ("Aider", home.join(".aider/rules/nebu-ctx.md")),
         ("Amp", home.join(".ampcoder/rules/nebu-ctx.md")),

@@ -125,3 +125,29 @@ pub fn claude_state_dir(home: &Path) -> PathBuf {
 pub fn claude_rules_dir(home: &Path) -> PathBuf {
     claude_state_dir(home).join("rules")
 }
+
+pub fn opencode_config_dir(home: &Path) -> PathBuf {
+    home.join(".config").join("opencode")
+}
+
+pub fn opencode_config_path(home: &Path) -> PathBuf {
+    opencode_config_dir(home).join("opencode.json")
+}
+
+pub fn opencode_rules_path(home: &Path) -> PathBuf {
+    opencode_config_dir(home).join("rules").join("nebu-ctx.md")
+}
+
+pub fn opencode_plugin_path(home: &Path) -> PathBuf {
+    opencode_config_dir(home)
+        .join("plugins")
+        .join("nebu-ctx.ts")
+}
+
+pub fn opencode_skill_dir(home: &Path) -> PathBuf {
+    opencode_config_dir(home).join("skills").join("nebu-ctx")
+}
+
+pub fn opencode_skill_path(home: &Path) -> PathBuf {
+    opencode_skill_dir(home).join("SKILL.md")
+}

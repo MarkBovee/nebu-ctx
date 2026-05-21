@@ -337,20 +337,10 @@ fn mcp_config_locations(home: &std::path::Path) -> Vec<McpLocation> {
     });
 
     {
-        #[cfg(unix)]
-        let opencode_cfg = home.join(".config").join("opencode").join("opencode.json");
-        #[cfg(unix)]
-        let opencode_display = "~/.config/opencode/opencode.json";
-
-        #[cfg(windows)]
-        let opencode_cfg = home.join(".config").join("opencode").join("opencode.json");
-        #[cfg(windows)]
-        let opencode_display = "~/.config/opencode/opencode.json";
-
         locations.push(McpLocation {
             name: "OpenCode",
-            display: opencode_display.into(),
-            path: opencode_cfg,
+            display: "~/.config/opencode/opencode.json".into(),
+            path: crate::core::editor_registry::opencode_config_path(home),
         });
     }
 
@@ -891,12 +881,20 @@ pub fn run() {
     }
 
     // 13) Claude Code instruction truncation guard
-    let claude_truncation = claude_truncation_outcome();
-    if let Some(ref ct) = claude_truncation {
+    let claude_instructions = claude_truncation_outcome();
+    if let Some(ref ct) = claude_instructions {
         if ct.ok {
             passed += 1;
         }
         print_check(ct);
+    }
+
+    let opencode_instructions = opencode_instructions_outcome();
+    if let Some(ref oc) = opencode_instructions {
+        if oc.ok {
+            passed += 1;
+        }
+        print_check(oc);
     }
 
     let mut effective_total = total + 1; // session_state always shown
@@ -904,7 +902,10 @@ pub fn run() {
     if pi.is_some() {
         effective_total += 1;
     }
-    if claude_truncation.is_some() {
+    if claude_instructions.is_some() {
+        effective_total += 1;
+    }
+    if opencode_instructions.is_some() {
         effective_total += 1;
     }
     if dashboard_health.is_some() {
@@ -953,7 +954,7 @@ fn claude_truncation_outcome() -> Option<Outcome> {
         Some(Outcome {
             ok: true,
             line: format!(
-                "{BOLD}Claude Code instructions{RST}  {GREEN}rules + skill installed{RST}  {DIM}(MCP instructions capped at 2048 chars — full content via rules file){RST}"
+                "{BOLD}Claude Code instructions{RST}  {GREEN}rules + skill installed{RST}  {DIM}(includes project-bootstrap preview/apply guidance; MCP instructions capped at 2048 chars){RST}"
             ),
         })
     } else if has_rules {
@@ -968,6 +969,44 @@ fn claude_truncation_outcome() -> Option<Outcome> {
             ok: false,
             line: format!(
                 "{BOLD}Claude Code instructions{RST}  {YELLOW}MCP instructions truncated at 2048 chars, no rules file found{RST}  {DIM}(run: nebu-ctx setup --agent claude){RST}"
+            ),
+        })
+    }
+}
+
+fn opencode_instructions_outcome() -> Option<Outcome> {
+    let home = dirs::home_dir()?;
+    let config_dir = crate::core::editor_registry::opencode_config_dir(&home);
+    if !config_dir.exists() {
+        return None;
+    }
+
+    let rules_path = crate::core::editor_registry::opencode_rules_path(&home);
+    let skill_path = crate::core::editor_registry::opencode_skill_path(&home);
+
+    let has_rules = rules_path.exists();
+    let has_skill = skill_path.exists();
+
+    if has_rules && has_skill {
+        Some(Outcome {
+            ok: true,
+            line: format!(
+                "{BOLD}OpenCode instructions{RST}  {GREEN}rules + skill installed{RST}  {DIM}(includes project-bootstrap preview/apply guidance){RST}"
+            ),
+        })
+    } else {
+        let mut missing = Vec::new();
+        if !has_rules {
+            missing.push("rules");
+        }
+        if !has_skill {
+            missing.push("skill");
+        }
+        Some(Outcome {
+            ok: false,
+            line: format!(
+                "{BOLD}OpenCode instructions{RST}  {YELLOW}missing {}{RST}  {DIM}(run: nebu-ctx setup --agent opencode){RST}",
+                missing.join(" + ")
             ),
         })
     }

@@ -54,7 +54,10 @@ public class AnalyticsToolTests
     public async Task BrainService_Recall_ReranksNaturalLanguageQueries()
     {
         var brainStore = new InMemoryBrainStore();
-        var service = new BrainService(brainStore, NullLogger<BrainService>.Instance);
+        var knowledgeStore = new InMemoryKnowledgeStore();
+        var sessionStore = new InMemorySessionStore();
+        var knowledgeService = new KnowledgeService(knowledgeStore, sessionStore, NullLogger<KnowledgeService>.Instance);
+        var service = new BrainService(brainStore, knowledgeService, NullLogger<BrainService>.Instance);
         const string projectId = "proj-brain";
 
         await service.StoreAsync(projectId, "plugin-hooks", "Fixed opencode plugin hooks and setup flow yesterday");

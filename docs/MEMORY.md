@@ -1,10 +1,11 @@
 # Memory System
 
-`nebu-ctx` gebruikt 3 memory-lagen met elk eigen doel:
+`nebu-ctx` gebruikt 4 memory-lagen met elk eigen doel:
 
 - `Session memory`: lokale, werkende state van huidige run. Snel, tijdelijk, project-scoped.
-- `Knowledge memory`: canonieke project-feiten. Duurzamer, opgeschoond, terugzoekbaar.
-- `Brain memory`: ruwe episodische breadcrumbs. Handig voor prompts, sessiesamenvattingen, recente intent.
+- `Journal memory`: lokale ruwe lifecycle-events. Prompt/assistant/tool-output voor extractie en debug.
+- `Brain memory`: hosted canonieke feiten. Typed, fact-only, project-scoped.
+- `Knowledge memory`: hosted/public projection voor recall, wake-up, triage, dashboard.
 
 In productie leeft hosted memory in PostgreSQL. Client houdt daarnaast lokale project-state en offline fallback bij onder `~/.nebu-ctx/` of `NEBU_CTX_DATA_DIR`.
 
@@ -13,8 +14,9 @@ In productie leeft hosted memory in PostgreSQL. Client houdt daarnaast lokale pr
 | Layer | Primary store | Scope | Used for |
 |:---|:---|:---|:---|
 | Session | local `sessions/` | current project + run | task, findings, decisions, touched files, intent, compact/resume |
-| Knowledge | local `knowledge/<project-hash>/knowledge.json` and hosted Postgres | project | durable facts, recall, wakeup briefing, lifecycle/triage |
-| Brain | hosted Postgres | project | raw user prompts, assistant outputs, session summaries |
+| Journal | local `journal/<project-hash>/` | current project + recent sessions | raw user prompts, assistant outputs, tool outcomes, lifecycle markers |
+| Brain | hosted Postgres | project | derived facts, decisions, constraints, preferences, corrections |
+| Knowledge | local `knowledge/<project-hash>/knowledge.json` and hosted Postgres projection | project | public recall, wakeup briefing, lifecycle/triage |
 
 ## Public vs Internal Surface
 
@@ -25,7 +27,24 @@ Client routeert dat intern zo:
 - `task`, `finding`, `decision`, `save`, `load`, `status`, `reset`, `list`, `cleanup` -> `ctx_session`
 - `store`, `set`, `remember`, `recall`, `search`, `categories`, `timeline`, `consolidate`, `promote`, `upkeep`, `triage`, `wakeup`, `remove` -> `ctx_knowledge`
 
-`ctx_brain` is intern/server-only. Hooks gebruiken die direct voor episodische brain entries. Externe clients horen via publieke surface niet rechtstreeks `ctx_brain` aan te roepen.
+`ctx_brain` is intern/server-only. Hooks en editor adapters gebruiken die voor typed hosted brain facts. Externe clients horen via publieke surface niet rechtstreeks `ctx_brain` aan te roepen.
+
+## Project Bootstrap Workflow
+
+Project bootstrap is expliciet, user-initiated, en preview-first.
+
+Gebruik:
+
+```bash
+nebu-ctx project-bootstrap preview [--path <repo>]
+nebu-ctx project-bootstrap apply [--path <repo>]
+```
+
+- `preview` bouwt project map + candidate facts uit bestaande signalen zoals markers, talen, entrypoints, tests, infra en modules.
+- `preview` schrijft niets weg.
+- `apply` schrijft pas na expliciete bevestiging via canonieke knowledge/memory paths met stabiele provenance.
+
+Bootstrap is dus laag bovenop brain/knowledge, niet stilzwijgende background capture.
 
 ## What Gets Stored
 
@@ -44,6 +63,35 @@ Lokale `SessionState` bewaart onder meer:
 
 Deze state wordt gebatcht opgeslagen tijdens normaal toolgebruik en expliciet via `ctx(memory, action="save")` of hooks zoals `Stop`.
 
+### Journal memory
+
+Lokale journal entries bewaren onder meer:
+
+- raw user prompts
+- assistant output parts/completions
+- tool outcomes en compressed output hints
+- lifecycle markers zoals startup, compact, idle, stop
+
+Journal blijft client-local. Het is geen canonieke server memorylaag.
+
+### Brain memory
+
+Brain bewaart typed canonieke facts met lifecycle-data:
+
+- `kind`
+- `category`
+- `key`
+- `value`
+- `confidence`
+- `logical_key`
+- `promotion_identity`
+- `source_type`, `source_scope`
+- `lifecycle_status`
+- `superseded_by`, `invalidated_by`
+- `evidence`
+
+Brain is echte project-memory. Raw transcript hoort hier niet thuis.
+
 ### Knowledge memory
 
 Knowledge bewaart canonieke facts met lifecycle-data:
@@ -59,15 +107,12 @@ Knowledge bewaart canonieke facts met lifecycle-data:
 
 Knowledge is memory die bedoeld is om later terug te halen via recall/search/wakeup.
 
-### Brain memory
+Knowledge blijft publieke retrieval/projectielaag bovenop canonieke memory:
 
-Brain bewaart losse key/value entries zonder knowledge-lifecycle:
-
-- raw user prompts
-- assistant outputs
-- per-session summary lines
-
-Brain is meer episodisch logboek dan canonieke kennislaag.
+- wake-up briefing
+- recall/search resultaten
+- dashboard memory health en triage
+- local fallback facts wanneer host niet beschikbaar is
 
 ## Trigger And Hook Flow
 
@@ -109,17 +154,12 @@ Doet:
 
 - pakt ruwe user prompt
 - filtert hook/system-injecties eruit
-- slaat prompt op in hosted brain via `ctx_brain(action="store")`
-
-Opslag:
-
-- key: `user-prompt-<timestamp>`
-- value prefix: `user_prompt: ...`
-- value wordt afgekapt op 800 chars
+- schrijft event naar lokale journal
+- laat latere lifecycle flush eventuele afgeleide facts naar hosted brain sturen
 
 Doel:
 
-- recente user intent beschikbaar maken voor brain recall en future compact/resume flows
+- recente user intent en constraints beschikbaar maken voor fact extractie zonder raw transcript server-side te bewaren
 
 ### 3. `AssistantOutputSubmit`
 
@@ -133,13 +173,8 @@ Doet:
 
 - pakt assistant tekst
 - filtert system/hook output eruit
-- slaat tekst op in hosted brain via `ctx_brain(action="store")`
-
-Opslag:
-
-- key: `assistant-output-<timestamp>`
-- value prefix: `assistant_output: ...`
-- value wordt afgekapt op 800 chars
+- schrijft event naar lokale journal
+- laat lifecycle flush er beslissingen, bevestigde findings en correcties uit afleiden
 
 ### 4. `PreCompact`
 
@@ -153,8 +188,8 @@ Doet:
 
 - flushes pending telemetry/server outbox
 - bouwt compacte `<session_state>` XML uit lokale session + knowledge
-- post huidige session summary naar brain
-- post promoted knowledge facts naar hosted knowledge
+- flusht journal -> fact extractie -> hosted brain ingest
+- ververst hosted/public knowledge projection
 - geeft XML terug als `additionalContext`
 
 Uitlezen:
@@ -164,8 +199,8 @@ Uitlezen:
 
 Opslag:
 
-- brain: session summary via `ctx_brain(action="store")`
-- knowledge: promoted local facts via `ctx_knowledge(action="promote")`
+- brain: afgeleide facts via `ctx_brain(action="ingest")`
+- knowledge: brain-backed projection en lokale fallback facts
 
 ### 5. `Stop`
 
@@ -180,13 +215,13 @@ Doet:
 
 - flushes pending telemetry/server outbox
 - draait lokale consolidation van laatste session
-- promoted lokale facts gaan naar hosted knowledge
-- session summary gaat altijd naar hosted brain
+- flusht journal -> fact extractie -> hosted brain ingest
+- ververst knowledge projection/wakeup
 
 Opslag:
 
-- knowledge: alleen current high-confidence facts uit lokale `knowledge.json`
-- brain: altijd 1 session-summary entry per saved session
+- brain: alleen afgeleide facts, geen raw session-summary logregel
+- knowledge: current projection voor publieke recall/wakeup
 
 ### 6. `PostToolUse`
 
@@ -209,7 +244,7 @@ Wel relevant:
 
 ## Non-hook Memory Writes During Tool Calls
 
-Niet alles loopt via hooks. Gewoon MCP-gebruik schrijft ook memory:
+Niet alles loopt via hooks. Gewoon MCP-gebruik schrijft ook session/journal/knowledge memory:
 
 ### `ctx(memory, action="task"|"finding"|"decision")`
 
@@ -265,12 +300,13 @@ Extra hosted reads:
 
 ### Brain read
 
-`ctx_brain(action="recall")` leest episodische brain entries. Dit is vooral bedoeld voor internal/dashboard/service usage, niet publieke MCP-contract calls.
+`ctx_brain(action="recall")` leest hosted canonieke brain facts. Dit is vooral bedoeld voor internal/dashboard/service usage, niet publieke MCP-contract calls.
 
 Gebruik:
 
-- recente prompts / outputs / session summaries terugvinden
-- dashboard brain memory lijst
+- hosted fact recall voor internal lifecycle flows
+- dashboard brain facts lijst
+- brain-backed wake-up/projectie-opbouw
 
 ## Hosted Sync Rules
 
@@ -281,23 +317,22 @@ Client probeert server-calls direct te doen. Als server niet bereikbaar is:
 
 Belangrijk gevolg:
 
-- `UserPromptSubmit`, `AssistantOutputSubmit`, `PreCompact`, `Stop` verliezen memory niet direct bij tijdelijke offline host
+- journal writes blijven lokaal beschikbaar als host wegvalt
 - hosted brain/knowledge kan kort achterlopen op lokale state tot replay gebeurt
 
 ## Consolidation Pipeline
 
 Flow van werkgeheugen naar duurzame knowledge:
 
-1. Session verzamelt task/findings/decisions/files/intents.
-2. Local consolidation haalt bruikbare facts uit laatste session.
-3. Facts landen lokaal in `knowledge.json`.
-4. Alleen current high-confidence facts worden gepost naar hosted `ctx_knowledge(action="promote")`.
+1. Session en journal verzamelen task/findings/decisions/files/intents en raw lifecycle-events.
+2. Client fact extractie haalt bruikbare facts uit session + journal.
+3. Facts landen hosted in `ctx_brain(action="ingest")`.
+4. Brain ingest ververst de hosted/public knowledge projection.
 5. Hosted knowledge lifecycle doet ranking, history, stale marking, wakeup, triage.
 
 Praktisch:
 
 - session = working memory
-- local knowledge = client-side staging + fallback
-- hosted knowledge = canonical project memory
-- brain = raw episodic breadcrumbs
-
+- journal = local raw event log
+- brain = canonical fact memory
+- hosted knowledge = public projection + wakeup/recall surface

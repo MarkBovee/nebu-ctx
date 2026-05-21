@@ -113,6 +113,21 @@ The current user-facing workflow is `connect`: connect the client to a host and 
 
 In practice, that means `nebu-ctx` is not a SaaS dependency. The host is yours to run locally, in a container, or on your own infrastructure.
 
+## Project Bootstrap
+
+Use the explicit project bootstrap flow when you want an agent to map a repository and propose durable memory facts without silently writing memory on first contact.
+
+```bash
+nebu-ctx project-bootstrap preview [--path <repo>]
+nebu-ctx project-bootstrap apply [--path <repo>]
+```
+
+- `preview` summarizes stack, entrypoints, tests, infra, modules, and workflow signals.
+- `preview` only shows candidate facts and evidence.
+- `apply` persists those reviewed facts through canonical knowledge/memory paths.
+
+This flow is intentionally preview-first and explicit.
+
 ## Architecture
 
 ```text
@@ -342,8 +357,8 @@ Those hooks are responsible for things like:
 
 - command rewriting
 - session-state snapshots
-- prompt persistence
-- post-tool telemetry and knowledge promotion
+- local journal capture
+- post-tool telemetry and fact-backed memory promotion
 
 ## Dashboard
 

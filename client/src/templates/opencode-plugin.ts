@@ -125,12 +125,14 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $, directory }) => {
     return typeof additionalContext === "string" ? additionalContext.trim() : ""
   }
 
-  async function flushSessionMemory(sessionID: string) {
+  async function flushSessionMemory(sessionID: string, reason: "idle" | "stop" = "idle") {
     if (!dirtySessions.has(sessionID)) return
 
     dirtySessions.delete(sessionID)
-    await runNebu(["hook", "stop"])
-    pendingSessionContext.set(sessionID, SESSION_COMPACT)
+    await runNebu(["hook", reason === "stop" ? "stop" : "idle-flush"], JSON.stringify({
+      session_id: sessionID,
+      source: "opencode",
+    }))
   }
 
   async function flushAssistantOutput(sessionID: string) {
@@ -147,13 +149,14 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $, directory }) => {
       }
     }
 
-    const text = parts.join("\n\n").trim()
-    if (!text) return
+      const text = parts.join("\n\n").trim()
+      if (!text) return
 
-    await runNebu(["hook", "assistant-output-submit"], JSON.stringify({
-      message: text.slice(0, 4000),
-      source: "opencode",
-    }))
+      await runNebu(["hook", "assistant-output-submit"], JSON.stringify({
+        session_id: sessionID,
+        message: text.slice(0, 4000),
+        source: "opencode",
+      }))
   }
 
   function forgetAssistantMessage(messageID: string) {
@@ -220,6 +223,7 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $, directory }) => {
       const additionalContext = await readAdditionalContext("session-start", {
         source,
         editor: "opencode",
+        session_id: input.sessionID,
       })
       const snapshot = stripRoutingBlock(additionalContext)
 
@@ -232,7 +236,11 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $, directory }) => {
     },
 
     "experimental.session.compacting": async (_input, output) => {
-      const additionalContext = await readAdditionalContext("pre-compact")
+      const additionalContext = await readAdditionalContext("pre-compact", {
+        source: "compact",
+        editor: "opencode",
+        session_id: _input?.sessionID ?? "",
+      })
       if (additionalContext) {
         output.context.push(additionalContext)
       }
@@ -263,8 +271,24 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $, directory }) => {
       const tool = String(input?.tool ?? "").toLowerCase()
       if (tool !== "bash" && tool !== "shell") return
 
-      const rawOutput = output?.output
-      if (typeof rawOutput !== "string" || rawOutput.length < 500) return
+       const rawOutput = typeof output?.output === "string" ? output.output : ""
+       const command = typeof (output?.args as Record<string, unknown> | null)?.command === "string"
+         ? String((output?.args as Record<string, unknown>).command)
+         : typeof (input as Record<string, unknown> | null)?.command === "string"
+           ? String((input as Record<string, unknown>).command)
+           : ""
+
+      if (typeof input?.sessionID === "string" && input.sessionID) {
+        await runNebu(["hook", "tool-activity"], JSON.stringify({
+          session_id: input.sessionID,
+          source: "opencode",
+          tool_name: tool,
+          command,
+          tool_response: rawOutput.slice(0, 4000),
+        }))
+      }
+
+      if (rawOutput.length < 500) return
 
       try {
         const tmpDir = await mkdtemp(join(tmpdir(), "nebu-ctx-plugin-"))
@@ -301,7 +325,7 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $, directory }) => {
         text.startsWith("<system-reminder>")
       ) return
 
-      const hookInput = JSON.stringify({ prompt: text.slice(0, 500), source: "opencode" })
+      const hookInput = JSON.stringify({ session_id: _input?.sessionID ?? "", prompt: text.slice(0, 500), source: "opencode" })
       if (typeof _input?.sessionID === "string" && _input.sessionID) {
         dirtySessions.add(_input.sessionID)
       }
@@ -388,13 +412,13 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $, directory }) => {
 
       if (event.type === "session.idle") {
         await flushAssistantOutput(sessionID)
-        await flushSessionMemory(sessionID)
+        await flushSessionMemory(sessionID, "idle")
         return
       }
 
       if (event.type === "session.deleted") {
         await flushAssistantOutput(sessionID)
-        await flushSessionMemory(sessionID)
+        await flushSessionMemory(sessionID, "stop")
         dirtySessions.delete(sessionID)
         initializedSessions.delete(sessionID)
         pendingSessionContext.delete(sessionID)

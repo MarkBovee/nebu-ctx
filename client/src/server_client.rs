@@ -281,6 +281,43 @@ pub fn post_knowledge_to_server(project_root: &str) {
     let _ = queue_or_call_tool("ctx_knowledge", args, &ctx);
 }
 
+pub fn post_brain_facts_to_server(
+    project_root: &str,
+    facts: &[crate::core::brain_memory::BrainFactCandidate],
+) {
+    let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));
+    for fact in facts {
+        let mut args = Map::new();
+        args.insert("action".to_string(), Value::String("ingest".to_string()));
+        args.insert("key".to_string(), Value::String(fact.key.clone()));
+        args.insert("value".to_string(), Value::String(fact.value.clone()));
+        args.insert("kind".to_string(), Value::String(fact.kind.clone()));
+        args.insert("category".to_string(), Value::String(fact.category.clone()));
+        args.insert(
+            "source_type".to_string(),
+            Value::String(fact.source_type.clone()),
+        );
+        args.insert(
+            "source_scope".to_string(),
+            Value::String(fact.source_scope.clone()),
+        );
+        args.insert(
+            "promotion_identity".to_string(),
+            Value::String(fact.promotion_identity.clone()),
+        );
+        args.insert(
+            "logical_key".to_string(),
+            Value::String(fact.logical_key.clone()),
+        );
+        args.insert(
+            "confidence".to_string(),
+            Value::Number(serde_json::Number::from_f64(fact.confidence as f64).unwrap_or_else(|| serde_json::Number::from(1))),
+        );
+        args.insert("evidence".to_string(), Value::String(fact.evidence.clone()));
+        let _ = queue_or_call_tool("ctx_brain", args, &ctx);
+    }
+}
+
 /// Posts a session summary to `ctx_brain` when a session is saved.
 /// Silently returns if the server is not configured.
 pub fn post_session_to_brain(session: &crate::core::session::SessionState) {
@@ -544,5 +581,46 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("promote:session-42:decision:memory-owner:"));
+    }
+
+    #[test]
+    fn post_brain_facts_to_server_queues_ingest_calls_when_offline() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", tmp.path());
+        std::env::set_var("NEBU_CTX_HOME", tmp.path().join("home"));
+
+        let project_root = tmp.path().join("project");
+        std::fs::create_dir_all(&project_root).unwrap();
+
+        post_brain_facts_to_server(
+            &project_root.to_string_lossy(),
+            &[crate::core::brain_memory::BrainFactCandidate {
+                key: "primary-ide".to_string(),
+                value: "OpenCode".to_string(),
+                kind: "preference".to_string(),
+                category: "workflow".to_string(),
+                source_type: "idle_flush".to_string(),
+                source_scope: "session-123".to_string(),
+                promotion_identity: "idle-flush:session-123:workflow:primary-ide".to_string(),
+                logical_key: "workflow:primary-ide".to_string(),
+                confidence: 0.98,
+                evidence: "derived from user-stated primary IDE".to_string(),
+            }],
+        );
+
+        let entries = crate::core::sync_outbox::load_entries().unwrap();
+        let entry = entries
+            .into_iter()
+            .find(|item| item.kind == crate::core::sync_outbox::OutboxOperationKind::ServerToolCall)
+            .unwrap();
+        assert_eq!(entry.payload["tool_name"], "ctx_brain");
+        assert_eq!(entry.payload["arguments"]["action"], "ingest");
+        assert_eq!(entry.payload["arguments"]["key"], "primary-ide");
+        assert_eq!(
+            entry.payload["arguments"]["promotion_identity"],
+            "idle-flush:session-123:workflow:primary-ide"
+        );
+        assert_eq!(entry.payload["arguments"]["logical_key"], "workflow:primary-ide");
     }
 }

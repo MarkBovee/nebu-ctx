@@ -106,13 +106,20 @@ public interface IBrainStore
     Task<Dictionary<string, object?>?> GetStatusAsync(string projectId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Stores a memory entry in the brain for a project.
+    /// Stores or updates a canonical fact entry in the brain for a project.
     /// </summary>
     /// <param name="projectId">Project identifier.</param>
     /// <param name="key">Memory key.</param>
     /// <param name="value">Memory value payload.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task StoreAsync(string projectId, string key, string value, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Stores or updates a typed canonical brain fact.
+    /// </summary>
+    /// <param name="entry">Brain fact entry to store.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task StoreFactAsync(BrainEntry entry, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Recalls memory entries matching the given query.
@@ -162,10 +169,15 @@ public interface IBrainStore
 }
 
 /// <summary>
-/// A single brain memory entry.
-/// </summary>
+    /// A single brain fact entry.
+    /// </summary>
 public sealed class BrainEntry
 {
+    /// <summary>
+    /// Project identifier.
+    /// </summary>
+    public string ProjectId { get; set; } = string.Empty;
+
     /// <summary>
     /// Memory key identifier.
     /// </summary>
@@ -177,9 +189,69 @@ public sealed class BrainEntry
     public required string Value { get; set; }
 
     /// <summary>
+    /// Brain fact kind.
+    /// </summary>
+    public string Kind { get; set; } = "fact";
+
+    /// <summary>
+    /// Fact category.
+    /// </summary>
+    public string Category { get; set; } = "general";
+
+    /// <summary>
+    /// Stable logical key for canonicalization.
+    /// </summary>
+    public string LogicalKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Stable ingest identity for replay-safe writes.
+    /// </summary>
+    public string PromotionIdentity { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Source type that produced the fact.
+    /// </summary>
+    public string SourceType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Source scope for replay-safe identity.
+    /// </summary>
+    public string SourceScope { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Lifecycle state for the fact.
+    /// </summary>
+    public string LifecycleStatus { get; set; } = "current";
+
+    /// <summary>
+    /// Confidence score.
+    /// </summary>
+    public float Confidence { get; set; } = 1.0f;
+
+    /// <summary>
+    /// Optional evidence text explaining the derivation.
+    /// </summary>
+    public string Evidence { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Optional promotion identity of a newer fact that superseded this one.
+    /// </summary>
+    public string SupersededBy { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Optional promotion identity of a newer fact that invalidated this one.
+    /// </summary>
+    public string InvalidatedBy { get; set; } = string.Empty;
+
+    /// <summary>
     /// When this entry was stored.
     /// </summary>
     public DateTimeOffset CreatedAt { get; set; }
+
+    /// <summary>
+    /// Last update time.
+    /// </summary>
+    public DateTimeOffset UpdatedAt { get; set; }
 }
 
 /// <summary>

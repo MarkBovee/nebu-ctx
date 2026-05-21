@@ -7,6 +7,7 @@ pub mod archive;
 pub mod attention_model;
 pub mod bandit;
 pub mod benchmark;
+pub mod brain_memory;
 pub mod buddy;
 pub mod budgets;
 pub mod bug_memory;
