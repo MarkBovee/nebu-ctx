@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 using NebuCtx.Server.Core;
 using NebuCtx.Server.Core.Services;
+using NebuCtx.Storage;
 using NebuCtx.Tools.Cost;
 using NebuCtx.Tools.Gain;
 using NebuCtx.Tools.Heatmap;
@@ -66,6 +67,41 @@ public class AnalyticsToolTests
 
         Assert.NotEmpty(results);
         Assert.Equal("plugin-hooks", results[0].Key);
+    }
+
+    /// <summary>Raw session timeline entries should stay in brain only and not pollute canonical knowledge.</summary>
+    [Fact]
+    public async Task BrainService_SessionTimelineEntries_DoNotProjectToKnowledge()
+    {
+        var brainStore = new InMemoryBrainStore();
+        var knowledgeStore = new InMemoryKnowledgeStore();
+        var sessionStore = new InMemorySessionStore();
+        var knowledgeService = new KnowledgeService(knowledgeStore, sessionStore, NullLogger<KnowledgeService>.Instance);
+        var service = new BrainService(brainStore, knowledgeService, NullLogger<BrainService>.Instance);
+        const string projectId = "proj-timeline";
+
+        await service.StoreFactAsync(projectId, new BrainEntry
+        {
+            Key = "event-1",
+            Value = "User asked to persist compact findings early",
+            Kind = "session_event",
+            Category = "session_timeline",
+            LogicalKey = "event-1",
+            PromotionIdentity = "timeline:event-1",
+            SourceType = "user_turn",
+            SourceScope = "session-1",
+            LifecycleStatus = "timeline",
+            Confidence = 0.92f,
+            Evidence = "raw session event",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        });
+
+        var knowledgeEntries = await knowledgeStore.ListAllForProjectAsync(projectId, 100);
+        var brainEntries = await brainStore.ListAllAsync(projectId, 100);
+
+        Assert.Single(brainEntries);
+        Assert.Empty(knowledgeEntries);
     }
 
     // ── ctx_gain ──────────────────────────────────────────────────────────────

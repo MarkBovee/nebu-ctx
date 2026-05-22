@@ -8,6 +8,9 @@ use md5::{Digest, Md5};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+const HOSTED_MEMORY_SYNC_DEBOUNCE_SECS: i64 = 30;
 
 pub struct ServerClient {
     connection: ServerConnection,
@@ -318,6 +321,56 @@ pub fn post_brain_facts_to_server(
     }
 }
 
+pub fn post_journal_events_to_server(
+    project_root: &str,
+    events: &[crate::core::brain_memory::JournalEvent],
+) {
+    let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));
+    for event in events {
+        let event_kind = event_kind_name(&event.kind);
+        let key = format!(
+            "timeline-{}-{}-{}-{}",
+            event.timestamp.timestamp_millis(),
+            normalize_identity_token(&event.session_id),
+            normalize_identity_token(&event_kind),
+            event_fingerprint(event)
+        );
+        let source_type = event_kind_source_type(&event.kind);
+        let mut args = Map::new();
+        args.insert("action".to_string(), Value::String("ingest".to_string()));
+        args.insert("key".to_string(), Value::String(key.clone()));
+        args.insert("value".to_string(), Value::String(event.text.clone()));
+        args.insert("kind".to_string(), Value::String("session_event".to_string()));
+        args.insert("category".to_string(), Value::String("session_timeline".to_string()));
+        args.insert("source_type".to_string(), Value::String(source_type.clone()));
+        args.insert("source_scope".to_string(), Value::String(event.session_id.clone()));
+        args.insert(
+            "promotion_identity".to_string(),
+            Value::String(deterministic_promotion_identity(
+                &source_type,
+                &event.session_id,
+                "session_timeline",
+                &key,
+            )),
+        );
+        args.insert("logical_key".to_string(), Value::String(key));
+        args.insert("lifecycle_status".to_string(), Value::String("timeline".to_string()));
+        args.insert(
+            "created_at".to_string(),
+            Value::String(event.timestamp.to_rfc3339()),
+        );
+        args.insert(
+            "confidence".to_string(),
+            Value::Number(serde_json::Number::from_f64(0.6).unwrap_or_else(|| serde_json::Number::from(1))),
+        );
+        args.insert(
+            "evidence".to_string(),
+            Value::String(build_journal_event_evidence(event)),
+        );
+        let _ = queue_or_call_tool("ctx_brain", args, &ctx);
+    }
+}
+
 /// Posts a session summary to `ctx_brain` when a session is saved.
 /// Silently returns if the server is not configured.
 pub fn post_session_to_brain(session: &crate::core::session::SessionState) {
@@ -345,6 +398,172 @@ pub fn post_session_to_brain(session: &crate::core::session::SessionState) {
     args.insert("key".to_string(), Value::String(key));
     args.insert("value".to_string(), Value::String(summary));
     let _ = queue_or_call_tool("ctx_brain", args, &ctx);
+}
+
+pub fn sync_session_memory_to_server(project_root: &str, source_type: &str) {
+    if project_root.trim().is_empty() {
+        return;
+    }
+
+    if !should_sync_hosted_memory(project_root) {
+        return;
+    }
+
+    let mut synced_anything = false;
+    if let Ok(events) = load_recent_unsynced_journal_events(project_root) {
+        if !events.is_empty() {
+            post_journal_events_to_server(project_root, &events);
+            synced_anything = true;
+        }
+    }
+
+    if let Ok(outcome) = crate::core::brain_memory::flush_to_brain(project_root, source_type) {
+        if outcome.derived_facts > 0 {
+            synced_anything = true;
+        }
+    }
+
+    if synced_anything {
+        let _ = write_hosted_memory_sync_marker(project_root, now_unix_seconds());
+        let _ = write_journal_sync_marker(project_root, latest_journal_event_millis(project_root).unwrap_or_default());
+    }
+}
+
+fn load_recent_unsynced_journal_events(project_root: &str) -> Result<Vec<crate::core::brain_memory::JournalEvent>> {
+    let events = crate::core::brain_memory::load_events(project_root).map_err(anyhow::Error::msg)?;
+    let last_synced = read_journal_sync_marker(project_root).unwrap_or_default();
+    Ok(events
+        .into_iter()
+        .filter(|event| event.timestamp.timestamp_millis() > last_synced)
+        .rev()
+        .take(6)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect())
+}
+
+fn latest_journal_event_millis(project_root: &str) -> Option<i64> {
+    crate::core::brain_memory::load_events(project_root)
+        .ok()?
+        .last()
+        .map(|event| event.timestamp.timestamp_millis())
+}
+
+fn should_sync_hosted_memory(project_root: &str) -> bool {
+    match read_hosted_memory_sync_marker(project_root) {
+        Some(last_sync) => now_unix_seconds().saturating_sub(last_sync) >= HOSTED_MEMORY_SYNC_DEBOUNCE_SECS,
+        None => true,
+    }
+}
+
+fn hosted_memory_sync_marker_path(project_root: &str) -> Result<std::path::PathBuf> {
+    let project_hash = crate::core::project_hash::hash_project_root(project_root);
+    Ok(crate::core::data_dir::nebu_ctx_data_dir()
+        .map_err(anyhow::Error::msg)?
+        .join("sync")
+        .join("memory")
+        .join(format!("{project_hash}.last_sync")))
+}
+
+fn journal_sync_marker_path(project_root: &str) -> Result<std::path::PathBuf> {
+    let project_hash = crate::core::project_hash::hash_project_root(project_root);
+    Ok(crate::core::data_dir::nebu_ctx_data_dir()
+        .map_err(anyhow::Error::msg)?
+        .join("sync")
+        .join("memory")
+        .join(format!("{project_hash}.journal_sync")))
+}
+
+fn read_hosted_memory_sync_marker(project_root: &str) -> Option<i64> {
+    let path = hosted_memory_sync_marker_path(project_root).ok()?;
+    let raw = std::fs::read_to_string(path).ok()?;
+    raw.trim().parse::<i64>().ok()
+}
+
+fn read_journal_sync_marker(project_root: &str) -> Option<i64> {
+    let path = journal_sync_marker_path(project_root).ok()?;
+    let raw = std::fs::read_to_string(path).ok()?;
+    raw.trim().parse::<i64>().ok()
+}
+
+fn write_hosted_memory_sync_marker(project_root: &str, timestamp: i64) -> Result<()> {
+    let path = hosted_memory_sync_marker_path(project_root)?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|error| anyhow!(error.to_string()))?;
+    }
+
+    std::fs::write(path, timestamp.to_string()).map_err(|error| anyhow!(error.to_string()))
+}
+
+fn write_journal_sync_marker(project_root: &str, timestamp: i64) -> Result<()> {
+    let path = journal_sync_marker_path(project_root)?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|error| anyhow!(error.to_string()))?;
+    }
+
+    std::fs::write(path, timestamp.to_string()).map_err(|error| anyhow!(error.to_string()))
+}
+
+fn event_kind_source_type(kind: &crate::core::brain_memory::LifecycleEventKind) -> String {
+    match kind {
+        crate::core::brain_memory::LifecycleEventKind::SessionStart => "session_start",
+        crate::core::brain_memory::LifecycleEventKind::UserTurn => "user_turn",
+        crate::core::brain_memory::LifecycleEventKind::AssistantTurn => "assistant_output",
+        crate::core::brain_memory::LifecycleEventKind::ToolActivity => "tool_activity",
+        crate::core::brain_memory::LifecycleEventKind::PreCompact => "pre_compact",
+        crate::core::brain_memory::LifecycleEventKind::IdleFlush => "idle_flush",
+        crate::core::brain_memory::LifecycleEventKind::SessionStop => "stop",
+    }
+    .to_string()
+}
+
+fn event_kind_name(kind: &crate::core::brain_memory::LifecycleEventKind) -> &'static str {
+    match kind {
+        crate::core::brain_memory::LifecycleEventKind::SessionStart => "session_start",
+        crate::core::brain_memory::LifecycleEventKind::UserTurn => "user_turn",
+        crate::core::brain_memory::LifecycleEventKind::AssistantTurn => "assistant_turn",
+        crate::core::brain_memory::LifecycleEventKind::ToolActivity => "tool_activity",
+        crate::core::brain_memory::LifecycleEventKind::PreCompact => "pre_compact",
+        crate::core::brain_memory::LifecycleEventKind::IdleFlush => "idle_flush",
+        crate::core::brain_memory::LifecycleEventKind::SessionStop => "session_stop",
+    }
+}
+
+fn event_fingerprint(event: &crate::core::brain_memory::JournalEvent) -> String {
+    let mut hasher = Md5::new();
+    hasher.update(event.session_id.as_bytes());
+    hasher.update(event_kind_name(&event.kind).as_bytes());
+    hasher.update(event.source.as_bytes());
+    hasher.update(event.text.as_bytes());
+    if let Some(tool) = event.tool.as_deref() {
+        hasher.update(tool.as_bytes());
+    }
+    if let Some(command) = event.command.as_deref() {
+        hasher.update(command.as_bytes());
+    }
+    format!("{:x}", hasher.finalize())[..10].to_string()
+}
+
+fn build_journal_event_evidence(event: &crate::core::brain_memory::JournalEvent) -> String {
+    let mut parts = vec![
+        format!("source={}", event.source),
+        format!("timestamp={}", event.timestamp.to_rfc3339()),
+    ];
+    if let Some(tool) = event.tool.as_deref() {
+        parts.push(format!("tool={tool}"));
+    }
+    if let Some(command) = event.command.as_deref() {
+        parts.push(format!("command={command}"));
+    }
+    parts.join(" ")
+}
+
+fn now_unix_seconds() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs() as i64)
+        .unwrap_or(0)
 }
 
 pub fn queue_or_call_tool(
@@ -622,5 +841,55 @@ mod tests {
             "idle-flush:session-123:workflow:primary-ide"
         );
         assert_eq!(entry.payload["arguments"]["logical_key"], "workflow:primary-ide");
+    }
+
+    #[test]
+    fn sync_session_memory_to_server_queues_brain_when_offline() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", tmp.path());
+        std::env::set_var("NEBU_CTX_HOME", tmp.path().join("home"));
+
+        let project_root = tmp.path().join("project");
+        std::fs::create_dir_all(&project_root).unwrap();
+        let project_root_text = project_root.to_string_lossy().to_string();
+
+        let mut session = crate::core::session::SessionState::new();
+        session.project_root = Some(project_root_text.clone());
+        session.set_task("Persist memory earlier", None);
+        session.add_decision("Queue hosted memory on save", None);
+        session.save().unwrap();
+
+        sync_session_memory_to_server(&project_root_text, "session_save");
+
+        let entries = crate::core::sync_outbox::load_entries().unwrap();
+        let tool_names: Vec<String> = entries
+            .into_iter()
+            .filter(|item| item.kind == crate::core::sync_outbox::OutboxOperationKind::ServerToolCall)
+            .map(|item| item.payload["tool_name"].as_str().unwrap_or_default().to_string())
+            .collect();
+
+        assert!(tool_names.iter().any(|name| name == "ctx_brain"));
+    }
+
+    #[test]
+    fn hosted_memory_sync_marker_debounces_repeated_sync() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", tmp.path());
+
+        let project_root = tmp.path().join("project");
+        std::fs::create_dir_all(&project_root).unwrap();
+        let project_root_text = project_root.to_string_lossy().to_string();
+
+        assert!(should_sync_hosted_memory(&project_root_text));
+        write_hosted_memory_sync_marker(&project_root_text, now_unix_seconds()).unwrap();
+        assert!(!should_sync_hosted_memory(&project_root_text));
+        write_hosted_memory_sync_marker(
+            &project_root_text,
+            now_unix_seconds() - HOSTED_MEMORY_SYNC_DEBOUNCE_SECS - 1,
+        )
+        .unwrap();
+        assert!(should_sync_hosted_memory(&project_root_text));
     }
 }

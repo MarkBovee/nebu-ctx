@@ -1,5 +1,8 @@
 namespace NebuCtx.Tools.Brain;
 
+using System.Globalization;
+using System.Text.Json;
+
 using NebuCtx.Server.Core;
 using NebuCtx.Server.Core.Services;
 using NebuCtx.Storage;
@@ -160,6 +163,7 @@ public sealed class BrainToolHandler : IToolHandler
             LifecycleStatus = GetStringArg(arguments, "lifecycle_status") ?? "current",
             Confidence = confidence,
             Evidence = GetStringArg(arguments, "evidence") ?? string.Empty,
+            CreatedAt = GetDateTimeOffsetArg(arguments, "created_at") ?? default,
         };
 
         await _brainService.StoreFactAsync(context.ProjectId, entry, cancellationToken);
@@ -219,6 +223,26 @@ public sealed class BrainToolHandler : IToolHandler
             double dbl => (float)dbl,
             decimal dec => (float)dec,
             _ when float.TryParse(value.ToString(), out var parsed) => parsed,
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// Extracts a timestamp argument from the arguments dictionary.
+    /// </summary>
+    private static DateTimeOffset? GetDateTimeOffsetArg(Dictionary<string, object?> arguments, string key)
+    {
+        if (!arguments.TryGetValue(key, out var value) || value is null)
+        {
+            return null;
+        }
+
+        return value switch
+        {
+            DateTimeOffset timestamp => timestamp,
+            JsonElement json when json.ValueKind == JsonValueKind.String
+                && DateTimeOffset.TryParse(json.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsedJson) => parsedJson,
+            string raw when DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed) => parsed,
             _ => null,
         };
     }

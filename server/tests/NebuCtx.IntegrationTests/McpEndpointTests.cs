@@ -652,6 +652,71 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     }
 
     /// <summary>
+    /// Session timeline ingest remains visible in dashboard brain views without projecting into canonical knowledge.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_BrainIngest_SessionTimelineAppearsInDashboardButNotKnowledge()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "brain-timeline-dashboard",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/example/brain-timeline-dashboard.git",
+                Host = "github.com",
+                Owner = "example",
+                RepoName = "brain-timeline-dashboard",
+                DefaultBranch = "main",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, resolveResponse.StatusCode);
+
+        var resolved = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolved?.Project?.ProjectId);
+        var projectId = resolved!.Project!.ProjectId;
+
+        var createdAt = DateTimeOffset.Parse("2026-05-22T10:55:00Z");
+        var ingestResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_brain",
+            ProjectId = projectId,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "ingest",
+                ["key"] = "timeline-e2e",
+                ["value"] = "E2E timeline event visible in dashboard",
+                ["kind"] = "session_event",
+                ["category"] = "session_timeline",
+                ["source_type"] = "user_turn",
+                ["source_scope"] = "session-e2e",
+                ["promotion_identity"] = "timeline:e2e",
+                ["logical_key"] = "timeline-e2e",
+                ["lifecycle_status"] = "timeline",
+                ["created_at"] = createdAt.ToString("O"),
+                ["confidence"] = 0.6,
+                ["evidence"] = "source=e2e timestamp=2026-05-22T10:55:00Z",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, ingestResponse.StatusCode);
+
+        var dashboardBrain = await _client.GetFromJsonAsync<JsonElement>("/api/brain");
+        var dashboardEntries = dashboardBrain.GetProperty("entries").EnumerateArray().ToArray();
+        var timelineEntry = Assert.Single(dashboardEntries, entry => entry.GetProperty("key").GetString() == "timeline-e2e");
+        Assert.Equal("session_event", timelineEntry.GetProperty("entry_type").GetString());
+        Assert.Equal("timeline", timelineEntry.GetProperty("lifecycle_status").GetString());
+        Assert.Equal("session-e2e", timelineEntry.GetProperty("source_scope").GetString());
+        Assert.Equal(createdAt, timelineEntry.GetProperty("created_at").GetDateTimeOffset());
+
+        var payload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
+        Assert.NotNull(payload);
+        var brainEntry = Assert.Single(payload!.Brain, item => item.Key == "timeline-e2e");
+        Assert.Equal("session_event", brainEntry.EntryType);
+        Assert.Equal("timeline", brainEntry.LifecycleStatus);
+        Assert.Equal(createdAt, brainEntry.CreatedAt);
+        Assert.DoesNotContain(payload.Knowledge, item => item.Key == "timeline-e2e");
+    }
+
+    /// <summary>
     /// A newer fact with the same logical key supersedes the prior active brain fact.
     /// </summary>
     [Fact]

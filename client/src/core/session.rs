@@ -754,6 +754,9 @@ impl SessionState {
         std::fs::write(&latest_tmp, &pointer_json).map_err(|e| e.to_string())?;
         std::fs::rename(&latest_tmp, &latest_path).map_err(|e| e.to_string())?;
 
+        if let Some(project_root) = self.project_root.as_deref() {
+            crate::server_client::sync_session_memory_to_server(project_root, "session_save");
+        }
         self.stats.unsaved_changes = 0;
         Ok(())
     }
@@ -1087,7 +1090,6 @@ fn session_matches_project_root(session: &SessionState, target_root: &std::path:
 
     false
 }
-
 fn has_project_marker(dir: &std::path::Path) -> bool {
     const MARKERS: &[&str] = &[
         ".git",

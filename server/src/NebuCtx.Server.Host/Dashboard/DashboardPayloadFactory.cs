@@ -320,7 +320,20 @@ public static class DashboardPayloadFactory
                 ["key"] = e.Key,
                 ["value"] = e.Value,
                 ["confidence"] = (double)e.Confidence,
+                ["created_at"] = e.CreatedAt,
+                ["updated_at"] = e.UpdatedAt,
+                ["logical_key"] = e.LogicalKey,
+                ["promotion_identity"] = e.PromotionIdentity,
                 ["source"] = "postgres",
+                ["source_type"] = e.SourceType,
+                ["source_scope"] = e.SourceScope,
+                ["lifecycle_status"] = e.LifecycleStatus,
+                ["lifecycle_score"] = e.LifecycleScore,
+                ["confirmation_count"] = e.ConfirmationCount,
+                ["last_confirmed_at"] = e.LastConfirmedAt,
+                ["retrieval_count"] = e.RetrievalCount,
+                ["last_retrieved_at"] = e.LastRetrievedAt,
+                ["history_count"] = e.History.Count,
             })
             ?? Enumerable.Empty<Dictionary<string, object?>>();
 
@@ -332,6 +345,11 @@ public static class DashboardPayloadFactory
             .ThenBy(fact => fact["category"]?.ToString(), StringComparer.OrdinalIgnoreCase)
             .Cast<object>()
             .ToArray();
+
+        var canonicalFactCount = facts
+            .Cast<Dictionary<string, object?>>()
+            .Count(fact => string.Equals(fact.GetValueOrDefault("source")?.ToString(), "postgres", StringComparison.OrdinalIgnoreCase));
+        var metadataFactCount = facts.Length - canonicalFactCount;
 
         var projectSummaries = facts
             .Cast<Dictionary<string, object?>>()
@@ -354,6 +372,8 @@ public static class DashboardPayloadFactory
             facts,
             projects = projectSummaries,
             project_count = projects.Count,
+            canonical_fact_count = canonicalFactCount,
+            metadata_fact_count = metadataFactCount,
         };
     }
 
@@ -1244,6 +1264,7 @@ public static class DashboardPayloadFactory
             ["key"] = key,
             ["value"] = value,
             ["confidence"] = confidence,
+            ["source"] = "project_metadata",
             ["project_id"] = project.ProjectId,
             ["project_name"] = project.Slug,
         };
@@ -1309,7 +1330,8 @@ public static class DashboardPayloadFactory
                 fact.GetValueOrDefault("fact_name")?.ToString() ?? string.Empty,
                 fact.GetValueOrDefault("value")?.ToString() ?? string.Empty), StringComparer.OrdinalIgnoreCase)
             .Select(group => group
-                .OrderByDescending(fact => Convert.ToDouble(fact["confidence"], CultureInfo.InvariantCulture))
+                .OrderByDescending(fact => string.Equals(fact.GetValueOrDefault("source")?.ToString(), "postgres", StringComparison.OrdinalIgnoreCase))
+                .ThenByDescending(fact => Convert.ToDouble(fact["confidence"], CultureInfo.InvariantCulture))
                 .First());
     }
 

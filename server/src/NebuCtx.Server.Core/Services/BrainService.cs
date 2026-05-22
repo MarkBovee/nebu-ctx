@@ -238,6 +238,12 @@ public sealed class BrainService
             return;
         }
 
+        if (string.Equals(entry.LifecycleStatus, "timeline", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(entry.Kind, "session_event", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         var category = string.IsNullOrWhiteSpace(entry.Category) ? entry.Kind : entry.Category;
         var sourceType = string.IsNullOrWhiteSpace(entry.SourceType) ? "brain" : entry.SourceType;
         var sourceScope = string.IsNullOrWhiteSpace(entry.SourceScope) ? projectId : entry.SourceScope;

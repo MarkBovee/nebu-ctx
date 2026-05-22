@@ -1708,14 +1708,38 @@ async function loadKnowledge() {
     const catCounts = {};
     facts.forEach(f => { const c = (f.category || '').split(':')[0].toUpperCase(); catCounts[c] = (catCounts[c]||0)+1; });
     const avgConf = facts.length ? Math.round(facts.reduce((s,f)=>s+(f.confidence||0),0)/facts.length*100) : 0;
+    const canonicalFactCount = data.canonical_fact_count || facts.filter(f => String(f.source || '').toLowerCase() === 'postgres').length;
+    const metadataFactCount = data.metadata_fact_count || facts.filter(f => String(f.source || '').toLowerCase() === 'project_metadata').length;
+    const currentFactCount = facts.filter(f => String(f.lifecycle_status || '').toLowerCase() === 'current').length;
     container.innerHTML = `
       <div class="row r4" style="margin-bottom:16px">
         <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${facts.length}</div><div class="hl">Total Facts</div></div>
-        <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${Object.keys(catCounts).length}</div><div class="hl">Categories</div></div>
-        <div class="hc"><div class="hv" style="color:var(--blue);font-size:24px">${avgConf}%</div><div class="hl">Avg Confidence</div></div>
-        <div class="hc"><div class="hv" style="color:var(--yellow);font-size:24px">${facts.filter(f=>(f.confidence||0)>0.8).length}</div><div class="hl">High Confidence</div></div>
+        <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${canonicalFactCount}</div><div class="hl">Canonical Memory</div></div>
+        <div class="hc"><div class="hv" style="color:var(--blue);font-size:24px">${metadataFactCount}</div><div class="hl">Project Metadata</div></div>
+        <div class="hc"><div class="hv" style="color:var(--yellow);font-size:24px">${currentFactCount}</div><div class="hl">Current Facts</div></div>
       </div>
       <div class="d3-container" id="knowledgeGraph"></div>
+      <div class="card" style="margin-top:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:12px;flex-wrap:wrap">
+          <h3 style="margin:0">Latest Canonical Facts</h3>
+          <div style="font-size:11px;color:var(--muted)">avg confidence ${avgConf}% · ${Object.keys(catCounts).length} categories</div>
+        </div>
+        ${facts.filter(f => String(f.source || '').toLowerCase() === 'postgres').length ? `<div style="overflow-x:auto"><table><thead><tr><th>Project</th><th>Category</th><th>Key</th><th>State</th><th class="r">Score</th></tr></thead><tbody>${facts
+          .filter(f => String(f.source || '').toLowerCase() === 'postgres')
+          .sort((a, b) => {
+            const aTime = new Date(a.updated_at || a.created_at || 0).getTime();
+            const bTime = new Date(b.updated_at || b.created_at || 0).getTime();
+            return bTime - aTime;
+          })
+          .slice(0, 24)
+          .map(f => `<tr>
+            <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(f.project_name || 'unknown')}</td>
+            <td>${factSourceBadge(f)} <span class="tag tp">${esc(f.category || 'unknown')}</span></td>
+            <td title="${esc(f.value || '')}"><div style="font-family:var(--mono);font-size:12px">${esc(f.key || f.fact_name || 'fact')}</div><div style="font-size:11px;color:var(--muted);max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.value || '')}</div></td>
+            <td>${factLifecycleBadge(f)} ${Number(f.history_count || 0) > 0 ? `<span class="tag tb">hist ${Number(f.history_count)}</span>` : ''} ${Number(f.retrieval_count || 0) > 0 ? `<span class="tag ty">used ${Number(f.retrieval_count)}</span>` : ''}</td>
+            <td class="r"><span class="tag tg">${Math.round((f.lifecycle_score || f.confidence || 0) * 100)}%</span></td>
+          </tr>`).join('')}</tbody></table></div>` : '<div class="empty-state" style="padding:32px"><h2>No canonical facts</h2><p>Compact/stop memory facts are not reaching hosted knowledge yet.</p></div>'}
+      </div>
       ${howItWorks('Knowledge Graph', 'Nebu-CTX maintains a project knowledge base where facts are stored with <strong>confidence scores</strong> that decay over time (unused facts lose confidence). Facts are organized by <strong>category</strong> (Architecture, Testing, etc.) and <strong>room</strong>. Each fact has <strong>temporal validity</strong> &mdash; it knows when it was learned and when it was last confirmed. <strong>Contradiction detection</strong> automatically resolves conflicting facts by preferring the most recent with highest confidence.<br><br><strong>Auto-hooks:</strong> At session end, the Nebu-CTX shell hook automatically forwards all high-confidence facts (≥0.7) to the server via <code>ctx_knowledge(action="remember")</code>. This means the graph is populated automatically as you work &mdash; no manual action required. You can also store facts explicitly with <code>ctx_knowledge(action="remember", fact_name="...", value="...")</code>.<br><br><strong>Deleting a project</strong> with the Del button clears both knowledge facts <em>and</em> brain memories for that project.')}`;
     container.dataset.built = 'true';
     renderKnowledgeGraph(facts);
@@ -2034,11 +2058,37 @@ function projectFlagTags(project) {
   return tags.join(' ');
 }
 
+function factSourceBadge(fact) {
+  const source = String(fact.source || fact.source_type || '').toLowerCase();
+  if (source === 'postgres' || source === 'promote' || source === 'consolidate' || source === 'pre_compact' || source === 'stop' || source === 'idle_flush') return '<span class="tag tg">memory</span>';
+  if (source === 'project_metadata') return '<span class="tag ty">metadata</span>';
+  if (source === 'demo') return '<span class="tag td">demo</span>';
+  if (source) return `<span class="tag tb">${esc(source)}</span>`;
+  return '<span class="tag ty">unknown</span>';
+}
+
+function factLifecycleBadge(fact) {
+  const status = String(fact.lifecycle_status || '').toLowerCase();
+  if (status === 'current') return '<span class="tag tg">current</span>';
+  if (status === 'stale') return '<span class="tag ty">stale</span>';
+  if (status === 'merged' || status === 'superseded') return '<span class="tag tb">history</span>';
+  if (status === 'junk' || status === 'invalidated') return '<span class="tag td">' + esc(status) + '</span>';
+  if (status) return '<span class="tag tp">' + esc(status) + '</span>';
+  return '';
+}
+
 function brainTypeBadge(entryType) {
-  if (entryType === 'user_prompt') return '<span class="tag tp">prompt</span>';
-  if (entryType === 'assistant_output') return '<span class="tag tb">assistant</span>';
-  if (entryType === 'session_summary') return '<span class="tag tg">session</span>';
-  return '<span class="tag ty">other</span>';
+  const type = String(entryType || '').toLowerCase();
+  if (type === 'session_event') return '<span class="tag tpk">timeline</span>';
+  if (type === 'user_prompt') return '<span class="tag tp">prompt</span>';
+  if (type === 'assistant_output') return '<span class="tag tb">assistant</span>';
+  if (type === 'session_summary') return '<span class="tag tg">session</span>';
+  if (type === 'task') return '<span class="tag tg">task</span>';
+  if (type === 'decision') return '<span class="tag tb">decision</span>';
+  if (type === 'fact') return '<span class="tag tp">finding</span>';
+  if (type === 'constraint') return '<span class="tag td">constraint</span>';
+  if (type === 'preference') return '<span class="tag ty">preference</span>';
+  return '<span class="tag ty">' + esc(type || 'other') + '</span>';
 }
 
 async function clearBrainEntryType(projectId, name, entryType, label) {
@@ -2129,6 +2179,9 @@ async function loadProjectMemory(projectId) {
             ${(brainTypeCounts.user_prompt || 0) ? `<button onclick="clearBrainEntryType(${jsArg(payload.project_id)},${jsArg(payload.project_name)},'user_prompt','prompt')" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear prompts (${brainTypeCounts.user_prompt})</button>` : ''}
             ${(brainTypeCounts.assistant_output || 0) ? `<button onclick="clearBrainEntryType(${jsArg(payload.project_id)},${jsArg(payload.project_name)},'assistant_output','assistant output')" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear assistant (${brainTypeCounts.assistant_output})</button>` : ''}
             ${(brainTypeCounts.session_summary || 0) ? `<button onclick="clearBrainEntryType(${jsArg(payload.project_id)},${jsArg(payload.project_name)},'session_summary','session summary')" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear sessions (${brainTypeCounts.session_summary})</button>` : ''}
+            ${(brainTypeCounts.task || 0) ? `<button onclick="clearBrainEntryType(${jsArg(payload.project_id)},${jsArg(payload.project_name)},'task','task')" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear tasks (${brainTypeCounts.task})</button>` : ''}
+            ${(brainTypeCounts.decision || 0) ? `<button onclick="clearBrainEntryType(${jsArg(payload.project_id)},${jsArg(payload.project_name)},'decision','decision')" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear decisions (${brainTypeCounts.decision})</button>` : ''}
+            ${(brainTypeCounts.fact || 0) ? `<button onclick="clearBrainEntryType(${jsArg(payload.project_id)},${jsArg(payload.project_name)},'fact','finding')" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear findings (${brainTypeCounts.fact})</button>` : ''}
           </div>
         </div>
       </div>
@@ -2138,11 +2191,12 @@ async function loadProjectMemory(projectId) {
             <h3 style="margin:0">Knowledge Facts</h3>
             ${knowledge.length ? `<button onclick="clearKnowledgeProject(${jsArg(payload.project_id)},${jsArg(payload.project_name)})" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear facts</button>` : ''}
           </div>
-          ${knowledge.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Category</th><th>Key</th><th>Value</th><th class="r">Conf</th><th></th></tr></thead><tbody>${knowledge.slice(0, 100).map(f => `<tr>
-            <td><span class="tag tp">${esc(f.category)}</span></td>
+          ${knowledge.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Category</th><th>Key</th><th>Value</th><th>State</th><th class="r">Score</th><th></th></tr></thead><tbody>${knowledge.slice(0, 100).map(f => `<tr>
+            <td>${factSourceBadge(f)} <span class="tag tp">${esc(f.category)}</span></td>
             <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(f.key)}</td>
             <td style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(f.value)}">${esc(f.value)}</td>
-            <td class="r"><span class="tag ${(f.confidence || 0) >= 0.7 ? 'tg' : 'ty'}">${Math.round((f.confidence || 0) * 100)}%</span></td>
+            <td>${factLifecycleBadge(f)} ${Number((f.history || []).length) > 0 ? `<span class="tag tb">hist ${Number((f.history || []).length)}</span>` : ''}</td>
+            <td class="r"><span class="tag ${(f.lifecycle_score || f.confidence || 0) >= 0.7 ? 'tg' : 'ty'}">${Math.round((f.lifecycle_score || f.confidence || 0) * 100)}%</span></td>
             <td style="padding:4px 6px;width:28px"><button onclick="deleteKnowledgeFact(${jsArg(payload.project_id)},${jsArg(f.category)},${jsArg(f.key)})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px" title="Delete">×</button></td>
           </tr>`).join('')}</tbody></table></div>` : '<div class="empty-state" style="padding:32px"><h2>No facts</h2><p>No project-scoped knowledge facts stored yet.</p></div>'}
         </div>
@@ -2151,13 +2205,14 @@ async function loadProjectMemory(projectId) {
             <h3 style="margin:0">Brain Memories</h3>
             ${brain.length ? `<button onclick="clearBrainProject(${jsArg(payload.project_id)},${jsArg(payload.project_name)})" style="font-size:11px;color:var(--red);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Clear memories</button>` : ''}
           </div>
-          ${brain.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Key</th><th>Value</th><th class="r">Stored</th><th></th></tr></thead><tbody>${brain.slice(0, 100).map(e => {
+          ${brain.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Key</th><th>Value</th><th>Type</th><th class="r">Stored</th><th></th></tr></thead><tbody>${brain.slice(0, 100).map(e => {
             const d = new Date(e.created_at);
             const ago = Math.round((Date.now() - d.getTime()) / 86400000);
             const dateStr = ago === 0 ? 'today' : ago === 1 ? 'yesterday' : ago + 'd ago';
             return `<tr>
-              <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(e.key)}<div style="margin-top:4px">${brainTypeBadge(e.entry_type)}</div></td>
+              <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(e.key)}</td>
               <td style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.value)}">${esc(e.value)}</td>
+              <td>${brainTypeBadge(e.entry_type)} ${e.category ? `<span class="tag tp">${esc(e.category)}</span>` : ''}</td>
               <td class="r" style="font-size:11px;color:var(--muted)" title="${esc(e.created_at)}">${dateStr}</td>
               <td style="padding:4px 6px;width:28px"><button onclick="deleteBrainEntry(${jsArg(payload.project_id)},${jsArg(e.key)})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px" title="Delete">×</button></td>
             </tr>`;
@@ -2175,6 +2230,8 @@ async function loadBrain() {
     const data = await apiFetch('/api/brain');
     const entries = data.entries || [];
     const total = data.total_count || entries.length;
+    const timelineEntries = entries.filter(e => String(e.entry_type || '').toLowerCase() === 'session_event' || String(e.lifecycle_status || '').toLowerCase() === 'timeline');
+    const canonicalEntries = entries.filter(e => !timelineEntries.includes(e));
     const duplicateSlugGroups = (_cachedProjectList && _cachedProjectList._duplicate_slug_groups) || [];
     const duplicateFingerprintGroups = (_cachedProjectList && _cachedProjectList._duplicate_fingerprint_groups) || [];
 
@@ -2218,6 +2275,11 @@ async function loadBrain() {
         <div class="hc"><div class="hv" style="color:var(--blue);font-size:24px">${entries.length > 0 ? new Date(entries[0].created_at).toLocaleDateString() : '—'}</div><div class="hl">Latest Entry</div></div>
       </div>
       <div class="row r3" style="margin-bottom:16px">
+        <div class="hc"><div class="hv" style="color:var(--pink);font-size:24px">${timelineEntries.length}</div><div class="hl">Timeline Events</div></div>
+        <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${canonicalEntries.length}</div><div class="hl">Canonical Facts</div></div>
+        <div class="hc"><div class="hv" style="color:var(--yellow);font-size:24px">${new Set(timelineEntries.map(e => e.source_scope).filter(Boolean)).size}</div><div class="hl">Timeline Sessions</div></div>
+      </div>
+      <div class="row r3" style="margin-bottom:16px">
         <div class="hc"><div class="hv" style="color:var(--yellow);font-size:24px">${emptyProjects.length}</div><div class="hl">Empty Projects</div></div>
         <div class="hc"><div class="hv" style="color:var(--yellow);font-size:24px">${testProjects.length}</div><div class="hl">Test/Demo Projects</div></div>
         <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${memoryProjects.filter(project => project.has_duplicate_slug || project.has_duplicate_fingerprint).length}</div><div class="hl">Flagged Projects</div></div>
@@ -2250,6 +2312,32 @@ async function loadBrain() {
           </tr>`).join('')}
         </tbody></table></div>
       </div>` : ''}
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header" style="margin-bottom:12px"><h3>Session Timeline</h3></div>
+        ${timelineEntries.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Project</th><th>Event</th><th>Session</th><th>Detail</th><th class="r">At</th></tr></thead><tbody>${timelineEntries.slice(0, 40).map(e => {
+          const d = new Date(e.created_at || e.updated_at);
+          return `<tr>
+            <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(e.project_name || e.project_id || 'unknown')}</td>
+            <td>${brainTypeBadge(e.entry_type)} ${e.source_type ? `<span class="tag tb">${esc(e.source_type)}</span>` : ''}</td>
+            <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${esc(e.source_scope || 'sessionless')}</td>
+            <td title="${esc(e.value)}"><div style="font-size:11px;color:var(--text);max-width:640px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.value)}</div>${e.evidence ? `<div style="font-size:10px;color:var(--muted);margin-top:3px;max-width:640px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.evidence)}</div>` : ''}</td>
+            <td class="r" style="font-size:11px;color:var(--muted)" title="${esc(e.created_at || '')}">${esc(d.toLocaleString())}</td>
+          </tr>`;
+        }).join('')}</tbody></table></div>` : '<div class="empty-state" style="padding:32px"><h2>No timeline yet</h2><p>Hosted raw session events will appear here once hooks sync them to brain memory.</p></div>'}
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header" style="margin-bottom:12px"><h3>Latest Memory Stream</h3></div>
+        ${canonicalEntries.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Project</th><th>Type</th><th>Value</th><th class="r">Confidence</th><th class="r">Stored</th></tr></thead><tbody>${canonicalEntries.slice(0, 32).map(e => {
+          const d = new Date(e.created_at);
+          return `<tr>
+            <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(e.project_name || e.project_id || 'unknown')}</td>
+            <td>${brainTypeBadge(e.entry_type)} ${e.category ? `<span class="tag tp">${esc(e.category)}</span>` : ''}</td>
+            <td title="${esc(e.value)}"><div style="font-family:var(--mono);font-size:12px">${esc(e.key)}</div><div style="font-size:11px;color:var(--muted);max-width:480px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.value)}</div></td>
+            <td class="r"><span class="tag ${(e.confidence || 0) >= 0.8 ? 'tg' : 'ty'}">${Math.round((e.confidence || 0) * 100)}%</span></td>
+            <td class="r" style="font-size:11px;color:var(--muted)" title="${esc(e.created_at)}">${esc(d.toLocaleString())}</td>
+          </tr>`;
+        }).join('')}</tbody></table></div>` : '<div class="empty-state" style="padding:32px"><h2>No memories</h2><p>No hosted brain memories available yet.</p></div>'}
+      </div>
       <div class="card" style="margin-bottom:16px">
         <div class="card-header" style="margin-bottom:12px">
           <h3>Memory Admin</h3>

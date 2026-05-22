@@ -26,6 +26,10 @@ fn drain_sync_outbox() {
     let _ = crate::core::telemetry_queue::flush_pending();
 }
 
+fn sync_memory_if_possible(project_root: &str, source_type: &str) {
+    crate::server_client::sync_session_memory_to_server(project_root, source_type);
+}
+
 fn fetch_hosted_wakeup_briefing(project_root: &str) -> Option<String> {
     if project_root.is_empty() {
         return None;
@@ -254,7 +258,7 @@ pub fn handle_stop() {
         crate::core::brain_memory::LifecycleEventKind::SessionStop,
         "session stop flush",
     );
-    let _ = crate::core::brain_memory::flush_to_brain(&project_root, "stop");
+    sync_memory_if_possible(&project_root, "stop");
 }
 
 /// Idle flush hook: persists derived brain facts without treating the session as stopped.
@@ -283,7 +287,7 @@ pub fn handle_idle_flush() {
         crate::core::brain_memory::LifecycleEventKind::IdleFlush,
         "idle flush",
     );
-    let _ = crate::core::brain_memory::flush_to_brain(&project_root, "idle_flush");
+    sync_memory_if_possible(&project_root, "idle_flush");
 }
 
 /// PreCompact hook: fired by Claude Code just before it compacts the context window.
@@ -317,8 +321,7 @@ pub fn handle_pre_compact() {
             crate::core::brain_memory::LifecycleEventKind::PreCompact,
             "pre compact flush",
         );
-        let _ = crate::core::brain_memory::flush_to_brain(&project_root, "pre_compact");
-        post_promoted_facts_to_server(&project_root);
+        sync_memory_if_possible(&project_root, "pre_compact");
     }
 
     // Output the snapshot as additionalContext for Claude Code to inject after compact.
@@ -425,6 +428,7 @@ pub fn handle_user_prompt_submit() {
     let session_id = extract_first_json_field(&input, &["session_id", "sessionID"]);
     let source = extract_first_json_field(&input, &["source", "editor"]).unwrap_or_else(|| "hook".to_string());
     let _ = crate::core::brain_memory::record_user_turn(&project_root, session_id.as_deref(), &source, &trimmed);
+    sync_memory_if_possible(&project_root, "user_turn");
 }
 
 /// AssistantOutputSubmit hook: fired by editor plugins when assistant text is
@@ -460,6 +464,7 @@ pub fn handle_assistant_output_submit() {
     let session_id = extract_first_json_field(&input, &["session_id", "sessionID"]);
     let source = extract_first_json_field(&input, &["source", "editor"]).unwrap_or_else(|| "hook".to_string());
     let _ = crate::core::brain_memory::record_assistant_turn(&project_root, session_id.as_deref(), &source, &trimmed);
+    sync_memory_if_possible(&project_root, "assistant_output");
 }
 
 /// Builds a compact XML `<session_state>` block (≤2KB) from local session state
@@ -729,6 +734,7 @@ pub fn handle_tool_activity() {
         command.as_deref(),
         tool_response.as_deref(),
     );
+    sync_memory_if_possible(&project_root, "tool_activity");
 }
 
 fn resolve_binary() -> String {
