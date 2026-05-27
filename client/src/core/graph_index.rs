@@ -246,6 +246,10 @@ pub fn scan(project_root: &str) -> ProjectIndex {
             continue;
         }
         let file_path = normalize_absolute_path(&entry.path().to_string_lossy());
+        // Skip vendor and generated directories that should never be indexed as project code.
+        if is_vendor_path(&file_path) {
+            continue;
+        }
         let ext = Path::new(&file_path)
             .extension()
             .and_then(|e| e.to_str())
@@ -600,6 +604,17 @@ fn make_relative(path: &str, root: &str) -> String {
 
 fn is_indexable_ext(ext: &str) -> bool {
     crate::core::language_capabilities::is_indexable_ext(ext)
+}
+
+/// Returns true for paths that belong to vendor or generated directories (e.g. node_modules,
+/// .git internals, dist output) that should never be treated as first-class project code.
+fn is_vendor_path(path: &str) -> bool {
+    let normalized = path.replace('\\', "/");
+    normalized.contains("/node_modules/")
+        || normalized.contains("/.git/")
+        || normalized.contains("/vendor/")
+        || normalized.contains("/.yarn/cache/")
+        || normalized.contains("/.pnp.")
 }
 
 #[cfg(test)]

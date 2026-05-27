@@ -4,10 +4,23 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 pub fn discover_project_context(current_directory: &Path) -> ProjectContext {
-    let local_root = git_output(current_directory, ["rev-parse", "--show-toplevel"])
+    let git_toplevel_str = git_output(current_directory, ["rev-parse", "--show-toplevel"]);
+    let local_root = git_toplevel_str
+        .as_deref()
         .map(PathBuf::from)
         .unwrap_or_else(|| current_directory.to_path_buf());
     let remote_url = git_output(&local_root, ["config", "--get", "remote.origin.url"]);
+    // For git repos without a remote URL, synthesize a stable local-path fingerprint so
+    // the server can assign the call to a real project instead of falling back to "default".
+    let effective_remote_url = remote_url.clone().or_else(|| {
+        git_toplevel_str.as_ref()?;
+        let root_str = local_root
+            .to_string_lossy()
+            .replace('\\', "/")
+            .trim_end_matches('/')
+            .to_string();
+        Some(format!("local://{root_str}"))
+    });
     let branch = git_output(&local_root, ["rev-parse", "--abbrev-ref", "HEAD"]);
     let last_commit = git_output(&local_root, ["rev-parse", "HEAD"]);
     let default_branch = git_output(&local_root, ["symbolic-ref", "refs/remotes/origin/HEAD"])
@@ -20,7 +33,7 @@ pub fn discover_project_context(current_directory: &Path) -> ProjectContext {
         .unwrap_or_else(|| "project".to_string());
 
     let fingerprint = RepositoryFingerprint {
-        remote_url,
+        remote_url: effective_remote_url,
         host: parsed_remote.as_ref().map(|(host, _, _)| host.clone()),
         owner: parsed_remote.as_ref().map(|(_, owner, _)| owner.clone()),
         repo_name: parsed_remote

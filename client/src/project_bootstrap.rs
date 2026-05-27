@@ -248,10 +248,34 @@ fn detect_entrypoints(root: &Path, index: Option<&ProjectIndex>) -> Vec<String> 
         }
     }
 
+    // Detect root-level script files common in small automation repos (Apps Script, Node helpers).
+    if let Ok(entries) = std::fs::read_dir(root) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            let ext = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            if matches!(ext.as_str(), "gs" | "js" | "ts" | "py" | "sh")
+                && !name.starts_with('.')
+            {
+                entrypoints.insert(name.to_string());
+            }
+        }
+    }
+
     if let Some(index) = index {
         for file in index.files.values() {
             if file.exports.iter().any(|export| export == "main") {
-                entrypoints.insert(relativize(root, &file.path));
+                let rel = relativize(root, &file.path);
+                if !rel.contains("node_modules") {
+                    entrypoints.insert(rel);
+                }
             }
         }
     }
@@ -269,6 +293,9 @@ fn detect_tests(root: &Path, index: Option<&ProjectIndex>) -> Vec<String> {
     if let Some(index) = index {
         for file in index.files.values() {
             let rel = relativize(root, &file.path);
+            if rel.contains("node_modules") {
+                continue;
+            }
             if rel.contains("test") || rel.contains("spec") {
                 tests.insert(rel);
             }
@@ -297,6 +324,10 @@ fn detect_modules(index: Option<&ProjectIndex>, root: &Path) -> Vec<String> {
         let mut by_dir = BTreeMap::<String, usize>::new();
         for file in index.files.values() {
             let rel = relativize(root, &file.path);
+            // Exclude vendor/generated directories from module surface reporting.
+            if rel.starts_with("node_modules") || rel.contains("/node_modules/") {
+                continue;
+            }
             let dir = Path::new(&rel)
                 .parent()
                 .map(|path| path.to_string_lossy().to_string())

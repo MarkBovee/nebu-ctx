@@ -40,6 +40,14 @@ pub fn build_project_metadata(project_root: &Path) -> Result<ProjectMetadataEnve
         if entry.file_type().is_none_or(|file_type| file_type.is_dir()) {
             continue;
         }
+        // Skip vendor and generated directories so language stats reflect real project code.
+        let path_str = entry.path().to_string_lossy().replace('\\', "/");
+        if path_str.contains("/node_modules/")
+            || path_str.contains("/.git/")
+            || path_str.contains("/vendor/")
+        {
+            continue;
+        }
 
         total_file_count += 1;
         let path = entry.into_path();

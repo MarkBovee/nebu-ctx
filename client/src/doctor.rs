@@ -336,6 +336,11 @@ fn mcp_config_locations(home: &std::path::Path) -> Vec<McpLocation> {
         path: home.join(".config").join("amp").join("settings.json"),
     });
 
+    locations.push(McpLocation {
+        name: "Copilot CLI",
+        display: "~/.copilot/mcp-config.json".into(),
+        path: home.join(".copilot").join("mcp-config.json"),
+    });
     {
         locations.push(McpLocation {
             name: "OpenCode",

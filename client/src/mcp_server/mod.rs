@@ -774,6 +774,13 @@ async fn route_to_server(
 ) -> ServerRoutingResult {
     let tool_name = name.to_string();
     let arguments = args.clone().unwrap_or_default();
+    // Extract project_root from args so the server call uses the caller's project identity,
+    // not the MCP server process's working directory.
+    let args_project_root: Option<String> = args
+        .as_ref()
+        .and_then(|a| a.get("project_root"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
 
     let result = tokio::task::spawn_blocking(move || {
         let connection = match crate::config::load_connection() {
@@ -786,14 +793,15 @@ async fn route_to_server(
             }
         };
         let client = crate::server_client::ServerClient::new(connection);
-        let current_directory = match std::env::current_dir() {
-            Ok(d) => d,
-            Err(e) => {
-                return ServerRoutingResult::Error(format!(
-                    "Could not determine working directory: {e}"
-                ))
-            }
-        };
+        // Prefer an explicit project_root arg over current_dir so that memory writes from
+        // an editor workspace always resolve to the correct project on the server.
+        let current_directory = args_project_root
+            .as_deref()
+            .map(std::path::Path::new)
+            .filter(|p| p.exists())
+            .map(|p| p.to_path_buf())
+            .or_else(|| std::env::current_dir().ok())
+            .unwrap_or_else(|| std::path::PathBuf::from("."));
         let project_context = crate::git_context::discover_project_context(&current_directory);
         match client.call_tool(&tool_name, arguments, &project_context) {
             Ok(value) => {

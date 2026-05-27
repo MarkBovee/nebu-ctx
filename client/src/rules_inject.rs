@@ -371,6 +371,7 @@ fn is_tool_detected(target: &RulesTarget, home: &std::path::Path) -> bool {
         "Windsurf" => home.join(".codeium/windsurf").exists(),
         "Gemini CLI" => home.join(".gemini").exists(),
         "VS Code / Copilot" => detect_vscode_installed(home),
+        "Copilot CLI" => home.join(".copilot").exists(),
         "Zed" => home.join(".config/zed").exists(),
         "Cline" => detect_extension_installed(home, "saoudrizwan.claude-dev"),
         "Roo Code" => detect_extension_installed(home, "rooveterinaryinc.roo-cline"),
@@ -503,6 +504,11 @@ fn build_rules_targets(home: &std::path::Path) -> Vec<RulesTarget> {
         RulesTarget {
             name: "VS Code / Copilot",
             path: copilot_instructions_path(home),
+            format: RulesFormat::SharedMarkdown,
+        },
+        RulesTarget {
+            name: "Copilot CLI",
+            path: home.join(".copilot/copilot-instructions.md"),
             format: RulesFormat::SharedMarkdown,
         },
         // --- Dedicated lean-ctx rule files ---

@@ -1,5 +1,6 @@
 # Rust
 /client/target/
+/target/
 **/*.rs.bk
 
 # IDE
