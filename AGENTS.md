@@ -170,3 +170,5 @@ ADDON_DOCKERFILE=Dockerfile bash tests/local-addon-test.sh
 - Preserve LF line endings in shell scripts (`.gitattributes` handles this; container builds normalize defensively).
 - If a task touches Postgres-backed behavior, validate `ctx(domain="memory", action="recall", ...)` over HTTP before claiming the server path is healthy.
 - `dotnet test` requires no live Postgres — `NebuCtxTestFactory` handles all isolation.
+- Do not bypass nebu-ctx wrapper/routing in agent workflows when a nebu-ctx path exists. No direct native fallback just because wrapper output is inconvenient, lossy, or buggy.
+- If nebu-ctx wrapper behavior is wrong, stay inside nebu-ctx path: retry once, use supported raw mode (`--raw` / `raw=true`) when available, or run the repo-built client via `cargo run --manifest-path client/Cargo.toml -- ...` instead of bypassing to the native command. Then file/update a GitHub issue.

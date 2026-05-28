@@ -118,7 +118,7 @@ Use `ctx_tree` to orient quickly in a project.
 
 ## `ctx_shell`
 
-Use `ctx_shell` for shell commands. Output is compressed by default and begins with `[shell: ...]` so agents can see the active shell semantics. Use `shell` to force a specific executable for one call.
+Use `ctx_shell` for shell commands. Output is compressed by default and begins with `[shell: ...]` so agents can see the active shell semantics. Use `shell` to force a specific executable for one call. Git inspection commands such as `git status --short` and `git diff --name-only/--stat` are preserved verbatim so commit workflows can trust the exact file list.
 
 ### Example
 

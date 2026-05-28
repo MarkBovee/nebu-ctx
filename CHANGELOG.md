@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.25
+
+- Preserve exact output for git inspection commands in wrapper flows, including `git status --short/--porcelain` and `git diff --name-only/--name-status/--stat/--numstat`, so staging and commit review steps can trust the real file list.
+- Keep normal git patch compression behavior for full diffs while adding regression coverage for wrapper and `ctx_shell` inspection paths.
+
 ## 0.8.24
 
 - Make `ctx_shell` expose the actual shell used for each call via a `[shell: ...]` header and add a per-call `shell` override so Windows PowerShell/cmd semantics are visible and controllable.

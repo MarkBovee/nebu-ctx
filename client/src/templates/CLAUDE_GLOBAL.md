@@ -30,12 +30,13 @@ Write, Edit, and other mutation tools have no public nebu-ctx equivalent — use
 CRITICAL: Every time you reach for Read, Bash, Grep, or ListFiles in guidance, stop and use the public nebu-ctx equivalent instead.
 
 `ctx_shell` uses active shell semantics; output includes `[shell: ...]`. Use `shell` to force `pwsh.exe`, `cmd.exe`, `/bin/bash`, or another executable per call.
+Do not bypass `ctx_shell` with native Bash when a nebu-ctx shell path exists. If `ctx_shell` misbehaves, retry once, then use supported raw mode or the repo-built nebu-ctx client and file/update an issue instead of falling back to the native command.
 
 ## Memory policy
 
 - Use `ctx(domain="memory", action="save"|"recall")` for task state and working memory.
 - Use `ctx(domain="memory", action="store"|"recall"|"wakeup"|"consolidate")` for durable project facts.
 - The stop/compact hooks already persist session state into the nebu-ctx server; rely on that instead of chat history for reusable memory.
-- If a public nebu-ctx tool fails reproducibly, retry once if it may be environmental. If it still fails, create a GitHub issue in `MarkBovee/nebu-ctx` with repro, expected vs actual, shell/platform, and the failing tool call. Prefer `gh issue create --repo MarkBovee/nebu-ctx ...`; fall back to `nebu-ctx report-issue` if needed.
+- If a public nebu-ctx tool fails reproducibly, retry once if it may be environmental. If it still fails, do not bypass to the native equivalent. Use supported raw mode or the repo-built nebu-ctx client, then create a GitHub issue in `MarkBovee/nebu-ctx` with repro, expected vs actual, shell/platform, and the failing tool call. Prefer `gh issue create --repo MarkBovee/nebu-ctx ...`; fall back to `nebu-ctx report-issue` if needed.
 
 Use `ctx(domain="context", action="overview"|"compress")`, `ctx(domain="graph", action="...")`, and the other public `ctx` domains for advanced operations.

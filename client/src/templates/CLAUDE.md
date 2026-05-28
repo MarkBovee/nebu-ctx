@@ -16,6 +16,7 @@ Use only the public nebu-ctx MCP surface when guidance needs nebu-ctx tools:
 - `ctx_search` modes: `regex`, `semantic`
 - `ctx` domains: `memory`, `context`, `graph`, `analytics`, `agents`, `inspect`
 - `ctx_shell` uses active shell semantics; output includes `[shell: ...]`. Use `shell` to force a specific executable per call.
+- Do not bypass `ctx_shell` with native Bash when a nebu-ctx shell path exists. If `ctx_shell` misbehaves, retry once, then use supported raw mode or the repo-built nebu-ctx client and file/update an issue instead of falling back to the native command.
 
 ## File Editing
 
@@ -28,4 +29,4 @@ Use `ctx(domain="memory", action="save"|"recall"|"store"|"consolidate")` for per
 - Use `ctx(domain="memory", action="save"|"recall")` for task state and working memory.
 - Use `ctx(domain="memory", action="store"|"recall"|"wakeup"|"consolidate")` for durable project facts.
 - Let the stop/compact hooks consolidate session context into the nebu-ctx server instead of relying on chat history.
-- If a public nebu-ctx tool fails reproducibly, retry once if it may be environmental. If it still fails, create a GitHub issue in `MarkBovee/nebu-ctx` with repro, expected vs actual, shell/platform, and the failing tool call. Prefer `gh issue create --repo MarkBovee/nebu-ctx ...`; fall back to `nebu-ctx report-issue` if needed.
+- If a public nebu-ctx tool fails reproducibly, retry once if it may be environmental. If it still fails, do not bypass to the native equivalent. Use supported raw mode or the repo-built nebu-ctx client, then create a GitHub issue in `MarkBovee/nebu-ctx` with repro, expected vs actual, shell/platform, and the failing tool call. Prefer `gh issue create --repo MarkBovee/nebu-ctx ...`; fall back to `nebu-ctx report-issue` if needed.

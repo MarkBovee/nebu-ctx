@@ -163,7 +163,7 @@ pub fn handle_codex_pretooluse() {
 
 pub fn handle_codex_session_start() {
     println!(
-        "For shell commands matched by nebu-ctx compression rules, prefer `nebu-ctx -c \"<command>\"`. If a Bash call is blocked, rerun it with the exact command suggested by the hook."
+        "For shell commands matched by nebu-ctx compression rules, always use `nebu-ctx -c \"<command>\"`. If a Bash call is blocked, rerun it with the exact command suggested by the hook. Do not bypass to the original native command; use `--raw` or the repo-built nebu-ctx client if needed, then file/update an issue."
     );
 }
 

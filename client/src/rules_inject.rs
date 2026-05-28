@@ -130,8 +130,8 @@ CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalen
 
 - Use native Edit/StrReplace/Write/Delete tools for mutations.
 - Use private tool names only when documenting nebu-ctx internals.
-- If a public nebu-ctx tool fails reproducibly, retry once if it may be environmental. If still broken, create a GitHub issue in `MarkBovee/nebu-ctx` with repro, expected vs actual, shell/platform, and the failing tool call. Prefer `gh issue create --repo MarkBovee/nebu-ctx ...`; fall back to `nebu-ctx report-issue` if needed.
-- Fallback only if a nebu-ctx tool is unavailable: use native equivalents.
+- If a public nebu-ctx tool fails reproducibly, retry once if it may be environmental. If still broken, do not bypass to the native equivalent. Use supported raw mode or the repo-built nebu-ctx client, then create a GitHub issue in `MarkBovee/nebu-ctx` with repro, expected vs actual, shell/platform, and the failing tool call. Prefer `gh issue create --repo MarkBovee/nebu-ctx ...`; fall back to `nebu-ctx report-issue` if needed.
+- Use native equivalents only when no public nebu-ctx path exists at all, not when the nebu-ctx path is buggy or inconvenient.
 <!-- /lean-ctx -->"#;
 
 // ---------------------------------------------------------------------------

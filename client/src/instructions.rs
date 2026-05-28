@@ -142,6 +142,7 @@ Use ctx(domain=memory|context|graph|analytics|agents|inspect, action=...) for hi
 Examples: ctx(domain=memory, action=recall, query=...) | ctx(domain=context, action=overview, task=...) | ctx(domain=graph, action=impact, path=...) | ctx(domain=agents, action=handoff, ...).\n\
 When user asks to map/bootstrap repo knowledge, use `nebu-ctx project-bootstrap preview` first, not direct background memory writes.\n\
 ctx_shell shows [shell: ...]. Use shell=... to force pwsh/cmd/bash. raw=true for uncompressed output.\n\
+Never bypass nebu-ctx tool routing with native equivalents when a public nebu-ctx path exists. If a tool misbehaves, retry once, then use raw mode or repo-built nebu-ctx client instead of native fallback.\n\
 If public nebu-ctx tool bug reproduces after one retry, create GitHub issue in `MarkBovee/nebu-ctx` with repro, expected/actual, shell/platform, and failing tool call. Prefer `gh issue create --repo MarkBovee/nebu-ctx`.\n\
 \n\
 CEP v1: 1.ACT FIRST 2.DELTA ONLY (Fn refs) 3.STRUCTURED (+/-/~) 4.ONE LINE PER ACTION 5.QUALITY ANCHOR\n\

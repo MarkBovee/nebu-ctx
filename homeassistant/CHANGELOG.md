@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.25
+
+- Bundle client/server release that preserves exact git inspection output for `git status --short/--porcelain` and `git diff --name-only/--name-status/--stat/--numstat` in wrapper-driven commit workflows.
+
 ## 0.8.24
 
 - Bundle client/server release that makes `ctx_shell` report the actual shell used for each call and supports per-call shell overrides.

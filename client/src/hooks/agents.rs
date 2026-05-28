@@ -707,6 +707,7 @@ When running shell commands, always prefix them with `{binary} -c` to compress o
 - `{binary} -c ls src/` instead of `ls src/`
 
 Supported commands: git, cargo, npm, pnpm, docker, kubectl, pip, ruff, go, curl, grep, find, ls, aws, helm, and 90+ more.
+Do not bypass back to the native command when this wrapper path exists. If wrapper behavior is wrong, retry once, then use `--raw` or the repo-built nebu-ctx client and file/update an issue.
 "#
     );
 

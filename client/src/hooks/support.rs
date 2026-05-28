@@ -118,7 +118,7 @@ Prefix all shell commands with `{binary} -c` for compressed output:
 ```
 
 This saves 60-90% tokens per command. Works with: git, cargo, npm, pnpm, docker, kubectl, pip, ruff, go, curl, grep, find, ls, aws, helm, and 90+ more commands.
-Use `{binary} -c --raw <cmd>` to skip compression and get full output.
+Do not bypass to the native command when this wrapper path exists. Use `{binary} -c --raw <cmd>` to skip compression and get full output. If wrapper behavior is still wrong, use the repo-built nebu-ctx client and file/update an issue.
 "#
     )
 }

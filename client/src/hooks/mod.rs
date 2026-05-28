@@ -398,7 +398,7 @@ PREFER nebu-ctx MCP tools over native equivalents for token savings:
 
 Edit files: use native Edit/StrReplace if available. If Edit requires Read and Read is unavailable, use ctx_edit.
 Write, Delete, Glob — use normally. NEVER loop on Edit failures — switch to ctx_edit immediately.
-If a public nebu-ctx tool fails reproducibly, retry once if it may be environmental. If still broken, create a GitHub issue in `MarkBovee/nebu-ctx` with repro, expected vs actual, shell/platform, and the failing tool call.
+If a public nebu-ctx tool fails reproducibly, retry once if it may be environmental. If still broken, do not bypass to the native equivalent. Use supported raw mode or the repo-built nebu-ctx client, then create a GitHub issue in `MarkBovee/nebu-ctx` with repro, expected vs actual, shell/platform, and the failing tool call.
 ";
 
 pub const KIRO_STEERING_TEMPLATE: &str = "\

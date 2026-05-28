@@ -1041,7 +1041,7 @@ OPTIONS:
     --help, -h                     Show this help
 
 EXAMPLES:
-        nebu-ctx -c \"git status\"       Compressed shell command
+        nebu-ctx -c \"git status --short --untracked-files=all\" Exact git file list for staging
         nebu-ctx -c gh pr list          Direct argv mode for quoting-sensitive CLIs
         nebu-ctx -c \"kubectl get pods\" Compressed k8s output
             nebu-ctx token-report --json   Machine-readable token + memory report

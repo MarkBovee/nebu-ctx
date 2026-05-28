@@ -154,6 +154,11 @@ pub fn handle(command: &str, output: &str, crp_mode: CrpMode) -> String {
         );
     }
 
+    if crate::core::patterns::git::is_inspection_command(command) {
+        let savings = protocol::format_savings(original_tokens, original_tokens);
+        return format!("{output}\n{savings}");
+    }
+
     let raw_compressed = match patterns::compress_output(command, output) {
         Some(c) => crate::core::compressor::safeguard_ratio(output, &c),
         None if is_search_command(command) => {
@@ -582,5 +587,15 @@ mod tests {
                 "search result file{i} should be preserved in output"
             );
         }
+    }
+
+    #[test]
+    fn handle_preserves_git_inspection_output() {
+        let output = "M client/src/shell.rs\n M client/src/tools/ctx_shell.rs\n?? tests/git-wrapper.txt\n";
+        let result = handle("git status --short --untracked-files=all", output, CrpMode::Off);
+        assert!(result.contains("client/src/shell.rs"));
+        assert!(result.contains("client/src/tools/ctx_shell.rs"));
+        assert!(result.contains("tests/git-wrapper.txt"));
+        assert!(!result.contains("truncated"));
     }
 }

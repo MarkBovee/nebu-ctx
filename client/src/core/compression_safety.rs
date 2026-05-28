@@ -33,9 +33,9 @@ pub const COMMAND_SAFETY_TABLE: &[CommandSafety] = &[
         description: "Disk usage — root filesystem must never be hidden",
     },
     CommandSafety {
-        command: "git status",
+        command: "git status --short",
         level: SafetyLevel::Verbatim,
-        description: "DETACHED HEAD, staged/unstaged lists preserved verbatim",
+        description: "Short/porcelain status file lists preserved verbatim for commit workflows",
     },
     CommandSafety {
         command: "git stash",
@@ -66,7 +66,7 @@ pub const COMMAND_SAFETY_TABLE: &[CommandSafety] = &[
     CommandSafety {
         command: "git diff",
         level: SafetyLevel::Minimal,
-        description: "All +/- lines preserved, only index headers and excess context trimmed",
+        description: "Patch hunks stay compact; --name-only/--name-status/--stat/--numstat stay verbatim",
     },
     CommandSafety {
         command: "git log",

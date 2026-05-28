@@ -35,7 +35,35 @@ fn stash_re() -> &'static Regex {
     STASH_RE.get_or_init(|| Regex::new(r"stash@\{(\d+)\}:\s*(.+)").unwrap())
 }
 
+pub fn is_inspection_command(command: &str) -> bool {
+    let command = command.trim().to_ascii_lowercase();
+    let command = command.as_str();
+
+    if !command.starts_with("git ") {
+        return false;
+    }
+
+    if command.starts_with("git status") {
+        return command.contains(" --short")
+            || command.contains(" -s")
+            || command.contains(" --porcelain");
+    }
+
+    if command.starts_with("git diff") && !command.contains("difftool") {
+        return command.contains(" --name-only")
+            || command.contains(" --name-status")
+            || command.contains(" --stat")
+            || command.contains(" --numstat");
+    }
+
+    false
+}
+
 pub fn compress(command: &str, output: &str) -> Option<String> {
+    if is_inspection_command(command) {
+        return Some(output.to_string());
+    }
+
     if command.contains("status") {
         return Some(compress_status(output));
     }
@@ -1031,6 +1059,36 @@ fn compact_lines(text: &str, max: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn git_inspection_command_detection_works() {
+        assert!(is_inspection_command("git status --short"));
+        assert!(is_inspection_command("git status -s"));
+        assert!(is_inspection_command("git status -sb"));
+        assert!(is_inspection_command("git status --porcelain=v1"));
+        assert!(is_inspection_command("git diff --name-only"));
+        assert!(is_inspection_command("git diff --name-status"));
+        assert!(is_inspection_command("git diff --stat"));
+        assert!(is_inspection_command("git diff --numstat"));
+        assert!(!is_inspection_command("git status --show-stash"));
+        assert!(!is_inspection_command("git status"));
+        assert!(!is_inspection_command("git diff"));
+    }
+
+    #[test]
+    fn git_inspection_commands_stay_verbatim() {
+        let status_output = "M client/src/shell.rs\n?? tests/git-wrapper.txt\n";
+        assert_eq!(
+            compress("git status --short", status_output).unwrap(),
+            status_output
+        );
+
+        let diff_output = "client/src/shell.rs\nclient/src/tools/ctx_shell.rs\n";
+        assert_eq!(
+            compress("git diff --name-only", diff_output).unwrap(),
+            diff_output
+        );
+    }
 
     #[test]
     fn git_status_compresses() {

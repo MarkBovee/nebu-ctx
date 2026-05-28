@@ -923,6 +923,10 @@ fn compress_if_beneficial(command: &str, output: &str) -> String {
         return String::new();
     }
 
+    if crate::core::patterns::git::is_inspection_command(command) {
+        return output.to_string();
+    }
+
     if crate::tools::ctx_shell::contains_auth_flow(output) {
         return output.to_string();
     }
@@ -1477,7 +1481,7 @@ mod windows_shell_flag_tests {
 #[cfg(test)]
 mod passthrough_tests {
     use super::{
-        compress_and_measure, is_excluded_command, normalize_captured_output,
+        compress_and_measure, compress_if_beneficial, is_excluded_command, normalize_captured_output,
         should_preserve_dotnet_test_output,
     };
 
@@ -1789,6 +1793,20 @@ mod passthrough_tests {
             "[nebu-ctx: 100→1 tok, -99%]"
         ));
         assert!(!should_preserve_dotnet_test_output("cargo test", raw, "ok"));
+    }
+
+    #[test]
+    fn git_inspection_status_short_stays_verbatim() {
+        let raw = "M client/src/shell.rs\n M client/src/tools/ctx_shell.rs\n?? tests/git-wrapper.txt\n";
+        let result = compress_if_beneficial("git status --short --untracked-files=all", raw);
+        assert_eq!(result, raw);
+    }
+
+    #[test]
+    fn git_inspection_diff_stat_stays_verbatim() {
+        let raw = " client/src/shell.rs           | 12 ++++++------\n client/src/tools/ctx_shell.rs |  8 ++++----\n 2 files changed, 10 insertions(+), 10 deletions(-)\n";
+        let result = compress_if_beneficial("git diff --stat", raw);
+        assert_eq!(result, raw);
     }
 
     #[test]
