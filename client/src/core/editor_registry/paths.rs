@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 
 pub const PROJECT_BOOTSTRAP_SKILL_NAME: &str = "project-bootstrap";
+pub const COPILOT_MCP_SERVER_KEY: &str = "nebuCtx";
+pub const COPILOT_LEGACY_MCP_SERVER_KEYS: &[&str] = &["nebu-ctx", "lean-ctx"];
 
 pub fn zed_settings_path(home: &std::path::Path) -> PathBuf {
     if cfg!(target_os = "macos") {

@@ -2,6 +2,51 @@ use serde_json::Value;
 
 use super::types::{ConfigType, EditorTarget};
 
+fn lookup_server<'a>(servers: &'a serde_json::Map<String, Value>, keys: &[&str]) -> Option<&'a Value> {
+    keys.iter().find_map(|key| servers.get(*key))
+}
+
+fn remove_server_aliases(servers: &mut serde_json::Map<String, Value>, keys: &[&str]) -> bool {
+    let mut modified = false;
+    for key in keys {
+        modified |= servers.remove(*key).is_some();
+    }
+    modified
+}
+
+fn uses_copilot_server_key(target: &EditorTarget) -> bool {
+    target.config_type == ConfigType::VsCodeMcp || target.agent_key == "copilot"
+}
+
+fn preferred_server_key(target: &EditorTarget) -> &'static str {
+    if uses_copilot_server_key(target) {
+        super::paths::COPILOT_MCP_SERVER_KEY
+    } else {
+        "nebu-ctx"
+    }
+}
+
+fn accepted_server_keys(target: &EditorTarget) -> Vec<&'static str> {
+    let mut keys = vec![preferred_server_key(target)];
+    if uses_copilot_server_key(target) {
+        for key in super::paths::COPILOT_LEGACY_MCP_SERVER_KEYS {
+            if !keys.contains(key) {
+                keys.push(key);
+            }
+        }
+    } else if !keys.contains(&"lean-ctx") {
+        keys.push("lean-ctx");
+    }
+    keys
+}
+
+fn legacy_server_keys(target: &EditorTarget) -> Vec<&'static str> {
+    accepted_server_keys(target)
+        .into_iter()
+        .filter(|key| *key != preferred_server_key(target))
+        .collect()
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WriteAction {
     Created,
@@ -81,6 +126,9 @@ fn write_mcp_json(
     let data_dir = default_data_dir()?;
     let include_aa = !NO_AUTO_APPROVE_EDITORS.contains(&target.name);
     let desired = server_entry(binary, &data_dir, include_aa);
+    let preferred_key = preferred_server_key(target);
+    let accepted_keys = accepted_server_keys(target);
+    let legacy_keys = legacy_server_keys(target);
 
     // Claude Code manages ~/.claude.json and may overwrite it on first start.
     // Prefer the official CLI integration when available.
@@ -101,6 +149,7 @@ fn write_mcp_json(
                 backup_invalid_file(&target.config_path)?;
                 return write_mcp_json_fresh(
                     &target.config_path,
+                    preferred_key,
                     desired,
                     Some("overwrote invalid JSON".to_string()),
                 );
@@ -117,27 +166,32 @@ fn write_mcp_json(
             .as_object_mut()
             .ok_or_else(|| "\"mcpServers\" must be an object".to_string())?;
 
-        let existing = servers_obj
-            .get("nebu-ctx")
-            .cloned()
-            .or_else(|| servers_obj.get("lean-ctx").cloned());
-        if existing.as_ref() == Some(&desired) {
+        let existing = lookup_server(servers_obj, &accepted_keys).cloned();
+        let has_preferred = servers_obj.contains_key(preferred_key);
+        let has_legacy = legacy_keys.iter().any(|key| servers_obj.contains_key(*key));
+        if existing.as_ref() == Some(&desired) && has_preferred && !has_legacy {
             return Ok(WriteResult {
                 action: WriteAction::Already,
                 note: None,
             });
         }
-        servers_obj.insert("nebu-ctx".to_string(), desired);
+        let removed_aliases = remove_server_aliases(servers_obj, &legacy_keys);
+        let needs_write = existing.as_ref() != Some(&desired) || removed_aliases || !has_preferred;
+        servers_obj.insert(preferred_key.to_string(), desired);
 
         let formatted = serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?;
         crate::config_io::write_atomic_with_backup(&target.config_path, &formatted)?;
         return Ok(WriteResult {
-            action: WriteAction::Updated,
+            action: if needs_write {
+                WriteAction::Updated
+            } else {
+                WriteAction::Already
+            },
             note: None,
         });
     }
 
-    write_mcp_json_fresh(&target.config_path, desired, None)
+    write_mcp_json_fresh(&target.config_path, preferred_key, desired, None)
 }
 
 fn try_claude_mcp_add(desired: &Value) -> Result<WriteResult, String> {
@@ -255,11 +309,12 @@ fn try_claude_mcp_add(desired: &Value) -> Result<WriteResult, String> {
 
 fn write_mcp_json_fresh(
     path: &std::path::Path,
+    server_key: &str,
     desired: Value,
     note: Option<String>,
 ) -> Result<WriteResult, String> {
     let content = serde_json::to_string_pretty(&serde_json::json!({
-        "mcpServers": { "nebu-ctx": desired }
+        "mcpServers": { server_key: desired }
     }))
     .map_err(|e| e.to_string())?;
     crate::config_io::write_atomic_with_backup(path, &content)?;
@@ -392,6 +447,9 @@ fn write_vscode_mcp(
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let desired = serde_json::json!({ "type": "stdio", "command": binary, "args": [], "env": { "NEBU_CTX_DATA_DIR": data_dir } });
+    let preferred_key = preferred_server_key(target);
+    let accepted_keys = accepted_server_keys(target);
+    let legacy_keys = legacy_server_keys(target);
 
     if target.config_path.exists() {
         let content = std::fs::read_to_string(&target.config_path).map_err(|e| e.to_string())?;
@@ -405,6 +463,7 @@ fn write_vscode_mcp(
                 return write_vscode_mcp_fresh(
                     &target.config_path,
                     binary,
+                    preferred_key,
                     Some("overwrote invalid JSON".to_string()),
                 );
             }
@@ -420,39 +479,45 @@ fn write_vscode_mcp(
             .as_object_mut()
             .ok_or_else(|| "\"servers\" must be an object".to_string())?;
 
-        let existing = servers_obj
-            .get("nebu-ctx")
-            .cloned()
-            .or_else(|| servers_obj.get("lean-ctx").cloned());
-        if existing.as_ref() == Some(&desired) {
+        let existing = lookup_server(servers_obj, &accepted_keys).cloned();
+        let has_preferred = servers_obj.contains_key(preferred_key);
+        let has_legacy = legacy_keys.iter().any(|key| servers_obj.contains_key(*key));
+        if existing.as_ref() == Some(&desired) && has_preferred && !has_legacy {
             return Ok(WriteResult {
                 action: WriteAction::Already,
                 note: None,
             });
         }
-        servers_obj.insert("nebu-ctx".to_string(), desired);
+        let removed_aliases = remove_server_aliases(servers_obj, &legacy_keys);
+        let needs_write = existing.as_ref() != Some(&desired) || removed_aliases || !has_preferred;
+        servers_obj.insert(preferred_key.to_string(), desired);
 
         let formatted = serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?;
         crate::config_io::write_atomic_with_backup(&target.config_path, &formatted)?;
         return Ok(WriteResult {
-            action: WriteAction::Updated,
+            action: if needs_write {
+                WriteAction::Updated
+            } else {
+                WriteAction::Already
+            },
             note: None,
         });
     }
 
-    write_vscode_mcp_fresh(&target.config_path, binary, None)
+    write_vscode_mcp_fresh(&target.config_path, binary, preferred_key, None)
 }
 
 fn write_vscode_mcp_fresh(
     path: &std::path::Path,
     binary: &str,
+    server_key: &str,
     note: Option<String>,
 ) -> Result<WriteResult, String> {
     let data_dir = crate::core::data_dir::nebu_ctx_data_dir()
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let content = serde_json::to_string_pretty(&serde_json::json!({
-        "servers": { "nebu-ctx": { "type": "stdio", "command": binary, "args": [], "env": { "NEBU_CTX_DATA_DIR": data_dir } } }
+        "servers": { server_key: { "type": "stdio", "command": binary, "args": [], "env": { "NEBU_CTX_DATA_DIR": data_dir } } }
     }))
     .map_err(|e| e.to_string())?;
     crate::config_io::write_atomic_with_backup(path, &content)?;
@@ -1222,6 +1287,65 @@ args = ["x"]
         assert!(json["mcpServers"]["nebu-ctx"]["autoApprove"].is_null());
         assert_eq!(
             json["mcpServers"]["nebu-ctx"]["command"],
+            "/usr/local/bin/nebu-ctx"
+        );
+    }
+
+    #[test]
+    fn copilot_cli_config_migrates_to_camel_case_server_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("mcp-config.json");
+        std::fs::write(
+            &path,
+            r#"{ "mcpServers": { "other": { "command": "other-bin" }, "nebu-ctx": { "command": "/old/path/nebu-ctx", "autoApprove": [] } } }"#,
+        )
+        .unwrap();
+
+        let t = EditorTarget {
+            name: "Copilot CLI",
+            agent_key: "copilot".to_string(),
+            config_path: path.clone(),
+            detect_path: PathBuf::from("/nonexistent"),
+            config_type: ConfigType::McpJson,
+        };
+        let res = write_mcp_json(&t, "/new/path/nebu-ctx", WriteOptions::default()).unwrap();
+        assert_eq!(res.action, WriteAction::Updated);
+
+        let json: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(json["mcpServers"]["other"]["command"], "other-bin");
+        assert!(json["mcpServers"].get("nebu-ctx").is_none());
+        assert!(json["mcpServers"].get("lean-ctx").is_none());
+        assert_eq!(
+            json["mcpServers"][super::super::paths::COPILOT_MCP_SERVER_KEY]["command"],
+            "/new/path/nebu-ctx"
+        );
+    }
+
+    #[test]
+    fn vscode_mcp_config_migrates_to_camel_case_server_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("mcp.json");
+        std::fs::write(
+            &path,
+            r#"{ "servers": { "lean-ctx": { "type": "stdio", "command": "old" } } }"#,
+        )
+        .unwrap();
+
+        let t = EditorTarget {
+            name: "VS Code / Copilot",
+            agent_key: "copilot".to_string(),
+            config_path: path.clone(),
+            detect_path: PathBuf::from("/nonexistent"),
+            config_type: ConfigType::VsCodeMcp,
+        };
+        let res = write_vscode_mcp(&t, "/usr/local/bin/nebu-ctx", WriteOptions::default()).unwrap();
+        assert_eq!(res.action, WriteAction::Updated);
+
+        let json: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert!(json["servers"].get("nebu-ctx").is_none());
+        assert!(json["servers"].get("lean-ctx").is_none());
+        assert_eq!(
+            json["servers"][super::super::paths::COPILOT_MCP_SERVER_KEY]["command"],
             "/usr/local/bin/nebu-ctx"
         );
     }

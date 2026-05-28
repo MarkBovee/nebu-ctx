@@ -635,20 +635,31 @@ fn remove_nebu_ctx_from_json(content: &str) -> Option<String> {
 
     if let Some(servers) = parsed.get_mut("mcpServers").and_then(|s| s.as_object_mut()) {
         modified |= servers.remove("nebu-ctx").is_some();
+        modified |= servers.remove("lean-ctx").is_some();
+        modified |= servers.remove(crate::core::editor_registry::COPILOT_MCP_SERVER_KEY).is_some();
     }
 
     if let Some(servers) = parsed.get_mut("servers").and_then(|s| s.as_object_mut()) {
         modified |= servers.remove("nebu-ctx").is_some();
+        modified |= servers.remove("lean-ctx").is_some();
+        modified |= servers.remove(crate::core::editor_registry::COPILOT_MCP_SERVER_KEY).is_some();
     }
 
     if let Some(servers) = parsed.get_mut("servers").and_then(|s| s.as_array_mut()) {
         let before = servers.len();
-        servers.retain(|entry| entry.get("name").and_then(|n| n.as_str()) != Some("nebu-ctx"));
+        servers.retain(|entry| {
+            let name = entry.get("name").and_then(|n| n.as_str());
+            name != Some("nebu-ctx")
+                && name != Some("lean-ctx")
+                && name != Some(crate::core::editor_registry::COPILOT_MCP_SERVER_KEY)
+        });
         modified |= servers.len() < before;
     }
 
     if let Some(mcp) = parsed.get_mut("mcp").and_then(|s| s.as_object_mut()) {
         modified |= mcp.remove("nebu-ctx").is_some();
+        modified |= mcp.remove("lean-ctx").is_some();
+        modified |= mcp.remove(crate::core::editor_registry::COPILOT_MCP_SERVER_KEY).is_some();
     }
 
     if let Some(amp) = parsed
@@ -656,6 +667,8 @@ fn remove_nebu_ctx_from_json(content: &str) -> Option<String> {
         .and_then(|s| s.as_object_mut())
     {
         modified |= amp.remove("nebu-ctx").is_some();
+        modified |= amp.remove("lean-ctx").is_some();
+        modified |= amp.remove(crate::core::editor_registry::COPILOT_MCP_SERVER_KEY).is_some();
     }
 
     if modified {
@@ -811,5 +824,20 @@ command = \"other\"
         let cleaned = remove_source_lines(input);
         assert!(!cleaned.contains("shell-hook.fish"));
         assert!(cleaned.contains("set -gx EDITOR vim"));
+    }
+
+    #[test]
+    fn remove_json_also_cleans_copilot_server_aliases() {
+        let input = r#"{
+  "servers": {
+    "nebuCtx": { "command": "nebu-ctx" },
+    "nebu-ctx": { "command": "nebu-ctx" },
+    "other": { "command": "other" }
+  }
+}"#;
+        let cleaned = remove_nebu_ctx_from_json(input).expect("aliases should be removed");
+        assert!(cleaned.contains("other"));
+        assert!(!cleaned.contains("nebuCtx"));
+        assert!(!cleaned.contains("nebu-ctx"));
     }
 }

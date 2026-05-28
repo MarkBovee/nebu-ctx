@@ -479,17 +479,28 @@ fn mcp_config_outcome() -> Outcome {
 fn has_nebu_ctx_mcp_entry(content: &str) -> bool {
     if let Ok(json) = serde_json::from_str::<serde_json::Value>(content) {
         if let Some(servers) = json.get("mcpServers").and_then(|v| v.as_object()) {
-            return servers.contains_key("nebu-ctx") || servers.contains_key("lean-ctx");
+            return servers.contains_key("nebu-ctx")
+                || servers.contains_key("lean-ctx")
+                || servers.contains_key(crate::core::editor_registry::COPILOT_MCP_SERVER_KEY);
         }
         if let Some(servers) = json
             .get("mcp")
             .and_then(|v| v.get("servers"))
             .and_then(|v| v.as_object())
         {
-            return servers.contains_key("nebu-ctx") || servers.contains_key("lean-ctx");
+            return servers.contains_key("nebu-ctx")
+                || servers.contains_key("lean-ctx")
+                || servers.contains_key(crate::core::editor_registry::COPILOT_MCP_SERVER_KEY);
+        }
+        if let Some(servers) = json.get("servers").and_then(|v| v.as_object()) {
+            return servers.contains_key("nebu-ctx")
+                || servers.contains_key("lean-ctx")
+                || servers.contains_key(crate::core::editor_registry::COPILOT_MCP_SERVER_KEY);
         }
     }
-    content.contains("nebu-ctx") || content.contains("lean-ctx")
+    content.contains("nebu-ctx")
+        || content.contains("lean-ctx")
+        || content.contains(crate::core::editor_registry::COPILOT_MCP_SERVER_KEY)
 }
 
 fn port_3333_outcome() -> Outcome {

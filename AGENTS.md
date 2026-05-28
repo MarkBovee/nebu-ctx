@@ -107,7 +107,7 @@ SERVER_PREFERRED_TOOLS = ["ctx_knowledge", "ctx_session"]
 
 Add-on runs dashboard (3333) + MCP (4242) in one container. Keep these files in sync:
 
-- `docker-entrypoint.sh`, `homeassistant/config.yaml`, `homeassistant/README.md`, `tests/local-addon-test.sh`
+- `docker-entrypoint.sh`, `homeassistant/config.yaml`, `homeassistant/README.md`, `homeassistant/CHANGELOG.md`, `tests/local-addon-test.sh`
 
 No `homeassistant/Dockerfile` at runtime — HA Supervisor pulls pre-built GHCR image when `image:` is set in `config.yaml`.
 
@@ -120,6 +120,11 @@ No `homeassistant/Dockerfile` at runtime — HA Supervisor pulls pre-built GHCR 
 3. `server/src/NebuCtx.Server.Core/ToolRegistry.cs` — `ServerVersion.Current = "x.y.z"`
 
 Also update `Cargo.lock` via `cargo update --manifest-path client/Cargo.toml` before committing.
+
+Every version bump must also add release notes in both places:
+
+- `CHANGELOG.md` — repo/client/server release notes for the bumped version
+- `homeassistant/CHANGELOG.md` — Home Assistant add-on release notes for the same version, even when the underlying change is client-focused
 
 - `auto-release.yml` verifies all three locations are in sync, then tags the release. The tag push triggers `release.yml`.
 - `release.yml` builds amd64+arm64 binaries, creates GitHub release, publishes crate to crates.io (no `--locked`), and builds+pushes multi-platform server image to `ghcr.io/markbovee/nebu-ctx`.

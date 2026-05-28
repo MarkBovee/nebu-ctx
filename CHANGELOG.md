@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.23
+
+- Fix VS Code / Copilot MCP config to register the server under the camelCase `nebuCtx` key, which avoids invalid tool identifiers like `mcp_nebu-ctx_*` that broke `multi_tool_use.parallel` after tool discovery.
+- Migrate existing VS Code / Copilot MCP configs from legacy `nebu-ctx` and `lean-ctx` keys to `nebuCtx` while keeping doctor/setup/uninstall compatibility.
+- Add regression coverage for Copilot MCP config migration and uninstall cleanup.
+
 ## 0.8.0
 
 This release makes the simplified public MCP contract the canonical `nebu-ctx` surface and ships the client, docs, and guidance cleanup needed to enforce it end-to-end.

@@ -987,6 +987,8 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let desired = serde_json::json!({ "type": "stdio", "command": binary, "args": [], "env": { "NEBU_CTX_DATA_DIR": data_dir } });
+    let preferred_key = crate::core::editor_registry::COPILOT_MCP_SERVER_KEY;
+    let legacy_keys = crate::core::editor_registry::COPILOT_LEGACY_MCP_SERVER_KEYS;
     if mcp_path.exists() {
         let content = std::fs::read_to_string(mcp_path).unwrap_or_default();
         match serde_json::from_str::<serde_json::Value>(&content) {
@@ -996,33 +998,38 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
                         .entry("servers")
                         .or_insert_with(|| serde_json::json!({}));
                     if let Some(servers_obj) = servers.as_object_mut() {
-                        if servers_obj.get("lean-ctx") == Some(&desired)
-                            || servers_obj.get("nebu-ctx") == Some(&desired)
-                        {
+                        let existing = servers_obj
+                            .get(preferred_key)
+                            .cloned()
+                            .or_else(|| legacy_keys.iter().find_map(|key| servers_obj.get(*key).cloned()));
+                        let has_preferred = servers_obj.contains_key(preferred_key);
+                        let had_legacy = legacy_keys.iter().any(|key| servers_obj.contains_key(*key));
+                        if existing.as_ref() == Some(&desired) && has_preferred && !had_legacy {
                             if !crate::hooks::mcp_server_quiet_mode() {
-                                println!(
-                                    "  \x1b[32m✓\x1b[0m Copilot already configured in {label}"
-                                );
+                                println!("  \x1b[32m✓\x1b[0m Copilot already configured in {label}");
                             }
                             return;
                         }
-                        let _ = servers_obj.remove("lean-ctx");
-                        servers_obj.insert("nebu-ctx".to_string(), desired);
+                        for key in legacy_keys {
+                            let _ = servers_obj.remove(*key);
+                        }
+                        servers_obj.insert(preferred_key.to_string(), desired);
                     }
                     write_file(
                         mcp_path,
                         &serde_json::to_string_pretty(&json).unwrap_or_default(),
                     );
                     if !crate::hooks::mcp_server_quiet_mode() {
-                        println!("  \x1b[32m✓\x1b[0m Added nebu-ctx to {label}");
+                        println!("  \x1b[32m✓\x1b[0m Configured nebu-ctx MCP server in {label}");
                     }
                     return;
                 }
             }
             Err(e) => {
                 eprintln!(
-                    "Could not parse VS Code MCP config at {}: {e}\nAdd to \"servers\": \"nebu-ctx\": {{ \"command\": \"{}\", \"args\": [] }}",
+                    "Could not parse VS Code MCP config at {}: {e}\nAdd to \"servers\": \"{}\": {{ \"command\": \"{}\", \"args\": [] }}",
                     mcp_path.display(),
+                    preferred_key,
                     binary
                 );
                 return;
@@ -1039,7 +1046,7 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
         .unwrap_or_default();
     let config = serde_json::json!({
         "servers": {
-            "nebu-ctx": {
+            preferred_key: {
                 "type": "stdio",
                 "command": binary,
                 "args": [],
@@ -1164,7 +1171,7 @@ pub(super) fn install_opencode_hook() {
 
 #[cfg(test)]
 mod memory_hook_tests {
-    use super::{claude_hook_payload, copilot_hook_payload};
+    use super::{claude_hook_payload, copilot_hook_payload, write_vscode_mcp_file};
 
     #[test]
     fn claude_hook_payload_contains_memory_lifecycle_hooks() {
@@ -1194,6 +1201,22 @@ mod memory_hook_tests {
         assert!(hooks.contains_key("postSession"));
         assert_eq!(hooks["postToolUse"][0]["bash"], "nebu-ctx hook post-tool-use");
         assert_eq!(hooks["postSession"][0]["bash"], "nebu-ctx hook stop");
+    }
+
+    #[test]
+    fn write_vscode_mcp_file_uses_camel_case_server_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("mcp.json");
+
+        write_vscode_mcp_file(&path, "/usr/local/bin/nebu-ctx", "test");
+
+        let json: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert!(json["servers"].get("nebu-ctx").is_none());
+        assert_eq!(
+            json["servers"][crate::core::editor_registry::COPILOT_MCP_SERVER_KEY]["command"],
+            "/usr/local/bin/nebu-ctx"
+        );
     }
 }
 
