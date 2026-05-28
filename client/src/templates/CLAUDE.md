@@ -5,7 +5,7 @@ Use only the public nebu-ctx MCP surface when guidance needs nebu-ctx tools:
 | PREFER | OVER | Why |
 |--------|------|-----|
 | `ctx_read(target="file"|"files"|"symbol"|"outline"|"archive", ...)` | Read / cat / head / tail | Public cached read API for files, symbols, outlines, and archives |
-| `ctx_shell(command)` | Bash (shell commands) | Pattern-based compression for git, npm, cargo, docker, tsc |
+| `ctx_shell(command, shell?)` | Bash (shell commands) | Pattern-based compression plus active shell visibility |
 | `ctx_search(mode="regex"|"semantic", ...)` | Grep / rg | Compact regex and semantic search results |
 | `ctx_tree(path, depth)` | ls / find | Compact directory maps with file counts |
 | `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")` | private `ctx_*` implementation details | Stable public gateway for advanced operations |
@@ -15,6 +15,7 @@ Use only the public nebu-ctx MCP surface when guidance needs nebu-ctx tools:
 - `ctx_read` targets: `file`, `files`, `symbol`, `outline`, `archive`
 - `ctx_search` modes: `regex`, `semantic`
 - `ctx` domains: `memory`, `context`, `graph`, `analytics`, `agents`, `inspect`
+- `ctx_shell` uses active shell semantics; output includes `[shell: ...]`. Use `shell` to force a specific executable per call.
 
 ## File Editing
 
@@ -27,3 +28,4 @@ Use `ctx(domain="memory", action="save"|"recall"|"store"|"consolidate")` for per
 - Use `ctx(domain="memory", action="save"|"recall")` for task state and working memory.
 - Use `ctx(domain="memory", action="store"|"recall"|"wakeup"|"consolidate")` for durable project facts.
 - Let the stop/compact hooks consolidate session context into the nebu-ctx server instead of relying on chat history.
+- If a public nebu-ctx tool fails reproducibly, retry once if it may be environmental. If it still fails, create a GitHub issue in `MarkBovee/nebu-ctx` with repro, expected vs actual, shell/platform, and the failing tool call. Prefer `gh issue create --repo MarkBovee/nebu-ctx ...`; fall back to `nebu-ctx report-issue` if needed.

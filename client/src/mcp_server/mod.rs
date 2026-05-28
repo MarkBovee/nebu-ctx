@@ -1421,12 +1421,16 @@ mod tests {
             .block_on(engine.call_tool_text(
                 "ctx_shell",
                 Some(serde_json::json!({
-                    "command": "printf shell-clean"
+                    "command": "echo shell-clean"
                 })),
             ))
             .expect("ctx_shell should succeed");
 
         assert!(text.contains("shell-clean"), "unexpected shell text: {text}");
+        assert!(
+            text.contains("[shell:"),
+            "ctx_shell should expose active shell: {text}"
+        );
         assert!(
             !text.contains("--- AUTO CONTEXT ---") && !text.contains("PROJECT OVERVIEW"),
             "ctx_shell should not leak auto context into normal shell output: {text}"
@@ -1466,6 +1470,47 @@ mod tests {
 
         assert!(text.contains("[warning: path outside project root; using explicit path:"));
         assert!(text.contains("outside-root"), "unexpected read text: {text}");
+
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
+        std::env::remove_var("NEBU_CTX_HOME");
+    }
+
+    #[test]
+    fn ctx_shell_allows_per_call_shell_override() {
+        if cfg!(windows) || !std::path::Path::new("/bin/bash").exists() {
+            return;
+        }
+
+        let _lock = crate::core::data_dir::test_env_lock();
+        let data = tempfile::tempdir().unwrap();
+        let repo = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", data.path());
+        std::env::set_var("NEBU_CTX_HOME", data.path());
+        std::fs::create_dir(repo.path().join(".git")).unwrap();
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let engine = crate::engine::ContextEngine::with_project_root(repo.path());
+        let text = rt
+            .block_on(engine.call_tool_text(
+                "ctx_shell",
+                Some(serde_json::json!({
+                    "command": "echo $BASH_VERSION",
+                    "shell": "/bin/bash"
+                })),
+            ))
+            .expect("ctx_shell with shell override should succeed");
+
+        assert!(
+            text.contains("[shell: bash -c]"),
+            "unexpected shell note: {text}"
+        );
+        assert!(
+            !text.trim().ends_with("[shell: bash -c]"),
+            "command output missing: {text}"
+        );
 
         std::env::remove_var("NEBU_CTX_DATA_DIR");
         std::env::remove_var("NEBU_CTX_HOME");

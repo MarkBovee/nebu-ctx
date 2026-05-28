@@ -126,6 +126,8 @@ Every version bump must also add release notes in both places:
 - `CHANGELOG.md` — repo/client/server release notes for the bumped version
 - `homeassistant/CHANGELOG.md` — Home Assistant add-on release notes for the same version, even when the underlying change is client-focused
 
+A version bump is not complete until both changelog entries exist for that exact bumped version.
+
 - `auto-release.yml` verifies all three locations are in sync, then tags the release. The tag push triggers `release.yml`.
 - `release.yml` builds amd64+arm64 binaries, creates GitHub release, publishes crate to crates.io (no `--locked`), and builds+pushes multi-platform server image to `ghcr.io/markbovee/nebu-ctx`.
 - **Required secret:** `CARGO_REGISTRY_TOKEN` in GitHub Settings → Secrets → Actions.

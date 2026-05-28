@@ -7,7 +7,7 @@ nebu-ctx is installed as a Pi Package with first-class MCP support. User-facing 
 - `ctx_read(target="file"|"files"|"symbol"|"outline"|"archive", ...)`
 - `ctx_search(mode="regex"|"semantic", ...)`
 - `ctx_tree(path, depth)`
-- `ctx_shell(command)`
+- `ctx_shell(command, shell?)`
 - `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")`
 
 ## Guidance Rules
@@ -15,6 +15,7 @@ nebu-ctx is installed as a Pi Package with first-class MCP support. User-facing 
 - Prefer the 5 public tools above in all visible instructions and examples.
 - Do not recommend direct private `ctx_*` tool names unless you are explicitly documenting internal implementation details.
 - Use native edit/write/delete tools for mutations; nebu-ctx's public surface is read/search/tree/shell/ctx.
+- `ctx_shell` uses active shell semantics; output includes `[shell: ...]`. Use `shell` to force a specific executable per call.
 
 ## Public Examples
 
@@ -33,6 +34,7 @@ ctx(domain="memory", action="recall", query="session state decisions")
 - Use `ctx(domain="memory", action="save"|"recall")` for task state, findings, and decisions that should survive across chats.
 - Use `ctx(domain="memory", action="store")` for durable project facts.
 - The stop/compact hooks already persist session state into the nebu-ctx server; rely on that instead of chat history for reusable memory.
+- If a public nebu-ctx tool fails reproducibly, retry once if it may be environmental. If it still fails, create a GitHub issue in `MarkBovee/nebu-ctx` with repro, expected vs actual, shell/platform, and the failing tool call. Prefer `gh issue create --repo MarkBovee/nebu-ctx ...`; fall back to `nebu-ctx report-issue` if needed.
 
 ## No manual prefixing needed
 

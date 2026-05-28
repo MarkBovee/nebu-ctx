@@ -117,11 +117,12 @@ fn has_file_write_redirect(command: &str) -> bool {
 /// On Windows cmd.exe, `;` is not a valid command separator.
 /// Convert `cmd1; cmd2` to `cmd1 && cmd2` when running under cmd.exe.
 pub fn normalize_command_for_shell(command: &str) -> String {
-    if !cfg!(windows) {
-        return command.to_string();
-    }
     let (_, flag) = crate::shell::shell_and_flag();
-    if flag != "/C" {
+    normalize_command_for_flag(command, &flag)
+}
+
+pub fn normalize_command_for_flag(command: &str, shell_flag: &str) -> String {
+    if !cfg!(windows) || shell_flag != "/C" {
         return command.to_string();
     }
     let bytes = command.as_bytes();

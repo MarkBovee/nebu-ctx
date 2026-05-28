@@ -843,7 +843,7 @@ fn is_excluded_command(command: &str, excluded: &[String]) -> bool {
 }
 
 pub fn interactive() {
-    let real_shell = detect_shell();
+    let real_shell = detect_shell(None);
 
     eprintln!(
         "nebu-ctx shell v{} (wrapping {real_shell})",
@@ -1077,7 +1077,11 @@ fn windows_shell_flag_for_exe_basename(exe_basename: &str) -> &'static str {
 }
 
 pub fn shell_and_flag() -> (String, String) {
-    let shell = detect_shell();
+    shell_and_flag_with_override(None)
+}
+
+pub fn shell_and_flag_with_override(shell_override: Option<&str>) -> (String, String) {
+    let shell = detect_shell(shell_override);
     let flag = if cfg!(windows) {
         let name = std::path::Path::new(&shell)
             .file_name()
@@ -1091,7 +1095,25 @@ pub fn shell_and_flag() -> (String, String) {
     (shell, flag)
 }
 
-fn detect_shell() -> String {
+pub fn shell_summary(shell_override: Option<&str>) -> String {
+    let (shell, flag) = shell_and_flag_with_override(shell_override);
+    let display = shell_display_name(&shell);
+    format!("{display} {flag}")
+}
+
+fn shell_display_name(shell: &str) -> &str {
+    shell
+        .rsplit(['/', '\\'])
+        .next()
+        .filter(|name| !name.is_empty())
+        .unwrap_or(shell)
+}
+
+fn detect_shell(shell_override: Option<&str>) -> String {
+    if let Some(shell) = shell_override.filter(|shell| !shell.trim().is_empty()) {
+        return shell.to_string();
+    }
+
     if let Ok(shell) = std::env::var("NEBU_CTX_SHELL") {
         return shell;
     }
@@ -1415,7 +1437,7 @@ mod join_command_tests {
 
 #[cfg(test)]
 mod windows_shell_flag_tests {
-    use super::windows_shell_flag_for_exe_basename;
+    use super::{shell_summary, windows_shell_flag_for_exe_basename};
 
     #[test]
     fn cmd_uses_slash_c() {
@@ -1439,6 +1461,16 @@ mod windows_shell_flag_tests {
         assert_eq!(windows_shell_flag_for_exe_basename("sh.exe"), "-c");
         assert_eq!(windows_shell_flag_for_exe_basename("zsh.exe"), "-c");
         assert_eq!(windows_shell_flag_for_exe_basename("fish.exe"), "-c");
+    }
+
+    #[test]
+    fn shell_summary_uses_basename_and_flag() {
+        assert_eq!(shell_summary(Some("pwsh.exe")), "pwsh.exe -Command");
+        assert_eq!(shell_summary(Some("cmd.exe")), "cmd.exe /C");
+        assert_eq!(
+            shell_summary(Some("C:\\Program Files\\Git\\bin\\bash.exe")),
+            "bash.exe -c"
+        );
     }
 }
 

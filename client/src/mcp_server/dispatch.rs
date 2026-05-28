@@ -349,14 +349,22 @@ impl NebuCtxServer {
 
                 let raw = get_bool(args, "raw").unwrap_or(false)
                     || std::env::var("NEBU_CTX_DISABLED").is_ok();
+                let shell_override =
+                    get_str(args, "shell").filter(|shell| !shell.trim().is_empty());
+                let shell_note = format!(
+                    "[shell: {}]",
+                    crate::shell::shell_summary(shell_override.as_deref())
+                );
                 let cmd_clone = command.clone();
                 let cwd_clone = effective_cwd.clone();
+                let shell_clone = shell_override.clone();
                 let crp_mode = self.crp_mode;
 
                 let project_root_for_bug_memory = effective_cwd.clone();
                 let (result_out, original, saved, tee_hint) =
                     tokio::task::spawn_blocking(move || {
-                        let (output, real_exit_code) = execute_command_in(&cmd_clone, &cwd_clone);
+                        let (output, real_exit_code) =
+                            execute_command_in(&cmd_clone, &cwd_clone, shell_clone.as_deref());
 
                         if real_exit_code != 0 {
                             let resolved_root = crate::core::protocol::detect_project_root_or_cwd(
@@ -421,7 +429,10 @@ impl NebuCtxServer {
                     String::new()
                 };
 
-                prepend_warning(format!("{result_out}{savings_note}{tee_hint}"), cwd_warning)
+                prepend_warning(
+                    format!("{shell_note}\n{result_out}{savings_note}{tee_hint}"),
+                    cwd_warning,
+                )
             }
             "ctx_search" => {
                 let pattern = get_str(args, "pattern")

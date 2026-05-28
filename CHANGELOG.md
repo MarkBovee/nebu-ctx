@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.24
+
+- Make `ctx_shell` expose the actual shell used for each call via a `[shell: ...]` header and add a per-call `shell` override so Windows PowerShell/cmd semantics are visible and controllable.
+- Update public tool definitions, docs, and agent guidance so `ctx_shell` behavior is explicit across platforms.
+- Teach nebu-ctx guidance/rule templates to automatically file a GitHub issue in `MarkBovee/nebu-ctx` when agents hit a reproducible public `ctx_*` / `ctx(...)` bug.
+- Clarify release-flow instructions that every version bump must include release notes in both changelog files.
+
 ## 0.8.23
 
 - Fix VS Code / Copilot MCP config to register the server under the camelCase `nebuCtx` key, which avoids invalid tool identifiers like `mcp_nebu-ctx_*` that broke `multi_tool_use.parallel` after tool discovery.

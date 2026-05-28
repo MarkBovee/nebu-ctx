@@ -202,7 +202,7 @@ public sealed class ToolRegistry
             "ctx_shell" => new ToolDefinition
             {
                 Name = "ctx_shell",
-                Description = "Run shell command (compressed output). raw=true skips compression. cwd sets working directory.",
+                Description = "Run shell command (compressed output). Output includes active shell. raw=true skips compression. cwd sets working directory. shell overrides executable per call.",
                 InputSchema = new Dictionary<string, object?>
                 {
                     ["type"] = "object",
@@ -211,6 +211,7 @@ public sealed class ToolRegistry
                         ["command"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "Shell command" },
                         ["raw"] = new Dictionary<string, object?> { ["type"] = "boolean", ["description"] = "Skip compression for full output" },
                         ["cwd"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "Working directory (defaults to last cd or project root)" },
+                        ["shell"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "Optional shell executable or path for this call" },
                     },
                     ["required"] = new[] { "command" },
                 },
@@ -278,5 +279,5 @@ public static class ServerVersion
     /// <summary>
     /// Current server version string, matching the Cargo.toml version.
     /// </summary>
-    public const string Current = "0.8.23";
+    public const string Current = "0.8.24";
 }

@@ -247,6 +247,9 @@ Use `ctx_shell` for:
 - command execution
 - compressed CLI output
 - raw output when needed via `raw=true`
+- active shell visibility via `[shell: ...]`
+
+`ctx_shell` runs with the active shell for the current platform/session. On Windows that may be `pwsh.exe`, `powershell.exe`, `cmd.exe`, or a POSIX-style shell override. Use `shell` to force a specific executable for one call.
 
 ### `ctx`
 

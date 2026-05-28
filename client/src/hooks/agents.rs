@@ -998,10 +998,7 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
                         .entry("servers")
                         .or_insert_with(|| serde_json::json!({}));
                     if let Some(servers_obj) = servers.as_object_mut() {
-                        let existing = servers_obj
-                            .get(preferred_key)
-                            .cloned()
-                            .or_else(|| legacy_keys.iter().find_map(|key| servers_obj.get(*key).cloned()));
+                        let existing = servers_obj.get(preferred_key).cloned().or_else(|| legacy_keys.iter().find_map(|key| servers_obj.get(*key).cloned()));
                         let has_preferred = servers_obj.contains_key(preferred_key);
                         let had_legacy = legacy_keys.iter().any(|key| servers_obj.contains_key(*key));
                         if existing.as_ref() == Some(&desired) && has_preferred && !had_legacy {
@@ -1423,12 +1420,14 @@ PREFER nebu-ctx MCP tools over native equivalents for token savings:
 | PREFER | OVER | Why |
 |--------|------|-----|
 | `ctx_read(path, mode)` | `Read` / `cat` | Cached, 10 read modes, re-reads ~13 tokens |
-| `ctx_shell(command)` | `Shell` / `bash` | Pattern compression for git/npm/cargo output |
+| `ctx_shell(command, shell?)` | `Shell` / `bash` | Pattern compression plus active shell visibility |
 | `ctx_search(pattern, path)` | `Grep` / `rg` | Compact search results |
 | `ctx_tree(path, depth)` | `ls` / `find` | Compact directory maps |
 
 - Native Edit/StrReplace stay unchanged. If Edit requires Read and Read is unavailable, use `ctx_edit(path, old_string, new_string)`.
 - Write, Delete, Glob — use normally.
+- `ctx_shell` uses active shell semantics; output includes `[shell: ...]`. Use `shell` to force a specific executable per call.
+- If a public nebu-ctx tool fails reproducibly, retry once if it may be environmental. If still broken, create a GitHub issue in `MarkBovee/nebu-ctx` with repro, expected vs actual, shell/platform, and the failing tool call.
 
 ctx_read modes: full|map|signatures|diff|task|reference|aggressive|entropy|lines:N-M. Auto-selects optimal mode.
 Re-reads cost ~13 tokens (cached).

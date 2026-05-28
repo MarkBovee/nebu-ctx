@@ -118,7 +118,7 @@ Use `ctx_tree` to orient quickly in a project.
 
 ## `ctx_shell`
 
-Use `ctx_shell` for shell commands. Output is compressed by default.
+Use `ctx_shell` for shell commands. Output is compressed by default and begins with `[shell: ...]` so agents can see the active shell semantics. Use `shell` to force a specific executable for one call.
 
 ### Example
 
@@ -127,7 +127,8 @@ Use `ctx_shell` for shell commands. Output is compressed by default.
   "name": "ctx_shell",
   "arguments": {
     "command": "cargo test --manifest-path client/Cargo.toml",
-    "cwd": "/repo"
+    "cwd": "/repo",
+    "shell": "/bin/bash"
   }
 }
 ```

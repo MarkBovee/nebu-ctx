@@ -6,9 +6,9 @@ use std::time::{Duration, Instant};
 const DEFAULT_COMMAND_TIMEOUT: Duration = Duration::from_secs(120);
 const READER_RESULT_TIMEOUT: Duration = Duration::from_secs(2);
 
-pub fn execute_command_in(command: &str, cwd: &str) -> (String, i32) {
-    let (shell, flag) = crate::shell::shell_and_flag();
-    let normalized_cmd = crate::tools::ctx_shell::normalize_command_for_shell(command);
+pub fn execute_command_in(command: &str, cwd: &str, shell_override: Option<&str>) -> (String, i32) {
+    let (shell, flag) = crate::shell::shell_and_flag_with_override(shell_override);
+    let normalized_cmd = crate::tools::ctx_shell::normalize_command_for_flag(command, &flag);
     let dir = std::path::Path::new(cwd);
     let mut cmd = std::process::Command::new(&shell);
     cmd.arg(&flag)
@@ -148,7 +148,7 @@ mod tests {
         } else {
             "sh -c 'if read -t 1 line; then echo 67890; else echo 12345; fi'"
         };
-        let (output, code) = execute_command_in(command, ".");
+        let (output, code) = execute_command_in(command, ".", None);
         assert_eq!(code, 0, "command failed: {output}");
         assert!(
             output.contains("12345"),
@@ -168,7 +168,7 @@ mod tests {
             return;
         }
 
-        let (output, code) = execute_command_in("git --version", ".");
+        let (output, code) = execute_command_in("git --version", ".", None);
         assert_eq!(code, 0, "git command failed: {output}");
         assert!(
             output.to_ascii_lowercase().contains("git version"),
