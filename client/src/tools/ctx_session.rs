@@ -150,9 +150,9 @@ fn current_project_root(session: &SessionState) -> Option<String> {
                 .and_then(crate::core::protocol::detect_project_root)
         })
         .or_else(|| {
-            std::env::current_dir()
-                .ok()
-                .and_then(|cwd| crate::core::protocol::detect_project_root(cwd.to_string_lossy().as_ref()))
+            std::env::current_dir().ok().and_then(|cwd| {
+                crate::core::protocol::detect_project_root(cwd.to_string_lossy().as_ref())
+            })
         })
 }
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.27
+
+- Roll up the remaining client cleanup that accompanied the 0.8.26 alias-drift fix, covering project bootstrap CLI polish, workspace-scoped memory/session sync readability cleanup, path-safe MCP read handling, and related shell/uninstall test updates.
+
 ## 0.8.26
 
 - Remove remaining legacy MCP alias drift in shared agent config writers and Crush setup so stale `lean-ctx` entries are rewritten to `nebu-ctx` instead of lingering beside the canonical server key.

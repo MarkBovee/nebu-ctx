@@ -1481,8 +1481,8 @@ mod windows_shell_flag_tests {
 #[cfg(test)]
 mod passthrough_tests {
     use super::{
-        compress_and_measure, compress_if_beneficial, is_excluded_command, normalize_captured_output,
-        should_preserve_dotnet_test_output,
+        compress_and_measure, compress_if_beneficial, is_excluded_command,
+        normalize_captured_output, should_preserve_dotnet_test_output,
     };
 
     #[test]
@@ -1797,7 +1797,8 @@ mod passthrough_tests {
 
     #[test]
     fn git_inspection_status_short_stays_verbatim() {
-        let raw = "M client/src/shell.rs\n M client/src/tools/ctx_shell.rs\n?? tests/git-wrapper.txt\n";
+        let raw =
+            "M client/src/shell.rs\n M client/src/tools/ctx_shell.rs\n?? tests/git-wrapper.txt\n";
         let result = compress_if_beneficial("git status --short --untracked-files=all", raw);
         assert_eq!(result, raw);
     }

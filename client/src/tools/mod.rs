@@ -208,7 +208,12 @@ impl NebuCtxServer {
     ) -> Result<(String, std::path::PathBuf, String, bool), String> {
         let normalized = crate::hooks::normalize_tool_path(path);
         if normalized.is_empty() || normalized == "." {
-            return Ok((normalized, std::path::PathBuf::from("."), ".".to_string(), false));
+            return Ok((
+                normalized,
+                std::path::PathBuf::from("."),
+                ".".to_string(),
+                false,
+            ));
         }
         let p = std::path::Path::new(&normalized);
         let input_is_absolute = p.is_absolute() || looks_like_windows_absolute_path(&normalized);
@@ -222,22 +227,21 @@ impl NebuCtxServer {
                 .unwrap_or(".")
                 .to_string();
 
-            let resolved =
-                if input_is_absolute || p.exists() {
-                    std::path::PathBuf::from(&normalized)
-                } else if let Some(ref root) = session.project_root {
-                    let joined = std::path::Path::new(root).join(&normalized);
-                    if joined.exists() {
-                        joined
-                    } else if let Some(ref cwd) = session.shell_cwd {
-                        std::path::Path::new(cwd).join(&normalized)
-                    } else {
-                        std::path::Path::new(&jail_root).join(&normalized)
-                    }
+            let resolved = if input_is_absolute || p.exists() {
+                std::path::PathBuf::from(&normalized)
+            } else if let Some(ref root) = session.project_root {
+                let joined = std::path::Path::new(root).join(&normalized);
+                if joined.exists() {
+                    joined
                 } else if let Some(ref cwd) = session.shell_cwd {
                     std::path::Path::new(cwd).join(&normalized)
                 } else {
                     std::path::Path::new(&jail_root).join(&normalized)
+                }
+            } else if let Some(ref cwd) = session.shell_cwd {
+                std::path::Path::new(cwd).join(&normalized)
+            } else {
+                std::path::Path::new(&jail_root).join(&normalized)
             };
 
             (resolved, jail_root)

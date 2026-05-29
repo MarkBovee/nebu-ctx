@@ -547,7 +547,10 @@ pub fn run() {
                 return;
             }
             "project-bootstrap" => {
-                let action = rest.first().map(|value| value.as_str()).unwrap_or("preview");
+                let action = rest
+                    .first()
+                    .map(|value| value.as_str())
+                    .unwrap_or("preview");
                 let json = rest.iter().any(|arg| arg == "--json");
                 let path = super::option_value(&rest, &["--path"]);
                 let project_root = match project_bootstrap::resolve_project_root(path.as_deref()) {

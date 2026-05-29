@@ -66,7 +66,8 @@ pub const COMMAND_SAFETY_TABLE: &[CommandSafety] = &[
     CommandSafety {
         command: "git diff",
         level: SafetyLevel::Minimal,
-        description: "Patch hunks stay compact; --name-only/--name-status/--stat/--numstat stay verbatim",
+        description:
+            "Patch hunks stay compact; --name-only/--name-status/--stat/--numstat stay verbatim",
     },
     CommandSafety {
         command: "git log",

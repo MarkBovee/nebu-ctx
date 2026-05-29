@@ -43,7 +43,9 @@ pub struct BootstrapApplyReport {
 pub fn resolve_project_root(path: Option<&str>) -> Result<String, String> {
     let candidate = match path {
         Some(value) => PathBuf::from(value),
-        None => std::env::current_dir().map_err(|e| format!("cannot resolve current directory: {e}"))?,
+        None => {
+            std::env::current_dir().map_err(|e| format!("cannot resolve current directory: {e}"))?
+        }
     };
 
     candidate
@@ -127,7 +129,10 @@ pub fn apply_preview(
     if !items.is_empty() {
         let ctx = crate::git_context::discover_project_context(Path::new(project_root));
         let mut args = serde_json::Map::new();
-        args.insert("action".to_string(), serde_json::Value::String("promote".to_string()));
+        args.insert(
+            "action".to_string(),
+            serde_json::Value::String("promote".to_string()),
+        );
         args.insert("items".to_string(), serde_json::Value::Array(items));
         queued_server_promotions =
             server_client::queue_or_call_tool("ctx_knowledge", args, &ctx).is_ok();
@@ -261,9 +266,7 @@ fn detect_entrypoints(root: &Path, index: Option<&ProjectIndex>) -> Vec<String> 
                 .unwrap_or("")
                 .to_ascii_lowercase();
             let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-            if matches!(ext.as_str(), "gs" | "js" | "ts" | "py" | "sh")
-                && !name.starts_with('.')
-            {
+            if matches!(ext.as_str(), "gs" | "js" | "ts" | "py" | "sh") && !name.starts_with('.') {
                 entrypoints.insert(name.to_string());
             }
         }
@@ -311,7 +314,12 @@ fn detect_infra(markers: &[String], root: &Path) -> Vec<String> {
             infra.insert(format!("container: {marker}"));
         }
     }
-    for rel in ["Dockerfile", "docker-entrypoint.sh", ".github/workflows", "homeassistant"] {
+    for rel in [
+        "Dockerfile",
+        "docker-entrypoint.sh",
+        ".github/workflows",
+        "homeassistant",
+    ] {
         if root.join(rel).exists() {
             infra.insert(rel.to_string());
         }
@@ -507,7 +515,10 @@ mod tests {
         std::fs::write(root.join("Dockerfile"), "FROM scratch\n").unwrap();
 
         let preview = build_preview(&root.to_string_lossy()).unwrap();
-        assert!(preview.stack.iter().any(|line| line.contains("cargo / rust")));
+        assert!(preview
+            .stack
+            .iter()
+            .any(|line| line.contains("cargo / rust")));
         assert!(preview.entrypoints.iter().any(|line| line == "src/main.rs"));
         assert!(preview.tests.iter().any(|line| line.contains("tests")));
         assert!(preview.infra.iter().any(|line| line.contains("Dockerfile")));
@@ -569,13 +580,22 @@ mod tests {
         std::env::set_var("NEBU_CTX_DATA_DIR", &data_dir);
 
         let root = tmp.path().join("project");
-        std::fs::create_dir_all(root.join("client/assets/skills/project-bootstrap/scripts")).unwrap();
+        std::fs::create_dir_all(root.join("client/assets/skills/project-bootstrap/scripts"))
+            .unwrap();
         std::fs::create_dir_all(root.join("skills/project-bootstrap/scripts")).unwrap();
         std::fs::create_dir_all(root.join("src")).unwrap();
         std::fs::write(root.join("Cargo.toml"), "[package]\nname='demo'\n").unwrap();
         std::fs::write(root.join("src/main.rs"), "fn main() {}\n").unwrap();
-        std::fs::write(root.join("client/assets/skills/project-bootstrap/scripts/install.sh"), "#!/bin/sh\n").unwrap();
-        std::fs::write(root.join("skills/project-bootstrap/scripts/install.sh"), "#!/bin/sh\n").unwrap();
+        std::fs::write(
+            root.join("client/assets/skills/project-bootstrap/scripts/install.sh"),
+            "#!/bin/sh\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("skills/project-bootstrap/scripts/install.sh"),
+            "#!/bin/sh\n",
+        )
+        .unwrap();
 
         let project_root = root.to_string_lossy().to_string();
         let index_dir = crate::core::graph_index::ProjectIndex::index_dir(&project_root).unwrap();
@@ -607,7 +627,11 @@ mod tests {
             "edges": [],
             "symbols": {}
         });
-        std::fs::write(index_dir.join("index.json"), serde_json::to_string(&stale_index).unwrap()).unwrap();
+        std::fs::write(
+            index_dir.join("index.json"),
+            serde_json::to_string(&stale_index).unwrap(),
+        )
+        .unwrap();
 
         let preview = build_preview(&root.to_string_lossy()).unwrap();
         let joined_entrypoints = preview.entrypoints.join("\n");

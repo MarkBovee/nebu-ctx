@@ -445,11 +445,11 @@ impl ServerHandler for NebuCtxServer {
 
         let skip_auto_context = name == "ctx_shell"
             || (name == "ctx"
-            && args.as_ref().is_some_and(|args| {
-                let domain = args.get("domain").and_then(|value| value.as_str());
-                let action = args.get("action").and_then(|value| value.as_str());
-                domain == Some("memory") && matches!(action, Some("promote" | "triage"))
-            }))
+                && args.as_ref().is_some_and(|args| {
+                    let domain = args.get("domain").and_then(|value| value.as_str());
+                    let action = args.get("action").and_then(|value| value.as_str());
+                    domain == Some("memory") && matches!(action, Some("promote" | "triage"))
+                }))
             || (name == "ctx_knowledge"
                 && args.as_ref().is_some_and(|args| {
                     matches!(
@@ -1158,8 +1158,10 @@ mod tests {
 
         let repo_a_root = repo_a.path().to_string_lossy().to_string();
         let repo_b_root = repo_b.path().to_string_lossy().to_string();
-        let mut knowledge_a = crate::core::knowledge::ProjectKnowledge::load_or_create(&repo_a_root);
-        let mut knowledge_b = crate::core::knowledge::ProjectKnowledge::load_or_create(&repo_b_root);
+        let mut knowledge_a =
+            crate::core::knowledge::ProjectKnowledge::load_or_create(&repo_a_root);
+        let mut knowledge_b =
+            crate::core::knowledge::ProjectKnowledge::load_or_create(&repo_b_root);
         let _ = knowledge_a.remember(
             "decision",
             "owner",
@@ -1167,13 +1169,7 @@ mod tests {
             "session-a",
             0.9,
         );
-        let _ = knowledge_b.remember(
-            "decision",
-            "owner",
-            "other project only",
-            "session-b",
-            0.9,
-        );
+        let _ = knowledge_b.remember("decision", "owner", "other project only", "session-b", 0.9);
         knowledge_a.save().unwrap();
         knowledge_b.save().unwrap();
 
@@ -1241,7 +1237,13 @@ mod tests {
             .unwrap();
         let engine = crate::engine::ContextEngine::new();
 
-        for action in ["pattern", "export", "embeddings_status", "embeddings_reset", "embeddings_reindex"] {
+        for action in [
+            "pattern",
+            "export",
+            "embeddings_status",
+            "embeddings_reset",
+            "embeddings_reindex",
+        ] {
             let err = rt
                 .block_on(engine.call_tool_text(
                     "ctx",
@@ -1250,7 +1252,9 @@ mod tests {
                         "action": action,
                     })),
                 ))
-                .expect_err("local-only knowledge actions should stay off the public memory gateway");
+                .expect_err(
+                    "local-only knowledge actions should stay off the public memory gateway",
+                );
 
             let text = err.to_string();
             assert!(
@@ -1426,7 +1430,10 @@ mod tests {
             ))
             .expect("ctx_shell should succeed");
 
-        assert!(text.contains("shell-clean"), "unexpected shell text: {text}");
+        assert!(
+            text.contains("shell-clean"),
+            "unexpected shell text: {text}"
+        );
         assert!(
             text.contains("[shell:"),
             "ctx_shell should expose active shell: {text}"
@@ -1451,7 +1458,11 @@ mod tests {
         std::fs::create_dir(repo.path().join(".git")).unwrap();
         std::fs::write(other.path().join("outside.txt"), "outside-root\n").unwrap();
 
-        let outside_path = other.path().join("outside.txt").to_string_lossy().to_string();
+        let outside_path = other
+            .path()
+            .join("outside.txt")
+            .to_string_lossy()
+            .to_string();
 
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -1469,7 +1480,10 @@ mod tests {
             .expect("ctx_read should allow explicit outside-root path");
 
         assert!(text.contains("[warning: path outside project root; using explicit path:"));
-        assert!(text.contains("outside-root"), "unexpected read text: {text}");
+        assert!(
+            text.contains("outside-root"),
+            "unexpected read text: {text}"
+        );
 
         std::env::remove_var("NEBU_CTX_DATA_DIR");
         std::env::remove_var("NEBU_CTX_HOME");

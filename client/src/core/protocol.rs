@@ -6,11 +6,7 @@ use std::path::Path;
 /// monorepo config file — so the whole monorepo is treated as one project.
 pub fn detect_project_root(file_path: &str) -> Option<String> {
     let path = Path::new(file_path);
-    let mut dir = if path.is_dir() {
-        path
-    } else {
-        path.parent()?
-    };
+    let mut dir = if path.is_dir() { path } else { path.parent()? };
     let mut best: Option<String> = None;
     let home = dirs::home_dir().map(|path| crate::core::pathutil::safe_canonicalize_or_self(&path));
 

@@ -552,7 +552,10 @@ fn handle_status(project_root: &str) -> String {
     let categories = knowledge.list_categories();
     if !categories.is_empty() {
         out.push_str("Categories: ");
-        let category_strs: Vec<String> = categories.iter().map(|(c, n)| format!("{c}({n})")).collect();
+        let category_strs: Vec<String> = categories
+            .iter()
+            .map(|(c, n)| format!("{c}({n})"))
+            .collect();
         out.push_str(&category_strs.join(", "));
         out.push('\n');
     }

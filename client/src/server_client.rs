@@ -314,7 +314,10 @@ pub fn post_brain_facts_to_server(
         );
         args.insert(
             "confidence".to_string(),
-            Value::Number(serde_json::Number::from_f64(fact.confidence as f64).unwrap_or_else(|| serde_json::Number::from(1))),
+            Value::Number(
+                serde_json::Number::from_f64(fact.confidence as f64)
+                    .unwrap_or_else(|| serde_json::Number::from(1)),
+            ),
         );
         args.insert("evidence".to_string(), Value::String(fact.evidence.clone()));
         let _ = queue_or_call_tool("ctx_brain", args, &ctx);
@@ -340,10 +343,22 @@ pub fn post_journal_events_to_server(
         args.insert("action".to_string(), Value::String("ingest".to_string()));
         args.insert("key".to_string(), Value::String(key.clone()));
         args.insert("value".to_string(), Value::String(event.text.clone()));
-        args.insert("kind".to_string(), Value::String("session_event".to_string()));
-        args.insert("category".to_string(), Value::String("session_timeline".to_string()));
-        args.insert("source_type".to_string(), Value::String(source_type.clone()));
-        args.insert("source_scope".to_string(), Value::String(event.session_id.clone()));
+        args.insert(
+            "kind".to_string(),
+            Value::String("session_event".to_string()),
+        );
+        args.insert(
+            "category".to_string(),
+            Value::String("session_timeline".to_string()),
+        );
+        args.insert(
+            "source_type".to_string(),
+            Value::String(source_type.clone()),
+        );
+        args.insert(
+            "source_scope".to_string(),
+            Value::String(event.session_id.clone()),
+        );
         args.insert(
             "promotion_identity".to_string(),
             Value::String(deterministic_promotion_identity(
@@ -354,14 +369,19 @@ pub fn post_journal_events_to_server(
             )),
         );
         args.insert("logical_key".to_string(), Value::String(key));
-        args.insert("lifecycle_status".to_string(), Value::String("timeline".to_string()));
+        args.insert(
+            "lifecycle_status".to_string(),
+            Value::String("timeline".to_string()),
+        );
         args.insert(
             "created_at".to_string(),
             Value::String(event.timestamp.to_rfc3339()),
         );
         args.insert(
             "confidence".to_string(),
-            Value::Number(serde_json::Number::from_f64(0.6).unwrap_or_else(|| serde_json::Number::from(1))),
+            Value::Number(
+                serde_json::Number::from_f64(0.6).unwrap_or_else(|| serde_json::Number::from(1)),
+            ),
         );
         args.insert(
             "evidence".to_string(),
@@ -425,12 +445,18 @@ pub fn sync_session_memory_to_server(project_root: &str, source_type: &str) {
 
     if synced_anything {
         let _ = write_hosted_memory_sync_marker(project_root, now_unix_seconds());
-        let _ = write_journal_sync_marker(project_root, latest_journal_event_millis(project_root).unwrap_or_default());
+        let _ = write_journal_sync_marker(
+            project_root,
+            latest_journal_event_millis(project_root).unwrap_or_default(),
+        );
     }
 }
 
-fn load_recent_unsynced_journal_events(project_root: &str) -> Result<Vec<crate::core::brain_memory::JournalEvent>> {
-    let events = crate::core::brain_memory::load_events(project_root).map_err(anyhow::Error::msg)?;
+fn load_recent_unsynced_journal_events(
+    project_root: &str,
+) -> Result<Vec<crate::core::brain_memory::JournalEvent>> {
+    let events =
+        crate::core::brain_memory::load_events(project_root).map_err(anyhow::Error::msg)?;
     let last_synced = read_journal_sync_marker(project_root).unwrap_or_default();
     Ok(events
         .into_iter()
@@ -452,7 +478,9 @@ fn latest_journal_event_millis(project_root: &str) -> Option<i64> {
 
 fn should_sync_hosted_memory(project_root: &str) -> bool {
     match read_hosted_memory_sync_marker(project_root) {
-        Some(last_sync) => now_unix_seconds().saturating_sub(last_sync) >= HOSTED_MEMORY_SYNC_DEBOUNCE_SECS,
+        Some(last_sync) => {
+            now_unix_seconds().saturating_sub(last_sync) >= HOSTED_MEMORY_SYNC_DEBOUNCE_SECS
+        }
         None => true,
     }
 }
@@ -840,7 +868,10 @@ mod tests {
             entry.payload["arguments"]["promotion_identity"],
             "idle-flush:session-123:workflow:primary-ide"
         );
-        assert_eq!(entry.payload["arguments"]["logical_key"], "workflow:primary-ide");
+        assert_eq!(
+            entry.payload["arguments"]["logical_key"],
+            "workflow:primary-ide"
+        );
     }
 
     #[test]
@@ -865,8 +896,15 @@ mod tests {
         let entries = crate::core::sync_outbox::load_entries().unwrap();
         let tool_names: Vec<String> = entries
             .into_iter()
-            .filter(|item| item.kind == crate::core::sync_outbox::OutboxOperationKind::ServerToolCall)
-            .map(|item| item.payload["tool_name"].as_str().unwrap_or_default().to_string())
+            .filter(|item| {
+                item.kind == crate::core::sync_outbox::OutboxOperationKind::ServerToolCall
+            })
+            .map(|item| {
+                item.payload["tool_name"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string()
+            })
             .collect();
 
         assert!(tool_names.iter().any(|name| name == "ctx_brain"));

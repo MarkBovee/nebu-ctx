@@ -591,8 +591,13 @@ mod tests {
 
     #[test]
     fn handle_preserves_git_inspection_output() {
-        let output = "M client/src/shell.rs\n M client/src/tools/ctx_shell.rs\n?? tests/git-wrapper.txt\n";
-        let result = handle("git status --short --untracked-files=all", output, CrpMode::Off);
+        let output =
+            "M client/src/shell.rs\n M client/src/tools/ctx_shell.rs\n?? tests/git-wrapper.txt\n";
+        let result = handle(
+            "git status --short --untracked-files=all",
+            output,
+            CrpMode::Off,
+        );
         assert!(result.contains("client/src/shell.rs"));
         assert!(result.contains("client/src/tools/ctx_shell.rs"));
         assert!(result.contains("tests/git-wrapper.txt"));

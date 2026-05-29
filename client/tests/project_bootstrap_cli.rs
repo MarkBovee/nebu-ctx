@@ -44,17 +44,31 @@ fn project_bootstrap_preview_and_apply_json_work() {
 
     let (code, stdout, _stderr) = run(
         bin,
-        &["project-bootstrap", "preview", "--path", project_str.as_str(), "--json"],
+        &[
+            "project-bootstrap",
+            "preview",
+            "--path",
+            project_str.as_str(),
+            "--json",
+        ],
         &envs,
     );
     assert_eq!(code, 0);
     let preview: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(preview["project_root"], serde_json::json!(project_str));
-    assert!(preview["facts"].as_array().is_some_and(|facts| !facts.is_empty()));
+    assert!(preview["facts"]
+        .as_array()
+        .is_some_and(|facts| !facts.is_empty()));
 
     let (code, stdout, _stderr) = run(
         bin,
-        &["project-bootstrap", "apply", "--path", project_str.as_str(), "--json"],
+        &[
+            "project-bootstrap",
+            "apply",
+            "--path",
+            project_str.as_str(),
+            "--json",
+        ],
         &envs,
     );
     assert_eq!(code, 0);

@@ -636,13 +636,17 @@ fn remove_nebu_ctx_from_json(content: &str) -> Option<String> {
     if let Some(servers) = parsed.get_mut("mcpServers").and_then(|s| s.as_object_mut()) {
         modified |= servers.remove("nebu-ctx").is_some();
         modified |= servers.remove("lean-ctx").is_some();
-        modified |= servers.remove(crate::core::editor_registry::COPILOT_MCP_SERVER_KEY).is_some();
+        modified |= servers
+            .remove(crate::core::editor_registry::COPILOT_MCP_SERVER_KEY)
+            .is_some();
     }
 
     if let Some(servers) = parsed.get_mut("servers").and_then(|s| s.as_object_mut()) {
         modified |= servers.remove("nebu-ctx").is_some();
         modified |= servers.remove("lean-ctx").is_some();
-        modified |= servers.remove(crate::core::editor_registry::COPILOT_MCP_SERVER_KEY).is_some();
+        modified |= servers
+            .remove(crate::core::editor_registry::COPILOT_MCP_SERVER_KEY)
+            .is_some();
     }
 
     if let Some(servers) = parsed.get_mut("servers").and_then(|s| s.as_array_mut()) {
@@ -659,7 +663,9 @@ fn remove_nebu_ctx_from_json(content: &str) -> Option<String> {
     if let Some(mcp) = parsed.get_mut("mcp").and_then(|s| s.as_object_mut()) {
         modified |= mcp.remove("nebu-ctx").is_some();
         modified |= mcp.remove("lean-ctx").is_some();
-        modified |= mcp.remove(crate::core::editor_registry::COPILOT_MCP_SERVER_KEY).is_some();
+        modified |= mcp
+            .remove(crate::core::editor_registry::COPILOT_MCP_SERVER_KEY)
+            .is_some();
     }
 
     if let Some(amp) = parsed
@@ -668,7 +674,9 @@ fn remove_nebu_ctx_from_json(content: &str) -> Option<String> {
     {
         modified |= amp.remove("nebu-ctx").is_some();
         modified |= amp.remove("lean-ctx").is_some();
-        modified |= amp.remove(crate::core::editor_registry::COPILOT_MCP_SERVER_KEY).is_some();
+        modified |= amp
+            .remove(crate::core::editor_registry::COPILOT_MCP_SERVER_KEY)
+            .is_some();
     }
 
     if modified {

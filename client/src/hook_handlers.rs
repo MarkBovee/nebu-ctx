@@ -248,9 +248,10 @@ pub fn handle_stop() {
         post_promoted_facts_to_server(&project_root);
     }
 
-    let session_id = crate::core::session::SessionState::load_latest_for_project_root(&project_root)
-        .map(|session| session.id)
-        .unwrap_or_else(|| "sessionless".to_string());
+    let session_id =
+        crate::core::session::SessionState::load_latest_for_project_root(&project_root)
+            .map(|session| session.id)
+            .unwrap_or_else(|| "sessionless".to_string());
     let _ = crate::core::brain_memory::record_lifecycle_marker(
         &project_root,
         Some(&session_id),
@@ -426,8 +427,14 @@ pub fn handle_user_prompt_submit() {
         return;
     }
     let session_id = extract_first_json_field(&input, &["session_id", "sessionID"]);
-    let source = extract_first_json_field(&input, &["source", "editor"]).unwrap_or_else(|| "hook".to_string());
-    let _ = crate::core::brain_memory::record_user_turn(&project_root, session_id.as_deref(), &source, &trimmed);
+    let source = extract_first_json_field(&input, &["source", "editor"])
+        .unwrap_or_else(|| "hook".to_string());
+    let _ = crate::core::brain_memory::record_user_turn(
+        &project_root,
+        session_id.as_deref(),
+        &source,
+        &trimmed,
+    );
     sync_memory_if_possible(&project_root, "user_turn");
 }
 
@@ -462,8 +469,14 @@ pub fn handle_assistant_output_submit() {
     }
 
     let session_id = extract_first_json_field(&input, &["session_id", "sessionID"]);
-    let source = extract_first_json_field(&input, &["source", "editor"]).unwrap_or_else(|| "hook".to_string());
-    let _ = crate::core::brain_memory::record_assistant_turn(&project_root, session_id.as_deref(), &source, &trimmed);
+    let source = extract_first_json_field(&input, &["source", "editor"])
+        .unwrap_or_else(|| "hook".to_string());
+    let _ = crate::core::brain_memory::record_assistant_turn(
+        &project_root,
+        session_id.as_deref(),
+        &source,
+        &trimmed,
+    );
     sync_memory_if_possible(&project_root, "assistant_output");
 }
 
@@ -714,7 +727,8 @@ pub fn handle_tool_activity() {
 
     let tool_name = extract_tool_name(&input).unwrap_or_else(|| "unknown".to_string());
     let command = extract_command_from_hook_input(&input);
-    let tool_response = extract_first_json_field(&input, &["tool_response", "tool_result", "output"]);
+    let tool_response =
+        extract_first_json_field(&input, &["tool_response", "tool_result", "output"]);
     let session_id = extract_first_json_field(&input, &["session_id", "sessionID"]);
     let source = extract_first_json_field(&input, &["source", "editor"])
         .unwrap_or_else(|| "hook-tool-activity".to_string());

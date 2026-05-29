@@ -223,9 +223,7 @@ mod tests {
         }
 
         let entries = crate::core::sync_outbox::load_entries().unwrap();
-        panic!(
-            "expected replay fixture entries to clear after replay, found: {entries:?}"
-        );
+        panic!("expected replay fixture entries to clear after replay, found: {entries:?}");
     }
 
     fn enqueue_replay_fixtures(root: &std::path::Path) -> Vec<String> {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.27
+
+- Bundle follow-up client cleanup from the 0.8.26 release line so add-on users get the same project bootstrap, workspace memory/session, and path-safe MCP handling polish as the standalone client.
+
 ## 0.8.26
 
 - Bundle client/server release that rewrites lingering legacy `lean-ctx` MCP aliases to `nebu-ctx` and refreshes Kiro steering guidance to the public 5-tool surface.

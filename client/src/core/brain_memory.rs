@@ -459,13 +459,16 @@ mod tests {
             session_id: "s1".to_string(),
             source: "test".to_string(),
             kind: LifecycleEventKind::UserTurn,
-            text: "OpenCode is now our go to IDE and brain should store echte feiten, geen log.".to_string(),
+            text: "OpenCode is now our go to IDE and brain should store echte feiten, geen log."
+                .to_string(),
             tool: None,
             command: None,
         }];
 
         let facts = derive_fact_candidates("/tmp/project", "stop", &events);
-        assert!(facts.iter().any(|fact| fact.key == "primary-ide" && fact.value == "OpenCode"));
+        assert!(facts
+            .iter()
+            .any(|fact| fact.key == "primary-ide" && fact.value == "OpenCode"));
         assert!(facts.iter().any(|fact| fact.key == "brain-fact-only"));
     }
 
@@ -484,7 +487,10 @@ mod tests {
 
         let events = load_events(&root).unwrap();
         assert_eq!(events.len(), MAX_EVENTS_PER_PROJECT);
-        assert_eq!(events.first().map(|event| event.text.as_str()), Some("event-5"));
+        assert_eq!(
+            events.first().map(|event| event.text.as_str()),
+            Some("event-5")
+        );
         assert_eq!(
             events.last().map(|event| event.text.as_str()),
             Some("event-504")

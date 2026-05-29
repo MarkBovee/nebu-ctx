@@ -1275,17 +1275,16 @@ mod tests {
             .expect("project-scoped session should load");
         assert_eq!(scoped.id, session_a.id);
 
-        let by_id = SessionState::load_by_id_for_project_root(
-            &project_a.to_string_lossy(),
-            &session_b.id,
-        );
+        let by_id =
+            SessionState::load_by_id_for_project_root(&project_a.to_string_lossy(), &session_b.id);
         assert!(
             by_id.is_none(),
             "cross-project session ids must not load into another workspace"
         );
 
-        let snapshot = SessionState::load_latest_snapshot_for_project_root(&project_a.to_string_lossy())
-            .expect("project-scoped snapshot should load");
+        let snapshot =
+            SessionState::load_latest_snapshot_for_project_root(&project_a.to_string_lossy())
+                .expect("project-scoped snapshot should load");
         assert!(snapshot.contains("project a task"));
         assert!(!snapshot.contains("project b task"));
 
