@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 public sealed class ToolRegistry
 {
     private static readonly string[] PublicToolNames = ["ctx", "ctx_read", "ctx_search", "ctx_shell", "ctx_tree"];
+    private static readonly string[] MetadataOnlyPublicToolNames = ["ctx_read", "ctx_search", "ctx_shell", "ctx_tree"];
     private readonly FrozenDictionary<string, IToolHandler> _handlers;
     private readonly ILogger<ToolRegistry> _logger;
     private readonly TelemetryStore _telemetryStore;
@@ -42,6 +43,12 @@ public sealed class ToolRegistry
     {
         if (!_handlers.TryGetValue(toolName, out var handler))
         {
+            if (MetadataOnlyPublicToolNames.Contains(toolName, StringComparer.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("Hosted HTTP call requested metadata-only public tool: {ToolName}", toolName);
+                throw new ArgumentException($"Hosted HTTP endpoint advertises '{toolName}' for public contract metadata, but execution is handled by the Rust client/stdio MCP server. Use the nebu-ctx client for '{toolName}' calls.");
+            }
+
             _logger.LogWarning("Unknown tool requested: {ToolName}", toolName);
             throw new KeyNotFoundException($"Tool '{toolName}' is not registered.");
         }
@@ -202,7 +209,7 @@ public sealed class ToolRegistry
             "ctx_shell" => new ToolDefinition
             {
                 Name = "ctx_shell",
-                Description = "Run shell command (compressed output). Output includes active shell. raw=true skips compression. cwd sets working directory. shell overrides executable per call.",
+                Description = "Run shell command (compressed output). Output includes active shell. raw=true skips compression. cwd sets working directory. shell_path overrides executable per call.",
                 InputSchema = new Dictionary<string, object?>
                 {
                     ["type"] = "object",
@@ -211,7 +218,7 @@ public sealed class ToolRegistry
                         ["command"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "Shell command" },
                         ["raw"] = new Dictionary<string, object?> { ["type"] = "boolean", ["description"] = "Skip compression for full output" },
                         ["cwd"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "Working directory (defaults to last cd or project root)" },
-                        ["shell"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "Optional shell executable or path for this call" },
+                        ["shell_path"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "Optional shell executable or path for this call. Legacy alias: shell." },
                     },
                     ["required"] = new[] { "command" },
                 },
@@ -279,5 +286,5 @@ public static class ServerVersion
     /// <summary>
     /// Current server version string, matching the Cargo.toml version.
     /// </summary>
-    public const string Current = "0.8.27";
+    public const string Current = "0.8.28";
 }

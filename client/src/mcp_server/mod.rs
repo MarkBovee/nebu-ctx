@@ -1057,6 +1057,25 @@ mod tests {
     }
 
     #[test]
+    fn ctx_shell_public_schema_uses_shell_path_and_not_shell() {
+        let tools = crate::tool_defs::unified_tool_defs();
+        let shell = tools
+            .iter()
+            .find(|tool| tool.name.as_ref() == "ctx_shell")
+            .expect("ctx_shell should remain public");
+        let schema = serde_json::to_string(&*shell.input_schema).unwrap();
+
+        assert!(
+            schema.contains("shell_path"),
+            "ctx_shell public schema must advertise shell_path: {schema}"
+        );
+        assert!(
+            !schema.contains("\"shell\""),
+            "ctx_shell public schema should not advertise legacy shell directly: {schema}"
+        );
+    }
+
+    #[test]
     fn ctx_read_files_target_executes_batch_reads() {
         let _lock = crate::core::data_dir::test_env_lock();
         let data = tempfile::tempdir().unwrap();
@@ -1512,7 +1531,7 @@ mod tests {
                 "ctx_shell",
                 Some(serde_json::json!({
                     "command": "echo $BASH_VERSION",
-                    "shell": "/bin/bash"
+                    "shell_path": "/bin/bash"
                 })),
             ))
             .expect("ctx_shell with shell override should succeed");
@@ -1524,6 +1543,47 @@ mod tests {
         assert!(
             !text.trim().ends_with("[shell: bash -c]"),
             "command output missing: {text}"
+        );
+
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
+        std::env::remove_var("NEBU_CTX_HOME");
+    }
+
+    #[test]
+    fn ctx_shell_allows_per_call_fish_override() {
+        if cfg!(windows) || !std::path::Path::new("/usr/bin/fish").exists() {
+            return;
+        }
+
+        let _lock = crate::core::data_dir::test_env_lock();
+        let data = tempfile::tempdir().unwrap();
+        let repo = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", data.path());
+        std::env::set_var("NEBU_CTX_HOME", data.path());
+        std::fs::create_dir(repo.path().join(".git")).unwrap();
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let engine = crate::engine::ContextEngine::with_project_root(repo.path());
+        let text = rt
+            .block_on(engine.call_tool_text(
+                "ctx_shell",
+                Some(serde_json::json!({
+                    "command": "echo fish-override-ok",
+                    "shell_path": "/usr/bin/fish"
+                })),
+            ))
+            .expect("ctx_shell with fish shell override should succeed");
+
+        assert!(
+            text.contains("fish-override-ok"),
+            "unexpected shell output: {text}"
+        );
+        assert!(
+            text.contains("[shell: fish -c]"),
+            "expected fish shell note: {text}"
         );
 
         std::env::remove_var("NEBU_CTX_DATA_DIR");

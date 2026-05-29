@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.28
+
+- Make the public `ctx_shell` contract use `shell_path` as the canonical override parameter while still accepting legacy `shell` client-side, avoiding tool-search/discovery drift around shell override calls.
+- Harden the hosted HTTP MCP endpoint so metadata-only public tools such as `ctx_shell` return a clear client-routing error instead of pretending to be directly executable from `/v1/tools/call`.
+- Add regression coverage for `ctx_shell` fish overrides, public schema export, and hosted manifest/tool-call behavior.
+
 ## 0.8.27
 
 - Roll up the remaining client cleanup that accompanied the 0.8.26 alias-drift fix, covering project bootstrap CLI polish, workspace-scoped memory/session sync readability cleanup, path-safe MCP read handling, and related shell/uninstall test updates.

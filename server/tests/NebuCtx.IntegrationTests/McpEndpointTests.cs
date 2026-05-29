@@ -209,6 +209,75 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     }
 
     /// <summary>
+    /// Hosted HTTP tool-call endpoint should reject metadata-only public ctx_shell calls with a clear error.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_CtxShell_WithShellOverride_Returns400WithClientRoutingError()
+    {
+        var shell = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/sh";
+        var command = OperatingSystem.IsWindows() ? "echo shell-override-ok" : "echo shell-override-ok";
+        var request = new ToolCallRequest
+        {
+            Name = "ctx_shell",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["command"] = command,
+                ["cwd"] = AppContext.BaseDirectory,
+                ["shell_path"] = shell,
+            },
+        };
+
+        var response = await _client.PostAsJsonAsync("/v1/tools/call", request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var error = await response.Content.ReadFromJsonAsync<ToolCallErrorResponse>();
+        Assert.NotNull(error);
+        Assert.Contains("Rust client/stdio MCP server", error!.Error, StringComparison.Ordinal);
+        Assert.Contains("ctx_shell", error.Error, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Hosted HTTP tool-call endpoint should reject even invalid ctx_shell shell overrides with the same contract error.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_CtxShell_WithInvalidShellOverride_Returns400WithClientRoutingError()
+    {
+        var invalidShell = OperatingSystem.IsWindows() ? "Z:\\definitely-missing-shell.exe" : "/definitely/missing-shell";
+        var request = new ToolCallRequest
+        {
+            Name = "ctx_shell",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["command"] = "echo should-not-run",
+                ["cwd"] = AppContext.BaseDirectory,
+                ["shell_path"] = invalidShell,
+            },
+        };
+
+        var response = await _client.PostAsJsonAsync("/v1/tools/call", request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var error = await response.Content.ReadFromJsonAsync<ToolCallErrorResponse>();
+        Assert.NotNull(error);
+        Assert.Contains("Rust client/stdio MCP server", error!.Error, StringComparison.Ordinal);
+        Assert.Contains("ctx_shell", error.Error, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Public manifest advertises shell_path for ctx_shell overrides.
+    /// </summary>
+    [Fact]
+    public async Task Manifest_CtxShell_UsesShellPathProperty()
+    {
+        var manifest = await _client.GetFromJsonAsync<ManifestResponse>("/v1/manifest");
+        Assert.NotNull(manifest);
+        var ctxShell = Assert.Single(manifest!.Tools, tool => tool.Name == "ctx_shell");
+        var properties = Assert.IsType<JsonElement>(ctxShell.InputSchema["properties"]);
+        Assert.True(properties.TryGetProperty("shell_path", out _));
+        Assert.False(properties.TryGetProperty("shell", out _));
+    }
+
+    /// <summary>
     /// Project resolve returns 409 when duplicate fingerprint records already exist.
     /// </summary>
     [Fact]

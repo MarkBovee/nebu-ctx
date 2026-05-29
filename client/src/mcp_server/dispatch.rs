@@ -349,8 +349,9 @@ impl NebuCtxServer {
 
                 let raw = get_bool(args, "raw").unwrap_or(false)
                     || std::env::var("NEBU_CTX_DISABLED").is_ok();
-                let shell_override =
-                    get_str(args, "shell").filter(|shell| !shell.trim().is_empty());
+                let shell_override = get_str(args, "shell_path")
+                    .or_else(|| get_str(args, "shell"))
+                    .filter(|shell| !shell.trim().is_empty());
                 let shell_note = format!(
                     "[shell: {}]",
                     crate::shell::shell_summary(shell_override.as_deref())

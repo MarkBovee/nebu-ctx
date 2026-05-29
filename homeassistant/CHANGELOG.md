@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.28
+
+- Bundle the client/server fix that canonicalizes `ctx_shell` overrides as `shell_path` and makes hosted MCP responses clearer when public metadata-only tools are called through `/v1/tools/call`.
+
 ## 0.8.27
 
 - Bundle follow-up client cleanup from the 0.8.26 release line so add-on users get the same project bootstrap, workspace memory/session, and path-safe MCP handling polish as the standalone client.

@@ -62,14 +62,14 @@ Modes: full|map|signatures|diff|aggressive|entropy|task|reference|lines:N-M. fre
         ),
         tool_def(
             "ctx_shell",
-            "Run shell command (compressed output, 90+ patterns). Output includes active shell. Use raw=true to skip compression. cwd sets working directory (persists across calls via cd tracking). shell overrides executable per call.",
+            "Run shell command (compressed output, 90+ patterns). Output includes active shell. Use raw=true to skip compression. cwd sets working directory (persists across calls via cd tracking). shell_path overrides executable per call.",
             json!({
                 "type": "object",
                 "properties": {
                     "command": { "type": "string", "description": "Shell command to execute" },
                     "raw": { "type": "boolean", "description": "Skip compression, return full uncompressed output. Use for small outputs or when full detail is critical." },
                     "cwd": { "type": "string", "description": "Working directory for the command. If omitted, uses last cd target or project root." },
-                    "shell": { "type": "string", "description": "Optional shell executable or path for this call (for example pwsh.exe, cmd.exe, /bin/bash)." }
+                    "shell_path": { "type": "string", "description": "Optional shell executable or path for this call (for example pwsh.exe, cmd.exe, /bin/bash). Legacy alias: shell." }
                 },
                 "required": ["command"]
             }),
@@ -931,14 +931,14 @@ pub fn unified_tool_defs() -> Vec<Tool> {
         ),
         tool_def(
             "ctx_shell",
-            "Run shell command (compressed output). Output includes active shell. raw=true skips compression. cwd sets working directory. shell overrides executable per call.",
+            "Run shell command (compressed output). Output includes active shell. raw=true skips compression. cwd sets working directory. shell_path overrides executable per call.",
             json!({
                 "type": "object",
                 "properties": {
                     "command": { "type": "string", "description": "Shell command" },
                     "raw": { "type": "boolean", "description": "Skip compression for full output" },
                     "cwd": { "type": "string", "description": "Working directory (defaults to last cd or project root)" },
-                    "shell": { "type": "string", "description": "Optional shell executable or path for this call" }
+                    "shell_path": { "type": "string", "description": "Optional shell executable or path for this call. Legacy alias: shell." }
                 },
                 "required": ["command"]
             }),
@@ -1002,7 +1002,7 @@ pub fn list_all_tool_defs() -> Vec<(&'static str, &'static str, Value)> {
 Modes: full|map|signatures|diff|aggressive|entropy|task|reference|lines:N-M. fresh=true re-reads.", json!({"type": "object", "properties": {"path": {"type": "string"}, "mode": {"type": "string"}, "start_line": {"type": "integer"}, "fresh": {"type": "boolean"}}, "required": ["path"]})),
         ("ctx_multi_read", "Batch read files in one call. Same modes as ctx_read.", json!({"type": "object", "properties": {"paths": {"type": "array", "items": {"type": "string"}}, "mode": {"type": "string"}}, "required": ["paths"]})),
         ("ctx_tree", "Directory listing with file counts.", json!({"type": "object", "properties": {"path": {"type": "string"}, "depth": {"type": "integer"}, "show_hidden": {"type": "boolean"}}})),
-        ("ctx_shell", "Run shell command (compressed output, 90+ patterns). Output includes active shell. cwd sets working directory. shell overrides executable per call.", json!({"type": "object", "properties": {"command": {"type": "string"}, "raw": {"type": "boolean", "description": "Skip compression for full output"}, "cwd": {"type": "string", "description": "Working directory"}, "shell": {"type": "string", "description": "Optional shell executable or path for this call"}}, "required": ["command"]})),
+        ("ctx_shell", "Run shell command (compressed output, 90+ patterns). Output includes active shell. cwd sets working directory. shell_path overrides executable per call.", json!({"type": "object", "properties": {"command": {"type": "string"}, "raw": {"type": "boolean", "description": "Skip compression for full output"}, "cwd": {"type": "string", "description": "Working directory"}, "shell_path": {"type": "string", "description": "Optional shell executable or path for this call. Legacy alias: shell."}}, "required": ["command"]})),
         ("ctx_search", "Regex code search (.gitignore aware, compact results).", json!({"type": "object", "properties": {"pattern": {"type": "string"}, "path": {"type": "string"}, "ext": {"type": "string"}, "max_results": {"type": "integer"}}, "required": ["pattern"]})),
         ("ctx_compress", "Context checkpoint for long conversations.", json!({"type": "object", "properties": {"include_signatures": {"type": "boolean"}}})),
         ("ctx_benchmark", "Benchmark compression modes for a file or project.", json!({"type": "object", "properties": {"path": {"type": "string"}, "action": {"type": "string"}, "format": {"type": "string"}}, "required": ["path"]})),
