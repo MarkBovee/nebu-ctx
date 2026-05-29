@@ -13,7 +13,7 @@ pub(super) fn install_named_json_server(
 
     if config_path.exists() {
         let content = std::fs::read_to_string(config_path).unwrap_or_default();
-        if content.contains("nebu-ctx") {
+        if content.contains("nebu-ctx") && !content.contains("lean-ctx") {
             println!("{name} MCP already configured at {display_path}");
             return;
         }
@@ -48,6 +48,7 @@ fn update_named_json_server(
     let Some(servers_obj) = servers.as_object_mut() else {
         return false;
     };
+    let _ = servers_obj.remove("lean-ctx");
     servers_obj.insert("nebu-ctx".to_string(), entry.clone());
     write_json_config(config_path, &json)
 }

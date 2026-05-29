@@ -289,7 +289,7 @@ pub fn install_project_rules() {
         if !steering_file.exists()
             || !std::fs::read_to_string(&steering_file)
                 .unwrap_or_default()
-                .contains("nebu-ctx")
+                .contains(KIRO_STEERING_VERSION)
         {
             let _ = std::fs::create_dir_all(&steering_dir);
             write_file(&steering_file, KIRO_STEERING_TEMPLATE);
@@ -406,6 +406,8 @@ pub const KIRO_STEERING_TEMPLATE: &str = "\
 inclusion: always
 ---
 
+<!-- nebu-ctx-kiro-v1 -->
+
 # nebu-ctx — Context Engineering Layer
 
 The workspace has the `nebu-ctx` MCP server installed. You MUST prefer nebu-ctx tools over native equivalents for token efficiency and caching.
@@ -414,11 +416,11 @@ The workspace has the `nebu-ctx` MCP server installed. You MUST prefer nebu-ctx 
 
 | Use this | Instead of | Why |
 |----------|-----------|-----|
-| `mcp_lean_ctx_ctx_read` | `readFile`, `readCode` | Cached reads, 10 compression modes, re-reads cost ~13 tokens |
-| `mcp_lean_ctx_ctx_read` with `target: \"files\"` | `readMultipleFiles` | Batch cached reads in one public call |
-| `mcp_lean_ctx_ctx_shell` | `executeBash` | Pattern compression for git/npm/test output |
-| `mcp_lean_ctx_ctx_search` | `grepSearch` | Compact, .gitignore-aware results |
-| `mcp_lean_ctx_ctx_tree` | `listDirectory` | Compact directory maps with file counts |
+| `ctx_read` | `readFile`, `readCode` | Cached reads, 10 compression modes, re-reads cost ~13 tokens |
+| `ctx_read` with `target: \"files\"` | `readMultipleFiles` | Batch cached reads in one public call |
+| `ctx_shell` | `executeBash` | Pattern compression for git/npm/test output |
+| `ctx_search` | `grepSearch` | Compact, .gitignore-aware results |
+| `ctx_tree` | `listDirectory` | Compact directory maps with file counts |
 
 ## When to use native Kiro tools instead
 
@@ -430,17 +432,19 @@ The workspace has the `nebu-ctx` MCP server installed. You MUST prefer nebu-ctx 
 
 ## Session management
 
-- At the start of a long task, call `mcp_lean_ctx_ctx_preload` with a task description to warm the cache
-- Use `mcp_lean_ctx_ctx_compress` periodically in long conversations to checkpoint context
-- Use `mcp_lean_ctx_ctx_knowledge` to persist important discoveries across sessions
+- At the start of a long task, call `ctx(domain=\"context\", action=\"overview\", task=...)` to map relevant project surface
+- Use `ctx(domain=\"memory\", action=\"wakeup\")` or `ctx(domain=\"memory\", action=\"recall\", query=...)` to restore useful context
+- Use `ctx(domain=\"memory\", action=\"remember\", ...)` to persist important discoveries across sessions
 
 ## Rules
 
-- NEVER loop on edit failures — switch to `mcp_lean_ctx_ctx_edit` immediately
-- For large files, use `mcp_lean_ctx_ctx_read` with `mode: \"signatures\"` or `mode: \"map\"` first
-- For re-reading a file you already read, just call `mcp_lean_ctx_ctx_read` again (cache hit = ~13 tokens)
-- When running tests or build commands, use `mcp_lean_ctx_ctx_shell` for compressed output
+- Public nebu-ctx surface is fixed to 5 tools: `ctx_read`, `ctx_search`, `ctx_tree`, `ctx_shell`, `ctx`
+- For large files, use `ctx_read` with `mode: \"signatures\"` or `mode: \"map\"` first
+- For re-reading a file you already read, call `ctx_read` again (cache hit = ~13 tok)
+- When running tests or build commands, use `ctx_shell` for compressed output
 ";
+
+pub(crate) const KIRO_STEERING_VERSION: &str = "<!-- nebu-ctx-kiro-v1 -->";
 
 pub fn install_agent_hook(agent: &str, global: bool) {
     match agent {
@@ -832,5 +836,20 @@ mod tests {
                 pattern
             );
         }
+    }
+
+    #[test]
+    fn kiro_steering_template_uses_public_surface_only() {
+        assert!(KIRO_STEERING_TEMPLATE.contains(KIRO_STEERING_VERSION));
+        assert!(KIRO_STEERING_TEMPLATE.contains("`ctx_read`"));
+        assert!(KIRO_STEERING_TEMPLATE.contains("`ctx_search`"));
+        assert!(KIRO_STEERING_TEMPLATE.contains("`ctx_tree`"));
+        assert!(KIRO_STEERING_TEMPLATE.contains("`ctx_shell`"));
+        assert!(KIRO_STEERING_TEMPLATE.contains("`ctx`"));
+        assert!(!KIRO_STEERING_TEMPLATE.contains("mcp_lean_ctx_"));
+        assert!(!KIRO_STEERING_TEMPLATE.contains("ctx_preload"));
+        assert!(!KIRO_STEERING_TEMPLATE.contains("ctx_compress"));
+        assert!(!KIRO_STEERING_TEMPLATE.contains("ctx_knowledge"));
+        assert!(!KIRO_STEERING_TEMPLATE.contains("ctx_edit"));
     }
 }

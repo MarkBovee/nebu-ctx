@@ -999,12 +999,19 @@ fn write_vscode_mcp_file(mcp_path: &PathBuf, binary: &str, label: &str) {
                         .entry("servers")
                         .or_insert_with(|| serde_json::json!({}));
                     if let Some(servers_obj) = servers.as_object_mut() {
-                        let existing = servers_obj.get(preferred_key).cloned().or_else(|| legacy_keys.iter().find_map(|key| servers_obj.get(*key).cloned()));
+                        let existing = servers_obj.get(preferred_key).cloned().or_else(|| {
+                            legacy_keys
+                                .iter()
+                                .find_map(|key| servers_obj.get(*key).cloned())
+                        });
                         let has_preferred = servers_obj.contains_key(preferred_key);
-                        let had_legacy = legacy_keys.iter().any(|key| servers_obj.contains_key(*key));
+                        let had_legacy =
+                            legacy_keys.iter().any(|key| servers_obj.contains_key(*key));
                         if existing.as_ref() == Some(&desired) && has_preferred && !had_legacy {
                             if !crate::hooks::mcp_server_quiet_mode() {
-                                println!("  \x1b[32m✓\x1b[0m Copilot already configured in {label}");
+                                println!(
+                                    "  \x1b[32m✓\x1b[0m Copilot already configured in {label}"
+                                );
                             }
                             return;
                         }
@@ -1169,7 +1176,9 @@ pub(super) fn install_opencode_hook() {
 
 #[cfg(test)]
 mod memory_hook_tests {
-    use super::{claude_hook_payload, copilot_hook_payload, write_vscode_mcp_file};
+    use super::{
+        claude_hook_payload, copilot_hook_payload, install_crush_hook, write_vscode_mcp_file,
+    };
 
     #[test]
     fn claude_hook_payload_contains_memory_lifecycle_hooks() {
@@ -1197,7 +1206,10 @@ mod memory_hook_tests {
         let hooks = payload["hooks"].as_object().unwrap();
         assert!(hooks.contains_key("postToolUse"));
         assert!(hooks.contains_key("postSession"));
-        assert_eq!(hooks["postToolUse"][0]["bash"], "nebu-ctx hook post-tool-use");
+        assert_eq!(
+            hooks["postToolUse"][0]["bash"],
+            "nebu-ctx hook post-tool-use"
+        );
         assert_eq!(hooks["postSession"][0]["bash"], "nebu-ctx hook stop");
     }
 
@@ -1216,57 +1228,69 @@ mod memory_hook_tests {
             "/usr/local/bin/nebu-ctx"
         );
     }
+
+    #[test]
+    fn install_crush_hook_migrates_legacy_server_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path();
+        let config_dir = home.join(".config/crush");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        let config_path = config_dir.join("crush.json");
+        std::fs::write(
+            &config_path,
+            r#"{ "mcp": { "lean-ctx": { "type": "stdio", "command": "old" }, "other": { "type": "stdio", "command": "keep" } } }"#,
+        )
+        .unwrap();
+
+        let original_home = std::env::var_os("HOME");
+        std::env::set_var("HOME", home);
+
+        install_crush_hook();
+
+        if let Some(value) = original_home {
+            std::env::set_var("HOME", value);
+        } else {
+            std::env::remove_var("HOME");
+        }
+
+        let json: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&config_path).unwrap()).unwrap();
+        assert!(json["mcp"].get("lean-ctx").is_none());
+        assert_eq!(json["mcp"]["other"]["command"], "keep");
+        assert_eq!(json["mcp"]["nebu-ctx"]["command"], "nebu-ctx");
+    }
 }
 
 pub(super) fn install_crush_hook() {
     let binary = resolve_binary_path();
     let home = dirs::home_dir().unwrap_or_default();
-    let config_path = home.join(".config/crush/crush.json");
-    let display_path = "~/.config/crush/crush.json";
+    let target = crate::core::editor_registry::EditorTarget {
+        name: "Crush",
+        agent_key: "crush".to_string(),
+        config_path: home.join(".config/crush/crush.json"),
+        detect_path: home.join(".config/crush"),
+        config_type: crate::core::editor_registry::ConfigType::Crush,
+    };
 
-    if let Some(parent) = config_path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-
-    if config_path.exists() {
-        let content = std::fs::read_to_string(&config_path).unwrap_or_default();
-        if content.contains("nebu-ctx") || content.contains("lean-ctx") {
-            println!("Crush MCP already configured at {display_path}");
-            return;
-        }
-
-        if let Ok(mut json) = serde_json::from_str::<serde_json::Value>(&content) {
-            if let Some(obj) = json.as_object_mut() {
-                let servers = obj.entry("mcp").or_insert_with(|| serde_json::json!({}));
-                if let Some(servers_obj) = servers.as_object_mut() {
-                    servers_obj.insert(
-                        "lean-ctx".to_string(),
-                        serde_json::json!({ "type": "stdio", "command": binary }),
-                    );
+    match crate::core::editor_registry::write_config_with_options(
+        &target,
+        &binary,
+        crate::core::editor_registry::WriteOptions {
+            overwrite_invalid: true,
+        },
+    ) {
+        Ok(result) => {
+            let message = match result.action {
+                crate::core::editor_registry::WriteAction::Already => {
+                    "Crush MCP already configured at ~/.config/crush/crush.json"
                 }
-                if let Ok(formatted) = serde_json::to_string_pretty(&json) {
-                    let _ = std::fs::write(&config_path, formatted);
-                    println!("  \x1b[32m✓\x1b[0m Crush MCP configured at {display_path}");
-                    return;
-                }
-            }
+                _ => "  \x1b[32m✓\x1b[0m Crush MCP configured at ~/.config/crush/crush.json",
+            };
+            println!("{message}");
         }
-    }
-
-    let content = serde_json::to_string_pretty(&serde_json::json!({
-        "mcp": {
-            "lean-ctx": {
-                "type": "stdio",
-                "command": binary
-            }
+        Err(_) => {
+            eprintln!("  \x1b[31m✗\x1b[0m Failed to configure Crush");
         }
-    }));
-
-    if let Ok(json_str) = content {
-        let _ = std::fs::write(&config_path, json_str);
-        println!("  \x1b[32m✓\x1b[0m Crush MCP configured at {display_path}");
-    } else {
-        eprintln!("  \x1b[31m✗\x1b[0m Failed to configure Crush");
     }
 }
 
@@ -1286,7 +1310,7 @@ pub(super) fn install_kiro_hook() {
     if steering_file.exists()
         && std::fs::read_to_string(&steering_file)
             .unwrap_or_default()
-            .contains("lean-ctx")
+            .contains(super::KIRO_STEERING_VERSION)
     {
         println!("  Kiro steering file already exists at .kiro/steering/nebu-ctx.md");
     } else {

@@ -712,7 +712,7 @@ fn install_kiro_steering(home: &std::path::Path) {
     if steering_file.exists()
         && std::fs::read_to_string(&steering_file)
             .unwrap_or_default()
-            .contains("nebu-ctx")
+            .contains(crate::hooks::KIRO_STEERING_VERSION)
     {
         println!("  Kiro steering file already exists at .kiro/steering/nebu-ctx.md");
         return;

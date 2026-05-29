@@ -2,7 +2,10 @@ use serde_json::Value;
 
 use super::types::{ConfigType, EditorTarget};
 
-fn lookup_server<'a>(servers: &'a serde_json::Map<String, Value>, keys: &[&str]) -> Option<&'a Value> {
+fn lookup_server<'a>(
+    servers: &'a serde_json::Map<String, Value>,
+    keys: &[&str],
+) -> Option<&'a Value> {
     keys.iter().find_map(|key| servers.get(*key))
 }
 
@@ -876,12 +879,14 @@ fn write_crush_config(
             .get("nebu-ctx")
             .cloned()
             .or_else(|| mcp_obj.get("lean-ctx").cloned());
-        if existing.as_ref() == Some(&desired) {
+        let has_legacy = mcp_obj.contains_key("lean-ctx");
+        if existing.as_ref() == Some(&desired) && !has_legacy {
             return Ok(WriteResult {
                 action: WriteAction::Already,
                 note: None,
             });
         }
+        let _ = mcp_obj.remove("lean-ctx");
         mcp_obj.insert("nebu-ctx".to_string(), desired);
 
         let formatted = serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?;
@@ -1228,6 +1233,27 @@ mod tests {
     }
 
     #[test]
+    fn crush_config_migrates_legacy_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("crush.json");
+        std::fs::write(
+            &path,
+            r#"{ "mcp": { "lean-ctx": { "type": "stdio", "command": "old" }, "other": { "type": "stdio", "command": "keep" } } }"#,
+        )
+        .unwrap();
+
+        let t = target(path.clone(), ConfigType::Crush);
+        let res = write_crush_config(&t, "new", WriteOptions::default()).unwrap();
+        assert_eq!(res.action, WriteAction::Updated);
+
+        let json: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert!(json["mcp"].get("lean-ctx").is_none());
+        assert_eq!(json["mcp"]["other"]["command"], "keep");
+        assert_eq!(json["mcp"]["nebu-ctx"]["type"], "stdio");
+        assert_eq!(json["mcp"]["nebu-ctx"]["command"], "new");
+    }
+
+    #[test]
     fn codex_toml_upserts_existing_section() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("config.toml");
@@ -1380,8 +1406,14 @@ args = ["x"]
         assert_eq!(json["plugin"], serde_json::json!(["./plugins/nebu-ctx.ts"]));
         assert!(dir.path().join("rules/nebu-ctx.md").exists());
         assert!(dir.path().join("plugins/nebu-ctx.ts").exists());
-        assert!(dir.path().join("skills/project-bootstrap/SKILL.md").exists());
-        assert!(dir.path().join("skills/project-bootstrap/scripts/install.sh").exists());
+        assert!(dir
+            .path()
+            .join("skills/project-bootstrap/SKILL.md")
+            .exists());
+        assert!(dir
+            .path()
+            .join("skills/project-bootstrap/scripts/install.sh")
+            .exists());
     }
 
     #[test]
@@ -1404,7 +1436,10 @@ args = ["x"]
         assert_eq!(plugins.len(), 2);
         assert_eq!(plugins[0][0], "./plugins/skill-router.js");
         assert_eq!(plugins[1], serde_json::json!("./plugins/nebu-ctx.ts"));
-        assert!(dir.path().join("skills/project-bootstrap/SKILL.md").exists());
+        assert!(dir
+            .path()
+            .join("skills/project-bootstrap/SKILL.md")
+            .exists());
     }
 
     #[test]

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.26
+
+- Remove remaining legacy MCP alias drift in shared agent config writers and Crush setup so stale `lean-ctx` entries are rewritten to `nebu-ctx` instead of lingering beside the canonical server key.
+- Refresh Kiro steering guidance to the public 5-tool surface and version the generated steering file so old `mcp_lean_ctx_*` references are replaced on the next setup run.
+- Add regression coverage for the alias migration and Kiro steering refresh paths to keep `multi_tool_use.parallel`-style tool discovery failures from creeping back in through non-Copilot installs.
+
 ## 0.8.25
 
 - Preserve exact output for git inspection commands in wrapper flows, including `git status --short/--porcelain` and `git diff --name-only/--name-status/--stat/--numstat`, so staging and commit review steps can trust the real file list.

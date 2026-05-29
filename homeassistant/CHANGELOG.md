@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.26
+
+- Bundle client/server release that rewrites lingering legacy `lean-ctx` MCP aliases to `nebu-ctx` and refreshes Kiro steering guidance to the public 5-tool surface.
+
 ## 0.8.25
 
 - Bundle client/server release that preserves exact git inspection output for `git status --short/--porcelain` and `git diff --name-only/--name-status/--stat/--numstat` in wrapper-driven commit workflows.
