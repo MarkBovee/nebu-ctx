@@ -250,7 +250,7 @@ impl ServerHandler for NebuCtxServer {
                 let resolved = match domain {
                     "memory" => match action {
                         "task" | "finding" | "decision" | "save" | "load" | "status" | "reset" | "list" | "cleanup" => "ctx_session",
-                        "recall" | "search" | "consolidate" | "promote" | "upkeep" | "triage" | "timeline" | "categories" | "wakeup" | "remove" => "ctx_knowledge",
+                        "recall" | "search" | "consolidate" | "promote" | "candidates" | "review_candidate" | "upkeep" | "triage" | "timeline" | "categories" | "wakeup" | "remove" => "ctx_knowledge",
                         "store" | "set" | "remember" => {
                             args.insert("action".to_string(), serde_json::Value::String("remember".to_string()));
                             if !args.contains_key("category") {
@@ -259,7 +259,7 @@ impl ServerHandler for NebuCtxServer {
                             "ctx_knowledge"
                         }
                         _ => return Err(ErrorData::invalid_params(
-                            "Unknown memory action. Use one of: task, finding, decision, save, load, status, reset, list, cleanup, store, set, remember, recall, search, categories, timeline, consolidate, promote, upkeep, triage, wakeup, remove",
+                            "Unknown memory action. Use one of: task, finding, decision, save, load, status, reset, list, cleanup, store, set, remember, recall, search, categories, timeline, consolidate, promote, candidates, review_candidate, upkeep, triage, wakeup, remove",
                             None,
                         )),
                     },

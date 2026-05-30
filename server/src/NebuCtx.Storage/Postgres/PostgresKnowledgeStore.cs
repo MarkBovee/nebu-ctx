@@ -261,6 +261,119 @@ public sealed class PostgresKnowledgeStore : IKnowledgeStore
         return await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    /// <inheritdoc />
+    public async Task UpsertCandidateAsync(KnowledgeCandidateEntry entry, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        await using var cmd = new NpgsqlCommand(
+            """
+            INSERT INTO knowledge_candidates (
+                project_id, promotion_identity, category, key, value, logical_key,
+                source_type, source_scope, confidence, evidence, review_status,
+                created_at, updated_at, reviewed_at, promoted_knowledge_key)
+            VALUES (
+                @project_id, @promotion_identity, @category, @key, @value, @logical_key,
+                @source_type, @source_scope, @confidence, @evidence, @review_status,
+                @created_at, @updated_at, @reviewed_at, @promoted_knowledge_key)
+            ON CONFLICT (project_id, promotion_identity) DO UPDATE SET
+                category = EXCLUDED.category,
+                key = EXCLUDED.key,
+                value = EXCLUDED.value,
+                logical_key = EXCLUDED.logical_key,
+                source_type = EXCLUDED.source_type,
+                source_scope = EXCLUDED.source_scope,
+                confidence = EXCLUDED.confidence,
+                evidence = EXCLUDED.evidence,
+                review_status = EXCLUDED.review_status,
+                created_at = COALESCE(knowledge_candidates.created_at, EXCLUDED.created_at),
+                updated_at = EXCLUDED.updated_at,
+                reviewed_at = EXCLUDED.reviewed_at,
+                promoted_knowledge_key = EXCLUDED.promoted_knowledge_key
+            """,
+            conn);
+
+        cmd.Parameters.AddWithValue("project_id", entry.ProjectId);
+        cmd.Parameters.AddWithValue("promotion_identity", entry.PromotionIdentity);
+        cmd.Parameters.AddWithValue("category", entry.Category);
+        cmd.Parameters.AddWithValue("key", entry.Key);
+        cmd.Parameters.AddWithValue("value", entry.Value);
+        cmd.Parameters.AddWithValue("logical_key", entry.LogicalKey);
+        cmd.Parameters.AddWithValue("source_type", entry.SourceType);
+        cmd.Parameters.AddWithValue("source_scope", entry.SourceScope);
+        cmd.Parameters.AddWithValue("confidence", entry.Confidence);
+        cmd.Parameters.AddWithValue("evidence", entry.Evidence);
+        cmd.Parameters.AddWithValue("review_status", entry.ReviewStatus);
+        cmd.Parameters.AddWithValue("created_at", entry.CreatedAt);
+        cmd.Parameters.AddWithValue("updated_at", entry.UpdatedAt);
+        cmd.Parameters.AddWithValue("reviewed_at", (object?)entry.ReviewedAt ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("promoted_knowledge_key", entry.PromotedKnowledgeKey);
+
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<KnowledgeCandidateEntry?> GetCandidateAsync(string projectId, string promotionIdentity, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        await using var cmd = new NpgsqlCommand(
+            """
+            SELECT project_id, promotion_identity, category, key, value, logical_key,
+                   source_type, source_scope, confidence, evidence, review_status,
+                   created_at, updated_at, reviewed_at, promoted_knowledge_key
+            FROM knowledge_candidates
+            WHERE project_id = @project_id AND promotion_identity = @promotion_identity
+            LIMIT 1
+            """,
+            conn);
+        cmd.Parameters.AddWithValue("project_id", projectId);
+        cmd.Parameters.AddWithValue("promotion_identity", promotionIdentity);
+
+        var entries = await ReadCandidatesAsync(cmd, cancellationToken);
+        return entries.FirstOrDefault();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<KnowledgeCandidateEntry>> ListCandidatesAsync(string projectId, int limit = 100, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        await using var cmd = new NpgsqlCommand(
+            """
+            SELECT project_id, promotion_identity, category, key, value, logical_key,
+                   source_type, source_scope, confidence, evidence, review_status,
+                   created_at, updated_at, reviewed_at, promoted_knowledge_key
+            FROM knowledge_candidates
+            WHERE project_id = @project_id
+            ORDER BY updated_at DESC, promotion_identity ASC
+            LIMIT @limit
+            """,
+            conn);
+        cmd.Parameters.AddWithValue("project_id", projectId);
+        cmd.Parameters.AddWithValue("limit", limit);
+
+        return await ReadCandidatesAsync(cmd, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<int> GetCandidateCountAsync(string projectId, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        await using var cmd = new NpgsqlCommand(
+            "SELECT COUNT(*) FROM knowledge_candidates WHERE project_id = @project_id",
+            conn);
+        cmd.Parameters.AddWithValue("project_id", projectId);
+
+        var result = await cmd.ExecuteScalarAsync(cancellationToken);
+        return (int)(long)(result ?? 0L);
+    }
+
     /// <summary>
     /// Reads knowledge entries from an open command's result set.
     /// </summary>
@@ -292,6 +405,39 @@ public sealed class PostgresKnowledgeStore : IKnowledgeStore
                 RetrievalCount = reader.GetInt32(15),
                 LastRetrievedAt = reader.IsDBNull(16) ? null : reader.GetFieldValue<DateTimeOffset>(16),
                 History = JsonSerializer.Deserialize<List<KnowledgeHistoryEntry>>(historyJson) ?? [],
+            });
+        }
+
+        return entries;
+    }
+
+    /// <summary>
+    /// Reads persisted durable memory candidates from an open command result set.
+    /// </summary>
+    private static async Task<IReadOnlyList<KnowledgeCandidateEntry>> ReadCandidatesAsync(NpgsqlCommand cmd, CancellationToken cancellationToken)
+    {
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        var entries = new List<KnowledgeCandidateEntry>();
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            entries.Add(new KnowledgeCandidateEntry
+            {
+                ProjectId = reader.GetString(0),
+                PromotionIdentity = reader.GetString(1),
+                Category = reader.GetString(2),
+                Key = reader.GetString(3),
+                Value = reader.GetString(4),
+                LogicalKey = reader.GetString(5),
+                SourceType = reader.GetString(6),
+                SourceScope = reader.GetString(7),
+                Confidence = reader.GetFloat(8),
+                Evidence = reader.GetString(9),
+                ReviewStatus = reader.GetString(10),
+                CreatedAt = reader.GetFieldValue<DateTimeOffset>(11),
+                UpdatedAt = reader.GetFieldValue<DateTimeOffset>(12),
+                ReviewedAt = reader.IsDBNull(13) ? null : reader.GetFieldValue<DateTimeOffset>(13),
+                PromotedKnowledgeKey = reader.GetString(14),
             });
         }
 

@@ -602,6 +602,106 @@ public sealed class ProjectMemoryResponse
     /// </summary>
     [JsonPropertyName("wakeup")]
     public IReadOnlyList<ProjectMemoryWakeupEntryResponse> Wakeup { get; set; } = [];
+
+    /// <summary>
+    /// Bounded durable memory candidate review queue for the project.
+    /// </summary>
+    [JsonPropertyName("candidates")]
+    public IReadOnlyList<ProjectMemoryCandidateResponse> Candidates { get; set; } = [];
+
+    /// <summary>
+    /// Candidate and promotion summary for the project.
+    /// </summary>
+    [JsonPropertyName("candidate_summary")]
+    public ProjectMemoryCandidateSummaryResponse? CandidateSummary { get; set; }
+}
+
+/// <summary>
+/// Dashboard view model for a persisted durable memory candidate.
+/// </summary>
+public sealed class ProjectMemoryCandidateResponse
+{
+    /// <summary>Candidate category.</summary>
+    [JsonPropertyName("category")]
+    public string Category { get; set; } = string.Empty;
+
+    /// <summary>Candidate key.</summary>
+    [JsonPropertyName("key")]
+    public string Key { get; set; } = string.Empty;
+
+    /// <summary>Candidate value.</summary>
+    [JsonPropertyName("value")]
+    public string Value { get; set; } = string.Empty;
+
+    /// <summary>Candidate confidence score.</summary>
+    [JsonPropertyName("confidence")]
+    public float Confidence { get; set; }
+
+    /// <summary>Candidate review or promotion status.</summary>
+    [JsonPropertyName("review_status")]
+    public string ReviewStatus { get; set; } = string.Empty;
+
+    /// <summary>Supporting evidence for the candidate.</summary>
+    [JsonPropertyName("evidence")]
+    public string Evidence { get; set; } = string.Empty;
+
+    /// <summary>Replay-safe identity.</summary>
+    [JsonPropertyName("promotion_identity")]
+    public string PromotionIdentity { get; set; } = string.Empty;
+
+    /// <summary>Stable logical key.</summary>
+    [JsonPropertyName("logical_key")]
+    public string LogicalKey { get; set; } = string.Empty;
+
+    /// <summary>Candidate source type.</summary>
+    [JsonPropertyName("source_type")]
+    public string SourceType { get; set; } = string.Empty;
+
+    /// <summary>Candidate source scope.</summary>
+    [JsonPropertyName("source_scope")]
+    public string SourceScope { get; set; } = string.Empty;
+
+    /// <summary>Candidate creation time.</summary>
+    [JsonPropertyName("created_at")]
+    public DateTimeOffset CreatedAt { get; set; }
+
+    /// <summary>Candidate update time.</summary>
+    [JsonPropertyName("updated_at")]
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    /// <summary>Review time when applicable.</summary>
+    [JsonPropertyName("reviewed_at")]
+    public DateTimeOffset? ReviewedAt { get; set; }
+
+    /// <summary>Promoted knowledge key when candidate became canonical.</summary>
+    [JsonPropertyName("promoted_knowledge_key")]
+    public string PromotedKnowledgeKey { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Dashboard summary for durable candidate and promotion outcomes.
+/// </summary>
+public sealed class ProjectMemoryCandidateSummaryResponse
+{
+    /// <summary>Total candidate count returned or stored for the project.</summary>
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
+
+    /// <summary>Queued review candidate count.</summary>
+    [JsonPropertyName("pending_review")]
+    public int PendingReview { get; set; }
+
+    /// <summary>Auto-promoted candidate count.</summary>
+    [JsonPropertyName("auto_promoted")]
+    public int AutoPromoted { get; set; }
+
+    /// <summary>Accepted candidate count.</summary>
+    [JsonPropertyName("accepted")]
+    public int Accepted { get; set; }
+
+    /// <summary>Rejected candidate count.</summary>
+    [JsonPropertyName("rejected")]
+    public int Rejected { get; set; }
 }
 
 /// <summary>

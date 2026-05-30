@@ -74,10 +74,11 @@ public static class DashboardPayloadFactory
     /// <param name="knowledgeEntries">Knowledge entries for the project.</param>
     /// <param name="brainEntries">Brain entries for the project.</param>
     /// <returns>Project memory payload.</returns>
-    public static ProjectMemoryResponse BuildProjectMemoryPayload(ProjectRecord project, IReadOnlyList<KnowledgeEntry> knowledgeEntries, IReadOnlyList<BrainEntry> brainEntries, Dictionary<string, object?>? triage = null)
+    public static ProjectMemoryResponse BuildProjectMemoryPayload(ProjectRecord project, IReadOnlyList<KnowledgeEntry> knowledgeEntries, IReadOnlyList<BrainEntry> brainEntries, IReadOnlyList<KnowledgeCandidateEntry>? candidateEntries = null, Dictionary<string, object?>? triage = null)
     {
         var sourceFileCount = (int)(project.ProjectMetadata?.Summary.SourceFileCount ?? 0);
         var totalFileCount = (int)(project.ProjectMetadata?.Summary.TotalFileCount ?? 0);
+        var candidates = candidateEntries ?? [];
 
         return new ProjectMemoryResponse
         {
@@ -144,6 +145,43 @@ public static class DashboardPayloadFactory
             Health = BuildMemoryHealth(knowledgeEntries),
             Triage = BuildMemoryTriage(triage),
             Wakeup = BuildWakeupEntries(knowledgeEntries),
+            Candidates = candidates
+                .OrderByDescending(entry => entry.UpdatedAt)
+                .Take(12)
+                .Select(entry => new ProjectMemoryCandidateResponse
+                {
+                    Category = entry.Category,
+                    Key = entry.Key,
+                    Value = entry.Value,
+                    Confidence = entry.Confidence,
+                    ReviewStatus = entry.ReviewStatus,
+                    Evidence = entry.Evidence,
+                    PromotionIdentity = entry.PromotionIdentity,
+                    LogicalKey = entry.LogicalKey,
+                    SourceType = entry.SourceType,
+                    SourceScope = entry.SourceScope,
+                    CreatedAt = entry.CreatedAt,
+                    UpdatedAt = entry.UpdatedAt,
+                    ReviewedAt = entry.ReviewedAt,
+                    PromotedKnowledgeKey = entry.PromotedKnowledgeKey,
+                })
+                .ToArray(),
+            CandidateSummary = BuildCandidateSummary(candidates),
+        };
+    }
+
+    /// <summary>
+    /// Builds a bounded candidate summary for operator-facing dashboard memory workflows.
+    /// </summary>
+    private static ProjectMemoryCandidateSummaryResponse BuildCandidateSummary(IReadOnlyList<KnowledgeCandidateEntry> candidateEntries)
+    {
+        return new ProjectMemoryCandidateSummaryResponse
+        {
+            Total = candidateEntries.Count,
+            PendingReview = candidateEntries.Count(entry => string.Equals(entry.ReviewStatus, "pending_review", StringComparison.OrdinalIgnoreCase)),
+            AutoPromoted = candidateEntries.Count(entry => string.Equals(entry.ReviewStatus, "auto_promoted", StringComparison.OrdinalIgnoreCase)),
+            Accepted = candidateEntries.Count(entry => string.Equals(entry.ReviewStatus, "accepted", StringComparison.OrdinalIgnoreCase)),
+            Rejected = candidateEntries.Count(entry => string.Equals(entry.ReviewStatus, "rejected", StringComparison.OrdinalIgnoreCase)),
         };
     }
 

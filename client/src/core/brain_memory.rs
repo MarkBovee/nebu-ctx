@@ -42,6 +42,19 @@ pub struct BrainFactCandidate {
     pub evidence: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DurableMemoryCandidate {
+    pub category: String,
+    pub key: String,
+    pub value: String,
+    pub confidence: f32,
+    pub source_type: String,
+    pub source_scope: String,
+    pub promotion_identity: String,
+    pub logical_key: String,
+    pub evidence: String,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct FlushOutcome {
     pub journal_events: usize,
@@ -186,6 +199,60 @@ pub fn flush_to_brain(project_root: &str, source_type: &str) -> Result<FlushOutc
         journal_events: events.len(),
         derived_facts: facts.len(),
     })
+}
+
+pub fn derive_durable_memory_candidates(
+    project_root: &str,
+    source_type: &str,
+    events: &[JournalEvent],
+) -> Vec<DurableMemoryCandidate> {
+    let mut candidates = Vec::new();
+    let mut seen = HashSet::new();
+    let session = crate::core::session::SessionState::load_latest_for_project_root(project_root);
+    let session_scope = session
+        .as_ref()
+        .map(|value| value.id.clone())
+        .unwrap_or_else(|| "sessionless".to_string());
+
+    if let Some(session) = session {
+        for finding in session.findings.iter().rev().take(12) {
+            if let Some(candidate) = infer_durable_candidate(
+                source_type,
+                &session_scope,
+                &finding.summary,
+                "session_finding",
+            ) {
+                push_memory_candidate(&mut candidates, &mut seen, candidate);
+            }
+        }
+
+        for decision in session.decisions.iter().rev().take(8) {
+            let combined = match &decision.rationale {
+                Some(rationale) if !rationale.trim().is_empty() => format!("{} because {}", decision.summary, rationale),
+                _ => decision.summary.clone(),
+            };
+            if let Some(candidate) = infer_durable_candidate(
+                source_type,
+                &session_scope,
+                &combined,
+                "session_decision",
+            ) {
+                push_memory_candidate(&mut candidates, &mut seen, candidate);
+            }
+        }
+    }
+
+    for event in events.iter().rev().take(40) {
+        if event.text.is_empty() {
+            continue;
+        }
+        if let Some(candidate) = infer_durable_candidate(source_type, &event.session_id, &event.text, event.source.as_str()) {
+            push_memory_candidate(&mut candidates, &mut seen, candidate);
+        }
+    }
+
+    candidates.truncate(5);
+    candidates
 }
 
 pub fn derive_fact_candidates(
@@ -348,6 +415,79 @@ fn push_fact(
     }
 }
 
+fn push_memory_candidate(
+    facts: &mut Vec<DurableMemoryCandidate>,
+    seen: &mut HashSet<String>,
+    candidate: DurableMemoryCandidate,
+) {
+    if seen.insert(candidate.promotion_identity.clone()) {
+        facts.push(candidate);
+    }
+}
+
+fn infer_durable_candidate(
+    source_type: &str,
+    source_scope: &str,
+    text: &str,
+    evidence_source: &str,
+) -> Option<DurableMemoryCandidate> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let lowered = trimmed.to_lowercase();
+    let (category, confidence) = if lowered.contains("root cause")
+        || lowered.contains("caused by")
+        || lowered.contains("not bad")
+        || lowered.contains("mismatch was caused")
+    {
+        ("root_cause", 0.95f32)
+    } else if lowered.contains("live verified")
+        || lowered.contains("known-good")
+        || lowered.contains("live behavior")
+    {
+        ("live_verification", 0.92f32)
+    } else if lowered.contains("confirmed")
+        || lowered.contains("verified")
+    {
+        ("verified_behavior", 0.88f32)
+    } else if lowered.contains("runtime behaves differently")
+        || lowered.contains("persisted config overrides")
+        || lowered.contains("override manifest defaults")
+        || lowered.contains("caveat")
+    {
+        ("runtime_caveat", 0.86f32)
+    } else if lowered.contains("contract")
+        || lowered.contains("external behavior")
+        || lowered.contains("decision")
+    {
+        ("contract_decision", 0.82f32)
+    } else if lowered.contains("because")
+        || lowered.contains("faster")
+        || lowered.contains("slower")
+        || lowered.contains("one ha /states snapshot")
+    {
+        ("runtime_caveat", 0.8f32)
+    } else {
+        return None;
+    };
+
+    let key = slug_key(trimmed, 64);
+    let logical_key = format!("{}:{}", normalize_token(category), key);
+    Some(DurableMemoryCandidate {
+        category: category.to_string(),
+        key,
+        value: truncate_text(trimmed, 400),
+        confidence,
+        source_type: source_type.to_string(),
+        source_scope: source_scope.to_string(),
+        promotion_identity: crate::server_client::deterministic_promotion_identity(source_type, source_scope, category, &logical_key),
+        logical_key,
+        evidence: format!("derived_from={evidence_source}"),
+    })
+}
+
 fn build_fact_candidate(
     source_type: &str,
     source_scope: &str,
@@ -495,5 +635,33 @@ mod tests {
             events.last().map(|event| event.text.as_str()),
             Some("event-504")
         );
+    }
+
+    #[test]
+    fn derive_durable_memory_candidates_extracts_root_cause_and_verified_behavior() {
+        let events = vec![
+            JournalEvent {
+                timestamp: Utc::now(),
+                session_id: "s1".to_string(),
+                source: "assistant".to_string(),
+                kind: LifecycleEventKind::AssistantTurn,
+                text: "Root cause: HA add-on visibility was caused by invalid schema entry modbus_entities: dict?".to_string(),
+                tool: None,
+                command: None,
+            },
+            JournalEvent {
+                timestamp: Utc::now(),
+                session_id: "s1".to_string(),
+                source: "assistant".to_string(),
+                kind: LifecycleEventKind::AssistantTurn,
+                text: "Confirmed runtime behavior: persisted config overrides manifest defaults.".to_string(),
+                tool: None,
+                command: None,
+            },
+        ];
+
+        let candidates = derive_durable_memory_candidates("/tmp/project", "idle_flush", &events);
+        assert!(candidates.iter().any(|candidate| candidate.category == "root_cause"));
+        assert!(candidates.iter().any(|candidate| candidate.category == "verified_behavior"));
     }
 }

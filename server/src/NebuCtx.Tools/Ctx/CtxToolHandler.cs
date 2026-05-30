@@ -52,6 +52,8 @@ public sealed class CtxToolHandler : IToolHandler
                 ["type"] = "array",
                 ["items"] = new Dictionary<string, object?> { ["type"] = "object" },
             },
+            ["promotion_identity"] = new Dictionary<string, object?> { ["type"] = "string" },
+            ["decision"] = new Dictionary<string, object?> { ["type"] = "string" },
         },
         ["required"] = new[] { "domain", "action" },
     };
@@ -92,11 +94,13 @@ public sealed class CtxToolHandler : IToolHandler
             "timeline" => await ExecuteTimelineAsync(arguments, context, cancellationToken),
             "consolidate" => await _knowledgeService.ConsolidateAsync(context.ProjectId, cancellationToken),
             "promote" => await ExecutePromoteAsync(arguments, context, cancellationToken),
+            "candidates" => await ExecuteCandidatesAsync(arguments, context, cancellationToken),
+            "review_candidate" => await ExecuteReviewCandidateAsync(arguments, context, cancellationToken),
             "upkeep" => await _knowledgeService.UpkeepAsync(context.ProjectId, cancellationToken),
             "wakeup" => await _knowledgeService.BuildWakeupAsync(context.ProjectId, cancellationToken),
             "triage" => await ExecuteTriageAsync(arguments, context, cancellationToken),
             "remove" => await ExecuteRemoveAsync(arguments, context, cancellationToken),
-            _ => throw new ArgumentException("Unknown hosted memory action. Use one of: task, finding, decision, save, load, status, reset, list, cleanup, store, set, remember, recall, search, categories, timeline, consolidate, promote, upkeep, wakeup, triage, remove"),
+            _ => throw new ArgumentException("Unknown hosted memory action. Use one of: task, finding, decision, save, load, status, reset, list, cleanup, store, set, remember, recall, search, categories, timeline, consolidate, promote, candidates, review_candidate, upkeep, wakeup, triage, remove"),
         };
     }
 
@@ -197,6 +201,25 @@ public sealed class CtxToolHandler : IToolHandler
         arguments.TryGetValue("items", out var rawItems);
         var items = KnowledgeService.ParsePromotionItems(rawItems);
         return await _knowledgeService.PromoteAsync(context.ProjectId, items, cancellationToken);
+    }
+
+    /// <summary>
+    /// Lists durable memory candidates through the public memory domain.
+    /// </summary>
+    private async Task<object> ExecuteCandidatesAsync(Dictionary<string, object?> arguments, ToolExecutionContext context, CancellationToken cancellationToken)
+    {
+        var limit = GetIntArg(arguments, "limit") ?? 25;
+        return await _knowledgeService.ListCandidatesAsync(context.ProjectId, limit, cancellationToken);
+    }
+
+    /// <summary>
+    /// Applies a review decision to a durable memory candidate through the public memory domain.
+    /// </summary>
+    private async Task<object> ExecuteReviewCandidateAsync(Dictionary<string, object?> arguments, ToolExecutionContext context, CancellationToken cancellationToken)
+    {
+        var promotionIdentity = GetStringArg(arguments, "promotion_identity") ?? throw new ArgumentException("'promotion_identity' is required for memory review_candidate.");
+        var decision = GetStringArg(arguments, "decision") ?? throw new ArgumentException("'decision' is required for memory review_candidate.");
+        return await _knowledgeService.ReviewCandidateAsync(context.ProjectId, promotionIdentity, decision, cancellationToken);
     }
 
     /// <summary>

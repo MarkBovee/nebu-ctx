@@ -188,6 +188,7 @@ internal sealed class InMemoryBrainStore : IBrainStore
 internal sealed class InMemoryKnowledgeStore : IKnowledgeStore
 {
     private readonly List<KnowledgeEntry> _facts = [];
+    private readonly List<KnowledgeCandidateEntry> _candidateFacts = [];
     private readonly Lock _lock = new();
 
     public Task UpsertFactAsync(KnowledgeEntry entry, CancellationToken cancellationToken = default)
@@ -337,6 +338,51 @@ internal sealed class InMemoryKnowledgeStore : IKnowledgeStore
             }
 
             return Task.FromResult(moved);
+        }
+    }
+
+    public Task UpsertCandidateAsync(KnowledgeCandidateEntry entry, CancellationToken cancellationToken = default)
+    {
+        lock (_lock)
+        {
+            var idx = _candidateFacts.FindIndex(f =>
+                f.ProjectId == entry.ProjectId &&
+                f.PromotionIdentity == entry.PromotionIdentity);
+            if (idx >= 0) _candidateFacts[idx] = entry;
+            else _candidateFacts.Add(entry);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task<KnowledgeCandidateEntry?> GetCandidateAsync(string projectId, string promotionIdentity, CancellationToken cancellationToken = default)
+    {
+        lock (_lock)
+        {
+            var candidate = _candidateFacts.FirstOrDefault(f =>
+                f.ProjectId == projectId && f.PromotionIdentity == promotionIdentity);
+            return Task.FromResult(candidate);
+        }
+    }
+
+    public Task<IReadOnlyList<KnowledgeCandidateEntry>> ListCandidatesAsync(string projectId, int limit = 100, CancellationToken cancellationToken = default)
+    {
+        lock (_lock)
+        {
+            var results = _candidateFacts
+                .Where(f => f.ProjectId == projectId)
+                .OrderByDescending(f => f.UpdatedAt)
+                .Take(limit)
+                .ToList();
+            return Task.FromResult<IReadOnlyList<KnowledgeCandidateEntry>>(results);
+        }
+    }
+
+    public Task<int> GetCandidateCountAsync(string projectId, CancellationToken cancellationToken = default)
+    {
+        lock (_lock)
+        {
+            return Task.FromResult(_candidateFacts.Count(f => f.ProjectId == projectId));
         }
     }
 }

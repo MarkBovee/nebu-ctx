@@ -390,6 +390,10 @@ public class ProjectResolutionTests
         public Task<bool> RemoveFactAsync(string projectId, string category, string key, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public Task<int> ReassignProjectAsync(string fromProjectId, string toProjectId, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task UpsertCandidateAsync(KnowledgeCandidateEntry entry, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<KnowledgeCandidateEntry?> GetCandidateAsync(string projectId, string promotionIdentity, CancellationToken cancellationToken = default) => Task.FromResult<KnowledgeCandidateEntry?>(null);
+        public Task<IReadOnlyList<KnowledgeCandidateEntry>> ListCandidatesAsync(string projectId, int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<KnowledgeCandidateEntry>>([]);
+        public Task<int> GetCandidateCountAsync(string projectId, CancellationToken cancellationToken = default) => Task.FromResult(0);
     }
 
     private sealed class InMemorySessionStore : ISessionStore

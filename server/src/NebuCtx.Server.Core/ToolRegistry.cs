@@ -286,5 +286,5 @@ public static class ServerVersion
     /// <summary>
     /// Current server version string, matching the Cargo.toml version.
     /// </summary>
-    public const string Current = "0.8.28";
+    public const string Current = "0.8.29";
 }

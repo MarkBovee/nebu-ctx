@@ -349,7 +349,7 @@ reset, list (show sessions), cleanup.",
         tool_def(
             "ctx_knowledge",
             "Persistent project knowledge (survives sessions). Actions: remember (store fact with temporal tracking + contradiction detection), \
- recall (search), consolidate (extract session findings), promote (batch hosted promotion), upkeep (recompute hosted lifecycle ranking when supported), triage (preview/apply cleanup candidates when supported), \
+ recall (search), consolidate (extract session findings), promote (batch hosted promotion), candidates (list hosted memory candidates), review_candidate (accept/reject queued candidate), upkeep (recompute hosted lifecycle ranking when supported), triage (preview/apply cleanup candidates when supported), \
             timeline (view fact history for a category), categories (list knowledge categories), \
             search (cross-session search across ALL projects), wakeup (compact AAAK briefing), \
             status (list all), remove, embeddings_status|embeddings_reset|embeddings_reindex (local semantic index management for recall).",
@@ -358,8 +358,8 @@ reset, list (show sessions), cleanup.",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["remember", "recall", "consolidate", "promote", "upkeep", "triage", "status", "remove", "timeline", "categories", "search", "wakeup", "embeddings_status", "embeddings_reset", "embeddings_reindex"],
-                        "description": "Knowledge operation. remember: auto-detects contradictions + tracks temporal validity. promote: batch hosted promotion. upkeep: recompute hosted lifecycle ranking when available. triage: preview or apply cleanup candidates when available. timeline: view version history. categories: list categories. search: cross-project search. wakeup: compact AAAK briefing. embeddings_*: manage local semantic index for recall."
+                        "enum": ["remember", "recall", "consolidate", "promote", "candidates", "review_candidate", "upkeep", "triage", "status", "remove", "timeline", "categories", "search", "wakeup", "embeddings_status", "embeddings_reset", "embeddings_reindex"],
+                        "description": "Knowledge operation. remember: auto-detects contradictions + tracks temporal validity. promote: batch hosted promotion. candidates: list hosted durable memory candidates. review_candidate: accept or reject a queued candidate. upkeep: recompute hosted lifecycle ranking when available. triage: preview or apply cleanup candidates when available. timeline: view version history. categories: list categories. search: cross-project search. wakeup: compact AAAK briefing. embeddings_*: manage local semantic index for recall."
                     },
                     "category": {
                         "type": "string",
@@ -380,7 +380,15 @@ reset, list (show sessions), cleanup.",
                     "items": {
                         "type": "array",
                         "items": { "type": "object" },
-                        "description": "Promotion batch for action=promote. Each item can include category, key, value, confidence, source_type, source_scope, and promotion_identity."
+                        "description": "Promotion batch for action=promote. Each item can include category, key, value, confidence, source_type, source_scope, promotion_identity, logical_key, and evidence."
+                    },
+                    "promotion_identity": {
+                        "type": "string",
+                        "description": "Stable candidate identity for action=review_candidate"
+                    },
+                    "decision": {
+                        "type": "string",
+                        "description": "Review decision for action=review_candidate: accept or reject"
                     },
                     "query": {
                         "type": "string",

@@ -338,6 +338,38 @@ public interface IKnowledgeStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Number of entries moved.</returns>
     Task<int> ReassignProjectAsync(string fromProjectId, string toProjectId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Stores or updates a project-scoped durable memory candidate.
+    /// </summary>
+    /// <param name="entry">Candidate entry to persist.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task UpsertCandidateAsync(KnowledgeCandidateEntry entry, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Loads a single durable memory candidate by replay-safe identity.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="promotionIdentity">Stable candidate identity.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The matching candidate when present; otherwise <see langword="null"/>.</returns>
+    Task<KnowledgeCandidateEntry?> GetCandidateAsync(string projectId, string promotionIdentity, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists durable memory candidates for a project in review or promotion order.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="limit">Maximum number of candidates to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Candidate entries ordered newest first.</returns>
+    Task<IReadOnlyList<KnowledgeCandidateEntry>> ListCandidatesAsync(string projectId, int limit = 100, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Counts all stored durable memory candidates for a project.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<int> GetCandidateCountAsync(string projectId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -425,6 +457,57 @@ public sealed class KnowledgeHistoryEntry
 
     /// <summary>When this revision stopped being current.</summary>
     public DateTimeOffset SupersededAt { get; set; }
+}
+
+/// <summary>
+/// Reviewable durable memory candidate persisted before or alongside canonical promotion.
+/// </summary>
+public sealed class KnowledgeCandidateEntry
+{
+    /// <summary>Project this candidate belongs to.</summary>
+    public required string ProjectId { get; set; }
+
+    /// <summary>Candidate classification such as root_cause or verified_behavior.</summary>
+    public required string Category { get; set; }
+
+    /// <summary>Stable logical key within the candidate category.</summary>
+    public required string Key { get; set; }
+
+    /// <summary>Candidate conclusion text.</summary>
+    public required string Value { get; set; }
+
+    /// <summary>Stable logical key used for deterministic grouping.</summary>
+    public string LogicalKey { get; set; } = string.Empty;
+
+    /// <summary>Stable replay-safe identity for deduplication and review actions.</summary>
+    public string PromotionIdentity { get; set; } = string.Empty;
+
+    /// <summary>Source type that produced the candidate.</summary>
+    public string SourceType { get; set; } = string.Empty;
+
+    /// <summary>Source scope that produced the candidate.</summary>
+    public string SourceScope { get; set; } = string.Empty;
+
+    /// <summary>Confidence score between 0 and 1.</summary>
+    public float Confidence { get; set; } = 1.0f;
+
+    /// <summary>Evidence text supporting the candidate.</summary>
+    public string Evidence { get; set; } = string.Empty;
+
+    /// <summary>Review or promotion status for the candidate.</summary>
+    public string ReviewStatus { get; set; } = "pending_review";
+
+    /// <summary>When the candidate was first created.</summary>
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>When the candidate was last updated.</summary>
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>When the candidate was last reviewed or auto-promoted.</summary>
+    public DateTimeOffset? ReviewedAt { get; set; }
+
+    /// <summary>The resulting canonical knowledge key when the candidate was promoted.</summary>
+    public string PromotedKnowledgeKey { get; set; } = string.Empty;
 }
 
 /// <summary>

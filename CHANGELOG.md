@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.29
+
+- Add hosted durable memory lifecycle management with bounded wake-up selection, canonical promotion and consolidation routes, lifecycle upkeep metadata, and replay-safe promoted-memory batches.
+- Add server-backed durable memory candidate review flow plus dashboard inspection and review actions for queued candidates, lifecycle health, wake-up composition, and triage visibility.
+- Archive completed OpenSpec changes for project bootstrap, brain-facts memory routing, durable memory candidates, and optimized memory lifecycle behavior.
+
 ## 0.8.28
 
 - Make the public `ctx_shell` contract use `shell_path` as the canonical override parameter while still accepting legacy `shell` client-side, avoiding tool-search/discovery drift around shell override calls.

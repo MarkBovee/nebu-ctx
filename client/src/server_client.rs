@@ -324,6 +324,38 @@ pub fn post_brain_facts_to_server(
     }
 }
 
+pub fn post_durable_memory_candidates_to_server(
+    project_root: &str,
+    candidates: &[crate::core::brain_memory::DurableMemoryCandidate],
+) {
+    if candidates.is_empty() {
+        return;
+    }
+
+    let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));
+    let items = candidates
+        .iter()
+        .map(|candidate| {
+            serde_json::json!({
+                "category": candidate.category,
+                "key": candidate.key,
+                "value": candidate.value,
+                "confidence": candidate.confidence,
+                "source_type": candidate.source_type,
+                "source_scope": candidate.source_scope,
+                "promotion_identity": candidate.promotion_identity,
+                "logical_key": candidate.logical_key,
+                "evidence": candidate.evidence,
+            })
+        })
+        .collect();
+
+    let mut args = Map::new();
+    args.insert("action".to_string(), Value::String("promote".to_string()));
+    args.insert("items".to_string(), Value::Array(items));
+    let _ = queue_or_call_tool("ctx_knowledge", args, &ctx);
+}
+
 pub fn post_journal_events_to_server(
     project_root: &str,
     events: &[crate::core::brain_memory::JournalEvent],
@@ -439,6 +471,14 @@ pub fn sync_session_memory_to_server(project_root: &str, source_type: &str) {
 
     if let Ok(outcome) = crate::core::brain_memory::flush_to_brain(project_root, source_type) {
         if outcome.derived_facts > 0 {
+            synced_anything = true;
+        }
+    }
+
+    if let Ok(events) = crate::core::brain_memory::load_events(project_root) {
+        let candidates = crate::core::brain_memory::derive_durable_memory_candidates(project_root, source_type, &events);
+        if !candidates.is_empty() {
+            post_durable_memory_candidates_to_server(project_root, &candidates);
             synced_anything = true;
         }
     }
@@ -929,5 +969,42 @@ mod tests {
         )
         .unwrap();
         assert!(should_sync_hosted_memory(&project_root_text));
+    }
+
+    #[test]
+    fn post_durable_memory_candidates_to_server_queues_promote_batch_when_offline() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", tmp.path());
+        std::env::set_var("NEBU_CTX_HOME", tmp.path().join("home"));
+
+        let project_root = tmp.path().join("project");
+        std::fs::create_dir_all(&project_root).unwrap();
+
+        post_durable_memory_candidates_to_server(
+            &project_root.to_string_lossy(),
+            &[crate::core::brain_memory::DurableMemoryCandidate {
+                category: "root_cause".to_string(),
+                key: "ha-schema-root-cause".to_string(),
+                value: "Root cause: invalid schema entry modbus_entities: dict?".to_string(),
+                confidence: 0.95,
+                source_type: "idle_flush".to_string(),
+                source_scope: "session-123".to_string(),
+                promotion_identity: "idle_flush:session-123:root_cause:ha-schema-root-cause".to_string(),
+                logical_key: "root_cause:ha-schema-root-cause".to_string(),
+                evidence: "derived_from=assistant".to_string(),
+            }],
+        );
+
+        let entries = crate::core::sync_outbox::load_entries().unwrap();
+        let entry = entries
+            .into_iter()
+            .find(|item| item.kind == crate::core::sync_outbox::OutboxOperationKind::ServerToolCall)
+            .unwrap();
+        assert_eq!(entry.payload["tool_name"], "ctx_knowledge");
+        assert_eq!(entry.payload["arguments"]["action"], "promote");
+        let items = entry.payload["arguments"]["items"].as_array().unwrap();
+        assert_eq!(items[0]["category"], "root_cause");
+        assert_eq!(items[0]["evidence"], "derived_from=assistant");
     }
 }

@@ -180,6 +180,7 @@ public static class DashboardDataEndpoints
             }
 
             var knowledgeEntries = await knowledgeStore.ListAllForProjectAsync(projectId, cancellationToken: ct);
+            var candidateEntries = await knowledgeStore.ListCandidatesAsync(projectId, 100, ct);
             var brainEntries = await brainStore.ListAllAsync(projectId, cancellationToken: ct);
             var includeTriage = string.Equals(request.Query["include_triage"], "true", StringComparison.OrdinalIgnoreCase);
             Dictionary<string, object?>? triage = null;
@@ -196,7 +197,7 @@ public static class DashboardDataEndpoints
                 .FindDuplicateFingerprintGroups(projects)
                 .SelectMany(group => group.ProjectIds)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var payload = DashboardPayloadFactory.BuildProjectMemoryPayload(project, knowledgeEntries, brainEntries, triage);
+            var payload = DashboardPayloadFactory.BuildProjectMemoryPayload(project, knowledgeEntries, brainEntries, candidateEntries, triage);
             payload.Flags.HasDuplicateSlug = duplicateSlugProjectIds.Contains(projectId);
             payload.Flags.HasDuplicateFingerprint = duplicateFingerprintProjectIds.Contains(projectId);
 
@@ -212,6 +213,23 @@ public static class DashboardDataEndpoints
             var mode = request.Query["mode"].ToString();
             var apply = string.Equals(mode, "apply", StringComparison.OrdinalIgnoreCase);
             var result = await knowledgeService.TriageAsync(projectId, apply, ct);
+            return Results.Ok(result);
+        });
+
+        app.MapPost("/dashboard/projects/{projectId}/memory/candidates/{promotionIdentity}/review", async (
+            string projectId,
+            string promotionIdentity,
+            HttpRequest request,
+            NebuCtx.Server.Core.Services.KnowledgeService knowledgeService,
+            CancellationToken ct) =>
+        {
+            var decision = request.Query["decision"].ToString();
+            if (string.IsNullOrWhiteSpace(decision))
+            {
+                return Results.BadRequest(new { error = "decision query parameter is required", project_id = projectId, promotion_identity = promotionIdentity });
+            }
+
+            var result = await knowledgeService.ReviewCandidateAsync(projectId, promotionIdentity, decision, ct);
             return Results.Ok(result);
         });
 

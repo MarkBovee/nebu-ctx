@@ -13,6 +13,9 @@ using NebuCtx.Storage;
 /// </summary>
 public sealed class KnowledgeService
 {
+    private const float AutoPromoteThreshold = 0.92f;
+    private const float ReviewQueueThreshold = 0.78f;
+
     private readonly IKnowledgeStore _knowledgeStore;
     private readonly ISessionStore _sessionStore;
     private readonly ILogger<KnowledgeService> _logger;
@@ -264,6 +267,157 @@ public sealed class KnowledgeService
     }
 
     /// <summary>
+    /// Stores derived durable memory candidates, auto-promoting only high-confidence items.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="items">Candidate facts to persist or review.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Candidate queue summary payload.</returns>
+    public async Task<Dictionary<string, object?>> IngestCandidatesAsync(string projectId, IReadOnlyList<KnowledgePromotionItem> items, CancellationToken cancellationToken = default)
+    {
+        var queued = 0;
+        var autoPromoted = 0;
+        var skipped = 0;
+
+        foreach (var item in items)
+        {
+            if (string.IsNullOrWhiteSpace(item.Category) || string.IsNullOrWhiteSpace(item.Key) || string.IsNullOrWhiteSpace(item.Value))
+            {
+                skipped++;
+                continue;
+            }
+
+            if (item.Confidence < ReviewQueueThreshold)
+            {
+                skipped++;
+                continue;
+            }
+
+            var category = NormalizeCandidateCategory(item.Category, item.Value, item.Evidence);
+            var logicalKey = string.IsNullOrWhiteSpace(item.LogicalKey)
+                ? DeriveLogicalKey(category, item.Key)
+                : item.LogicalKey;
+            var identity = string.IsNullOrWhiteSpace(item.PromotionIdentity)
+                ? BuildPromotionIdentity(item.SourceType, item.SourceScope, category, logicalKey)
+                : item.PromotionIdentity;
+            var existing = await _knowledgeStore.GetCandidateAsync(projectId, identity, cancellationToken);
+            var now = DateTimeOffset.UtcNow;
+            var reviewStatus = item.Confidence >= AutoPromoteThreshold ? "auto_promoted" : "pending_review";
+            await _knowledgeStore.UpsertCandidateAsync(new KnowledgeCandidateEntry
+            {
+                ProjectId = projectId,
+                Category = category,
+                Key = item.Key,
+                Value = item.Value,
+                LogicalKey = logicalKey,
+                PromotionIdentity = identity,
+                SourceType = string.IsNullOrWhiteSpace(item.SourceType) ? "candidate_extract" : item.SourceType,
+                SourceScope = string.IsNullOrWhiteSpace(item.SourceScope) ? projectId : item.SourceScope,
+                Confidence = Math.Clamp(item.Confidence, 0f, 1f),
+                Evidence = item.Evidence ?? string.Empty,
+                ReviewStatus = reviewStatus,
+                CreatedAt = existing?.CreatedAt ?? now,
+                UpdatedAt = now,
+                ReviewedAt = reviewStatus == "auto_promoted" ? now : existing?.ReviewedAt,
+                PromotedKnowledgeKey = reviewStatus == "auto_promoted" ? item.Key : existing?.PromotedKnowledgeKey ?? string.Empty,
+            }, cancellationToken);
+
+            if (reviewStatus == "auto_promoted")
+            {
+                await RememberAsync(projectId, category, item.Key, item.Value, item.Confidence, item.SourceType, item.SourceScope, identity, cancellationToken);
+                autoPromoted++;
+            }
+            else
+            {
+                queued++;
+            }
+        }
+
+        return new Dictionary<string, object?>
+        {
+            ["project_id"] = projectId,
+            ["queued"] = queued,
+            ["auto_promoted"] = autoPromoted,
+            ["skipped"] = skipped,
+        };
+    }
+
+    /// <summary>
+    /// Lists persisted durable memory candidates for a project.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="limit">Maximum candidates to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<Dictionary<string, object?>> ListCandidatesAsync(string projectId, int limit = 25, CancellationToken cancellationToken = default)
+    {
+        var entries = await _knowledgeStore.ListCandidatesAsync(projectId, limit, cancellationToken);
+        return new Dictionary<string, object?>
+        {
+            ["project_id"] = projectId,
+            ["count"] = entries.Count,
+            ["entries"] = entries.Select(entry => new
+            {
+                category = entry.Category,
+                key = entry.Key,
+                value = entry.Value,
+                confidence = entry.Confidence,
+                review_status = entry.ReviewStatus,
+                evidence = entry.Evidence,
+                promotion_identity = entry.PromotionIdentity,
+                logical_key = entry.LogicalKey,
+                source_type = entry.SourceType,
+                source_scope = entry.SourceScope,
+                created_at = entry.CreatedAt,
+                updated_at = entry.UpdatedAt,
+                reviewed_at = entry.ReviewedAt,
+                promoted_knowledge_key = entry.PromotedKnowledgeKey,
+            }).ToArray(),
+        };
+    }
+
+    /// <summary>
+    /// Applies a review decision to a persisted durable memory candidate.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="promotionIdentity">Candidate identity.</param>
+    /// <param name="decision">Review decision such as accept or reject.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<Dictionary<string, object?>> ReviewCandidateAsync(string projectId, string promotionIdentity, string decision, CancellationToken cancellationToken = default)
+    {
+        var existing = await _knowledgeStore.GetCandidateAsync(projectId, promotionIdentity, cancellationToken)
+            ?? throw new ArgumentException($"Unknown candidate identity: '{promotionIdentity}'.", nameof(promotionIdentity));
+
+        var normalizedDecision = NormalizeToken(decision);
+        var now = DateTimeOffset.UtcNow;
+        if (normalizedDecision is "accept" or "accepted")
+        {
+            await RememberAsync(projectId, existing.Category, existing.Key, existing.Value, existing.Confidence, existing.SourceType, existing.SourceScope, existing.PromotionIdentity, cancellationToken);
+            existing.ReviewStatus = "accepted";
+            existing.PromotedKnowledgeKey = existing.Key;
+        }
+        else if (normalizedDecision is "reject" or "rejected")
+        {
+            existing.ReviewStatus = "rejected";
+        }
+        else
+        {
+            throw new ArgumentException($"Unknown review decision: '{decision}'. Use accept or reject.", nameof(decision));
+        }
+
+        existing.ReviewedAt = now;
+        existing.UpdatedAt = now;
+        await _knowledgeStore.UpsertCandidateAsync(existing, cancellationToken);
+
+        return new Dictionary<string, object?>
+        {
+            ["project_id"] = projectId,
+            ["promotion_identity"] = existing.PromotionIdentity,
+            ["review_status"] = existing.ReviewStatus,
+            ["promoted_knowledge_key"] = existing.PromotedKnowledgeKey,
+        };
+    }
+
+    /// <summary>
     /// Promotes explicit memory candidates into canonical project knowledge.
     /// </summary>
     /// <param name="projectId">Project identifier.</param>
@@ -293,17 +447,20 @@ public sealed class KnowledgeService
                 continue;
             }
 
-            await RememberAsync(
-                projectId,
-                item.Category,
-                item.Key,
-                item.Value,
-                item.Confidence,
-                item.SourceType,
-                item.SourceScope,
-                item.PromotionIdentity,
-                cancellationToken);
-            promoted++;
+            if (item.Confidence >= AutoPromoteThreshold)
+            {
+                await IngestCandidatesAsync(projectId, [item], cancellationToken);
+                promoted++;
+                continue;
+            }
+
+            if (item.Confidence >= ReviewQueueThreshold)
+            {
+                await IngestCandidatesAsync(projectId, [item], cancellationToken);
+                continue;
+            }
+
+            skipped++;
         }
 
         _logger.LogInformation("Promoted {Promoted} knowledge item(s) for project {ProjectId}", promoted, projectId);
@@ -352,6 +509,7 @@ public sealed class KnowledgeService
     public async Task<Dictionary<string, object?>> UpkeepAsync(string projectId, CancellationToken cancellationToken = default)
     {
         var facts = await _knowledgeStore.ListAllForProjectAsync(projectId, 1000, cancellationToken);
+        var candidateCount = await _knowledgeStore.GetCandidateCountAsync(projectId, cancellationToken);
         if (facts.Count == 0)
         {
             return new Dictionary<string, object?>
@@ -359,6 +517,7 @@ public sealed class KnowledgeService
                 ["project_id"] = projectId,
                 ["rescored"] = 0,
                 ["stale_marked"] = 0,
+                ["candidate_count"] = candidateCount,
                 ["top_wakeup"] = Array.Empty<object>(),
             };
         }
@@ -386,7 +545,7 @@ public sealed class KnowledgeService
             }
 
             fact.LifecycleStatus = status;
-            fact.LifecycleScore = ComputeLifecycleScore(fact.Confidence, fact.ConfirmationCount, now, fact.LastRetrievedAt, fact.RetrievalCount);
+            fact.LifecycleScore = ComputeLifecycleScore(fact.Confidence, fact.ConfirmationCount, now, fact.LastRetrievedAt, fact.RetrievalCount) + WakeupCategoryBoost(fact.Category);
             fact.UpdatedAt = now;
             await _knowledgeStore.UpsertFactAsync(fact, cancellationToken);
             rescored++;
@@ -412,6 +571,7 @@ public sealed class KnowledgeService
             ["project_id"] = projectId,
             ["rescored"] = rescored,
             ["stale_marked"] = staleMarked,
+            ["candidate_count"] = candidateCount,
             ["top_wakeup"] = wakeup,
         };
     }
@@ -706,6 +866,8 @@ public sealed class KnowledgeService
                 SourceType = GetJsonStringOrDefault(element, "source_type", "promote"),
                 SourceScope = GetJsonString(element, "source_scope"),
                 PromotionIdentity = GetJsonString(element, "promotion_identity"),
+                LogicalKey = GetJsonString(element, "logical_key"),
+                Evidence = GetJsonString(element, "evidence"),
             };
         }
 
@@ -722,6 +884,8 @@ public sealed class KnowledgeService
                 SourceType = itemDict.TryGetValue("source_type", out var sourceType) ? sourceType?.ToString() ?? "promote" : "promote",
                 SourceScope = itemDict.TryGetValue("source_scope", out var sourceScope) ? sourceScope?.ToString() ?? string.Empty : string.Empty,
                 PromotionIdentity = itemDict.TryGetValue("promotion_identity", out var promotionIdentity) ? promotionIdentity?.ToString() ?? string.Empty : string.Empty,
+                LogicalKey = itemDict.TryGetValue("logical_key", out var logicalKey) ? logicalKey?.ToString() ?? string.Empty : string.Empty,
+                Evidence = itemDict.TryGetValue("evidence", out var evidence) ? evidence?.ToString() ?? string.Empty : string.Empty,
             };
         }
 
@@ -865,6 +1029,7 @@ public sealed class KnowledgeService
             + (partialHits / (float)tokenCount) * 0.2f
             + phraseHit * 0.2f;
         score *= 0.6f + Math.Clamp(entry.Confidence, 0f, 1f) * 0.4f;
+        score += CategoryBoost(entry.Category, profile.Terms);
         if (profile.RecentIntent)
         {
             var ageDays = Math.Max(0d, (DateTimeOffset.UtcNow - (entry.LastRetrievedAt ?? entry.LastConfirmedAt ?? entry.UpdatedAt)).TotalDays);
@@ -878,6 +1043,83 @@ public sealed class KnowledgeService
         }
 
         return score;
+    }
+
+    private static float CategoryBoost(string category, IReadOnlyList<string> terms)
+    {
+        var normalized = NormalizeToken(category);
+        var hasDebugSignal = terms.Any(term => normalized.Contains(term, StringComparison.Ordinal));
+        return normalized switch
+        {
+            "root-cause" or "root_cause" => hasDebugSignal ? 0.35f : 0.24f,
+            "runtime-caveat" or "runtime_caveat" => hasDebugSignal ? 0.26f : 0.18f,
+            "verified-behavior" or "verified_behavior" => hasDebugSignal ? 0.22f : 0.15f,
+            "contract-decision" or "contract_decision" => hasDebugSignal ? 0.18f : 0.12f,
+            "live-verification" or "live_verification" => hasDebugSignal ? 0.2f : 0.14f,
+            _ => 0f,
+        };
+    }
+
+    private static float WakeupCategoryBoost(string category)
+    {
+        var normalized = NormalizeToken(category);
+        return normalized switch
+        {
+            "root-cause" or "root_cause" => 0.25f,
+            "runtime-caveat" or "runtime_caveat" => 0.18f,
+            "verified-behavior" or "verified_behavior" => 0.15f,
+            "contract-decision" or "contract_decision" => 0.12f,
+            "live-verification" or "live_verification" => 0.14f,
+            _ => 0f,
+        };
+    }
+
+    private static string NormalizeCandidateCategory(string category, string value, string? evidence)
+    {
+        var normalized = NormalizeToken(category);
+        if (normalized is not ("general" or "finding" or "decision" or "fact" or "memory" or "unknown"))
+        {
+            return category;
+        }
+
+        var combined = $"{value} {evidence}".ToLowerInvariant();
+        if (combined.Contains("root cause", StringComparison.Ordinal)
+            || combined.Contains("caused by", StringComparison.Ordinal)
+            || combined.Contains("not bad", StringComparison.Ordinal)
+            || combined.Contains("because", StringComparison.Ordinal))
+        {
+            return "root_cause";
+        }
+
+        if (combined.Contains("persisted config overrides", StringComparison.Ordinal)
+            || combined.Contains("runtime behaves differently", StringComparison.Ordinal)
+            || combined.Contains("override manifest defaults", StringComparison.Ordinal)
+            || combined.Contains("caveat", StringComparison.Ordinal))
+        {
+            return "runtime_caveat";
+        }
+
+        if (combined.Contains("verified", StringComparison.Ordinal)
+            || combined.Contains("confirmed", StringComparison.Ordinal)
+            || combined.Contains("known-good", StringComparison.Ordinal))
+        {
+            return "verified_behavior";
+        }
+
+        if (combined.Contains("live verified", StringComparison.Ordinal)
+            || combined.Contains("live behavior", StringComparison.Ordinal))
+        {
+            return "live_verification";
+        }
+
+        if (combined.Contains("contract", StringComparison.Ordinal)
+            || combined.Contains("external behavior", StringComparison.Ordinal)
+            || combined.Contains("decision", StringComparison.Ordinal))
+        {
+            return "contract_decision";
+        }
+
+        return category;
     }
 
     /// <summary>
@@ -1062,4 +1304,10 @@ public sealed class KnowledgePromotionItem
 
     /// <summary>Optional precomputed deterministic promotion identity supplied by the caller.</summary>
     public string PromotionIdentity { get; set; } = string.Empty;
+
+    /// <summary>Optional logical key supplied by the caller.</summary>
+    public string LogicalKey { get; set; } = string.Empty;
+
+    /// <summary>Optional evidence payload supporting the candidate.</summary>
+    public string Evidence { get; set; } = string.Empty;
 }

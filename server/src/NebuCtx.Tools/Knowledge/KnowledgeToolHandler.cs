@@ -6,7 +6,7 @@ using System.Text.Json;
 
 /// <summary>
 /// Tool handler for ctx_knowledge — project-scoped categorized knowledge store.
-/// Actions: remember, recall, search, status, remove, categories, timeline, consolidate, promote, upkeep, wakeup, triage.
+/// Actions: remember, recall, search, status, remove, categories, timeline, consolidate, promote, candidates, review_candidate, upkeep, wakeup, triage.
 /// </summary>
 public sealed class KnowledgeToolHandler : IToolHandler
 {
@@ -25,7 +25,7 @@ public sealed class KnowledgeToolHandler : IToolHandler
     public string Name => "ctx_knowledge";
 
     /// <inheritdoc />
-    public string Description => "Project-scoped categorized knowledge store. Actions: remember, recall, search, status, remove, categories, timeline, consolidate, promote, upkeep, wakeup, triage.";
+    public string Description => "Project-scoped categorized knowledge store. Actions: remember, recall, search, status, remove, categories, timeline, consolidate, promote, candidates, review_candidate, upkeep, wakeup, triage.";
 
     /// <inheritdoc />
     public Dictionary<string, object?> InputSchema => new()
@@ -36,8 +36,8 @@ public sealed class KnowledgeToolHandler : IToolHandler
             ["action"] = new Dictionary<string, object?>
             {
                 ["type"] = "string",
-                ["description"] = "Action: remember, recall, search, status, remove, categories, timeline, consolidate, promote, upkeep, wakeup, triage",
-                ["enum"] = new[] { "remember", "recall", "search", "status", "remove", "categories", "timeline", "consolidate", "promote", "upkeep", "wakeup", "triage" },
+                ["description"] = "Action: remember, recall, search, status, remove, categories, timeline, consolidate, promote, candidates, review_candidate, upkeep, wakeup, triage",
+                ["enum"] = new[] { "remember", "recall", "search", "status", "remove", "categories", "timeline", "consolidate", "promote", "candidates", "review_candidate", "upkeep", "wakeup", "triage" },
             },
             ["mode"] = new Dictionary<string, object?>
             {
@@ -92,6 +92,16 @@ public sealed class KnowledgeToolHandler : IToolHandler
                     },
                 },
             },
+            ["promotion_identity"] = new Dictionary<string, object?>
+            {
+                ["type"] = "string",
+                ["description"] = "Stable candidate identity for review actions.",
+            },
+            ["decision"] = new Dictionary<string, object?>
+            {
+                ["type"] = "string",
+                ["description"] = "Review decision for review_candidate: accept or reject.",
+            },
         },
         ["required"] = new[] { "action" },
     };
@@ -112,10 +122,12 @@ public sealed class KnowledgeToolHandler : IToolHandler
             "remove"     => await ExecuteRemoveAsync(arguments, context, cancellationToken),
             "consolidate" => await _knowledgeService.ConsolidateAsync(context.ProjectId, cancellationToken),
             "promote"     => await ExecutePromoteAsync(arguments, context, cancellationToken),
+            "candidates"  => await ExecuteCandidatesAsync(arguments, context, cancellationToken),
+            "review_candidate" => await ExecuteReviewCandidateAsync(arguments, context, cancellationToken),
             "upkeep"      => await _knowledgeService.UpkeepAsync(context.ProjectId, cancellationToken),
             "wakeup"      => await _knowledgeService.BuildWakeupAsync(context.ProjectId, cancellationToken),
             "triage"      => await ExecuteTriageAsync(arguments, context, cancellationToken),
-            _             => throw new ArgumentException($"Unknown knowledge action: '{action}'. Use: remember, recall, search, status, remove, categories, timeline, consolidate, promote, upkeep, wakeup, triage"),
+            _             => throw new ArgumentException($"Unknown knowledge action: '{action}'. Use: remember, recall, search, status, remove, categories, timeline, consolidate, promote, candidates, review_candidate, upkeep, wakeup, triage"),
         };
     }
 
@@ -223,6 +235,25 @@ public sealed class KnowledgeToolHandler : IToolHandler
         arguments.TryGetValue("items", out var rawItems);
         var items = KnowledgeService.ParsePromotionItems(rawItems);
         return await _knowledgeService.PromoteAsync(context.ProjectId, items, cancellationToken);
+    }
+
+    /// <summary>
+    /// Lists persisted durable memory candidates for the current project.
+    /// </summary>
+    private async Task<object> ExecuteCandidatesAsync(Dictionary<string, object?> arguments, ToolExecutionContext context, CancellationToken cancellationToken)
+    {
+        var limit = GetIntArg(arguments, "limit") ?? 25;
+        return await _knowledgeService.ListCandidatesAsync(context.ProjectId, limit, cancellationToken);
+    }
+
+    /// <summary>
+    /// Applies a review decision to a queued durable memory candidate.
+    /// </summary>
+    private async Task<object> ExecuteReviewCandidateAsync(Dictionary<string, object?> arguments, ToolExecutionContext context, CancellationToken cancellationToken)
+    {
+        var promotionIdentity = GetStringArg(arguments, "promotion_identity") ?? throw new ArgumentException("'promotion_identity' is required for review_candidate.");
+        var decision = GetStringArg(arguments, "decision") ?? throw new ArgumentException("'decision' is required for review_candidate.");
+        return await _knowledgeService.ReviewCandidateAsync(context.ProjectId, promotionIdentity, decision, cancellationToken);
     }
 
     /// <summary>

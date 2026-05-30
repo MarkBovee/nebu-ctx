@@ -23,9 +23,44 @@ public static class PostgresSchemaInitializer
 
         await EnsureProjectMetadataColumnAsync(conn, cancellationToken);
         await EnsureKnowledgeLifecycleColumnsAsync(conn, cancellationToken);
+        await EnsureKnowledgeCandidateColumnsAsync(conn, cancellationToken);
         await EnsureBrainFactColumnsAsync(conn, cancellationToken);
         await EnsureTelemetryCommandPreviewColumnAsync(conn, cancellationToken);
         await MigrateWorkspaceBindingsTableAsync(conn, cancellationToken);
+    }
+
+    /// <summary>
+    /// Adds durable memory candidate table and additive columns when upgrading existing databases.
+    /// </summary>
+    /// <param name="conn">Open Postgres connection.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private static async Task EnsureKnowledgeCandidateColumnsAsync(NpgsqlConnection conn, CancellationToken cancellationToken)
+    {
+        await using var cmd = new NpgsqlCommand(
+            """
+            CREATE TABLE IF NOT EXISTS knowledge_candidates (
+                project_id TEXT NOT NULL,
+                promotion_identity TEXT NOT NULL,
+                category TEXT NOT NULL,
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                logical_key TEXT NOT NULL DEFAULT '',
+                source_type TEXT NOT NULL DEFAULT 'candidate_extract',
+                source_scope TEXT NOT NULL DEFAULT '',
+                confidence REAL NOT NULL DEFAULT 1.0,
+                evidence TEXT NOT NULL DEFAULT '',
+                review_status TEXT NOT NULL DEFAULT 'pending_review',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                reviewed_at TIMESTAMPTZ,
+                promoted_knowledge_key TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY (project_id, promotion_identity)
+            );
+            CREATE INDEX IF NOT EXISTS idx_knowledge_candidates_project_status ON knowledge_candidates (project_id, review_status, updated_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_knowledge_candidates_project_category ON knowledge_candidates (project_id, category, updated_at DESC);
+            """,
+            conn);
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
     /// <summary>
@@ -222,6 +257,25 @@ public static class PostgresSchemaInitializer
             last_retrieved_at TIMESTAMPTZ,
             history_json JSONB NOT NULL DEFAULT '[]'::jsonb,
             PRIMARY KEY (project_id, category, key)
+        );
+
+        CREATE TABLE IF NOT EXISTS knowledge_candidates (
+            project_id TEXT NOT NULL,
+            promotion_identity TEXT NOT NULL,
+            category TEXT NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            logical_key TEXT NOT NULL DEFAULT '',
+            source_type TEXT NOT NULL DEFAULT 'candidate_extract',
+            source_scope TEXT NOT NULL DEFAULT '',
+            confidence REAL NOT NULL DEFAULT 1.0,
+            evidence TEXT NOT NULL DEFAULT '',
+            review_status TEXT NOT NULL DEFAULT 'pending_review',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            reviewed_at TIMESTAMPTZ,
+            promoted_knowledge_key TEXT NOT NULL DEFAULT '',
+            PRIMARY KEY (project_id, promotion_identity)
         );
 
         CREATE INDEX IF NOT EXISTS idx_knowledge_entries_project

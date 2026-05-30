@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.29
+
+- Bundle the client/server release that adds hosted durable memory lifecycle upkeep, bounded wake-up selection, replay-safe promoted-memory sync, and dashboard review flows for durable memory candidates.
+
 ## 0.8.28
 
 - Bundle the client/server fix that canonicalizes `ctx_shell` overrides as `shell_path` and makes hosted MCP responses clearer when public metadata-only tools are called through `/v1/tools/call`.

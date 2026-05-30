@@ -1266,6 +1266,124 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     }
 
     /// <summary>
+    /// Hosted promote auto-promotes high-confidence candidates and queues medium-confidence candidates for review.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_KnowledgePromote_SplitsAutoPromoteAndCandidateQueue()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "knowledge-candidate-queue",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/example/knowledge-candidate-queue.git",
+                Host = "github.com",
+                Owner = "example",
+                RepoName = "knowledge-candidate-queue",
+                DefaultBranch = "main",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, resolveResponse.StatusCode);
+
+        var resolved = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolved?.Project?.ProjectId);
+        var projectId = resolved!.Project!.ProjectId;
+
+        var promoteResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            ProjectId = projectId,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "promote",
+                ["items"] = new object?[]
+                {
+                    new Dictionary<string, object?>
+                    {
+                        ["category"] = "root_cause",
+                        ["key"] = "schema-root-cause",
+                        ["value"] = "Root cause: HA add-on visibility was caused by invalid schema entry modbus_entities: dict?",
+                        ["confidence"] = 0.95,
+                        ["evidence"] = "confirmed during debugging",
+                    },
+                    new Dictionary<string, object?>
+                    {
+                        ["category"] = "runtime_caveat",
+                        ["key"] = "persisted-config-override",
+                        ["value"] = "Persisted config overrides manifest defaults.",
+                        ["confidence"] = 0.86,
+                        ["evidence"] = "live verified",
+                    },
+                },
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, promoteResponse.StatusCode);
+
+        var payload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
+        Assert.NotNull(payload);
+        Assert.Contains(payload!.Knowledge, item => item.Key == "schema-root-cause");
+        Assert.Contains(payload.Candidates, item => item.Key == "persisted-config-override" && item.ReviewStatus == "pending_review");
+        Assert.True(payload.CandidateSummary!.AutoPromoted >= 1);
+        Assert.True(payload.CandidateSummary.PendingReview >= 1);
+    }
+
+    /// <summary>
+    /// Dashboard candidate review decision promotes accepted candidates into canonical knowledge.
+    /// </summary>
+    [Fact]
+    public async Task DashboardProjectMemoryCandidateReview_Accept_PromotesCandidate()
+    {
+        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        {
+            SuggestedSlug = "dashboard-candidate-review",
+            Fingerprint = new RepositoryFingerprint
+            {
+                RemoteUrl = "https://github.com/example/dashboard-candidate-review.git",
+                Host = "github.com",
+                Owner = "example",
+                RepoName = "dashboard-candidate-review",
+                DefaultBranch = "main",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, resolveResponse.StatusCode);
+
+        var resolved = await resolveResponse.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
+        Assert.NotNull(resolved?.Project?.ProjectId);
+        var projectId = resolved!.Project!.ProjectId;
+
+        var promoteResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            ProjectId = projectId,
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "promote",
+                ["items"] = new object?[]
+                {
+                    new Dictionary<string, object?>
+                    {
+                        ["category"] = "verified_behavior",
+                        ["key"] = "input-verification-speed",
+                        ["value"] = "Input entity verification is faster than read-mirror sensor verification.",
+                        ["confidence"] = 0.85,
+                        ["promotion_identity"] = "candidate:session-1:verified_behavior:input-verification-speed",
+                        ["evidence"] = "live verified",
+                    },
+                },
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, promoteResponse.StatusCode);
+
+        var reviewResponse = await _client.PostAsync($"/api/dashboard/projects/{projectId}/memory/candidates/candidate:session-1:verified_behavior:input-verification-speed/review?decision=accept", null);
+        Assert.Equal(HttpStatusCode.OK, reviewResponse.StatusCode);
+
+        var payload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
+        Assert.NotNull(payload);
+        Assert.Contains(payload!.Knowledge, item => item.Key == "input-verification-speed");
+        Assert.Contains(payload.Candidates, item => item.PromotionIdentity == "candidate:session-1:verified_behavior:input-verification-speed" && item.ReviewStatus == "accepted");
+    }
+
+    /// <summary>
     /// Hosted triage previews duplicate and junk-like candidates without mutating canonical memory by default.
     /// </summary>
     [Fact]
