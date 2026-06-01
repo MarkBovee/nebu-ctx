@@ -1,6 +1,6 @@
 //! Environment diagnostics for nebu-ctx installation and integration.
 
-use std::net::TcpListener;
+
 use std::path::PathBuf;
 
 use chrono::Utc;
@@ -503,19 +503,6 @@ fn has_nebu_ctx_mcp_entry(content: &str) -> bool {
         || content.contains(crate::core::editor_registry::COPILOT_MCP_SERVER_KEY)
 }
 
-fn port_3333_outcome() -> Outcome {
-    match TcpListener::bind("127.0.0.1:3333") {
-        Ok(_listener) => Outcome {
-            ok: true,
-            line: format!("{BOLD}Dashboard port 3333{RST}  {GREEN}available on 127.0.0.1{RST}  {DIM}(dashboard not running locally){RST}"),
-        },
-        Err(e) => Outcome {
-            ok: true,
-            line: format!("{BOLD}Dashboard port 3333{RST}  {GREEN}in use{RST}  {DIM}(dashboard may be running: {e}){RST}"),
-        },
-    }
-}
-
 fn dashboard_health_outcome() -> Option<Outcome> {
     let connection = match crate::config::load_connection() {
         Ok(Some(connection)) => connection,
@@ -730,7 +717,7 @@ fn docker_env_outcomes() -> Vec<Outcome> {
 /// Run diagnostic checks and print colored results to stdout.
 pub fn run() {
     let mut passed = 0u32;
-    let total = 8u32;
+    let total = 6u32;
 
     println!("{BOLD}{WHITE}nebu-ctx doctor{RST}  {DIM}diagnostics{RST}\n");
 
@@ -803,65 +790,19 @@ pub fn run() {
     }
     print_check(&outbox);
 
-    // 5) config.toml (missing is OK)
-    let config_path = lean_dir.as_ref().map(|d| d.join("config.toml"));
-    let config_outcome = match &config_path {
-        Some(p) => match std::fs::metadata(p) {
-            Ok(m) if m.is_file() => {
-                passed += 1;
-                Outcome {
-                    ok: true,
-                    line: format!(
-                        "{BOLD}config.toml{RST}  {GREEN}exists{RST}  {DIM}{}{RST}",
-                        p.display()
-                    ),
-                }
-            }
-            Ok(_) => Outcome {
-                ok: false,
-                line: format!(
-                    "{BOLD}config.toml{RST}  {RED}exists but is not a regular file{RST}  {DIM}{}{RST}",
-                    p.display()
-                ),
-            },
-            Err(_) => {
-                passed += 1;
-                Outcome {
-                    ok: true,
-                    line: format!(
-                        "{BOLD}config.toml{RST}  {YELLOW}not found, using defaults{RST}  {DIM}(expected at {}){RST}",
-                        p.display()
-                    ),
-                }
-            }
-        },
-        None => Outcome {
-            ok: false,
-            line: format!("{BOLD}config.toml{RST}  {RED}could not resolve path{RST}"),
-        },
-    };
-    print_check(&config_outcome);
-
-    // 6) Shell aliases
+    // 5) Shell aliases
     let aliases = shell_aliases_outcome();
     if aliases.ok {
         passed += 1;
     }
     print_check(&aliases);
 
-    // 7) MCP
+    // 6) MCP
     let mcp = mcp_config_outcome();
     if mcp.ok {
         passed += 1;
     }
     print_check(&mcp);
-
-    // 9) Port
-    let port = port_3333_outcome();
-    if port.ok {
-        passed += 1;
-    }
-    print_check(&port);
 
     let dashboard_health = dashboard_health_outcome();
     if let Some(ref health) = dashboard_health {
@@ -871,14 +812,14 @@ pub fn run() {
         print_check(health);
     }
 
-    // 9) Session state (project_root + shell_cwd)
+    // 7) Session state (project_root + shell_cwd)
     let session_outcome = session_state_outcome();
     if session_outcome.ok {
         passed += 1;
     }
     print_check(&session_outcome);
 
-    // 10) Docker env vars (optional, only in containers)
+    // 8) Docker env vars (optional, only in containers)
     let docker_outcomes = docker_env_outcomes();
     for docker_check in &docker_outcomes {
         if docker_check.ok {
@@ -887,7 +828,7 @@ pub fn run() {
         print_check(docker_check);
     }
 
-    // 11) Pi Coding Agent (optional)
+    // 9) Pi Coding Agent (optional)
     let pi = pi_outcome();
     if let Some(ref pi_check) = pi {
         if pi_check.ok {
@@ -896,7 +837,7 @@ pub fn run() {
         print_check(pi_check);
     }
 
-    // 13) Claude Code instruction truncation guard
+    // 10) Claude Code instruction truncation guard
     let claude_instructions = claude_truncation_outcome();
     if let Some(ref ct) = claude_instructions {
         if ct.ok {
@@ -905,6 +846,7 @@ pub fn run() {
         print_check(ct);
     }
 
+    // 11) OpenCode instructions (optional)
     let opencode_instructions = opencode_instructions_outcome();
     if let Some(ref oc) = opencode_instructions {
         if oc.ok {

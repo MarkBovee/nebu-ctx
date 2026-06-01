@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.30
+
+- Strip noisy `config.toml` and dead `Dashboard port 3333` checks from `nebu-ctx doctor`, and remove unused `TcpListener` import with stale comment numbering.
+
 ## 0.8.29
 
 - Add hosted durable memory lifecycle management with bounded wake-up selection, canonical promotion and consolidation routes, lifecycle upkeep metadata, and replay-safe promoted-memory batches.

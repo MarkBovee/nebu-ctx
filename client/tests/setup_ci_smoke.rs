@@ -465,10 +465,6 @@ fn claude_config_dir_fallback_writes_dot_claude_json() {
         "doctor should report current sync outbox status; got:\n{stdout}"
     );
     assert!(
-        stdout.contains("Dashboard port 3333"),
-        "doctor should report dashboard port status; got:\n{stdout}"
-    );
-    assert!(
         !stdout.contains("stats.json"),
         "doctor should not report stale stats.json status; got:\n{stdout}"
     );

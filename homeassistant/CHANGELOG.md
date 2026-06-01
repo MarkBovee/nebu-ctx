@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.30
+
+- Bundle the client release that cleans up `nebu-ctx doctor` by removing the noisy `config.toml` and dead `Dashboard port 3333` checks.
+
 ## 0.8.29
 
 - Bundle the client/server release that adds hosted durable memory lifecycle upkeep, bounded wake-up selection, replay-safe promoted-memory sync, and dashboard review flows for durable memory candidates.
