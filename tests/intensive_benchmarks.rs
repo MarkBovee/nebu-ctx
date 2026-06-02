@@ -869,9 +869,7 @@ fn guard_essential_instructions_present() {
         "CEP v1",
         "ACT FIRST",
         "DELTA ONLY",
-        "ctx_overview",
-        "ctx_compress",
-        "ctx_session",
+        "ctx(domain=",
     ];
 
     for keyword in &required {
