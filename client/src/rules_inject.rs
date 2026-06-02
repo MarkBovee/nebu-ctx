@@ -300,7 +300,6 @@ fn detect_vscode_installed(_home: &std::path::Path) -> bool {
     false
 }
 
-
 // ---------------------------------------------------------------------------
 // Target definitions
 // ---------------------------------------------------------------------------
@@ -504,7 +503,8 @@ mod tests {
             std::fs::remove_file(&path).ok();
         }
 
-        let result = write_dedicated(&path, &crate::public_guidance::rules_dedicated_markdown()).unwrap();
+        let result =
+            write_dedicated(&path, &crate::public_guidance::rules_dedicated_markdown()).unwrap();
         assert!(matches!(result, RulesResult::Injected));
 
         let content = std::fs::read_to_string(&path).unwrap();
@@ -521,7 +521,8 @@ mod tests {
         let path = std::env::temp_dir().join("test_write_dedicated_update.md");
         std::fs::write(&path, "# lean-ctx — Context Engineering Layer\nold version").unwrap();
 
-        let result = write_dedicated(&path, &crate::public_guidance::rules_dedicated_markdown()).unwrap();
+        let result =
+            write_dedicated(&path, &crate::public_guidance::rules_dedicated_markdown()).unwrap();
         assert!(matches!(result, RulesResult::Updated));
 
         std::fs::remove_file(&path).ok();

@@ -3,7 +3,9 @@ use std::path::PathBuf;
 pub mod agents;
 mod support;
 use agents::*;
-use support::{ensure_codex_hooks_enabled, install_codex_instruction_docs, upsert_lean_ctx_codex_hook_entries};
+use support::{
+    ensure_codex_hooks_enabled, install_codex_instruction_docs, upsert_lean_ctx_codex_hook_entries,
+};
 
 pub(crate) fn mcp_server_quiet_mode() -> bool {
     std::env::var_os("NEBU_CTX_MCP_SERVER").is_some()
@@ -234,7 +236,6 @@ pub fn install_project_rules() {
     }
 
     install_claude_project_hooks(&cwd);
-
 }
 
 const PROJECT_NEBU_CTX_MD_MARKER: &str = "<!-- nebu-ctx-owned: PROJECT-NEBU-CTX.md v1 -->";
@@ -567,5 +568,4 @@ mod tests {
             );
         }
     }
-
 }

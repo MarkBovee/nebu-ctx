@@ -1,4 +1,6 @@
-use crate::{core, doctor, hook_handlers, mcp_stdio, setup, shell, status, sync_cli, tools, uninstall};
+use crate::{
+    core, doctor, hook_handlers, mcp_stdio, setup, shell, status, sync_cli, tools, uninstall,
+};
 use anyhow::Result;
 
 fn fire_shell_telemetry(tool_name: String, command_preview: Option<String>) {
@@ -183,7 +185,9 @@ pub fn run() {
             "bootstrap" => {
                 exit_unsupported("bootstrap", "nebu-ctx setup --non-interactive --fix --yes")
             }
-            "project-bootstrap" => exit_unsupported("project-bootstrap", "no thin-client replacement"),
+            "project-bootstrap" => {
+                exit_unsupported("project-bootstrap", "no thin-client replacement")
+            }
             "status" => {
                 let code = status::run_cli(&rest);
                 if code != 0 {
@@ -236,8 +240,8 @@ pub fn run() {
                 }
                 return;
             }
-            "session" | "wrapped" | "sessions" | "benchmark" | "cache" | "tee"
-            | "terse" | "slow-log" | "cheat" | "cheatsheet" | "cheat-sheet" => {
+            "session" | "wrapped" | "sessions" | "benchmark" | "cache" | "tee" | "terse"
+            | "slow-log" | "cheat" | "cheatsheet" | "cheat-sheet" => {
                 exit_unsupported(command, "no thin-client replacement")
             }
             "config" => exit_unsupported("config", "edit ~/.nebu-ctx/config.toml manually"),
@@ -317,9 +321,7 @@ pub fn run() {
                 }
                 return;
             }
-            "report-issue" | "report" => {
-                exit_unsupported("report-issue", "use gh issue create --repo MarkBovee/nebu-ctx")
-            }
+            "report-issue" | "report" => std::process::exit(crate::report_issue::run(&rest)),
             "uninstall" => {
                 uninstall::run();
                 return;
@@ -473,6 +475,7 @@ COMMANDS:
     status [--json]                   Show setup and host connection status
     sync [status|flush] [--json]      Inspect or replay queued server-bound sync items
     doctor [--fix] [--json]           Run diagnostics (and optionally repair)
+    report-issue [options]            Create/update bug issue with local draft fallback
     hook <...>                        Internal hook entrypoints
     on-brief                          Print shell startup brief
     uninstall                         Remove shell hook, MCP configs, and data directory
@@ -503,6 +506,7 @@ EXAMPLES:
     nebu-ctx sync status --json
     nebu-ctx sync flush
     nebu-ctx doctor --fix --json
+    nebu-ctx report-issue --submit --search-duplicates --title \"ctx_search invoke error\" --tool ctx_search --actual \"Cannot read properties of undefined (reading 'invoke')\"
 
 EVAL SETUP (starship/zoxide style — always in sync with binary version):
     # bash: add to ~/.bashrc

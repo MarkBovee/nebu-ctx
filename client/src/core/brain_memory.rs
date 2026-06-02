@@ -228,15 +228,14 @@ pub fn derive_durable_memory_candidates(
 
         for decision in session.decisions.iter().rev().take(8) {
             let combined = match &decision.rationale {
-                Some(rationale) if !rationale.trim().is_empty() => format!("{} because {}", decision.summary, rationale),
+                Some(rationale) if !rationale.trim().is_empty() => {
+                    format!("{} because {}", decision.summary, rationale)
+                }
                 _ => decision.summary.clone(),
             };
-            if let Some(candidate) = infer_durable_candidate(
-                source_type,
-                &session_scope,
-                &combined,
-                "session_decision",
-            ) {
+            if let Some(candidate) =
+                infer_durable_candidate(source_type, &session_scope, &combined, "session_decision")
+            {
                 push_memory_candidate(&mut candidates, &mut seen, candidate);
             }
         }
@@ -246,7 +245,12 @@ pub fn derive_durable_memory_candidates(
         if event.text.is_empty() {
             continue;
         }
-        if let Some(candidate) = infer_durable_candidate(source_type, &event.session_id, &event.text, event.source.as_str()) {
+        if let Some(candidate) = infer_durable_candidate(
+            source_type,
+            &event.session_id,
+            &event.text,
+            event.source.as_str(),
+        ) {
             push_memory_candidate(&mut candidates, &mut seen, candidate);
         }
     }
@@ -448,9 +452,7 @@ fn infer_durable_candidate(
         || lowered.contains("live behavior")
     {
         ("live_verification", 0.92f32)
-    } else if lowered.contains("confirmed")
-        || lowered.contains("verified")
-    {
+    } else if lowered.contains("confirmed") || lowered.contains("verified") {
         ("verified_behavior", 0.88f32)
     } else if lowered.contains("runtime behaves differently")
         || lowered.contains("persisted config overrides")
@@ -482,7 +484,12 @@ fn infer_durable_candidate(
         confidence,
         source_type: source_type.to_string(),
         source_scope: source_scope.to_string(),
-        promotion_identity: crate::server_client::deterministic_promotion_identity(source_type, source_scope, category, &logical_key),
+        promotion_identity: crate::server_client::deterministic_promotion_identity(
+            source_type,
+            source_scope,
+            category,
+            &logical_key,
+        ),
         logical_key,
         evidence: format!("derived_from={evidence_source}"),
     })
@@ -661,7 +668,11 @@ mod tests {
         ];
 
         let candidates = derive_durable_memory_candidates("/tmp/project", "idle_flush", &events);
-        assert!(candidates.iter().any(|candidate| candidate.category == "root_cause"));
-        assert!(candidates.iter().any(|candidate| candidate.category == "verified_behavior"));
+        assert!(candidates
+            .iter()
+            .any(|candidate| candidate.category == "root_cause"));
+        assert!(candidates
+            .iter()
+            .any(|candidate| candidate.category == "verified_behavior"));
     }
 }

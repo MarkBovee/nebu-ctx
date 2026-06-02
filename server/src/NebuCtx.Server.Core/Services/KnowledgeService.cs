@@ -447,6 +447,13 @@ public sealed class KnowledgeService
                 continue;
             }
 
+            if (!RequiresCandidateReview(item))
+            {
+                await RememberAsync(projectId, item.Category, item.Key, item.Value, item.Confidence, item.SourceType, item.SourceScope, item.PromotionIdentity, cancellationToken);
+                promoted++;
+                continue;
+            }
+
             if (item.Confidence >= AutoPromoteThreshold)
             {
                 await IngestCandidatesAsync(projectId, [item], cancellationToken);
@@ -1120,6 +1127,25 @@ public sealed class KnowledgeService
         }
 
         return category;
+    }
+
+    /// <summary>
+    /// Routes specialized durable-memory categories through candidate review instead of direct promotion.
+    /// </summary>
+    private static bool RequiresCandidateReview(KnowledgePromotionItem item)
+    {
+        var normalizedCategory = NormalizeToken(item.Category);
+        if (normalizedCategory is "root-cause" or "root_cause"
+            or "runtime-caveat" or "runtime_caveat"
+            or "verified-behavior" or "verified_behavior"
+            or "contract-decision" or "contract_decision"
+            or "live-verification" or "live_verification")
+        {
+            return true;
+        }
+
+        var inferredCategory = NormalizeToken(NormalizeCandidateCategory(item.Category, item.Value, item.Evidence));
+        return inferredCategory != normalizedCategory;
     }
 
     /// <summary>

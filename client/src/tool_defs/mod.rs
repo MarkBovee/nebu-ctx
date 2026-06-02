@@ -14,13 +14,7 @@ pub fn tool_def(name: &'static str, description: &'static str, schema_value: Val
     Tool::new(name, description, Arc::new(schema))
 }
 
-const CORE_TOOL_NAMES: &[&str] = &[
-    "ctx_read",
-    "ctx_shell",
-    "ctx_search",
-    "ctx_tree",
-    "ctx",
-];
+const CORE_TOOL_NAMES: &[&str] = &["ctx_read", "ctx_shell", "ctx_search", "ctx_tree", "ctx"];
 
 pub fn lazy_tool_defs() -> Vec<Tool> {
     unified_tool_defs()

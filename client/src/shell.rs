@@ -113,6 +113,26 @@ pub fn is_non_interactive() -> bool {
     !io::stdin().is_terminal()
 }
 
+fn should_bypass_compression_for_output_streams() -> bool {
+    !io::stdout().is_terminal() || !io::stderr().is_terminal()
+}
+
+fn command_contains_json_pipe_consumer(command: &str) -> bool {
+    let lowered = command.to_ascii_lowercase();
+    let consumers = [
+        "| jq",
+        "|python -m json.tool",
+        "| python -m json.tool",
+        "|python3 -m json.tool",
+        "| python3 -m json.tool",
+        "| gron",
+        "| fx",
+        "json.load(sys.stdin)",
+    ];
+
+    lowered.contains('|') && consumers.iter().any(|consumer| lowered.contains(consumer))
+}
+
 fn spawn_direct_inherit(args: &[String]) -> io::Result<ExitStatus> {
     Command::new(&args[0])
         .args(&args[1..])
@@ -211,7 +231,11 @@ pub fn exec_argv_compressed(args: &[String]) -> i32 {
     let force_compress = std::env::var("NEBU_CTX_COMPRESS").is_ok();
     let raw_mode = std::env::var("NEBU_CTX_RAW").is_ok();
 
-    if raw_mode || (!force_compress && is_excluded_command(&joined, &cfg.excluded_commands)) {
+    if raw_mode
+        || command_contains_json_pipe_consumer(&joined)
+        || should_bypass_compression_for_output_streams()
+        || (!force_compress && is_excluded_command(&joined, &cfg.excluded_commands))
+    {
         return exec_direct_with_fallback(args, &joined).code();
     }
 
@@ -250,7 +274,11 @@ pub fn exec(command: &str) -> i32 {
     let force_compress = std::env::var("NEBU_CTX_COMPRESS").is_ok();
     let raw_mode = std::env::var("NEBU_CTX_RAW").is_ok();
 
-    if raw_mode || (!force_compress && is_excluded_command(command, &cfg.excluded_commands)) {
+    if raw_mode
+        || command_contains_json_pipe_consumer(command)
+        || should_bypass_compression_for_output_streams()
+        || (!force_compress && is_excluded_command(command, &cfg.excluded_commands))
+    {
         return exec_inherit(command, &shell, &shell_flag);
     }
 
@@ -1091,7 +1119,12 @@ pub fn shell_and_flag_with_override(shell_override: Option<&str>) -> (String, St
         .and_then(|n| n.to_str())
         .unwrap_or("")
         .to_ascii_lowercase();
-    let flag = if cfg!(windows) || name.contains("powershell") || name.contains("pwsh") || name == "cmd" || name == "cmd.exe" {
+    let flag = if cfg!(windows)
+        || name.contains("powershell")
+        || name.contains("pwsh")
+        || name == "cmd"
+        || name == "cmd.exe"
+    {
         windows_shell_flag_for_exe_basename(&name).to_string()
     } else {
         "-c".to_string()
@@ -1210,7 +1243,7 @@ pub fn save_tee(command: &str, output: &str) -> Option<String> {
     Some(path.to_string_lossy().to_string())
 }
 
-fn mask_sensitive_data(input: &str) -> String {
+pub(crate) fn mask_sensitive_data(input: &str) -> String {
     use regex::Regex;
 
     let patterns: Vec<(&str, Regex)> = vec![
@@ -1481,8 +1514,8 @@ mod windows_shell_flag_tests {
 #[cfg(test)]
 mod passthrough_tests {
     use super::{
-        compress_and_measure, compress_if_beneficial, is_excluded_command,
-        normalize_captured_output, should_preserve_dotnet_test_output,
+        command_contains_json_pipe_consumer, compress_and_measure, compress_if_beneficial,
+        is_excluded_command, normalize_captured_output, should_preserve_dotnet_test_output,
     };
 
     #[test]
@@ -1618,6 +1651,19 @@ mod passthrough_tests {
         assert!(!is_excluded_command("aws s3 ls", &[]));
         assert!(!is_excluded_command("gcloud compute instances list", &[]));
         assert!(!is_excluded_command("az vm list", &[]));
+    }
+
+    #[test]
+    fn detects_json_pipe_consumers() {
+        assert!(command_contains_json_pipe_consumer(
+            "curl -s http://localhost/data | python3 -c \"import json,sys; json.load(sys.stdin)\""
+        ));
+        assert!(command_contains_json_pipe_consumer(
+            "cat data.json | jq '.foo'"
+        ));
+        assert!(!command_contains_json_pipe_consumer(
+            "cargo test --manifest-path client/Cargo.toml"
+        ));
     }
 
     #[test]

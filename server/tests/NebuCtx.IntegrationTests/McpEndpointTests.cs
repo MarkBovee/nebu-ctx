@@ -43,6 +43,47 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
         }
     }
 
+    private async Task<HttpResponseMessage> GetWithRateLimitRetryAsync(string path)
+    {
+        return await SendWithRateLimitRetryAsync(() => _client.GetAsync(path));
+    }
+
+    private async Task<HttpResponseMessage> PostAsJsonWithRateLimitRetryAsync<TValue>(string path, TValue value)
+    {
+        return await SendWithRateLimitRetryAsync(() => _client.PostAsJsonAsync(path, value));
+    }
+
+    private async Task<HttpResponseMessage> DeleteWithRateLimitRetryAsync(string path)
+    {
+        return await SendWithRateLimitRetryAsync(() => _client.DeleteAsync(path));
+    }
+
+    private async Task<T?> GetFromJsonWithRateLimitRetryAsync<T>(string path)
+    {
+        var response = await GetWithRateLimitRetryAsync(path);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<T>();
+    }
+
+    private static async Task<HttpResponseMessage> SendWithRateLimitRetryAsync(Func<Task<HttpResponseMessage>> sendAsync)
+    {
+        const int maxAttempts = 3;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            var response = await sendAsync();
+            if (response.StatusCode != HttpStatusCode.TooManyRequests || attempt == maxAttempts)
+            {
+                return response;
+            }
+
+            response.Dispose();
+            await Task.Delay(200 * attempt);
+        }
+
+        throw new InvalidOperationException("Unreachable rate-limit retry branch.");
+    }
+
     /// <summary>
     /// Health endpoint responds with 200 OK and status "ok".
     /// </summary>
@@ -59,11 +100,13 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     [Fact]
     public async Task Manifest_ReturnsToolList()
     {
-        var manifest = await _client.GetFromJsonAsync<ManifestResponse>("/v1/manifest");
+        var response = await GetWithRateLimitRetryAsync("/v1/manifest");
+        response.EnsureSuccessStatusCode();
+        var manifest = await response.Content.ReadFromJsonAsync<ManifestResponse>();
         Assert.NotNull(manifest);
         Assert.Equal("nebu-ctx", manifest.Name);
-        Assert.Equal(5, manifest.Tools.Count);
-        Assert.Equal(["ctx", "ctx_read", "ctx_search", "ctx_shell", "ctx_tree"], manifest.Tools.Select(tool => tool.Name).OrderBy(name => name, StringComparer.Ordinal).ToArray());
+        Assert.Single(manifest.Tools);
+        Assert.Equal(["ctx"], manifest.Tools.Select(tool => tool.Name).OrderBy(name => name, StringComparer.Ordinal).ToArray());
     }
 
     /// <summary>
@@ -72,11 +115,13 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     [Fact]
     public async Task Tools_ReturnsPaginatedList()
     {
-        var toolList = await _client.GetFromJsonAsync<ToolListResponse>("/v1/tools");
+        var response = await GetWithRateLimitRetryAsync("/v1/tools");
+        response.EnsureSuccessStatusCode();
+        var toolList = await response.Content.ReadFromJsonAsync<ToolListResponse>();
         Assert.NotNull(toolList);
-        Assert.Equal(5, toolList.Total);
-        Assert.Equal(5, toolList.Tools.Count);
-        Assert.Equal(["ctx", "ctx_read", "ctx_search", "ctx_shell", "ctx_tree"], toolList.Tools.Select(tool => tool.Name).OrderBy(name => name, StringComparer.Ordinal).ToArray());
+        Assert.Equal(1, toolList.Total);
+        Assert.Single(toolList.Tools);
+        Assert.Equal(["ctx"], toolList.Tools.Select(tool => tool.Name).OrderBy(name => name, StringComparer.Ordinal).ToArray());
     }
 
     /// <summary>
@@ -85,7 +130,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     [Fact]
     public async Task DashboardOverview_ReturnsAggregatedPayload()
     {
-        var payload = await _client.GetFromJsonAsync<DashboardOverviewResponse>("/api/dashboard/overview");
+        var payload = await GetFromJsonWithRateLimitRetryAsync<DashboardOverviewResponse>("/api/dashboard/overview");
         Assert.NotNull(payload);
         Assert.NotNull(payload!.Version);
         Assert.NotNull(payload.Stats);
@@ -118,7 +163,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
             },
         });
 
-        var ingestResponse = await _client.PostAsJsonAsync("/v1/telemetry/ingest", new TelemetryIngestRequest
+        var ingestResponse = await PostAsJsonWithRateLimitRetryAsync("/v1/telemetry/ingest", new TelemetryIngestRequest
         {
             ToolName = "ctx_read",
             TokensOriginal = 1200,
@@ -136,7 +181,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
         });
         Assert.Equal(HttpStatusCode.OK, ingestResponse.StatusCode);
 
-        var payload = await _client.GetFromJsonAsync<DashboardOverviewResponse>("/api/dashboard/overview");
+        var payload = await GetFromJsonWithRateLimitRetryAsync<DashboardOverviewResponse>("/api/dashboard/overview");
         Assert.NotNull(payload);
 
         var dailySavings = Assert.Single(payload!.Stats.ProjectDailySavings, item => item.ProjectId == projectId);
@@ -269,12 +314,63 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     [Fact]
     public async Task Manifest_CtxShell_UsesShellPathProperty()
     {
-        var manifest = await _client.GetFromJsonAsync<ManifestResponse>("/v1/manifest");
+        var response = await GetWithRateLimitRetryAsync("/v1/manifest");
+        response.EnsureSuccessStatusCode();
+        var manifest = await response.Content.ReadFromJsonAsync<ManifestResponse>();
         Assert.NotNull(manifest);
-        var ctxShell = Assert.Single(manifest!.Tools, tool => tool.Name == "ctx_shell");
-        var properties = Assert.IsType<JsonElement>(ctxShell.InputSchema["properties"]);
-        Assert.True(properties.TryGetProperty("shell_path", out _));
-        Assert.False(properties.TryGetProperty("shell", out _));
+        Assert.DoesNotContain(manifest!.Tools, tool => tool.Name == "ctx_shell");
+    }
+
+    /// <summary>
+    /// Hosted HTTP discovery must not advertise metadata-only public tools that cannot execute via /v1/tools/call.
+    /// </summary>
+    [Fact]
+    public async Task Manifest_AndTools_DoNotAdvertise_MetadataOnlyPublicTools()
+    {
+        var manifestResponse = await GetWithRateLimitRetryAsync("/v1/manifest");
+        var toolListResponse = await GetWithRateLimitRetryAsync("/v1/tools");
+        manifestResponse.EnsureSuccessStatusCode();
+        toolListResponse.EnsureSuccessStatusCode();
+        var manifest = await manifestResponse.Content.ReadFromJsonAsync<ManifestResponse>();
+        var toolList = await toolListResponse.Content.ReadFromJsonAsync<ToolListResponse>();
+
+        Assert.NotNull(manifest);
+        Assert.NotNull(toolList);
+
+        var advertised = manifest!.Tools.Select(tool => tool.Name)
+            .Concat(toolList!.Tools.Select(tool => tool.Name))
+            .ToArray();
+
+        Assert.DoesNotContain("ctx_read", advertised);
+        Assert.DoesNotContain("ctx_search", advertised);
+        Assert.DoesNotContain("ctx_shell", advertised);
+        Assert.DoesNotContain("ctx_tree", advertised);
+    }
+
+    /// <summary>
+    /// Hosted HTTP tool-call endpoint should reject metadata-only public ctx_search calls with a clear error.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_CtxSearch_Returns400WithClientRoutingError()
+    {
+        var request = new ToolCallRequest
+        {
+            Name = "ctx_search",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["mode"] = "regex",
+                ["pattern"] = "ctx_search",
+                ["path"] = AppContext.BaseDirectory,
+            },
+        };
+
+        var response = await _client.PostAsJsonAsync("/v1/tools/call", request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var error = await response.Content.ReadFromJsonAsync<ToolCallErrorResponse>();
+        Assert.NotNull(error);
+        Assert.Contains("Rust client/stdio MCP server", error!.Error, StringComparison.Ordinal);
+        Assert.Contains("ctx_search", error.Error, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -535,7 +631,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
             },
         };
 
-        var response = await _client.PostAsJsonAsync("/v1/projects/resolve", request);
+        var response = await PostAsJsonWithRateLimitRetryAsync("/v1/projects/resolve", request);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var payload = await response.Content.ReadFromJsonAsync<ProjectResolutionResponse>();
@@ -1565,7 +1661,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     [Fact]
     public async Task DashboardProjectDelete_ClearsHostedProjectData()
     {
-        var resolveResponse = await _client.PostAsJsonAsync("/v1/projects/resolve", new ProjectResolutionRequest
+        var resolveResponse = await PostAsJsonWithRateLimitRetryAsync("/v1/projects/resolve", new ProjectResolutionRequest
         {
             SuggestedSlug = "dashboard-delete-project",
             Fingerprint = new RepositoryFingerprint
@@ -1590,7 +1686,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
         Assert.NotNull(resolved?.Project?.ProjectId);
         var projectId = resolved!.Project!.ProjectId;
 
-        var brainStoreResponse = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        var brainStoreResponse = await PostAsJsonWithRateLimitRetryAsync("/v1/tools/call", new ToolCallRequest
         {
             Name = "ctx_brain",
             ProjectId = projectId,
@@ -1618,19 +1714,19 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
         });
         Assert.Equal(HttpStatusCode.OK, rememberResponse.StatusCode);
 
-        var deleteResponse = await _client.DeleteAsync($"/api/projects/{projectId}");
+        var deleteResponse = await DeleteWithRateLimitRetryAsync($"/api/projects/{projectId}");
         Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
 
         using var deleteDoc = JsonDocument.Parse(await deleteResponse.Content.ReadAsStringAsync());
         Assert.True(deleteDoc.RootElement.GetProperty("deleted").GetBoolean());
         Assert.Equal(projectId, deleteDoc.RootElement.GetProperty("projectId").GetString());
 
-        var projectListResponse = await _client.GetAsync("/api/projects");
+        var projectListResponse = await GetWithRateLimitRetryAsync("/api/projects");
         Assert.Equal(HttpStatusCode.OK, projectListResponse.StatusCode);
         using var projectListDoc = JsonDocument.Parse(await projectListResponse.Content.ReadAsStringAsync());
         Assert.DoesNotContain(projectListDoc.RootElement.GetProperty("projects").EnumerateArray(), item => item.GetProperty("project_id").GetString() == projectId);
 
-        var memoryResponse = await _client.GetAsync($"/api/dashboard/projects/{projectId}/memory");
+        var memoryResponse = await GetWithRateLimitRetryAsync($"/api/dashboard/projects/{projectId}/memory");
         Assert.Equal(HttpStatusCode.NotFound, memoryResponse.StatusCode);
     }
 
@@ -2347,7 +2443,7 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     [Fact]
     public async Task DashboardSearch_ReturnsToolMatches()
     {
-        var response = await _client.GetAsync("/api/search?q=ctx_brain&limit=5");
+        var response = await GetWithRateLimitRetryAsync("/api/search?q=ctx_brain&limit=5");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var payload = await response.Content.ReadAsStringAsync();

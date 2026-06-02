@@ -455,6 +455,28 @@ fn nebula_ctx_c_multiline_preserves_all_lines_when_piped() {
     assert!(stdout.contains("LINE_C"), "LINE_C: {stdout}");
 }
 
+#[test]
+fn nebula_ctx_c_preserves_json_for_inline_python_pipe() {
+    if cfg!(windows) {
+        return;
+    }
+    let bin = nebula_ctx_bin();
+    let cmd = r#"printf '{"slotConfig":"ok"}\n' | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["slotConfig"])'"#;
+    let output = Command::new(&bin)
+        .args(["-c", cmd])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .expect("run");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(output.status.code().unwrap_or(1), 0, "stdout={stdout}");
+    assert_eq!(
+        stdout.trim(),
+        "ok",
+        "json pipe output must stay raw: {stdout}"
+    );
+}
+
 #[cfg(windows)]
 #[test]
 fn powershell_encoded_command_handles_nested_quotes() {

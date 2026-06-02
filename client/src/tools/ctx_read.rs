@@ -203,8 +203,10 @@ fn resolve_auto_mode(file_path: &str, original_tokens: usize, task: Option<&str>
         predicted = "full".to_string();
     }
 
+    let scoped_project_root = detect_project_root(file_path);
     if let Some(project_root) =
-        crate::core::session::SessionState::load_latest().and_then(|s| s.project_root)
+        crate::core::session::SessionState::load_latest_for_project_root(&scoped_project_root)
+            .and_then(|s| s.project_root)
     {
         let ext = std::path::Path::new(file_path)
             .extension()
@@ -512,8 +514,10 @@ fn process_mode(
 
             let base = ast_pruned.as_deref().unwrap_or(content);
 
-            let session_intent = crate::core::session::SessionState::load_latest()
-                .and_then(|s| s.active_structured_intent);
+            let session_intent = crate::core::session::SessionState::load_latest_for_project_root(
+                &detect_project_root(file_path),
+            )
+            .and_then(|s| s.active_structured_intent);
             let raw = if let Some(ref intent) = session_intent {
                 compressor::task_aware_compress(base, Some(ext), intent)
             } else {

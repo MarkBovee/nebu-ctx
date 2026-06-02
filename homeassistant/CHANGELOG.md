@@ -4,6 +4,10 @@
 
 - Bundle the client release that strips more dead private `ctx_*` client surface, finishes the 4-agent setup/rules cleanup, and keeps public `ctx(...)` routes working for analytics feedback and context prefetch flows.
 
+## 0.8.33
+
+- Bundle the client/server release that fixes hosted MCP discovery drift, preserves raw piped `nebu-ctx -c` JSON output, adds duplicate-aware `report-issue` automation, and keeps hosted memory promotion and wake-up flows project-scoped and stable.
+
 ## 0.8.31
 
 - Bundle the client/server release that makes public `ctx_search` regex behavior ripgrep-compatible, centralizes public guidance policy, and auto-files or updates reproducible public-tool bug reports.

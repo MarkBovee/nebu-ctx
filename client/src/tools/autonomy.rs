@@ -48,7 +48,7 @@ pub fn session_lifecycle_pre_hook(
         return None;
     }
 
-    if tool_name == "ctx_overview" || tool_name == "ctx_preload" {
+    if tool_name == "ctx_overview" || tool_name == "ctx_preload" || tool_name == "ctx_search" {
         return None;
     }
 

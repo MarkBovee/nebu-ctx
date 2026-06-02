@@ -15,6 +15,7 @@ pub mod mcp_stdio;
 pub mod models;
 pub mod project_metadata;
 pub mod public_guidance;
+pub mod report_issue;
 pub mod rewrite_registry;
 pub mod rules_inject;
 pub mod server_client;

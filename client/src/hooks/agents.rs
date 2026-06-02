@@ -2,9 +2,9 @@ use std::path::PathBuf;
 
 use super::{
     ensure_codex_hooks_enabled as shared_ensure_codex_hooks_enabled, generate_rewrite_script,
-    install_codex_instruction_docs, make_executable, mcp_server_quiet_mode,
-    resolve_binary_path, resolve_binary_path_for_bash, upsert_lean_ctx_codex_hook_entries,
-    write_file, REDIRECT_SCRIPT_CLAUDE,
+    install_codex_instruction_docs, make_executable, mcp_server_quiet_mode, resolve_binary_path,
+    resolve_binary_path_for_bash, upsert_lean_ctx_codex_hook_entries, write_file,
+    REDIRECT_SCRIPT_CLAUDE,
 };
 
 pub(super) fn install_claude_hook(global: bool) {
@@ -137,7 +137,10 @@ fn install_claude_global_claude_md(home: &std::path::Path) {
         }
 
         if existing.trim().is_empty() {
-            write_file(&claude_md_path, &crate::public_guidance::claude_md_block_content());
+            write_file(
+                &claude_md_path,
+                &crate::public_guidance::claude_md_block_content(),
+            );
         } else {
             let updated = format!(
                 "{}\n\n{}\n",
@@ -734,9 +737,7 @@ mod memory_hook_tests {
             "/usr/local/bin/nebu-ctx"
         );
     }
-
 }
-
 
 #[cfg(test)]
 mod tests {

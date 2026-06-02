@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 /// </summary>
 public sealed class ToolRegistry
 {
-    private static readonly string[] PublicToolNames = ["ctx", "ctx_read", "ctx_search", "ctx_shell", "ctx_tree"];
+    private static readonly string[] HostedExecutableToolNames = ["ctx"];
     private static readonly string[] MetadataOnlyPublicToolNames = ["ctx_read", "ctx_search", "ctx_shell", "ctx_tree"];
     private readonly FrozenDictionary<string, IToolHandler> _handlers;
     private readonly ILogger<ToolRegistry> _logger;
@@ -60,7 +60,7 @@ public sealed class ToolRegistry
     }
 
     /// <summary>
-    /// Gets the complete tool manifest for the /v1/manifest endpoint.
+    /// Gets the hosted executable tool manifest for the /v1/manifest endpoint.
     /// </summary>
     /// <returns>Manifest response containing all registered tools.</returns>
     public ManifestResponse GetManifest()
@@ -69,19 +69,19 @@ public sealed class ToolRegistry
         {
             Name = "nebu-ctx",
             Version = ServerVersion.Current,
-            Tools = GetPublicToolDefinitions(),
+            Tools = GetHostedToolDefinitions(),
         };
     }
 
     /// <summary>
-    /// Gets paginated tool definitions for the /v1/tools endpoint.
+    /// Gets paginated hosted executable tool definitions for the /v1/tools endpoint.
     /// </summary>
     /// <param name="offset">Number of tools to skip.</param>
     /// <param name="limit">Maximum number of tools to return.</param>
     /// <returns>Paginated tool list response.</returns>
     public ToolListResponse GetTools(int offset = 0, int limit = 200)
     {
-        var allTools = GetPublicToolDefinitions();
+        var allTools = GetHostedToolDefinitions();
         var paged = allTools.Skip(offset).Take(limit).ToList();
 
         return new ToolListResponse
@@ -127,12 +127,13 @@ public sealed class ToolRegistry
     }
 
     /// <summary>
-    /// Builds the fixed public 5-tool MCP surface exposed over HTTP metadata.
+    /// Builds the hosted executable MCP surface exposed over HTTP metadata.
+    /// Hosted HTTP discovery must only advertise tools that /v1/tools/call can execute.
     /// </summary>
-    private List<ToolDefinition> GetPublicToolDefinitions()
+    private List<ToolDefinition> GetHostedToolDefinitions()
     {
         var internalTools = GetToolDefinitions().ToDictionary(t => t.Name, StringComparer.OrdinalIgnoreCase);
-        return PublicToolNames
+        return HostedExecutableToolNames
             .Select(name => internalTools.TryGetValue(name, out var tool) ? tool : BuildPublicPlaceholder(name))
             .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -286,5 +287,5 @@ public static class ServerVersion
     /// <summary>
     /// Current server version string, matching the Cargo.toml version.
     /// </summary>
-    public const string Current = "0.8.32";
+    public const string Current = "0.8.33";
 }

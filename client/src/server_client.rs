@@ -476,7 +476,11 @@ pub fn sync_session_memory_to_server(project_root: &str, source_type: &str) {
     }
 
     if let Ok(events) = crate::core::brain_memory::load_events(project_root) {
-        let candidates = crate::core::brain_memory::derive_durable_memory_candidates(project_root, source_type, &events);
+        let candidates = crate::core::brain_memory::derive_durable_memory_candidates(
+            project_root,
+            source_type,
+            &events,
+        );
         if !candidates.is_empty() {
             post_durable_memory_candidates_to_server(project_root, &candidates);
             synced_anything = true;
@@ -990,7 +994,8 @@ mod tests {
                 confidence: 0.95,
                 source_type: "idle_flush".to_string(),
                 source_scope: "session-123".to_string(),
-                promotion_identity: "idle_flush:session-123:root_cause:ha-schema-root-cause".to_string(),
+                promotion_identity: "idle_flush:session-123:root_cause:ha-schema-root-cause"
+                    .to_string(),
                 logical_key: "root_cause:ha-schema-root-cause".to_string(),
                 evidence: "derived_from=assistant".to_string(),
             }],

@@ -440,6 +440,7 @@ impl ServerHandler for NebuCtxServer {
         }
 
         let skip_auto_context = name == "ctx_shell"
+            || name == "ctx_search"
             || (name == "ctx"
                 && args.as_ref().is_some_and(|args| {
                     let domain = args.get("domain").and_then(|value| value.as_str());
@@ -540,11 +541,7 @@ impl ServerHandler for NebuCtxServer {
             use crate::core::archive;
             let archivable = matches!(
                 name,
-                "ctx_shell"
-                    | "ctx_read"
-                    | "ctx_multi_read"
-                    | "ctx_search"
-                    | "ctx_tree"
+                "ctx_shell" | "ctx_read" | "ctx_multi_read" | "ctx_search" | "ctx_tree"
             );
             if archivable && archive::should_archive(&result_text) {
                 let cmd = helpers::get_str(args, "command")
@@ -1358,6 +1355,45 @@ mod tests {
         assert!(
             !text.contains("--- AUTO CONTEXT ---") && !text.contains("PROJECT OVERVIEW"),
             "ctx_shell should not leak auto context into normal shell output: {text}"
+        );
+
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
+        std::env::remove_var("NEBU_CTX_HOME");
+    }
+
+    #[test]
+    fn ctx_search_does_not_prepend_auto_context() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let data = tempfile::tempdir().unwrap();
+        let repo = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", data.path());
+        std::env::set_var("NEBU_CTX_HOME", data.path());
+        std::fs::create_dir(repo.path().join(".git")).unwrap();
+        std::fs::write(repo.path().join("search.txt"), "search-clean\n").unwrap();
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let engine = crate::engine::ContextEngine::with_project_root(repo.path());
+        let text = rt
+            .block_on(engine.call_tool_text(
+                "ctx_search",
+                Some(serde_json::json!({
+                    "mode": "regex",
+                    "pattern": "search-clean",
+                    "path": repo.path().to_string_lossy().to_string()
+                })),
+            ))
+            .expect("ctx_search should succeed");
+
+        assert!(
+            text.contains("search-clean"),
+            "unexpected search text: {text}"
+        );
+        assert!(
+            !text.contains("--- AUTO CONTEXT ---") && !text.contains("PROJECT OVERVIEW"),
+            "ctx_search should not leak auto context into search output: {text}"
         );
 
         std::env::remove_var("NEBU_CTX_DATA_DIR");

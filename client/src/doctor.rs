@@ -1,6 +1,5 @@
 //! Environment diagnostics for nebu-ctx installation and integration.
 
-
 use std::path::PathBuf;
 
 use chrono::Utc;

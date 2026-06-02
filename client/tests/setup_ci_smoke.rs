@@ -234,7 +234,11 @@ fn setup_doctor_status_json_smoke() {
     envs.push(("PATH", new_path.as_str()));
 
     // setup --json returns clean JSON (SetupReport)
-    let (code, out) = run_json(bin, &["setup", "--non-interactive", "--fix", "--yes", "--json"], &envs);
+    let (code, out) = run_json(
+        bin,
+        &["setup", "--non-interactive", "--fix", "--yes", "--json"],
+        &envs,
+    );
     assert_eq!(code, 0, "setup exit code");
     let setup: SetupReport = serde_json::from_str(&out).expect("setup JSON parse");
     assert_eq!(setup.schema_version, 1);
@@ -266,7 +270,6 @@ fn setup_doctor_status_json_smoke() {
     assert_eq!(status.schema_version, 1);
     assert!(status.sync_outbox.readable);
     assert_eq!(status.sync_outbox.queued, 0);
-
 }
 
 #[test]
@@ -297,7 +300,11 @@ fn setup_configures_opencode_plugin_rules_and_skill() {
         envs.push(("USERPROFILE", home_str.as_str()));
     }
 
-    let (code, out) = run_json(bin, &["setup", "--non-interactive", "--fix", "--yes", "--json"], &envs);
+    let (code, out) = run_json(
+        bin,
+        &["setup", "--non-interactive", "--fix", "--yes", "--json"],
+        &envs,
+    );
     assert_eq!(code, 0, "setup exit code");
     let setup: SetupReport = serde_json::from_str(&out).expect("setup JSON parse");
     assert_eq!(setup.schema_version, 1);

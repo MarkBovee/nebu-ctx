@@ -6,6 +6,12 @@
 - Finish the 4-agent install/rules cleanup by removing leftover Gemini rule injection and aligning setup tests, workflow allowlists, and generated guidance with `claude`, `codex`, `copilot`, and `opencode` only.
 - Keep public `ctx(domain=analytics, action="feedback")` and `ctx(domain=context, action="prefetch")` routes functional while migrating internal eval coverage off direct private tool names.
 
+## 0.8.33
+
+- Fix hosted HTTP MCP discovery so `/v1/manifest` and `/v1/tools` advertise only executable hosted tools, avoiding `invoke` failures when clients call metadata-only public tools directly.
+- Make direct `nebu-ctx -c` preserve raw JSON/stdout for non-TTY and inline consumer pipes, and add `report-issue` automation that searches duplicates, updates matching issues, or creates drafts/submissions through `gh`.
+- Keep project-scoped memory flows isolated by removing `ctx_search` auto-context prepend, scoping wake-up/preload/read session lookups to current project, and restoring canonical knowledge promotion plus integration-test rate-limit retries.
+
 ## 0.8.31
 
 - Make public `ctx_search` regex mode use a ripgrep-compatible engine so valid matches no longer collapse into false `0 matches` responses, and return explicit timeout or invalid-regex failures when search cannot be trusted.

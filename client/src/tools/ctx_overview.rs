@@ -207,7 +207,9 @@ fn build_wakeup_briefing(project_root: &str, task: Option<&str>) -> String {
         }
     }
 
-    if let Some(session) = crate::core::session::SessionState::load_latest() {
+    if let Some(session) =
+        crate::core::session::SessionState::load_latest_for_project_root(project_root)
+    {
         if let Some(ref task) = session.task {
             parts.push(format!("LAST_TASK:{}", task.description));
         }
@@ -230,11 +232,7 @@ fn build_wakeup_briefing(project_root: &str, task: Option<&str>) -> String {
     }
 
     let registry = crate::core::agents::AgentRegistry::load_or_create();
-    let active_agents: Vec<&crate::core::agents::AgentEntry> = registry
-        .agents
-        .iter()
-        .filter(|a| a.status != crate::core::agents::AgentStatus::Finished)
-        .collect();
+    let active_agents = registry.list_active(Some(project_root));
     if !active_agents.is_empty() {
         let agents: Vec<String> = active_agents
             .iter()

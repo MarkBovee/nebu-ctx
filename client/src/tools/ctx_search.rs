@@ -53,15 +53,27 @@ pub fn handle(
     };
 
     if summary.matches.is_empty() {
-        let mut msg = format!("0 matches for '{pattern}' in {} files", summary.files_searched);
+        let mut msg = format!(
+            "0 matches for '{pattern}' in {} files",
+            summary.files_searched
+        );
         if summary.files_skipped_size > 0 {
-            msg.push_str(&format!(" ({} large files skipped)", summary.files_skipped_size));
+            msg.push_str(&format!(
+                " ({} large files skipped)",
+                summary.files_skipped_size
+            ));
         }
         if summary.files_skipped_generated > 0 {
-            msg.push_str(&format!(" ({} generated files skipped)", summary.files_skipped_generated));
+            msg.push_str(&format!(
+                " ({} generated files skipped)",
+                summary.files_skipped_generated
+            ));
         }
         if summary.files_skipped_binary > 0 {
-            msg.push_str(&format!(" ({} binary files skipped)", summary.files_skipped_binary));
+            msg.push_str(&format!(
+                " ({} binary files skipped)",
+                summary.files_skipped_binary
+            ));
         }
         return (msg, 0);
     }
@@ -71,7 +83,11 @@ pub fn handle(
         .iter()
         .map(|entry| {
             let short_path = protocol::shorten_path(&entry.path.to_string_lossy());
-            format!("{short_path}:{} {}", entry.line_number, entry.line_text.trim())
+            format!(
+                "{short_path}:{} {}",
+                entry.line_number,
+                entry.line_text.trim()
+            )
         })
         .collect();
     let raw_result_lines: Vec<String> = summary
@@ -95,13 +111,22 @@ pub fn handle(
     );
 
     if summary.files_skipped_size > 0 {
-        result.push_str(&format!("\n({} files >512KB skipped)", summary.files_skipped_size));
+        result.push_str(&format!(
+            "\n({} files >512KB skipped)",
+            summary.files_skipped_size
+        ));
     }
     if summary.files_skipped_generated > 0 {
-        result.push_str(&format!("\n({} generated files skipped)", summary.files_skipped_generated));
+        result.push_str(&format!(
+            "\n({} generated files skipped)",
+            summary.files_skipped_generated
+        ));
     }
     if summary.files_skipped_binary > 0 {
-        result.push_str(&format!("\n({} binary files skipped)", summary.files_skipped_binary));
+        result.push_str(&format!(
+            "\n({} binary files skipped)",
+            summary.files_skipped_binary
+        ));
     }
 
     let scope_hint = monorepo_scope_hint(&matches, dir);
@@ -184,7 +209,10 @@ fn collect_matches(
         if entry.file_type().is_none_or(|file_type| file_type.is_dir()) {
             continue;
         }
-        if entry.file_type().is_some_and(|file_type| file_type.is_symlink()) {
+        if entry
+            .file_type()
+            .is_some_and(|file_type| file_type.is_symlink())
+        {
             continue;
         }
 
@@ -198,7 +226,10 @@ fn collect_matches(
             continue;
         }
         if let Some(ext) = ext_filter {
-            let file_ext = path.extension().and_then(|value| value.to_str()).unwrap_or("");
+            let file_ext = path
+                .extension()
+                .and_then(|value| value.to_str())
+                .unwrap_or("");
             if file_ext != ext {
                 continue;
             }
@@ -355,8 +386,18 @@ mod tests {
         )
         .unwrap();
 
-        let (result, raw_tokens) = handle("Hello Search", dir.path().to_str().unwrap(), Some("tsx"), 20, CrpMode::Off, true);
-        assert!(result.contains("matches in 1 files") || result.contains("1 matches in 1 files"), "unexpected result: {result}");
+        let (result, raw_tokens) = handle(
+            "Hello Search",
+            dir.path().to_str().unwrap(),
+            Some("tsx"),
+            20,
+            CrpMode::Off,
+            true,
+        );
+        assert!(
+            result.contains("matches in 1 files") || result.contains("1 matches in 1 files"),
+            "unexpected result: {result}"
+        );
         assert!(result.contains("Hello Search"), "match missing: {result}");
         assert!(raw_tokens > 0);
     }
@@ -364,7 +405,14 @@ mod tests {
     #[test]
     fn search_reports_invalid_regex_explicitly() {
         let dir = tempfile::tempdir().unwrap();
-        let (result, raw_tokens) = handle("(", dir.path().to_str().unwrap(), None, 20, CrpMode::Off, true);
+        let (result, raw_tokens) = handle(
+            "(",
+            dir.path().to_str().unwrap(),
+            None,
+            20,
+            CrpMode::Off,
+            true,
+        );
         assert!(result.contains("ERROR: invalid regex"));
         assert_eq!(raw_tokens, 0);
     }
@@ -374,12 +422,36 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir(dir.path().join(".git")).unwrap();
         std::fs::write(dir.path().join(".gitignore"), "ignored.ts\n").unwrap();
-        std::fs::write(dir.path().join("ignored.ts"), "const value = 'hidden hit';\n").unwrap();
+        std::fs::write(
+            dir.path().join("ignored.ts"),
+            "const value = 'hidden hit';\n",
+        )
+        .unwrap();
 
-        let (ignored, _) = handle("hidden hit", dir.path().to_str().unwrap(), Some("ts"), 20, CrpMode::Off, true);
-        let (included, _) = handle("hidden hit", dir.path().to_str().unwrap(), Some("ts"), 20, CrpMode::Off, false);
+        let (ignored, _) = handle(
+            "hidden hit",
+            dir.path().to_str().unwrap(),
+            Some("ts"),
+            20,
+            CrpMode::Off,
+            true,
+        );
+        let (included, _) = handle(
+            "hidden hit",
+            dir.path().to_str().unwrap(),
+            Some("ts"),
+            20,
+            CrpMode::Off,
+            false,
+        );
 
-        assert!(ignored.contains("0 matches"), "expected gitignored file to stay hidden: {ignored}");
-        assert!(included.contains("hidden hit"), "expected ignore override to include file: {included}");
+        assert!(
+            ignored.contains("0 matches"),
+            "expected gitignored file to stay hidden: {ignored}"
+        );
+        assert!(
+            included.contains("hidden hit"),
+            "expected ignore override to include file: {included}"
+        );
     }
 }
