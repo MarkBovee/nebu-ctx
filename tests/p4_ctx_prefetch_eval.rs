@@ -2,7 +2,7 @@ use serde_json::json;
 
 #[tokio::test]
 #[allow(clippy::await_holding_lock)]
-async fn ctx_prefetch_warms_cache_for_full_read() {
+async fn context_prefetch_warms_cache_for_full_read_via_ctx() {
     let _g = nebula_ctx::core::data_dir::test_env_lock();
     let dir = tempfile::tempdir().expect("tempdir");
     let data_dir = dir.path().join("data");
@@ -19,8 +19,10 @@ async fn ctx_prefetch_warms_cache_for_full_read() {
 
     let out = engine
         .call_tool_text(
-            "ctx_prefetch",
+            "ctx",
             Some(json!({
+                "domain":"context",
+                "action":"prefetch",
                 "root": project.path().to_string_lossy().to_string(),
                 "changed_files": [file_a.to_string_lossy().to_string()],
                 "budget_tokens": 500,

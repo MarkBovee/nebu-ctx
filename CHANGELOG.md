@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.32
+
+- Reduce the Rust client further toward a thin public boundary by physically removing dead private `ctx_*` tool-definition surface, legacy handoff/edit/delta dispatch paths, and stale internal guidance that still advertised non-public tools.
+- Finish the 4-agent install/rules cleanup by removing leftover Gemini rule injection and aligning setup tests, workflow allowlists, and generated guidance with `claude`, `codex`, `copilot`, and `opencode` only.
+- Keep public `ctx(domain=analytics, action="feedback")` and `ctx(domain=context, action="prefetch")` routes functional while migrating internal eval coverage off direct private tool names.
+
 ## 0.8.31
 
 - Make public `ctx_search` regex mode use a ripgrep-compatible engine so valid matches no longer collapse into false `0 matches` responses, and return explicit timeout or invalid-regex failures when search cannot be trusted.

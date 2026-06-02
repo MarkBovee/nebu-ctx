@@ -406,7 +406,7 @@ pub fn run_setup_with_options(opts: SetupOptions) -> Result<SetupReport, String>
     }
     steps.push(rules_step);
 
-    // Step: Agent-specific hooks (Codex, Cursor)
+    // Step: Agent-specific hooks
     let mut hooks_step = SetupStepReport {
         name: "agent_hooks".to_string(),
         ok: true,
@@ -430,18 +430,6 @@ pub fn run_setup_with_options(opts: SetupOptions) -> Result<SetupReport, String>
                             .to_string(),
                     ),
                 });
-            }
-            "cursor" => {
-                let hooks_path = home.join(".cursor/hooks.json");
-                if !hooks_path.exists() {
-                    crate::hooks::agents::install_cursor_hook(true);
-                    hooks_step.items.push(SetupItem {
-                        name: "Cursor hooks".to_string(),
-                        status: "installed".to_string(),
-                        path: Some("~/.cursor/hooks.json".to_string()),
-                        note: None,
-                    });
-                }
             }
             "claude" | "claude-code" => {
                 crate::hooks::install_agent_hook("claude", true);
@@ -467,23 +455,6 @@ pub fn run_setup_with_options(opts: SetupOptions) -> Result<SetupReport, String>
     if !hooks_step.items.is_empty() {
         steps.push(hooks_step);
     }
-
-    // Step: Proxy env vars
-    let mut proxy_step = SetupStepReport {
-        name: "proxy_env".to_string(),
-        ok: true,
-        items: Vec::new(),
-        warnings: Vec::new(),
-        errors: Vec::new(),
-    };
-    crate::proxy_setup::install_proxy_env(&home, crate::proxy_setup::default_port(), opts.json);
-    proxy_step.items.push(SetupItem {
-        name: "proxy_env".to_string(),
-        status: "configured".to_string(),
-        path: None,
-        note: Some("ANTHROPIC_BASE_URL, OPENAI_BASE_URL, GEMINI_API_BASE_URL".to_string()),
-    });
-    steps.push(proxy_step);
 
     // Step: Environment / doctor (compact)
     let mut env_step = SetupStepReport {
@@ -552,22 +523,10 @@ pub fn configure_agent_mcp(agent: &str) -> Result<(), String> {
     };
 
     match agent {
-        "cursor" => push(
-            &mut targets,
-            "Cursor",
-            home.join(".cursor/mcp.json"),
-            ConfigType::McpJson,
-        ),
         "claude" | "claude-code" => push(
             &mut targets,
             "Claude Code",
             crate::core::editor_registry::claude_mcp_json_path(&home),
-            ConfigType::McpJson,
-        ),
-        "windsurf" => push(
-            &mut targets,
-            "Windsurf",
-            home.join(".codeium/windsurf/mcp_config.json"),
             ConfigType::McpJson,
         ),
         "codex" => push(
@@ -576,88 +535,11 @@ pub fn configure_agent_mcp(agent: &str) -> Result<(), String> {
             home.join(".codex/config.toml"),
             ConfigType::Codex,
         ),
-        "gemini" => {
-            push(
-                &mut targets,
-                "Gemini CLI",
-                home.join(".gemini/settings.json"),
-                ConfigType::GeminiSettings,
-            );
-            push(
-                &mut targets,
-                "Antigravity",
-                home.join(".gemini/antigravity/mcp_config.json"),
-                ConfigType::McpJson,
-            );
-        }
-        "antigravity" => push(
-            &mut targets,
-            "Antigravity",
-            home.join(".gemini/antigravity/mcp_config.json"),
-            ConfigType::McpJson,
-        ),
         "copilot" => push(
             &mut targets,
             "VS Code / Copilot",
             crate::core::editor_registry::vscode_mcp_path(),
             ConfigType::VsCodeMcp,
-        ),
-        "crush" => push(
-            &mut targets,
-            "Crush",
-            home.join(".config/crush/crush.json"),
-            ConfigType::Crush,
-        ),
-        "pi" => push(
-            &mut targets,
-            "Pi Coding Agent",
-            home.join(".pi/agent/mcp.json"),
-            ConfigType::McpJson,
-        ),
-        "cline" => push(
-            &mut targets,
-            "Cline",
-            crate::core::editor_registry::cline_mcp_path(),
-            ConfigType::McpJson,
-        ),
-        "roo" => push(
-            &mut targets,
-            "Roo Code",
-            crate::core::editor_registry::roo_mcp_path(),
-            ConfigType::McpJson,
-        ),
-        "kiro" => push(
-            &mut targets,
-            "AWS Kiro",
-            home.join(".kiro/settings/mcp.json"),
-            ConfigType::McpJson,
-        ),
-        "verdent" => push(
-            &mut targets,
-            "Verdent",
-            home.join(".verdent/mcp.json"),
-            ConfigType::McpJson,
-        ),
-        "jetbrains" => {
-            // JetBrains uses servers[] array format, handled by install_jetbrains_hook
-        }
-        "qwen" => push(
-            &mut targets,
-            "Qwen Code",
-            home.join(".qwen/mcp.json"),
-            ConfigType::McpJson,
-        ),
-        "trae" => push(
-            &mut targets,
-            "Trae",
-            home.join(".trae/mcp.json"),
-            ConfigType::McpJson,
-        ),
-        "amazonq" => push(
-            &mut targets,
-            "Amazon Q Developer",
-            home.join(".aws/amazonq/mcp.json"),
-            ConfigType::McpJson,
         ),
         "opencode" => {
             push(
@@ -667,21 +549,6 @@ pub fn configure_agent_mcp(agent: &str) -> Result<(), String> {
                 ConfigType::OpenCode,
             );
         }
-        "aider" => push(
-            &mut targets,
-            "Aider",
-            home.join(".aider/mcp.json"),
-            ConfigType::McpJson,
-        ),
-        "amp" => {
-            // Amp uses amp.mcpServers in ~/.config/amp/settings.json, handled by install_amp_hook
-        }
-        "hermes" => push(
-            &mut targets,
-            "Hermes Agent",
-            home.join(".hermes/config.yaml"),
-            ConfigType::HermesYaml,
-        ),
         _ => {
             return Err(format!("Unknown agent '{agent}'"));
         }
@@ -696,31 +563,7 @@ pub fn configure_agent_mcp(agent: &str) -> Result<(), String> {
             },
         )?;
     }
-
-    if agent == "kiro" {
-        install_kiro_steering(&home);
-    }
-
     Ok(())
-}
-
-fn install_kiro_steering(home: &std::path::Path) {
-    let cwd = std::env::current_dir().unwrap_or_else(|_| home.to_path_buf());
-    let steering_dir = cwd.join(".kiro").join("steering");
-    let steering_file = steering_dir.join("nebu-ctx.md");
-
-    if steering_file.exists()
-        && std::fs::read_to_string(&steering_file)
-            .unwrap_or_default()
-            .contains(crate::hooks::KIRO_STEERING_VERSION)
-    {
-        println!("  Kiro steering file already exists at .kiro/steering/nebu-ctx.md");
-        return;
-    }
-
-    let _ = std::fs::create_dir_all(&steering_dir);
-    let _ = std::fs::write(&steering_file, crate::public_guidance::kiro_steering_template());
-    println!("  \x1b[32m✓\x1b[0m Created .kiro/steering/nebu-ctx.md (Kiro will now prefer nebu-ctx tools)");
 }
 
 fn shorten_path(path: &str, home: &str) -> String {

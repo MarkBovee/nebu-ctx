@@ -26,7 +26,6 @@ struct RulesTarget {
 enum RulesFormat {
     SharedMarkdown,
     DedicatedMarkdown,
-    CursorMdc,
 }
 
 pub struct InjectResult {
@@ -138,7 +137,6 @@ fn rules_content(format: &RulesFormat) -> String {
     match format {
         RulesFormat::SharedMarkdown => crate::public_guidance::rules_shared_markdown(),
         RulesFormat::DedicatedMarkdown => crate::public_guidance::rules_dedicated_markdown(),
-        RulesFormat::CursorMdc => crate::public_guidance::rules_cursor_mdc(),
     }
 }
 
@@ -152,7 +150,7 @@ fn inject_rules(target: &RulesTarget) -> Result<RulesResult, String> {
             ensure_parent(&target.path)?;
             return match target.format {
                 RulesFormat::SharedMarkdown => replace_markdown_section(&target.path, &content),
-                RulesFormat::DedicatedMarkdown | RulesFormat::CursorMdc => {
+                RulesFormat::DedicatedMarkdown => {
                     write_dedicated(&target.path, &rules_content(&target.format))
                 }
             };
@@ -163,7 +161,7 @@ fn inject_rules(target: &RulesTarget) -> Result<RulesResult, String> {
 
     match target.format {
         RulesFormat::SharedMarkdown => append_to_shared(&target.path),
-        RulesFormat::DedicatedMarkdown | RulesFormat::CursorMdc => {
+        RulesFormat::DedicatedMarkdown => {
             write_dedicated(&target.path, &rules_content(&target.format))
         }
     }
@@ -256,27 +254,8 @@ fn is_tool_detected(target: &RulesTarget, home: &std::path::Path) -> bool {
             crate::core::editor_registry::claude_mcp_json_path(home).exists() || state_dir.exists()
         }
         "Codex CLI" => home.join(".codex").exists() || command_exists("codex"),
-        "Cursor" => home.join(".cursor").exists(),
-        "Windsurf" => home.join(".codeium/windsurf").exists(),
-        "Gemini CLI" => home.join(".gemini").exists(),
         "VS Code / Copilot" => detect_vscode_installed(home),
-        "Copilot CLI" => home.join(".copilot").exists(),
-        "Zed" => home.join(".config/zed").exists(),
-        "Cline" => detect_extension_installed(home, "saoudrizwan.claude-dev"),
-        "Roo Code" => detect_extension_installed(home, "rooveterinaryinc.roo-cline"),
         "OpenCode" => home.join(".config/opencode").exists(),
-        "Continue" => detect_extension_installed(home, "continue.continue"),
-        "Aider" => command_exists("aider") || home.join(".aider.conf.yml").exists(),
-        "Amp" => command_exists("amp") || home.join(".ampcoder").exists(),
-        "Qwen Code" => home.join(".qwen").exists(),
-        "Trae" => home.join(".trae").exists(),
-        "Amazon Q Developer" => home.join(".aws/amazonq").exists(),
-        "JetBrains IDEs" => detect_jetbrains_installed(home),
-        "Antigravity" => home.join(".gemini/antigravity").exists(),
-        "Pi Coding Agent" => home.join(".pi").exists() || command_exists("pi"),
-        "AWS Kiro" => home.join(".kiro").exists(),
-        "Crush" => home.join(".config/crush").exists() || command_exists("crush"),
-        "Verdent" => home.join(".verdent").exists(),
         _ => false,
     }
 }
@@ -321,52 +300,6 @@ fn detect_vscode_installed(_home: &std::path::Path) -> bool {
     false
 }
 
-fn detect_jetbrains_installed(home: &std::path::Path) -> bool {
-    #[cfg(target_os = "macos")]
-    if home.join("Library/Application Support/JetBrains").exists() {
-        return true;
-    }
-    #[cfg(target_os = "linux")]
-    if home.join(".config/JetBrains").exists() {
-        return true;
-    }
-    home.join(".jb-mcp.json").exists()
-}
-
-fn detect_extension_installed(_home: &std::path::Path, extension_id: &str) -> bool {
-    #[cfg(target_os = "macos")]
-    {
-        if _home
-            .join(format!(
-                "Library/Application Support/Code/User/globalStorage/{extension_id}"
-            ))
-            .exists()
-        {
-            return true;
-        }
-    }
-    #[cfg(target_os = "linux")]
-    {
-        if _home
-            .join(format!(".config/Code/User/globalStorage/{extension_id}"))
-            .exists()
-        {
-            return true;
-        }
-    }
-    #[cfg(target_os = "windows")]
-    {
-        if let Ok(appdata) = std::env::var("APPDATA") {
-            if std::path::PathBuf::from(&appdata)
-                .join(format!("Code/User/globalStorage/{extension_id}"))
-                .exists()
-            {
-                return true;
-            }
-        }
-    }
-    false
-}
 
 // ---------------------------------------------------------------------------
 // Target definitions
@@ -374,7 +307,6 @@ fn detect_extension_installed(_home: &std::path::Path, extension_id: &str) -> bo
 
 fn build_rules_targets(home: &std::path::Path) -> Vec<RulesTarget> {
     vec![
-        // --- Shared config files (append-only) ---
         RulesTarget {
             name: "Claude Code",
             path: crate::core::editor_registry::claude_rules_dir(home).join("nebu-ctx.md"),
@@ -386,109 +318,13 @@ fn build_rules_targets(home: &std::path::Path) -> Vec<RulesTarget> {
             format: RulesFormat::SharedMarkdown,
         },
         RulesTarget {
-            name: "Gemini CLI",
-            path: home.join(".gemini/GEMINI.md"),
-            format: RulesFormat::SharedMarkdown,
-        },
-        RulesTarget {
             name: "VS Code / Copilot",
             path: copilot_instructions_path(home),
             format: RulesFormat::SharedMarkdown,
         },
         RulesTarget {
-            name: "Copilot CLI",
-            path: home.join(".copilot/copilot-instructions.md"),
-            format: RulesFormat::SharedMarkdown,
-        },
-        // --- Dedicated lean-ctx rule files ---
-        RulesTarget {
-            name: "Cursor",
-            path: home.join(".cursor/rules/nebu-ctx.mdc"),
-            format: RulesFormat::CursorMdc,
-        },
-        RulesTarget {
-            name: "Windsurf",
-            path: home.join(".codeium/windsurf/rules/nebu-ctx.md"),
-            format: RulesFormat::DedicatedMarkdown,
-        },
-        RulesTarget {
-            name: "Zed",
-            path: home.join(".config/zed/rules/nebu-ctx.md"),
-            format: RulesFormat::DedicatedMarkdown,
-        },
-        RulesTarget {
-            name: "Cline",
-            path: home.join(".cline/rules/nebu-ctx.md"),
-            format: RulesFormat::DedicatedMarkdown,
-        },
-        RulesTarget {
-            name: "Roo Code",
-            path: home.join(".roo/rules/nebu-ctx.md"),
-            format: RulesFormat::DedicatedMarkdown,
-        },
-        RulesTarget {
             name: "OpenCode",
             path: home.join(".config/opencode/rules/nebu-ctx.md"),
-            format: RulesFormat::DedicatedMarkdown,
-        },
-        RulesTarget {
-            name: "Continue",
-            path: home.join(".continue/rules/nebu-ctx.md"),
-            format: RulesFormat::DedicatedMarkdown,
-        },
-        RulesTarget {
-            name: "Aider",
-            path: home.join(".aider/rules/nebu-ctx.md"),
-            format: RulesFormat::DedicatedMarkdown,
-        },
-        RulesTarget {
-            name: "Amp",
-            path: home.join(".ampcoder/rules/nebu-ctx.md"),
-            format: RulesFormat::DedicatedMarkdown,
-        },
-        RulesTarget {
-            name: "Qwen Code",
-            path: home.join(".qwen/rules/nebu-ctx.md"),
-            format: RulesFormat::DedicatedMarkdown,
-        },
-        RulesTarget {
-            name: "Trae",
-            path: home.join(".trae/rules/nebu-ctx.md"),
-            format: RulesFormat::DedicatedMarkdown,
-        },
-        RulesTarget {
-            name: "Amazon Q Developer",
-            path: home.join(".aws/amazonq/rules/nebu-ctx.md"),
-            format: RulesFormat::DedicatedMarkdown,
-        },
-        RulesTarget {
-            name: "JetBrains IDEs",
-            path: home.join(".jb-rules/nebu-ctx.md"),
-            format: RulesFormat::DedicatedMarkdown,
-        },
-        RulesTarget {
-            name: "Antigravity",
-            path: home.join(".gemini/antigravity/rules/nebu-ctx.md"),
-            format: RulesFormat::DedicatedMarkdown,
-        },
-        RulesTarget {
-            name: "Pi Coding Agent",
-            path: home.join(".pi/rules/nebu-ctx.md"),
-            format: RulesFormat::DedicatedMarkdown,
-        },
-        RulesTarget {
-            name: "AWS Kiro",
-            path: home.join(".kiro/steering/nebu-ctx.md"),
-            format: RulesFormat::DedicatedMarkdown,
-        },
-        RulesTarget {
-            name: "Verdent",
-            path: home.join(".verdent/rules/nebu-ctx.md"),
-            format: RulesFormat::DedicatedMarkdown,
-        },
-        RulesTarget {
-            name: "Crush",
-            path: home.join(".config/crush/rules/nebu-ctx.md"),
             format: RulesFormat::DedicatedMarkdown,
         },
     ]
@@ -535,15 +371,6 @@ mod tests {
         assert!(content.contains(MARKER));
         assert!(content.contains(END_MARKER));
         assert!(content.contains(RULES_VERSION));
-    }
-
-    #[test]
-    fn cursor_mdc_has_markers_and_frontmatter() {
-        let content = crate::public_guidance::rules_cursor_mdc();
-        assert!(content.contains(MARKER));
-        assert!(content.contains(END_MARKER));
-        assert!(content.contains(RULES_VERSION));
-        assert!(content.contains("alwaysApply: true"));
     }
 
     #[test]
@@ -609,21 +436,6 @@ mod tests {
     }
 
     #[test]
-    fn cursor_mdc_litm_optimized() {
-        let content = crate::public_guidance::rules_cursor_mdc();
-        let lines: Vec<&str> = content.lines().collect();
-        let first_10 = lines[..10.min(lines.len())].join("\n");
-        assert!(
-            first_10.contains("ALWAYS") || first_10.contains("lean-ctx"),
-            "LITM: preference instruction must be near start of MDC"
-        );
-        let last_5 = lines[lines.len().saturating_sub(5)..].join("\n");
-        assert!(
-            last_5.contains("fallback") || last_5.contains("native"),
-            "LITM: fallback note must be near end of MDC"
-        );
-    }
-
     fn ensure_temp_dir() {
         let tmp = std::env::temp_dir();
         if !tmp.exists() {
@@ -719,6 +531,6 @@ mod tests {
     fn target_count() {
         let home = std::path::PathBuf::from("/tmp/fake_home");
         let targets = build_rules_targets(&home);
-        assert_eq!(targets.len(), 23);
+        assert_eq!(targets.len(), 4);
     }
 }

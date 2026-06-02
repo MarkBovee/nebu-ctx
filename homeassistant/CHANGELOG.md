@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.32
+
+- Bundle the client release that strips more dead private `ctx_*` client surface, finishes the 4-agent setup/rules cleanup, and keeps public `ctx(...)` routes working for analytics feedback and context prefetch flows.
+
 ## 0.8.31
 
 - Bundle the client/server release that makes public `ctx_search` regex behavior ripgrep-compatible, centralizes public guidance policy, and auto-files or updates reproducible public-tool bug reports.

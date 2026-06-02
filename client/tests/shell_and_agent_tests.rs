@@ -1,5 +1,5 @@
 //! E2E tests for shell detection, NEBU_CTX_SHELL override,
-//! agent init (incl. antigravity alias), Windows path handling,
+//! agent init, Windows path handling,
 //! and pipe-guard (stdout not a terminal → bypass nebu-ctx).
 
 use std::io::Write;
@@ -191,15 +191,15 @@ fn on_brief_is_recognized_command() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn agent_init_antigravity_alias() {
+fn agent_init_opencode_is_supported() {
     let tmpdir = tempfile::tempdir().expect("create tempdir");
     let home = tmpdir.path();
 
-    let gemini_dir = home.join(".gemini");
-    std::fs::create_dir_all(&gemini_dir).unwrap();
+    let opencode_dir = home.join(".config/opencode");
+    std::fs::create_dir_all(&opencode_dir).unwrap();
 
     let mut cmd = Command::new(nebula_ctx_bin());
-    cmd.args(["setup", "--agent", "antigravity", "--global"])
+    cmd.args(["setup", "--agent", "opencode", "--global"])
         .env("HOME", home.to_str().unwrap())
         .env("LEAN_CTX_DISABLED", "1")
         .stdout(Stdio::piped())
@@ -210,19 +210,11 @@ fn agent_init_antigravity_alias() {
 
     assert!(
         !stderr.contains("Unknown agent"),
-        "antigravity should be recognized: {stderr}"
+        "opencode should be recognized: {stderr}"
     );
 
-    let hooks_dir = gemini_dir.join("hooks");
-    if hooks_dir.exists() {
-        let rewrite = hooks_dir.join("nebu-ctx-rewrite-gemini.sh");
-        assert!(rewrite.exists(), "rewrite script should be created");
-        let content = std::fs::read_to_string(&rewrite).unwrap();
-        assert!(
-            content.contains("hookSpecificOutput"),
-            "rewrite script should contain hook output format"
-        );
-    }
+    let rules_path = opencode_dir.join("rules/nebu-ctx.md");
+    assert!(rules_path.exists(), "opencode rules should be created");
 }
 
 #[test]
@@ -237,12 +229,12 @@ fn agent_init_unknown_agent_fails() {
 }
 
 #[test]
-fn agent_init_lists_antigravity_in_supported() {
+fn agent_init_lists_four_supported_agents() {
     let (_stdout, stderr, _code) =
         run_with_env(&["setup", "--agent", "nonexistent_agent"], &[], None);
     assert!(
-        stderr.contains("antigravity"),
-        "supported list should include antigravity: {stderr}"
+        stderr.contains("claude, codex, copilot, opencode"),
+        "supported list should contain current supported agents: {stderr}"
     );
 }
 

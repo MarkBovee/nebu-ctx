@@ -2,7 +2,7 @@ use serde_json::json;
 
 #[tokio::test]
 #[allow(clippy::await_holding_lock)]
-async fn ctx_feedback_record_report_reset() {
+async fn analytics_feedback_record_report_reset_via_ctx() {
     let _g = nebula_ctx::core::data_dir::test_env_lock();
     let dir = tempfile::tempdir().expect("tempdir");
     let data_dir = dir.path().join("data");
@@ -12,15 +12,20 @@ async fn ctx_feedback_record_report_reset() {
     let engine = nebula_ctx::engine::ContextEngine::with_project_root(dir.path());
 
     let _ = engine
-        .call_tool_text("ctx_feedback", Some(json!({"action":"reset"})))
+        .call_tool_text(
+            "ctx",
+            Some(json!({"domain":"analytics","action":"feedback","limit":50,"format":"reset"})),
+        )
         .await
         .expect("reset");
 
     let _ = engine
         .call_tool_text(
-            "ctx_feedback",
+            "ctx",
             Some(json!({
-                "action":"record",
+                "domain":"analytics",
+                "action":"feedback",
+                "format":"record",
                 "agent_id":"test-agent",
                 "model":"test-model",
                 "intent":"test-intent",
@@ -33,13 +38,19 @@ async fn ctx_feedback_record_report_reset() {
         .expect("record");
 
     let report = engine
-        .call_tool_text("ctx_feedback", Some(json!({"action":"report","limit":50})))
+        .call_tool_text(
+            "ctx",
+            Some(json!({"domain":"analytics","action":"feedback","limit":50,"format":"report"})),
+        )
         .await
         .expect("report");
     assert!(report.contains("total_events: 1"), "report: {report}");
 
     let json_out = engine
-        .call_tool_text("ctx_feedback", Some(json!({"action":"json","limit":50})))
+        .call_tool_text(
+            "ctx",
+            Some(json!({"domain":"analytics","action":"feedback","limit":50,"format":"json"})),
+        )
         .await
         .expect("json");
     let v: serde_json::Value = serde_json::from_str(&json_out).expect("parse json");
@@ -50,12 +61,18 @@ async fn ctx_feedback_record_report_reset() {
     );
 
     let _ = engine
-        .call_tool_text("ctx_feedback", Some(json!({"action":"reset"})))
+        .call_tool_text(
+            "ctx",
+            Some(json!({"domain":"analytics","action":"feedback","limit":50,"format":"reset"})),
+        )
         .await
         .expect("reset2");
 
     let report2 = engine
-        .call_tool_text("ctx_feedback", Some(json!({"action":"report","limit":50})))
+        .call_tool_text(
+            "ctx",
+            Some(json!({"domain":"analytics","action":"feedback","limit":50,"format":"report"})),
+        )
         .await
         .expect("report2");
     assert!(report2.contains("No LLM feedback"), "report2: {report2}");

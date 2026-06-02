@@ -3,7 +3,6 @@ use std::process::Command;
 use nebu_ctx::core::setup_report::SetupReport;
 use nebu_ctx::status::StatusReport;
 use nebu_ctx::sync_cli::SyncReport;
-use nebu_ctx::token_report::TokenReport;
 
 #[test]
 fn setup_ci_smoke_windows_packaging_keeps_rust_lld_override() {
@@ -138,17 +137,13 @@ fn setup_ci_smoke_windows_packaging_docs_still_mention_user_facing_promise() {
 }
 
 #[test]
-fn cargo_install_defaults_do_not_enable_http_server() {
+fn cargo_install_manifest_no_longer_exposes_http_server_feature() {
     let manifest_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
     let manifest = std::fs::read_to_string(manifest_path).expect("read Cargo.toml");
-    let default_line = manifest
-        .lines()
-        .find(|line| line.starts_with("default = "))
-        .expect("default features line");
 
     assert!(
-        !default_line.contains("http-server"),
-        "cargo install should not enable http-server by default"
+        !manifest.contains("http-server = ["),
+        "client manifest should no longer expose the removed http-server feature"
     );
 }
 
@@ -184,7 +179,7 @@ fn write_exe(path: &std::path::Path, content: &str) {
 }
 
 #[test]
-fn setup_bootstrap_doctor_status_json_smoke() {
+fn setup_doctor_status_json_smoke() {
     let bin = env!("CARGO_BIN_EXE_nebu-ctx");
 
     let tmp = tempfile::tempdir().unwrap();
@@ -238,19 +233,11 @@ fn setup_bootstrap_doctor_status_json_smoke() {
     let new_path = format!("{}:{}", bin_dir.to_string_lossy(), old_path);
     envs.push(("PATH", new_path.as_str()));
 
-    // bootstrap --json returns clean JSON (SetupReport)
-    let (code, out) = run_json(bin, &["bootstrap", "--json"], &envs);
-    assert_eq!(code, 0, "bootstrap exit code");
-    let setup: SetupReport = serde_json::from_str(&out).expect("bootstrap JSON parse");
+    // setup --json returns clean JSON (SetupReport)
+    let (code, out) = run_json(bin, &["setup", "--non-interactive", "--fix", "--yes", "--json"], &envs);
+    assert_eq!(code, 0, "setup exit code");
+    let setup: SetupReport = serde_json::from_str(&out).expect("setup JSON parse");
     assert_eq!(setup.schema_version, 1);
-
-    // bootstrap should create env.sh in NEBU_CTX_DATA_DIR for Docker/CI shells.
-    let env_sh = data_dir.join("env.sh");
-    let env_sh_content = std::fs::read_to_string(&env_sh).expect("env.sh exists");
-    assert!(
-        env_sh_content.contains("nebu-ctx docker self-heal"),
-        "env.sh missing docker self-heal snippet"
-    );
 
     // setup --agent claude should prefer `claude mcp add-json` when available.
     let out = Command::new(bin)
@@ -280,15 +267,10 @@ fn setup_bootstrap_doctor_status_json_smoke() {
     assert!(status.sync_outbox.readable);
     assert_eq!(status.sync_outbox.queued, 0);
 
-    // token-report --json returns clean JSON
-    let (code, out) = run_json(bin, &["token-report", "--json"], &envs);
-    assert_eq!(code, 0, "token-report exit code");
-    let report: TokenReport = serde_json::from_str(&out).expect("token-report JSON parse");
-    assert_eq!(report.schema_version, 1);
 }
 
 #[test]
-fn bootstrap_configures_opencode_plugin_rules_and_skill() {
+fn setup_configures_opencode_plugin_rules_and_skill() {
     let bin = env!("CARGO_BIN_EXE_nebu-ctx");
 
     let tmp = tempfile::tempdir().unwrap();
@@ -315,9 +297,9 @@ fn bootstrap_configures_opencode_plugin_rules_and_skill() {
         envs.push(("USERPROFILE", home_str.as_str()));
     }
 
-    let (code, out) = run_json(bin, &["bootstrap", "--json"], &envs);
-    assert_eq!(code, 0, "bootstrap exit code");
-    let setup: SetupReport = serde_json::from_str(&out).expect("bootstrap JSON parse");
+    let (code, out) = run_json(bin, &["setup", "--non-interactive", "--fix", "--yes", "--json"], &envs);
+    assert_eq!(code, 0, "setup exit code");
+    let setup: SetupReport = serde_json::from_str(&out).expect("setup JSON parse");
     assert_eq!(setup.schema_version, 1);
 
     let opencode_path = home.join(".config/opencode/opencode.json");
@@ -370,16 +352,12 @@ fn bootstrap_configures_opencode_plugin_rules_and_skill() {
 }
 
 #[test]
-fn skill_asset_mentions_project_bootstrap_flow() {
-    let skill = std::fs::read_to_string(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("assets/skills/project-bootstrap/SKILL.md"),
-    )
-    .expect("read skill asset");
-
-    assert!(skill.contains("name: project-bootstrap"));
-    assert!(skill.contains("nebu-ctx project-bootstrap preview"));
-    assert!(skill.contains("Preview does not store anything by itself."));
+fn help_does_not_advertise_project_bootstrap_or_token_report() {
+    let bin = env!("CARGO_BIN_EXE_nebu-ctx");
+    let (code, stdout) = run_json(bin, &["--help"], &[]);
+    assert_eq!(code, 0);
+    assert!(!stdout.contains("project-bootstrap"));
+    assert!(!stdout.contains("token-report"));
 }
 
 #[test]

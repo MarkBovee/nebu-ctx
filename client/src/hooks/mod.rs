@@ -3,10 +3,7 @@ use std::path::PathBuf;
 pub mod agents;
 mod support;
 use agents::*;
-use support::{
-    ensure_codex_hooks_enabled, install_codex_instruction_docs, install_named_json_server,
-    upsert_lean_ctx_codex_hook_entries,
-};
+use support::{ensure_codex_hooks_enabled, install_codex_instruction_docs, upsert_lean_ctx_codex_hook_entries};
 
 pub(crate) fn mcp_server_quiet_mode() -> bool {
     std::env::var_os("NEBU_CTX_MCP_SERVER").is_some()
@@ -31,24 +28,6 @@ pub fn refresh_installed_hooks() {
     if claude_hooks {
         install_claude_hook_scripts(&home);
         install_claude_hook_config(&home);
-    }
-
-    let cursor_hooks = home.join(".cursor/hooks/nebu-ctx-rewrite.sh").exists()
-        || home.join(".cursor/hooks.json").exists()
-            && std::fs::read_to_string(home.join(".cursor/hooks.json"))
-                .unwrap_or_default()
-                .contains("nebu-ctx");
-
-    if cursor_hooks {
-        install_cursor_hook_scripts(&home);
-        install_cursor_hook_config(&home);
-    }
-
-    let gemini_rewrite = home.join(".gemini/hooks/nebu-ctx-rewrite-gemini.sh");
-    let gemini_legacy = home.join(".gemini/hooks/nebu-ctx-hook-gemini.sh");
-    if gemini_rewrite.exists() || gemini_legacy.exists() {
-        install_gemini_hook_scripts(&home);
-        install_gemini_hook_config(&home);
     }
 
     let codex_hooks = home.join(".codex/hooks/nebu-ctx-rewrite-codex.sh").exists()
@@ -211,11 +190,6 @@ const REDIRECT_SCRIPT_CLAUDE: &str = r#"#!/usr/bin/env bash
 exit 0
 "#;
 
-const REDIRECT_SCRIPT_GENERIC: &str = r#"#!/usr/bin/env bash
-# nebu-ctx hook — all native tools pass through
-exit 0
-"#;
-
 pub fn install_project_rules() {
     if crate::core::config::Config::load().rules_scope_effective()
         == crate::core::config::RulesScope::Global
@@ -244,27 +218,6 @@ pub fn install_project_rules() {
 
     ensure_project_agents_integration(&cwd);
 
-    let cursorrules = cwd.join(".cursorrules");
-    if !cursorrules.exists()
-        || !std::fs::read_to_string(&cursorrules)
-            .unwrap_or_default()
-            .contains("nebu-ctx")
-    {
-        let content = crate::public_guidance::cursor_rules_template();
-        if cursorrules.exists() {
-            let mut existing = std::fs::read_to_string(&cursorrules).unwrap_or_default();
-            if !existing.ends_with('\n') {
-                existing.push('\n');
-            }
-            existing.push('\n');
-            existing.push_str(&content);
-            write_file(&cursorrules, &existing);
-        } else {
-            write_file(&cursorrules, &content);
-        }
-        println!("Created/updated .cursorrules in project root.");
-    }
-
     let claude_rules_dir = cwd.join(".claude").join("rules");
     let claude_rules_file = claude_rules_dir.join("nebu-ctx.md");
     if !claude_rules_file.exists()
@@ -282,20 +235,6 @@ pub fn install_project_rules() {
 
     install_claude_project_hooks(&cwd);
 
-    let kiro_dir = cwd.join(".kiro");
-    if kiro_dir.exists() {
-        let steering_dir = kiro_dir.join("steering");
-        let steering_file = steering_dir.join("nebu-ctx.md");
-        if !steering_file.exists()
-            || !std::fs::read_to_string(&steering_file)
-                .unwrap_or_default()
-                .contains(KIRO_STEERING_VERSION)
-        {
-            let _ = std::fs::create_dir_all(&steering_dir);
-            write_file(&steering_file, &crate::public_guidance::kiro_steering_template());
-            println!("Created .kiro/steering/nebu-ctx.md (Kiro steering).");
-        }
-    }
 }
 
 const PROJECT_NEBU_CTX_MD_MARKER: &str = "<!-- nebu-ctx-owned: PROJECT-NEBU-CTX.md v1 -->";
@@ -383,56 +322,15 @@ fn replace_marked_block(content: &str, start: &str, end: &str, replacement: &str
     }
 }
 
-pub(crate) const KIRO_STEERING_VERSION: &str = crate::public_guidance::KIRO_STEERING_VERSION;
-
 pub fn install_agent_hook(agent: &str, global: bool) {
     match agent {
         "claude" | "claude-code" => install_claude_hook(global),
-        "cursor" => install_cursor_hook(global),
-        "gemini" | "antigravity" => install_gemini_hook(),
         "codex" => install_codex_hook(),
-        "windsurf" => install_windsurf_rules(global),
-        "cline" | "roo" => install_cline_rules(global),
         "copilot" => install_copilot_hook(global),
-        "pi" => install_pi_hook(global),
-        "qwen" => install_mcp_json_agent(
-            "Qwen Code",
-            "~/.qwen/mcp.json",
-            &dirs::home_dir().unwrap_or_default().join(".qwen/mcp.json"),
-        ),
-        "trae" => install_mcp_json_agent(
-            "Trae",
-            "~/.trae/mcp.json",
-            &dirs::home_dir().unwrap_or_default().join(".trae/mcp.json"),
-        ),
-        "amazonq" => install_mcp_json_agent(
-            "Amazon Q Developer",
-            "~/.aws/amazonq/mcp.json",
-            &dirs::home_dir()
-                .unwrap_or_default()
-                .join(".aws/amazonq/mcp.json"),
-        ),
-        "jetbrains" => install_jetbrains_hook(),
-        "kiro" => install_kiro_hook(),
-        "verdent" => install_mcp_json_agent(
-            "Verdent",
-            "~/.verdent/mcp.json",
-            &dirs::home_dir()
-                .unwrap_or_default()
-                .join(".verdent/mcp.json"),
-        ),
         "opencode" => install_opencode_hook(),
-        "aider" => install_mcp_json_agent(
-            "Aider",
-            "~/.aider/mcp.json",
-            &dirs::home_dir().unwrap_or_default().join(".aider/mcp.json"),
-        ),
-        "amp" => install_amp_hook(),
-        "crush" => install_crush_hook(),
-        "hermes" => install_hermes_hook(global),
         _ => {
             eprintln!("Unknown agent: {agent}");
-            eprintln!("  Supported: claude, cursor, gemini, codex, windsurf, cline, roo, copilot, pi, qwen, trae, amazonq, jetbrains, kiro, verdent, opencode, aider, amp, crush, antigravity, hermes");
+            eprintln!("  Supported: claude, codex, copilot, opencode");
             std::process::exit(1);
         }
     }
@@ -465,24 +363,6 @@ fn make_executable(path: &PathBuf) {
 
 #[cfg(not(unix))]
 fn make_executable(_path: &PathBuf) {}
-
-fn full_server_entry(binary: &str) -> serde_json::Value {
-    let data_dir = crate::core::data_dir::nebu_ctx_data_dir()
-        .map(|d| d.to_string_lossy().to_string())
-        .unwrap_or_default();
-    let auto_approve = crate::core::editor_registry::auto_approve_tools();
-    serde_json::json!({
-        "command": binary,
-        "env": { "NEBU_CTX_DATA_DIR": data_dir },
-        "autoApprove": auto_approve
-    })
-}
-
-fn install_mcp_json_agent(name: &str, display_path: &str, config_path: &std::path::Path) {
-    let binary = resolve_binary_path();
-    let entry = full_server_entry(&binary);
-    install_named_json_server(name, display_path, config_path, "mcpServers", entry);
-}
 
 #[cfg(test)]
 mod tests {
@@ -634,95 +514,6 @@ mod tests {
     }
 
     #[test]
-    fn cursor_hook_config_has_version_and_object_hooks() {
-        let config = serde_json::json!({
-            "version": 1,
-            "hooks": {
-                "preToolUse": [
-                    {
-                        "matcher": "terminal_command",
-                        "command": "nebu-ctx hook rewrite"
-                    },
-                    {
-                        "matcher": "read_file|grep|search|list_files|list_directory",
-                        "command": "nebu-ctx hook redirect"
-                    }
-                ]
-            }
-        });
-
-        let json_str = serde_json::to_string_pretty(&config).unwrap();
-        let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
-
-        assert_eq!(parsed["version"], 1);
-        assert!(parsed["hooks"].is_object());
-        assert!(parsed["hooks"]["preToolUse"].is_array());
-        assert_eq!(parsed["hooks"]["preToolUse"].as_array().unwrap().len(), 2);
-        assert_eq!(
-            parsed["hooks"]["preToolUse"][0]["matcher"],
-            "terminal_command"
-        );
-    }
-
-    #[test]
-    fn cursor_hook_detects_old_format_needs_migration() {
-        let old_format = r#"{"hooks":[{"event":"preToolUse","command":"nebu-ctx hook rewrite"}]}"#;
-        let has_correct =
-            old_format.contains("\"version\"") && old_format.contains("\"preToolUse\"");
-        assert!(
-            !has_correct,
-            "Old format should be detected as needing migration"
-        );
-    }
-
-    #[test]
-    fn gemini_hook_config_has_type_command() {
-        let binary = "nebu-ctx";
-        let rewrite_cmd = format!("{binary} hook rewrite");
-        let redirect_cmd = format!("{binary} hook redirect");
-
-        let hook_config = serde_json::json!({
-            "hooks": {
-                "BeforeTool": [
-                    {
-                        "hooks": [{
-                            "type": "command",
-                            "command": rewrite_cmd
-                        }]
-                    },
-                    {
-                        "hooks": [{
-                            "type": "command",
-                            "command": redirect_cmd
-                        }]
-                    }
-                ]
-            }
-        });
-
-        let parsed = hook_config;
-        let before_tool = parsed["hooks"]["BeforeTool"].as_array().unwrap();
-        assert_eq!(before_tool.len(), 2);
-
-        let first_hook = &before_tool[0]["hooks"][0];
-        assert_eq!(first_hook["type"], "command");
-        assert_eq!(first_hook["command"], "nebu-ctx hook rewrite");
-
-        let second_hook = &before_tool[1]["hooks"][0];
-        assert_eq!(second_hook["type"], "command");
-        assert_eq!(second_hook["command"], "nebu-ctx hook redirect");
-    }
-
-    #[test]
-    fn gemini_hook_old_format_detected() {
-        let old_format = r#"{"hooks":{"BeforeTool":[{"command":"nebu-ctx hook rewrite"}]}}"#;
-        let has_new = old_format.contains("hook rewrite")
-            && old_format.contains("hook redirect")
-            && old_format.contains("\"type\"");
-        assert!(!has_new, "Missing 'type' field should trigger migration");
-    }
-
-    #[test]
     fn rewrite_script_uses_registry_pattern() {
         let script = generate_rewrite_script("/usr/bin/nebu-ctx");
         assert!(script.contains(r"git\ *"), "script missing git pattern");
@@ -777,19 +568,4 @@ mod tests {
         }
     }
 
-    #[test]
-    fn kiro_steering_template_uses_public_surface_only() {
-        let template = crate::public_guidance::kiro_steering_template();
-        assert!(template.contains(KIRO_STEERING_VERSION));
-        assert!(template.contains("`ctx_read`"));
-        assert!(template.contains("`ctx_search`"));
-        assert!(template.contains("`ctx_tree`"));
-        assert!(template.contains("`ctx_shell`"));
-        assert!(template.contains("`ctx`"));
-        assert!(!template.contains("mcp_lean_ctx_"));
-        assert!(!template.contains("ctx_preload"));
-        assert!(!template.contains("ctx_compress"));
-        assert!(!template.contains("ctx_knowledge"));
-        assert!(!template.contains("ctx_edit"));
-    }
 }

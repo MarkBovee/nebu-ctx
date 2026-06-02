@@ -48,29 +48,33 @@ fn binary_prints_help() {
 }
 
 #[test]
-fn binary_read_file() {
+fn read_cli_reports_thin_client_deprecation() {
     let output = nebula_ctx_bin()
         .args(["read", "Cargo.toml", "-m", "signatures"])
         .output()
         .expect("failed to run nebu-ctx");
-    assert!(output.status.success(), "read should succeed");
-}
-
-#[test]
-fn binary_config_shows_defaults() {
-    let output = nebula_ctx_bin()
-        .arg("config")
-        .output()
-        .expect("failed to run nebu-ctx");
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stdout.contains("checkpoint_interval"),
-        "config should show checkpoint_interval"
+        stderr.contains("no longer a supported thin-client CLI surface"),
+        "read should now be rejected from the thin CLI surface, got stderr: {stderr}"
     );
 }
 
 #[test]
-fn gain_remains_available_as_local_cli_surface() {
+fn config_cli_reports_thin_client_deprecation() {
+    let output = nebula_ctx_bin()
+        .arg("config")
+        .output()
+        .expect("failed to run nebu-ctx");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("no longer a supported thin-client CLI surface"),
+        "config should now be rejected from the thin CLI surface, got stderr: {stderr}"
+    );
+}
+
+#[test]
+fn gain_cli_reports_thin_client_deprecation() {
     let output = nebula_ctx_bin()
         .arg("gain")
         .output()
@@ -78,8 +82,8 @@ fn gain_remains_available_as_local_cli_surface() {
     let stderr = String::from_utf8_lossy(&output.stderr);
 
     assert!(
-        !stderr.contains("no longer available as a local client surface"),
-        "gain should still run locally, got stderr: {stderr}"
+        stderr.contains("no longer a supported thin-client CLI surface"),
+        "gain should now be rejected from the thin CLI surface, got stderr: {stderr}"
     );
 }
 

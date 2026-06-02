@@ -15,7 +15,6 @@ pub fn run() {
     let mut removed_any = false;
 
     removed_any |= remove_shell_hook(&home);
-    crate::proxy_setup::uninstall_proxy_env(&home, false);
     removed_any |= remove_mcp_configs(&home);
     removed_any |= remove_rules_files(&home);
     removed_any |= remove_hook_files(&home);

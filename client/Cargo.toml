@@ -1,6 +1,6 @@
 [package]
 name = "nebu-ctx"
-version = "0.8.31"
+version = "0.8.32"
 edition = "2021"
 autobins = false
 description = "NebuCtx runtime for the nebu-ctx self-hosted client/server product."
@@ -36,7 +36,6 @@ pkg-fmt = "zip"
 default = []
 neural = ["dep:rten", "dep:rten-tensor"]
 embeddings = ["dep:rten", "dep:rten-tensor"]
-http-server = ["dep:axum", "dep:tower-http", "dep:reqwest"]
 property-graph = ["dep:rusqlite"]
 tree-sitter = [
 	"dep:tree-sitter",
@@ -107,13 +106,9 @@ tree-sitter-zig = { version = "1.1", optional = true }
 tree-sitter-dart = { version = "0.1", optional = true }
 rten = { version = "0.24", optional = true }
 rten-tensor = { version = "0.24", optional = true }
-axum = { version = "0.8", optional = true }
-tower-http = { version = "0.6", features = ["cors", "auth"], optional = true }
 glob = "0.3.3"
 rpassword = "7.4.0"
 getrandom = "0.3"
-reqwest = { version = "0.13.2", default-features = false, features = ["rustls", "stream", "json"], optional = true }
 
 [dev-dependencies]
 tempfile = "3.27.0"
-tower = "0.5"

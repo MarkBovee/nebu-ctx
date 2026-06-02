@@ -2,7 +2,7 @@ use serde_json::json;
 
 #[tokio::test]
 #[allow(clippy::await_holding_lock)]
-async fn ctx_feedback_updates_adaptive_mode_policy() {
+async fn analytics_feedback_updates_adaptive_mode_policy_via_ctx() {
     let _g = nebula_ctx::core::data_dir::test_env_lock();
     let dir = tempfile::tempdir().expect("tempdir");
     let data_dir = dir.path().join("data");
@@ -21,11 +21,14 @@ async fn ctx_feedback_updates_adaptive_mode_policy() {
     let engine = nebula_ctx::engine::ContextEngine::with_project_root(project.path());
 
     let _ = engine
-        .call_tool_text("ctx_feedback", Some(json!({"action":"reset"})))
+        .call_tool_text(
+            "ctx",
+            Some(json!({"domain":"analytics","action":"feedback","format":"reset"})),
+        )
         .await
         .expect("reset");
 
-    // Generate real ctx_read tool calls so ctx_feedback can attach ctx_read_modes.
+    // Generate real ctx_read calls so analytics feedback can attach ctx_read_modes.
     for _ in 0..3 {
         let _ = engine
             .call_tool_text(
@@ -38,9 +41,11 @@ async fn ctx_feedback_updates_adaptive_mode_policy() {
 
     let record_out = engine
         .call_tool_text(
-            "ctx_feedback",
+            "ctx",
             Some(json!({
-                "action":"record",
+                "domain":"analytics",
+                "action":"feedback",
+                "format":"record",
                 "agent_id":"test-agent",
                 "llm_input_tokens":100,
                 "llm_output_tokens":8000,
@@ -55,7 +60,10 @@ async fn ctx_feedback_updates_adaptive_mode_policy() {
     );
 
     let status = engine
-        .call_tool_text("ctx_feedback", Some(json!({"action":"status"})))
+        .call_tool_text(
+            "ctx",
+            Some(json!({"domain":"analytics","action":"feedback","format":"status"})),
+        )
         .await
         .expect("status");
     assert!(
