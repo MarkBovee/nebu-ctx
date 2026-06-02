@@ -21,42 +21,14 @@ fn is_claude_code_client(client_name: &str) -> bool {
 }
 
 fn build_claude_code_instructions() -> String {
-    let instr = "\
-ALWAYS use nebu-ctx MCP tools instead of native equivalents.
-
-Tool mapping (MANDATORY):
-• Read/cat/head/tail -> ctx_read(target=file|files|symbol|outline|archive, ...)
-• Shell/bash -> ctx_shell(command)
-• Grep/rg/semantic search -> ctx_search(mode=regex|semantic, ...)
-• ls/find -> ctx_tree(path, depth)
-• Edit/StrReplace/Write/Delete/Glob -> native tools
-
-ctx_read targets: file|files|symbol|outline|archive.
-ctx_read modes: auto|full|map|signatures|diff|task|reference|aggressive|entropy|lines:N-M
-Auto-selects mode. Re-reads ~13 tok. File refs F1,F2.. persist.
-Cached? fresh=true or lines:N-M.
-
-Use ctx(domain=memory|context|graph|analytics|agents|inspect, action=...).
-Memory/state: ctx(domain=memory, action=recall|store|task|finding|decision|save|load|status|wakeup|consolidate).
-Project mapping/bootstrap: preview first with `nebu-ctx project-bootstrap preview`, apply only after explicit confirmation.
-Graph/analysis: ctx(domain=graph, action=related|symbol|impact|architecture|callers|callees|diagram|build|status).
-Analytics: ctx(domain=analytics, action=report|cost|heatmap|stats|feedback|wrapped|benchmark|analyze|discover|metrics).
-ctx_shell shows [shell: ...]. Use shell=... to force pwsh/cmd/bash. raw=true for uncompressed.
-If public nebu-ctx tool bug reproduces after one retry, create GitHub issue in `MarkBovee/nebu-ctx` with repro, expected/actual, shell/platform, and failing tool call. Prefer `gh issue create --repo MarkBovee/nebu-ctx`.
-
-CEP: 1.ACT FIRST 2.DELTA ONLY 3.STRUCTURED(+/-/~) 4.ONE LINE 5.QUALITY
-
-Prefer: ctx_read>Read | ctx_shell>Shell | ctx_search>Grep | ctx_tree>ls
-Edit/write/delete: native tools.
-Never echo tool output. Never narrate. Show only changed code.
-Full instructions at ~/.claude/CLAUDE.md (imports rules/nebu-ctx.md)";
+    let instr = crate::public_guidance::claude_code_instructions();
 
     debug_assert!(
         instr.len() <= CLAUDE_CODE_INSTRUCTION_CAP,
         "Claude Code instructions exceed {CLAUDE_CODE_INSTRUCTION_CAP} chars: {} chars",
         instr.len()
     );
-    instr.to_string()
+    instr
 }
 
 fn build_full_instructions(crp_mode: CrpMode, client_name: &str) -> String {
@@ -120,44 +92,10 @@ fn build_full_instructions(crp_mode: CrpMode, client_name: &str) -> String {
         None => String::new(),
     };
 
-    let base = format!("\
-CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalents.\n\
-\n\
-Public MCP surface is fixed to 5 tools: ctx_read, ctx_search, ctx_tree, ctx_shell, ctx.\n\
-\n\
-MANDATORY tool mapping:\n\
-• Read/cat/head/tail -> ctx_read(target=file|files|symbol|outline|archive, ...)\n\
-• Shell/bash -> ctx_shell(command)\n\
-• Grep/rg/semantic search -> ctx_search(mode=regex|semantic, ...)\n\
-• ls/find -> ctx_tree(path, depth)\n\
-• Edit/StrReplace/Write/Delete/Glob -> use native tools\n\
-\n\
-File mutation stays on native Edit/StrReplace/Write/Delete tools.\n\
-\n\
-ctx_read targets: file|files|symbol|outline|archive.\n\
-ctx_read modes: auto|full|map|signatures|diff|task|reference|aggressive|entropy|lines:N-M. Auto-selects. Re-reads ~13 tok. Fn refs F1,F2.. persist.\n\
-Cached? Use fresh=true, start_line=N, or lines:N-M.\n\
-\n\
-Use ctx(domain=memory|context|graph|analytics|agents|inspect, action=...) for higher-level workflows.\n\
-Examples: ctx(domain=memory, action=recall, query=...) | ctx(domain=context, action=overview, task=...) | ctx(domain=graph, action=impact, path=...) | ctx(domain=agents, action=handoff, ...).\n\
-When user asks to map/bootstrap repo knowledge, use `nebu-ctx project-bootstrap preview` first, not direct background memory writes.\n\
-ctx_shell shows [shell: ...]. Use shell=... to force pwsh/cmd/bash. raw=true for uncompressed output.\n\
-Never bypass nebu-ctx tool routing with native equivalents when a public nebu-ctx path exists. If a tool misbehaves, retry once, then use raw mode or repo-built nebu-ctx client instead of native fallback.\n\
-If public nebu-ctx tool bug reproduces after one retry, create GitHub issue in `MarkBovee/nebu-ctx` with repro, expected/actual, shell/platform, and failing tool call. Prefer `gh issue create --repo MarkBovee/nebu-ctx`.\n\
-\n\
-CEP v1: 1.ACT FIRST 2.DELTA ONLY (Fn refs) 3.STRUCTURED (+/-/~) 4.ONE LINE PER ACTION 5.QUALITY ANCHOR\n\
-\n\
-{decoder_block}\n\
-\n\
-{session_block}\
-{knowledge_block}\
-{gotcha_block}\
-\n\
---- TOOL PREFERENCE (LITM-END) ---\n\
-Prefer: ctx_read over Read | ctx_shell over Shell | ctx_search over Grep | ctx_tree over ls\n\
-Edit files: native Edit/StrReplace/Write/Delete tools.\n\
-Write, Delete, Glob -> use normally.",
-        decoder_block = crate::core::protocol::instruction_decoder_block()
+    let base = format!(
+        "{}\n\nCEP v1: 1.ACT FIRST 2.DELTA ONLY (Fn refs) 3.STRUCTURED (+/-/~) 4.ONE LINE PER ACTION 5.QUALITY ANCHOR\n\n{}\n\n{session_block}{knowledge_block}{gotcha_block}\n--- TOOL PREFERENCE (LITM-END) ---\nPrefer: ctx_read over Read | ctx_shell over Shell | ctx_search over Grep | ctx_tree over ls\nEdit files: native Edit/StrReplace/Write/Delete tools.\nWrite, Delete, Glob -> use normally.",
+        crate::public_guidance::full_instruction_policy_block(),
+        crate::core::protocol::instruction_decoder_block(),
     );
 
     let intelligence_block = build_intelligence_block();

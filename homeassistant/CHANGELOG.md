@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.31
+
+- Bundle the client/server release that makes public `ctx_search` regex behavior ripgrep-compatible, centralizes public guidance policy, and auto-files or updates reproducible public-tool bug reports.
+
 ## 0.8.30
 
 - Bundle the client release that cleans up `nebu-ctx doctor` by removing the noisy `config.toml` and dead `Dashboard port 3333` checks.

@@ -279,7 +279,7 @@ pub fn print_command_box() {
         "  {d}│{r}  {cmd}{b}nebu-ctx off{r} / {cmd}{b}on{r}    {m}Toggle compression{r}                {d}│{r}"
     );
     println!(
-        "  {d}│{r}  {cmd}{b}nebu-ctx report-issue{r} {m}Report a bug (auto-diagnostics){r}  {d}│{r}"
+        "  {d}│{r}  {cmd}{b}nebu-ctx report-issue{r} {m}Report/update bug (auto-diagnostics){r} {d}│{r}"
     );
     println!(
         "  {d}│{r}  {cmd}{b}nebu-ctx uninstall{r}   {m}Clean removal{r}                     {d}│{r}"

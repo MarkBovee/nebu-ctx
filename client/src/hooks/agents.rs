@@ -5,7 +5,7 @@ use super::{
     generate_compact_rewrite_script, generate_rewrite_script, install_codex_instruction_docs,
     install_mcp_json_agent, install_named_json_server, install_project_rules, is_inside_git_repo,
     make_executable, mcp_server_quiet_mode, resolve_binary_path, resolve_binary_path_for_bash,
-    upsert_lean_ctx_codex_hook_entries, write_file, KIRO_STEERING_TEMPLATE, REDIRECT_SCRIPT_CLAUDE,
+    upsert_lean_ctx_codex_hook_entries, write_file, REDIRECT_SCRIPT_CLAUDE,
     REDIRECT_SCRIPT_GENERIC,
 };
 
@@ -31,25 +31,7 @@ pub(super) fn install_claude_hook(global: bool) {
 
 const CLAUDE_MD_BLOCK_START: &str = "<!-- nebu-ctx -->";
 const CLAUDE_MD_BLOCK_END: &str = "<!-- /nebu-ctx -->";
-const CLAUDE_MD_BLOCK_VERSION: &str = "nebu-ctx-claude-v2";
-
-const CLAUDE_MD_BLOCK_CONTENT: &str = "\
-<!-- nebu-ctx -->
-<!-- nebu-ctx-claude-v2 -->
-## nebu-ctx — Context Runtime
-
-Always prefer nebu-ctx MCP tools over native equivalents:
-- `ctx_read` instead of `Read` / `cat` (cached, 10 modes, re-reads ~13 tokens)
-- `ctx_shell` instead of `bash` / `Shell` (90+ compression patterns)
-- `ctx_search` instead of `Grep` / `rg` (compact results)
-- `ctx_tree` instead of `ls` / `find` (compact directory maps)
-- Native Edit/StrReplace stay unchanged. If Edit requires Read and Read is unavailable, use `ctx_edit(path, old_string, new_string)` instead.
-- Write, Delete, Glob — use normally.
-
-Full rules: @rules/nebu-ctx.md
-
-Verify setup: run `/mcp` to check nebu-ctx is connected, `/memory` to confirm this file loaded.
-<!-- /nebu-ctx -->";
+const CLAUDE_MD_BLOCK_VERSION: &str = crate::public_guidance::CLAUDE_MD_BLOCK_VERSION;
 
 fn claude_hook_payload(
     binary: &str,
@@ -147,15 +129,23 @@ fn install_claude_global_claude_md(home: &std::path::Path) {
                 continue;
             }
             let cleaned = remove_block(&existing, CLAUDE_MD_BLOCK_START, CLAUDE_MD_BLOCK_END);
-            let updated = format!("{}\n\n{}\n", cleaned.trim(), CLAUDE_MD_BLOCK_CONTENT);
+            let updated = format!(
+                "{}\n\n{}\n",
+                cleaned.trim(),
+                crate::public_guidance::claude_md_block_content()
+            );
             write_file(&claude_md_path, &updated);
             continue;
         }
 
         if existing.trim().is_empty() {
-            write_file(&claude_md_path, CLAUDE_MD_BLOCK_CONTENT);
+            write_file(&claude_md_path, &crate::public_guidance::claude_md_block_content());
         } else {
-            let updated = format!("{}\n\n{}\n", existing.trim(), CLAUDE_MD_BLOCK_CONTENT);
+            let updated = format!(
+                "{}\n\n{}\n",
+                existing.trim(),
+                crate::public_guidance::claude_md_block_content()
+            );
             write_file(&claude_md_path, &updated);
         }
     }
@@ -220,14 +210,14 @@ fn install_claude_rules_file(home: &std::path::Path) {
         let existing = std::fs::read_to_string(&rules_path).unwrap_or_default();
 
         if existing.is_empty() {
-            write_file(&rules_path, desired);
+            write_file(&rules_path, &desired);
             continue;
         }
         if existing.contains(crate::rules_inject::RULES_VERSION_STR) {
             continue;
         }
         if existing.contains("<!-- nebu-ctx-rules-") {
-            write_file(&rules_path, desired);
+            write_file(&rules_path, &desired);
         }
     }
 }
@@ -386,8 +376,8 @@ pub fn install_cursor_hook(global: bool) {
         let _ = std::fs::create_dir_all(&rules_dir);
         let rule_path = rules_dir.join("nebu-ctx.mdc");
         if !rule_path.exists() {
-            let rule_content = include_str!("../templates/nebu-ctx.mdc");
-            write_file(&rule_path, rule_content);
+            let rule_content = crate::public_guidance::rules_cursor_mdc();
+            write_file(&rule_path, &rule_content);
             println!("Created .cursor/rules/nebu-ctx.mdc in current project.");
         } else {
             println!("Cursor rule already exists.");
@@ -686,8 +676,8 @@ pub(super) fn install_windsurf_rules(global: bool) {
         return;
     };
 
-    let rules = include_str!("../templates/windsurfrules.txt");
-    write_file(&rules_path, rules);
+    let rules = crate::public_guidance::windsurf_rules_template();
+    write_file(&rules_path, &rules);
     println!("Installed .windsurfrules in current project.");
 }
 
@@ -784,8 +774,8 @@ pub(super) fn install_pi_hook(global: bool) {
                 .unwrap_or_default()
                 .contains("lean-ctx")
         {
-            let content = include_str!("../templates/PI_AGENTS.md");
-            write_file(&agents_md, content);
+            let content = crate::public_guidance::pi_agents_template();
+            write_file(&agents_md, &content);
             println!("Created AGENTS.md in current project directory.");
         } else {
             println!("AGENTS.md already contains nebu-ctx configuration.");
@@ -1315,7 +1305,7 @@ pub(super) fn install_kiro_hook() {
         println!("  Kiro steering file already exists at .kiro/steering/nebu-ctx.md");
     } else {
         let _ = std::fs::create_dir_all(&steering_dir);
-        write_file(&steering_file, KIRO_STEERING_TEMPLATE);
+        write_file(&steering_file, &crate::public_guidance::kiro_steering_template());
         println!("  \x1b[32m✓\x1b[0m Created .kiro/steering/nebu-ctx.md (Kiro will now prefer nebu-ctx tools)");
     }
 }
@@ -1388,7 +1378,7 @@ pub(super) fn install_hermes_hook(global: bool) {
 
 fn install_hermes_rules(home: &std::path::Path) {
     let rules_path = home.join(".hermes/HERMES.md");
-    let content = HERMES_RULES_TEMPLATE;
+    let content = crate::public_guidance::hermes_rules_template();
 
     if rules_path.exists() {
         let existing = std::fs::read_to_string(&rules_path).unwrap_or_default();
@@ -1401,7 +1391,7 @@ fn install_hermes_rules(home: &std::path::Path) {
             updated.push('\n');
         }
         updated.push('\n');
-        updated.push_str(content);
+        updated.push_str(&content);
         let _ = std::fs::write(&rules_path, updated);
         println!("  \x1b[32m✓\x1b[0m Appended lean-ctx rules to ~/.hermes/HERMES.md");
     } else {
@@ -1428,38 +1418,15 @@ fn install_project_hermes_rules() {
             updated.push('\n');
         }
         updated.push('\n');
-        updated.push_str(HERMES_RULES_TEMPLATE);
+        updated.push_str(&crate::public_guidance::hermes_rules_template());
         let _ = std::fs::write(&rules_path, updated);
         println!("  \x1b[32m✓\x1b[0m Appended lean-ctx rules to .hermes.md");
     } else {
-        let _ = std::fs::write(&rules_path, HERMES_RULES_TEMPLATE);
+        let _ = std::fs::write(&rules_path, crate::public_guidance::hermes_rules_template());
         println!("  \x1b[32m✓\x1b[0m Created .hermes.md with lean-ctx rules");
     }
 }
 
-const HERMES_RULES_TEMPLATE: &str = "\
-# lean-ctx — Context Engineering Layer
-
-PREFER nebu-ctx MCP tools over native equivalents for token savings:
-
-| PREFER | OVER | Why |
-|--------|------|-----|
-| `ctx_read(path, mode)` | `Read` / `cat` | Cached, 10 read modes, re-reads ~13 tokens |
-| `ctx_shell(command, shell?)` | `Shell` / `bash` | Pattern compression plus active shell visibility |
-| `ctx_search(pattern, path)` | `Grep` / `rg` | Compact search results |
-| `ctx_tree(path, depth)` | `ls` / `find` | Compact directory maps |
-
-- Native Edit/StrReplace stay unchanged. If Edit requires Read and Read is unavailable, use `ctx_edit(path, old_string, new_string)`.
-- Write, Delete, Glob — use normally.
-- `ctx_shell` uses active shell semantics; output includes `[shell: ...]`. Use `shell` to force a specific executable per call.
-- If a public nebu-ctx tool fails reproducibly, retry once if it may be environmental. If still broken, create a GitHub issue in `MarkBovee/nebu-ctx` with repro, expected vs actual, shell/platform, and the failing tool call.
-
-ctx_read modes: full|map|signatures|diff|task|reference|aggressive|entropy|lines:N-M. Auto-selects optimal mode.
-Re-reads cost ~13 tokens (cached).
-
-Available tools: ctx_overview, ctx_preload, ctx_dedup, ctx_compress, ctx_session, ctx_knowledge, ctx_semantic_search.
-Multi-agent: ctx_agent(action=handoff|sync). Diary: ctx_agent(action=diary, category=discovery|decision|blocker|progress|insight).
-";
 
 #[cfg(test)]
 mod tests {

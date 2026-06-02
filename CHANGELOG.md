@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.31
+
+- Make public `ctx_search` regex mode use a ripgrep-compatible engine so valid matches no longer collapse into false `0 matches` responses, and return explicit timeout or invalid-regex failures when search cannot be trusted.
+- Centralize public nebu-ctx guidance in one canonical renderer so instructions, injected rules, and hook-managed templates stay aligned on the 5-tool contract and no-bypass bug handling.
+- Add automation-first `report-issue` duplicate detection and update/create flows so reproducible public-tool bugs can open or reuse GitHub issues without waiting for a separate user prompt.
+
 ## 0.8.30
 
 - Strip noisy `config.toml` and dead `Dashboard port 3333` checks from `nebu-ctx doctor`, and remove unused `TcpListener` import with stale comment numbering.

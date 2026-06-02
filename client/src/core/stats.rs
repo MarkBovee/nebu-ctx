@@ -1327,7 +1327,7 @@ pub fn format_gain_themed_at(t: &Theme, tick: Option<u64>) -> String {
 
     let m = t.muted.fg();
     o.push(format!(
-        "    {m}🐛 Found a bug? Run: nebu-ctx report-issue{r}"
+        "    {m}🐛 Found a bug? Run: nebu-ctx report-issue --submit --search-duplicates ...{r}"
     ));
     o.push(format!(
         "    {m}🧠 View failure memory: nebu-ctx failures{r}"

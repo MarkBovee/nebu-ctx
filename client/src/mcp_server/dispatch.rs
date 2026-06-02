@@ -470,7 +470,7 @@ impl NebuCtxServer {
                         ))
                     }
                     Err(_) => {
-                        let msg = "ctx_search timed out after 30s. Try narrowing the search:\n\
+                        let msg = "ERROR: ctx_search timed out after 30s. Try narrowing the search:\n\
                                    • Use a more specific pattern\n\
                                    • Specify ext= to limit file types\n\
                                    • Specify a subdirectory in path=";

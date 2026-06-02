@@ -665,7 +665,7 @@ fn install_opencode_support_files_for_config(config_path: &std::path::Path) -> R
     let existing_rules = std::fs::read_to_string(&rules_path).unwrap_or_default();
     if existing_rules.is_empty() || !existing_rules.contains(crate::rules_inject::RULES_VERSION_STR)
     {
-        crate::config_io::write_atomic_with_backup(&rules_path, desired_rules)?;
+        crate::config_io::write_atomic_with_backup(&rules_path, &desired_rules)?;
     }
 
     let plugin_dir = config_dir.join("plugins");

@@ -2,137 +2,18 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-const MARKER: &str = "# nebu-ctx — Context Engineering Layer";
-const LEGACY_MARKER: &str = "# lean-ctx — Context Engineering Layer";
-const END_MARKER: &str = "<!-- /lean-ctx -->";
-const RULES_VERSION: &str = "nebu-ctx-rules-v12";
+const MARKER: &str = crate::public_guidance::RULES_MARKER;
+const LEGACY_MARKER: &str = crate::public_guidance::LEGACY_RULES_MARKER;
+const END_MARKER: &str = crate::public_guidance::RULES_END_MARKER;
+const RULES_VERSION: &str = crate::public_guidance::RULES_VERSION;
 const LEGACY_RULES_VERSION: &str = "lean-ctx-rules-v9";
 
 pub const RULES_MARKER: &str = MARKER;
 pub const RULES_VERSION_STR: &str = RULES_VERSION;
 
-pub fn rules_dedicated_markdown() -> &'static str {
-    RULES_DEDICATED
+pub fn rules_dedicated_markdown() -> String {
+    crate::public_guidance::rules_dedicated_markdown()
 }
-
-// ---------------------------------------------------------------------------
-// Rules content for SHARED config files (appended to user's existing config).
-// LITM-optimized: critical instruction at START and END of block.
-// Used for: CLAUDE.md, instructions.md, GEMINI.md, copilot-instructions.md
-// ---------------------------------------------------------------------------
-const RULES_SHARED: &str = r#"# nebu-ctx — Context Engineering Layer
-<!-- nebu-ctx-rules-v12 -->
-
-CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalents. This is NOT optional.
-
-| ALWAYS USE | NEVER USE | Why |
-|------------|-----------|-----|
-| `ctx_read(target="file"|"files"|"symbol"|"outline"|"archive", ...)` | `Read` / `cat` / `head` / `tail` | Public cached read API for files, symbols, outlines, and archives |
-| `ctx_shell(command, shell?)` | `Shell` / `bash` / terminal | Pattern compression plus active shell visibility |
-| `ctx_search(mode="regex"|"semantic", ...)` | `Grep` / `rg` | Compact regex and semantic search results |
-| `ctx_tree(path, depth)` | `ls` / `find` | Compact directory maps |
-| `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")` | private `ctx_*` implementation details | Stable public gateway for advanced operations |
-
-Public `ctx_read` targets: `file`, `files`, `symbol`, `outline`, `archive`.
-Public `ctx_search` modes: `regex`, `semantic`.
-Public `ctx` domains: `memory`, `context`, `graph`, `analytics`, `agents`, `inspect`.
-`ctx_shell` uses active shell semantics; output includes `[shell: ...]`. Use `shell="pwsh.exe"`, `shell="cmd.exe"`, or `shell="/bin/bash"` to force a shell per call.
-
-File mutation stays on native Edit/Write/Delete tools.
-
-Use private tool names only when documenting nebu-ctx internals. User-facing guidance should recommend only the 5 public tools.
-
-If a public nebu-ctx tool (`ctx_read`, `ctx_search`, `ctx_tree`, `ctx_shell`, `ctx(...)`) fails reproducibly, retry once if the failure may be environmental. If it still fails, create a GitHub issue in `MarkBovee/nebu-ctx` with repro steps, expected vs actual behavior, shell/platform, and the failing tool call. Prefer `gh issue create --repo MarkBovee/nebu-ctx ...`; fall back to `nebu-ctx report-issue --title ... --description ...` if needed.
-
-fallback only if a nebu-ctx tool is unavailable: use native equivalents.
-<!-- /lean-ctx -->"#;
-
-// ---------------------------------------------------------------------------
-// Rules content for DEDICATED lean-ctx rule files (we control entire file).
-// LITM-optimized with critical mapping at start and end.
-// Used for: Windsurf, Zed, Cline, Roo Code, OpenCode, Continue, Aider
-// ---------------------------------------------------------------------------
-const RULES_DEDICATED: &str = r#"# nebu-ctx — Context Engineering Layer
-<!-- nebu-ctx-rules-v12 -->
-
-CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalents. This is NOT optional.
-
-## Tool replacement:
-| ALWAYS USE | NEVER USE | Why |
-|------------|-----------|-----|
-| `ctx_read(target="file"|"files"|"symbol"|"outline"|"archive", ...)` | `Read` / `cat` / `head` / `tail` | Public cached read API for files, symbols, outlines, and archives |
-| `ctx_shell(command, shell?)` | `Shell` / `bash` / terminal | Pattern compression plus active shell visibility |
-| `ctx_search(mode="regex"|"semantic", ...)` | `Grep` / `rg` | Compact regex and semantic search results |
-| `ctx_tree(path, depth)` | `ls` / `find` | Compact directory maps |
-| `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")` | private `ctx_*` implementation details | Stable public gateway for advanced operations |
-
-Public `ctx_read` targets: `file`, `files`, `symbol`, `outline`, `archive`.
-Public `ctx_search` modes: `regex`, `semantic`.
-Public `ctx` domains: `memory`, `context`, `graph`, `analytics`, `agents`, `inspect`.
-`ctx_shell` uses active shell semantics; output includes `[shell: ...]`. Use `shell="pwsh.exe"`, `shell="cmd.exe"`, or `shell="/bin/bash"` to force a shell per call.
-
-Use private tool names only when documenting nebu-ctx internals. User-facing guidance should recommend only the 5 public tools.
-
-If a public nebu-ctx tool (`ctx_read`, `ctx_search`, `ctx_tree`, `ctx_shell`, `ctx(...)`) fails reproducibly, retry once if the failure may be environmental. If it still fails, create a GitHub issue in `MarkBovee/nebu-ctx` with repro steps, expected vs actual behavior, shell/platform, and the failing tool call. Prefer `gh issue create --repo MarkBovee/nebu-ctx ...`; fall back to `nebu-ctx report-issue --title ... --description ...` if needed.
-
-## File editing:
-Use native Edit/StrReplace/Write/Delete tools for mutations.
-
-## Proactive (use without being asked):
-- `ctx(domain="context", action="overview", task="...")` at session start
-- `ctx(domain="context", action="compress")` when context grows large
-- `ctx(domain="memory", action="save"|"recall"|"store"|"consolidate")` when useful facts or session state should persist
-
-fallback only if a nebu-ctx tool is unavailable: use native equivalents.
-Project bootstrap: use `nebu-ctx project-bootstrap preview` when user asks to map/bootstrap project knowledge; only `apply` after review.
-<!-- /lean-ctx -->"#;
-
-// ---------------------------------------------------------------------------
-// Rules for Cursor MDC format (dedicated file with frontmatter).
-// alwaysApply: true ensures this is loaded into EVERY conversation.
-// LITM-optimized: critical warning at top and bottom.
-// ---------------------------------------------------------------------------
-const RULES_CURSOR_MDC: &str = r#"---
-description: "nebu-ctx: ALWAYS use the public 5-tool MCP surface instead of native or private tool names"
-alwaysApply: true
----
-
-# nebu-ctx — Context Engineering Layer
-<!-- nebu-ctx-rules-v12 -->
-
-CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalents. This is NOT optional.
-
-## Tool Mapping
-
-| ALWAYS USE | NEVER USE | Why |
-|------------|-----------|-----|
-| `ctx_read(target="file"|"files"|"symbol"|"outline"|"archive", ...)` | `Read` | Public cached read API for files, symbols, outlines, and archives |
-| `ctx_shell` | `Shell` | Pattern-based compression plus active shell visibility |
-| `ctx_search(mode="regex"|"semantic", ...)` | `Grep` | Compact regex and semantic search results |
-| `ctx_tree` | `ls`, `find` | Compact directory maps with file counts |
-| `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")` | private `ctx_*` implementation details | Stable public gateway for advanced operations |
-
-## Public Contract
-
-- `ctx_read` targets: `file`, `files`, `symbol`, `outline`, `archive`
-- `ctx_search` modes: `regex`, `semantic`
-- `ctx` domains: `memory`, `context`, `graph`, `analytics`, `agents`, `inspect`
-- `ctx_shell` uses active shell semantics; output includes `[shell: ...]`. Use `shell` to force a specific executable per call.
-
-## Memory
-
-- Use `ctx(domain="memory", action="save"|"recall")` to carry forward task state and working memory.
-- Use `ctx(domain="memory", action="store"|"recall"|"wakeup"|"consolidate")` for durable facts that should survive future sessions.
-- For repo mapping/bootstrap, preview candidate facts first with `nebu-ctx project-bootstrap preview`; do not silently persist on first scan.
-- Stop/compact hooks already consolidate the current session into the nebu-ctx server; keep new facts there instead of relying on chat history.
-
-## File editing
-
-- Use native Edit/StrReplace/Write/Delete tools for mutations.
-- Use private tool names only when documenting nebu-ctx internals.
-- If a public nebu-ctx tool fails reproducibly, retry once if it may be environmental. If still broken, do not bypass to the native equivalent. Use supported raw mode or the repo-built nebu-ctx client, then create a GitHub issue in `MarkBovee/nebu-ctx` with repro, expected vs actual, shell/platform, and the failing tool call. Prefer `gh issue create --repo MarkBovee/nebu-ctx ...`; fall back to `nebu-ctx report-issue` if needed.
-- Use native equivalents only when no public nebu-ctx path exists at all, not when the nebu-ctx path is buggy or inconvenient.
-<!-- /lean-ctx -->"#;
 
 // ---------------------------------------------------------------------------
 
@@ -253,11 +134,11 @@ enum RulesResult {
     AlreadyPresent,
 }
 
-fn rules_content(format: &RulesFormat) -> &'static str {
+fn rules_content(format: &RulesFormat) -> String {
     match format {
-        RulesFormat::SharedMarkdown => RULES_SHARED,
-        RulesFormat::DedicatedMarkdown => RULES_DEDICATED,
-        RulesFormat::CursorMdc => RULES_CURSOR_MDC,
+        RulesFormat::SharedMarkdown => crate::public_guidance::rules_shared_markdown(),
+        RulesFormat::DedicatedMarkdown => crate::public_guidance::rules_dedicated_markdown(),
+        RulesFormat::CursorMdc => crate::public_guidance::rules_cursor_mdc(),
     }
 }
 
@@ -272,7 +153,7 @@ fn inject_rules(target: &RulesTarget) -> Result<RulesResult, String> {
             return match target.format {
                 RulesFormat::SharedMarkdown => replace_markdown_section(&target.path, &content),
                 RulesFormat::DedicatedMarkdown | RulesFormat::CursorMdc => {
-                    write_dedicated(&target.path, rules_content(&target.format))
+                    write_dedicated(&target.path, &rules_content(&target.format))
                 }
             };
         }
@@ -283,7 +164,7 @@ fn inject_rules(target: &RulesTarget) -> Result<RulesResult, String> {
     match target.format {
         RulesFormat::SharedMarkdown => append_to_shared(&target.path),
         RulesFormat::DedicatedMarkdown | RulesFormat::CursorMdc => {
-            write_dedicated(&target.path, rules_content(&target.format))
+            write_dedicated(&target.path, &rules_content(&target.format))
         }
     }
 }
@@ -308,7 +189,7 @@ fn append_to_shared(path: &std::path::Path) -> Result<RulesResult, String> {
     if !content.is_empty() {
         content.push('\n');
     }
-    content.push_str(RULES_SHARED);
+    content.push_str(&crate::public_guidance::rules_shared_markdown());
     content.push('\n');
 
     std::fs::write(path, content).map_err(|e| e.to_string())?;
@@ -325,7 +206,7 @@ fn replace_markdown_section(path: &std::path::Path, content: &str) -> Result<Rul
             let after_end = e + END_MARKER.len();
             let after = content[after_end..].trim_start_matches('\n');
             let mut result = before.to_string();
-            result.push_str(RULES_SHARED);
+            result.push_str(&crate::public_guidance::rules_shared_markdown());
             if !after.is_empty() {
                 result.push('\n');
                 result.push_str(after);
@@ -335,7 +216,7 @@ fn replace_markdown_section(path: &std::path::Path, content: &str) -> Result<Rul
         (Some(s), None) => {
             let before = &content[..s];
             let mut result = before.to_string();
-            result.push_str(RULES_SHARED);
+            result.push_str(&crate::public_guidance::rules_shared_markdown());
             result.push('\n');
             result
         }
@@ -346,7 +227,7 @@ fn replace_markdown_section(path: &std::path::Path, content: &str) -> Result<Rul
     Ok(RulesResult::Updated)
 }
 
-fn write_dedicated(path: &std::path::Path, content: &'static str) -> Result<RulesResult, String> {
+fn write_dedicated(path: &std::path::Path, content: &str) -> Result<RulesResult, String> {
     let is_update = path.exists() && {
         let existing = std::fs::read_to_string(path).unwrap_or_default();
         existing.contains(MARKER) || existing.contains(LEGACY_MARKER)
@@ -642,38 +523,43 @@ mod tests {
 
     #[test]
     fn shared_rules_have_markers() {
-        assert!(RULES_SHARED.contains(MARKER));
-        assert!(RULES_SHARED.contains(END_MARKER));
-        assert!(RULES_SHARED.contains(RULES_VERSION));
+        let content = crate::public_guidance::rules_shared_markdown();
+        assert!(content.contains(MARKER));
+        assert!(content.contains(END_MARKER));
+        assert!(content.contains(RULES_VERSION));
     }
 
     #[test]
     fn dedicated_rules_have_markers() {
-        assert!(RULES_DEDICATED.contains(MARKER));
-        assert!(RULES_DEDICATED.contains(END_MARKER));
-        assert!(RULES_DEDICATED.contains(RULES_VERSION));
+        let content = crate::public_guidance::rules_dedicated_markdown();
+        assert!(content.contains(MARKER));
+        assert!(content.contains(END_MARKER));
+        assert!(content.contains(RULES_VERSION));
     }
 
     #[test]
     fn cursor_mdc_has_markers_and_frontmatter() {
-        assert!(RULES_CURSOR_MDC.contains(MARKER));
-        assert!(RULES_CURSOR_MDC.contains(END_MARKER));
-        assert!(RULES_CURSOR_MDC.contains(RULES_VERSION));
-        assert!(RULES_CURSOR_MDC.contains("alwaysApply: true"));
+        let content = crate::public_guidance::rules_cursor_mdc();
+        assert!(content.contains(MARKER));
+        assert!(content.contains(END_MARKER));
+        assert!(content.contains(RULES_VERSION));
+        assert!(content.contains("alwaysApply: true"));
     }
 
     #[test]
     fn shared_rules_contain_tool_mapping() {
-        assert!(RULES_SHARED.contains("ctx_read"));
-        assert!(RULES_SHARED.contains("ctx_shell"));
-        assert!(RULES_SHARED.contains("ctx_search"));
-        assert!(RULES_SHARED.contains("ctx_tree"));
-        assert!(RULES_SHARED.contains("ctx(domain=\"memory\""));
+        let content = crate::public_guidance::rules_shared_markdown();
+        assert!(content.contains("ctx_read"));
+        assert!(content.contains("ctx_shell"));
+        assert!(content.contains("ctx_search"));
+        assert!(content.contains("ctx_tree"));
+        assert!(content.contains("ctx(domain=\"memory\""));
     }
 
     #[test]
     fn shared_rules_litm_optimized() {
-        let lines: Vec<&str> = RULES_SHARED.lines().collect();
+        let content = crate::public_guidance::rules_shared_markdown();
+        let lines: Vec<&str> = content.lines().collect();
         let first_5 = lines[..5.min(lines.len())].join("\n");
         assert!(
             first_5.contains("ALWAYS")
@@ -690,21 +576,23 @@ mod tests {
 
     #[test]
     fn dedicated_rules_contain_public_contract() {
-        assert!(RULES_DEDICATED.contains("public nebu-ctx MCP surface"));
-        assert!(RULES_DEDICATED.contains(
+        let content = crate::public_guidance::rules_dedicated_markdown();
+        assert!(content.contains("public nebu-ctx MCP surface"));
+        assert!(content.contains(
             "ctx_read(target=\"file\"|\"files\"|\"symbol\"|\"outline\"|\"archive\", ...)"
         ));
-        assert!(RULES_DEDICATED.contains(
+        assert!(content.contains(
             "Public `ctx_read` targets: `file`, `files`, `symbol`, `outline`, `archive`."
         ));
-        assert!(RULES_DEDICATED.contains("Public `ctx_search` modes: `regex`, `semantic`."));
-        assert!(RULES_DEDICATED.contains("ctx(domain=\"memory\""));
-        assert!(RULES_DEDICATED.contains("only the 5 public tools"));
+        assert!(content.contains("Public `ctx_search` modes: `regex`, `semantic`."));
+        assert!(content.contains("ctx(domain=\"memory\""));
+        assert!(content.contains("only the 5 public tools"));
     }
 
     #[test]
     fn dedicated_rules_litm_optimized() {
-        let lines: Vec<&str> = RULES_DEDICATED.lines().collect();
+        let content = crate::public_guidance::rules_dedicated_markdown();
+        let lines: Vec<&str> = content.lines().collect();
         let first_5 = lines[..5.min(lines.len())].join("\n");
         assert!(
             first_5.contains("ALWAYS")
@@ -722,7 +610,8 @@ mod tests {
 
     #[test]
     fn cursor_mdc_litm_optimized() {
-        let lines: Vec<&str> = RULES_CURSOR_MDC.lines().collect();
+        let content = crate::public_guidance::rules_cursor_mdc();
+        let lines: Vec<&str> = content.lines().collect();
         let first_10 = lines[..10.min(lines.len())].join("\n");
         assert!(
             first_10.contains("ALWAYS") || first_10.contains("lean-ctx"),
@@ -803,7 +692,7 @@ mod tests {
             std::fs::remove_file(&path).ok();
         }
 
-        let result = write_dedicated(&path, RULES_DEDICATED).unwrap();
+        let result = write_dedicated(&path, &crate::public_guidance::rules_dedicated_markdown()).unwrap();
         assert!(matches!(result, RulesResult::Injected));
 
         let content = std::fs::read_to_string(&path).unwrap();
@@ -820,7 +709,7 @@ mod tests {
         let path = std::env::temp_dir().join("test_write_dedicated_update.md");
         std::fs::write(&path, "# lean-ctx — Context Engineering Layer\nold version").unwrap();
 
-        let result = write_dedicated(&path, RULES_DEDICATED).unwrap();
+        let result = write_dedicated(&path, &crate::public_guidance::rules_dedicated_markdown()).unwrap();
         assert!(matches!(result, RulesResult::Updated));
 
         std::fs::remove_file(&path).ok();
@@ -830,6 +719,6 @@ mod tests {
     fn target_count() {
         let home = std::path::PathBuf::from("/tmp/fake_home");
         let targets = build_rules_targets(&home);
-        assert_eq!(targets.len(), 22);
+        assert_eq!(targets.len(), 23);
     }
 }

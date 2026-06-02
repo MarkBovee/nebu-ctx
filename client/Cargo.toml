@@ -1,6 +1,6 @@
 [package]
 name = "nebu-ctx"
-version = "0.8.30"
+version = "0.8.31"
 edition = "2021"
 autobins = false
 description = "NebuCtx runtime for the nebu-ctx self-hosted client/server product."
@@ -69,6 +69,9 @@ serde_json = "1"
 md-5 = "0.10"
 anyhow = "1"
 regex = "1"
+grep-matcher = "0.1.8"
+grep-regex = "0.1.14"
+grep-searcher = "0.1.16"
 walkdir = "2"
 ignore = "0.4"
 tracing = "0.1"

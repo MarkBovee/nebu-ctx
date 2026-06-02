@@ -1086,12 +1086,12 @@ pub fn shell_and_flag() -> (String, String) {
 
 pub fn shell_and_flag_with_override(shell_override: Option<&str>) -> (String, String) {
     let shell = detect_shell(shell_override);
-    let flag = if cfg!(windows) {
-        let name = std::path::Path::new(&shell)
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("")
-            .to_ascii_lowercase();
+    let name = std::path::Path::new(&shell)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let flag = if cfg!(windows) || name.contains("powershell") || name.contains("pwsh") || name == "cmd" || name == "cmd.exe" {
         windows_shell_flag_for_exe_basename(&name).to_string()
     } else {
         "-c".to_string()
