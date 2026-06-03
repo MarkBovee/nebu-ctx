@@ -174,3 +174,4 @@ ADDON_DOCKERFILE=Dockerfile bash tests/local-addon-test.sh
 - If nebu-ctx wrapper behavior is wrong, stay inside nebu-ctx path: retry once, use supported raw mode (`--raw` / `raw=true`) when available, or run the repo-built client via `cargo run --manifest-path client/Cargo.toml -- ...` instead of bypassing to the native command. Then file/update a GitHub issue.
 - For complex hosted `curl`/`jq` debugging, avoid deeply nested one-line `bash -lc` quoting. Prefer small sequential steps: write the raw JSON response to a temp file first, then run a separate `jq` summary/read on that file.
 - When building JSON payloads for shell calls, prefer a temp request file or a simple literal payload over nested `jq -n` inside extra shell quoting.
+- For repeated live host API work, prefer `scripts/server/live-api.sh` so auth, endpoint selection, request body files, and response output files stay deterministic without quote-nesting.
