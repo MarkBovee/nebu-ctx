@@ -58,6 +58,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<KnowledgeRepairService>();
         services.AddSingleton<BrainService>();
         services.AddSingleton<KnowledgeService>();
+        services.AddSingleton<MemoryMaintenanceService>();
         services.AddSingleton<SessionService>();
         services.AddSingleton<TelemetryStore>();
         services.AddSingleton<ToolRegistry>();

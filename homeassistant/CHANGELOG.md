@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.36
+
+- Bundle the client/server release that adds hosted memory maintenance, removes the old 1000-row maintenance scan cap, stops raw local journal sync from polluting hosted brain memory, and deletes legacy raw timeline rows during cleanup.
+
 ## 0.8.35
 
 - Bundle the client release that adds a Copilot hook guard to block the known deferred-tool `multi_tool_use.parallel` crash path and steer batch reads back to public `ctx_*` calls.

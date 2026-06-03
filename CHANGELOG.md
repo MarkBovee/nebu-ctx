@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.36
+
+- Add deterministic hosted `ctx(memory, action="maintain")` maintenance with dashboard wiring, full-store scan coverage beyond the old 1000-row cap, and integration tests for analyze/apply behavior.
+- Stop syncing raw local journal events into hosted brain memory, keep deriving durable facts/candidates from local journal data, and make maintenance delete legacy raw timeline rows instead of treating them as canonical memory.
+
 ## 0.8.35
 
 - Add a Copilot PreToolUse guard that blocks the known `multi_tool_use.parallel` crash path for deferred `mcp_nebuctx_*` tools and reroutes agents toward public `ctx_*` calls instead.

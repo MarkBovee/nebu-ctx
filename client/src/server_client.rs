@@ -462,12 +462,7 @@ pub fn sync_session_memory_to_server(project_root: &str, source_type: &str) {
     }
 
     let mut synced_anything = false;
-    if let Ok(events) = load_recent_unsynced_journal_events(project_root) {
-        if !events.is_empty() {
-            post_journal_events_to_server(project_root, &events);
-            synced_anything = true;
-        }
-    }
+    let recent_events = load_recent_unsynced_journal_events(project_root).ok();
 
     if let Ok(outcome) = crate::core::brain_memory::flush_to_brain(project_root, source_type) {
         if outcome.derived_facts > 0 {
@@ -475,7 +470,9 @@ pub fn sync_session_memory_to_server(project_root: &str, source_type: &str) {
         }
     }
 
-    if let Ok(events) = crate::core::brain_memory::load_events(project_root) {
+    if let Some(events) = recent_events
+        .or_else(|| crate::core::brain_memory::load_events(project_root).ok())
+    {
         let candidates = crate::core::brain_memory::derive_durable_memory_candidates(
             project_root,
             source_type,
@@ -935,11 +932,18 @@ mod tests {
         session.add_decision("Queue hosted memory on save", None);
         session.save().unwrap();
 
+        let _ = crate::core::brain_memory::record_user_turn(
+            &project_root_text,
+            Some("session-1"),
+            "test",
+            "Brain stores derived facts only; raw journal remains local on the client.",
+        );
+
         sync_session_memory_to_server(&project_root_text, "session_save");
 
         let entries = crate::core::sync_outbox::load_entries().unwrap();
         let tool_names: Vec<String> = entries
-            .into_iter()
+            .iter()
             .filter(|item| {
                 item.kind == crate::core::sync_outbox::OutboxOperationKind::ServerToolCall
             })
@@ -952,6 +956,16 @@ mod tests {
             .collect();
 
         assert!(tool_names.iter().any(|name| name == "ctx_brain"));
+
+        let brain_entries: Vec<_> = entries
+            .iter()
+            .filter(|item| {
+                item.kind == crate::core::sync_outbox::OutboxOperationKind::ServerToolCall
+                    && item.payload["tool_name"].as_str().unwrap_or_default() == "ctx_brain"
+            })
+            .collect();
+        assert!(!brain_entries.is_empty());
+        assert!(brain_entries.iter().all(|entry| entry.payload["arguments"]["kind"] != "session_event"));
     }
 
     #[test]

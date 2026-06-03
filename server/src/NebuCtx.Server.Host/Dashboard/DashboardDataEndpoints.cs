@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using NebuCtx.Contracts.Dashboard;
 using NebuCtx.Server.Core;
+using NebuCtx.Server.Core.Services;
 using NebuCtx.Storage;
 
 /// <summary>
@@ -207,7 +208,7 @@ public static class DashboardDataEndpoints
         app.MapPost("/dashboard/projects/{projectId}/memory/triage", async (
             string projectId,
             HttpRequest request,
-            NebuCtx.Server.Core.Services.KnowledgeService knowledgeService,
+            KnowledgeService knowledgeService,
             CancellationToken ct) =>
         {
             var mode = request.Query["mode"].ToString();
@@ -216,11 +217,23 @@ public static class DashboardDataEndpoints
             return Results.Ok(result);
         });
 
+        app.MapPost("/dashboard/projects/{projectId}/memory/maintain", async (
+            string projectId,
+            HttpRequest request,
+            MemoryMaintenanceService memoryMaintenanceService,
+            CancellationToken ct) =>
+        {
+            var mode = request.Query["mode"].ToString();
+            var apply = string.Equals(mode, "apply", StringComparison.OrdinalIgnoreCase);
+            var result = await memoryMaintenanceService.RunAsync(projectId, apply, ct);
+            return Results.Ok(result);
+        });
+
         app.MapPost("/dashboard/projects/{projectId}/memory/candidates/{promotionIdentity}/review", async (
             string projectId,
             string promotionIdentity,
             HttpRequest request,
-            NebuCtx.Server.Core.Services.KnowledgeService knowledgeService,
+            KnowledgeService knowledgeService,
             CancellationToken ct) =>
         {
             var decision = request.Query["decision"].ToString();

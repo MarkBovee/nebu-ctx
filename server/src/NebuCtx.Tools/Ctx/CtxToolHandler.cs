@@ -11,6 +11,7 @@ using NebuCtx.Server.Core.Services;
 public sealed class CtxToolHandler : IToolHandler
 {
     private readonly KnowledgeService _knowledgeService;
+    private readonly MemoryMaintenanceService _memoryMaintenanceService;
     private readonly SessionService _sessionService;
 
     /// <summary>
@@ -18,9 +19,10 @@ public sealed class CtxToolHandler : IToolHandler
     /// </summary>
     /// <param name="knowledgeService">Knowledge service for durable memory actions.</param>
     /// <param name="sessionService">Session service for working-memory actions.</param>
-    public CtxToolHandler(KnowledgeService knowledgeService, SessionService sessionService)
+    public CtxToolHandler(KnowledgeService knowledgeService, MemoryMaintenanceService memoryMaintenanceService, SessionService sessionService)
     {
         _knowledgeService = knowledgeService;
+        _memoryMaintenanceService = memoryMaintenanceService;
         _sessionService = sessionService;
     }
 
@@ -98,9 +100,10 @@ public sealed class CtxToolHandler : IToolHandler
             "review_candidate" => await ExecuteReviewCandidateAsync(arguments, context, cancellationToken),
             "upkeep" => await _knowledgeService.UpkeepAsync(context.ProjectId, cancellationToken),
             "wakeup" => await _knowledgeService.BuildWakeupAsync(context.ProjectId, cancellationToken),
+            "maintain" => await ExecuteMaintainAsync(arguments, context, cancellationToken),
             "triage" => await ExecuteTriageAsync(arguments, context, cancellationToken),
             "remove" => await ExecuteRemoveAsync(arguments, context, cancellationToken),
-            _ => throw new ArgumentException("Unknown hosted memory action. Use one of: task, finding, decision, save, load, status, reset, list, cleanup, store, set, remember, recall, search, categories, timeline, consolidate, promote, candidates, review_candidate, upkeep, wakeup, triage, remove"),
+            _ => throw new ArgumentException("Unknown hosted memory action. Use one of: task, finding, decision, save, load, status, reset, list, cleanup, store, set, remember, recall, search, categories, timeline, consolidate, promote, candidates, review_candidate, upkeep, wakeup, maintain, triage, remove"),
         };
     }
 
@@ -230,6 +233,16 @@ public sealed class CtxToolHandler : IToolHandler
         var mode = GetStringArg(arguments, "mode");
         var apply = string.Equals(mode, "apply", StringComparison.OrdinalIgnoreCase);
         return await _knowledgeService.TriageAsync(context.ProjectId, apply, cancellationToken);
+    }
+
+    /// <summary>
+    /// Runs deterministic hosted memory maintenance for one project.
+    /// </summary>
+    private async Task<object> ExecuteMaintainAsync(Dictionary<string, object?> arguments, ToolExecutionContext context, CancellationToken cancellationToken)
+    {
+        var mode = GetStringArg(arguments, "mode");
+        var apply = string.Equals(mode, "apply", StringComparison.OrdinalIgnoreCase);
+        return await _memoryMaintenanceService.RunAsync(context.ProjectId, apply, cancellationToken);
     }
 
     /// <summary>

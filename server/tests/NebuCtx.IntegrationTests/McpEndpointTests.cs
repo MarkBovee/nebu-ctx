@@ -595,6 +595,396 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     }
 
     /// <summary>
+    /// Hosted public memory maintenance analyzes junk, duplicates, and formatting with confidence scores.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_PublicCtxMemoryMaintain_Analyze_ReturnsConfidenceScoredFindings()
+    {
+        var fingerprint = new RepositoryFingerprint
+        {
+            RemoteUrl = "https://github.com/example/public-ctx-maintain-analyze.git",
+            Host = "github.com",
+            Owner = "example",
+            RepoName = "public-ctx-maintain-analyze",
+            DefaultBranch = "main",
+        };
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var projectStore = scope.ServiceProvider.GetRequiredService<IProjectStore>();
+            var brainStore = scope.ServiceProvider.GetRequiredService<IBrainStore>();
+            var knowledgeStore = scope.ServiceProvider.GetRequiredService<IKnowledgeStore>();
+            var projectId = "maintain-analyze-project";
+            await projectStore.CreateProjectAsync(new ProjectRecord
+            {
+                ProjectId = projectId,
+                Slug = "public-ctx-maintain-analyze",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                Fingerprint = fingerprint,
+            });
+
+            await brainStore.StoreFactAsync(new BrainEntry
+            {
+                ProjectId = projectId,
+                Key = "memory-owner-a",
+                Value = "server   owns canonical memory",
+                Kind = "fact",
+                Category = "decision",
+                LogicalKey = "memory-owner",
+                PromotionIdentity = "brain:maintain-analyze:memory-owner-a",
+                SourceType = "brain",
+                SourceScope = projectId,
+                LifecycleStatus = "current",
+                Confidence = 0.95f,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            });
+
+            await brainStore.StoreFactAsync(new BrainEntry
+            {
+                ProjectId = projectId,
+                Key = "memory-owner-b",
+                Value = "server owns canonical memory",
+                Kind = "fact",
+                Category = "decision",
+                LogicalKey = "memory-owner",
+                PromotionIdentity = "brain:maintain-analyze:memory-owner-b",
+                SourceType = "brain",
+                SourceScope = projectId,
+                LifecycleStatus = "current",
+                Confidence = 0.82f,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            });
+
+            await knowledgeStore.UpsertFactAsync(new KnowledgeEntry
+            {
+                ProjectId = projectId,
+                Category = "testing:demo",
+                Key = "demo-placeholder",
+                Value = "demo placeholder memory",
+                Confidence = 0.6f,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                LogicalKey = "testing-demo:demo-placeholder",
+                PromotionIdentity = "remember:maintain-analyze-project:testing-demo:demo-placeholder",
+                SourceType = "remember",
+                SourceScope = projectId,
+                LifecycleStatus = "current",
+                LifecycleScore = 0.6f,
+                ConfirmationCount = 1,
+                LastConfirmedAt = DateTimeOffset.UtcNow,
+            });
+        }
+
+        var response = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx",
+            RepositoryFingerprint = fingerprint,
+            ProjectSlug = "public-ctx-maintain-analyze",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["domain"] = "memory",
+                ["action"] = "maintain",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var resultPayload = await response.Content.ReadFromJsonAsync<ToolCallResponse>();
+        Assert.NotNull(resultPayload);
+        var resultJson = Assert.IsAssignableFrom<JsonElement>(resultPayload!.Result);
+        Assert.Equal("analyze", resultJson.GetProperty("mode").GetString());
+        Assert.True(resultJson.GetProperty("finding_count").GetInt32() >= 3);
+
+        var findings = resultJson.GetProperty("findings").EnumerateArray().ToArray();
+        Assert.Contains(findings, finding => finding.GetProperty("kind").GetString() == "duplicate" && finding.GetProperty("scope").GetString() == "brain");
+        Assert.Contains(findings, finding => finding.GetProperty("kind").GetString() == "junk" && finding.GetProperty("confidence").GetDouble() >= 0.85d);
+        Assert.Contains(findings, finding => finding.GetProperty("kind").GetString() == "formatting" && finding.GetProperty("scope").GetString() == "brain");
+    }
+
+    /// <summary>
+    /// Hosted public memory maintenance applies deterministic cleanup to brain and knowledge.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_PublicCtxMemoryMaintain_Apply_CleansHostedMemory()
+    {
+        var fingerprint = new RepositoryFingerprint
+        {
+            RemoteUrl = "https://github.com/example/public-ctx-maintain-apply.git",
+            Host = "github.com",
+            Owner = "example",
+            RepoName = "public-ctx-maintain-apply",
+            DefaultBranch = "main",
+        };
+
+        string projectId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var projectStore = scope.ServiceProvider.GetRequiredService<IProjectStore>();
+            var brainStore = scope.ServiceProvider.GetRequiredService<IBrainStore>();
+            var knowledgeStore = scope.ServiceProvider.GetRequiredService<IKnowledgeStore>();
+            projectId = "maintain-apply-project";
+            await projectStore.CreateProjectAsync(new ProjectRecord
+            {
+                ProjectId = projectId,
+                Slug = "public-ctx-maintain-apply",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                Fingerprint = fingerprint,
+            });
+
+            await brainStore.StoreFactAsync(new BrainEntry
+            {
+                ProjectId = projectId,
+                Key = "memory-owner-a",
+                Value = "server   owns canonical memory",
+                Kind = "fact",
+                Category = "decision",
+                LogicalKey = "memory-owner",
+                PromotionIdentity = "brain:maintain-apply:memory-owner-a",
+                SourceType = "brain",
+                SourceScope = projectId,
+                LifecycleStatus = "current",
+                Confidence = 0.95f,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            });
+
+            await brainStore.StoreFactAsync(new BrainEntry
+            {
+                ProjectId = projectId,
+                Key = "memory-owner-b",
+                Value = "server owns canonical memory",
+                Kind = "fact",
+                Category = "decision",
+                LogicalKey = "memory-owner",
+                PromotionIdentity = "brain:maintain-apply:memory-owner-b",
+                SourceType = "brain",
+                SourceScope = projectId,
+                LifecycleStatus = "current",
+                Confidence = 0.82f,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            });
+
+            await knowledgeStore.UpsertFactAsync(new KnowledgeEntry
+            {
+                ProjectId = projectId,
+                Category = "decision",
+                Key = "memory-owner-a",
+                Value = "server owns canonical memory",
+                Confidence = 0.95f,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                LogicalKey = "decision:memory-owner-a",
+                PromotionIdentity = "brain:maintain-apply:memory-owner-a",
+                SourceType = "brain",
+                SourceScope = projectId,
+                LifecycleStatus = "merged",
+                LifecycleScore = 0.95f,
+                ConfirmationCount = 1,
+                LastConfirmedAt = DateTimeOffset.UtcNow,
+            });
+
+            await knowledgeStore.UpsertFactAsync(new KnowledgeEntry
+            {
+                ProjectId = projectId,
+                Category = "testing:demo",
+                Key = "demo-placeholder",
+                Value = "demo placeholder memory",
+                Confidence = 0.6f,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                LogicalKey = "testing-demo:demo-placeholder",
+                PromotionIdentity = "remember:maintain-apply-project:testing-demo:demo-placeholder",
+                SourceType = "remember",
+                SourceScope = projectId,
+                LifecycleStatus = "current",
+                LifecycleScore = 0.6f,
+                ConfirmationCount = 1,
+                LastConfirmedAt = DateTimeOffset.UtcNow,
+            });
+        }
+
+        var response = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx",
+            RepositoryFingerprint = fingerprint,
+            ProjectSlug = "public-ctx-maintain-apply",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["domain"] = "memory",
+                ["action"] = "maintain",
+                ["mode"] = "apply",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var resultPayload = await response.Content.ReadFromJsonAsync<ToolCallResponse>();
+        Assert.NotNull(resultPayload);
+        var resultJson = Assert.IsAssignableFrom<JsonElement>(resultPayload!.Result);
+        Assert.Equal("apply", resultJson.GetProperty("mode").GetString());
+        Assert.True(resultJson.GetProperty("brain_updates").GetInt32() >= 1);
+        Assert.True(resultJson.GetProperty("knowledge_updates").GetInt32() >= 1);
+
+        var payload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
+        Assert.NotNull(payload);
+        Assert.Contains(payload!.Brain, item => item.Key == "memory-owner-a" && item.Value == "server owns canonical memory" && item.LifecycleStatus == "current");
+        Assert.Contains(payload.Brain, item => item.Key == "memory-owner-b" && item.LifecycleStatus == "superseded");
+        Assert.Contains(payload.Knowledge, item => item.Key == "memory-owner-a" && item.LifecycleStatus == "current" && item.Value == "server owns canonical memory");
+        Assert.Contains(payload.Knowledge, item => item.Key == "demo-placeholder" && item.LifecycleStatus == "junk");
+    }
+
+    /// <summary>
+    /// Hosted public memory maintenance scans beyond the old 1000-entry cap.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_PublicCtxMemoryMaintain_Analyze_ScansBeyondOneThousandBrainEntries()
+    {
+        var fingerprint = new RepositoryFingerprint
+        {
+            RemoteUrl = "https://github.com/example/public-ctx-maintain-scan-depth.git",
+            Host = "github.com",
+            Owner = "example",
+            RepoName = "public-ctx-maintain-scan-depth",
+            DefaultBranch = "main",
+        };
+
+        string projectId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var projectStore = scope.ServiceProvider.GetRequiredService<IProjectStore>();
+            var brainStore = scope.ServiceProvider.GetRequiredService<IBrainStore>();
+            projectId = "maintain-scan-depth-project";
+            await projectStore.CreateProjectAsync(new ProjectRecord
+            {
+                ProjectId = projectId,
+                Slug = "public-ctx-maintain-scan-depth",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                Fingerprint = fingerprint,
+            });
+
+            for (var index = 0; index < 1005; index++)
+            {
+                await brainStore.StoreFactAsync(new BrainEntry
+                {
+                    ProjectId = projectId,
+                    Key = $"fact-{index:0000}",
+                    Value = index == 1004 ? "value with   extra spacing" : $"value-{index:0000}",
+                    Kind = "fact",
+                    Category = "analysis",
+                    LogicalKey = $"analysis-{index:0000}",
+                    PromotionIdentity = $"brain:maintain-scan-depth:{index:0000}",
+                    SourceType = "brain",
+                    SourceScope = projectId,
+                    LifecycleStatus = "current",
+                    Confidence = 0.9f,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow,
+                });
+            }
+        }
+
+        var response = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx",
+            RepositoryFingerprint = fingerprint,
+            ProjectSlug = "public-ctx-maintain-scan-depth",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["domain"] = "memory",
+                ["action"] = "maintain",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var resultPayload = await response.Content.ReadFromJsonAsync<ToolCallResponse>();
+        Assert.NotNull(resultPayload);
+        var resultJson = Assert.IsAssignableFrom<JsonElement>(resultPayload!.Result);
+        Assert.Equal(1005, resultJson.GetProperty("brain_scanned").GetInt32());
+        Assert.Contains(resultJson.GetProperty("findings").EnumerateArray(), finding =>
+            finding.GetProperty("kind").GetString() == "formatting"
+            && finding.GetProperty("key").GetString() == "fact-1004");
+    }
+
+    /// <summary>
+    /// Hosted memory maintenance removes legacy raw timeline-like brain entries on apply.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_PublicCtxMemoryMaintain_Apply_RemovesSessionTimelineEntries()
+    {
+        var fingerprint = new RepositoryFingerprint
+        {
+            RemoteUrl = "https://github.com/example/public-ctx-maintain-timeline-skip.git",
+            Host = "github.com",
+            Owner = "example",
+            RepoName = "public-ctx-maintain-timeline-skip",
+            DefaultBranch = "main",
+        };
+
+        string projectId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var projectStore = scope.ServiceProvider.GetRequiredService<IProjectStore>();
+            var brainStore = scope.ServiceProvider.GetRequiredService<IBrainStore>();
+            projectId = "maintain-timeline-skip-project";
+            await projectStore.CreateProjectAsync(new ProjectRecord
+            {
+                ProjectId = projectId,
+                Slug = "public-ctx-maintain-timeline-skip",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                Fingerprint = fingerprint,
+            });
+
+            await brainStore.StoreFactAsync(new BrainEntry
+            {
+                ProjectId = projectId,
+                Key = "timeline-001",
+                Value = "  raw assistant timeline blob  ",
+                Kind = "session_event",
+                Category = "session_timeline",
+                LogicalKey = "timeline-001",
+                PromotionIdentity = "timeline:001",
+                SourceType = "assistant_output",
+                SourceScope = "session-1",
+                LifecycleStatus = "timeline",
+                Confidence = 0.6f,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            });
+        }
+
+        var response = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx",
+            RepositoryFingerprint = fingerprint,
+            ProjectSlug = "public-ctx-maintain-timeline-skip",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["domain"] = "memory",
+                ["action"] = "maintain",
+                ["mode"] = "apply",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var resultPayload = await response.Content.ReadFromJsonAsync<ToolCallResponse>();
+        Assert.NotNull(resultPayload);
+        var resultJson = Assert.IsAssignableFrom<JsonElement>(resultPayload!.Result);
+        Assert.Contains(resultJson.GetProperty("findings").EnumerateArray(), finding =>
+            finding.GetProperty("kind").GetString() == "legacy_raw"
+            && finding.GetProperty("key").GetString() == "timeline-001"
+            && finding.GetProperty("target_status").GetString() == "deleted");
+
+        var payload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
+        Assert.NotNull(payload);
+        Assert.DoesNotContain(payload!.Brain, item => item.Key == "timeline-001");
+    }
+
+    /// <summary>
     /// Project resolution endpoint creates a canonical project and persists the workspace binding.
     /// </summary>
     [Fact]
