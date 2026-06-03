@@ -4,29 +4,37 @@ Date: `2026-06-03`
 Project: `nebu-ctx`
 Project ID: `proj_0e41160331b74e6cbf2c6fe9b8087057`
 Mode: `apply`
-Runner: repo-built server on `127.0.0.1:4342` against production Postgres
+Runner: live hosted server on `192.168.1.135:4242`
 
 ## Summary
 
-- Brain entries scanned: `1051`
-- Knowledge entries scanned: `36`
-- Findings: `4`
-- High-confidence findings: `4`
-- Brain updates applied: `2`
-- Knowledge updates applied: `1`
+Final live run on the updated host:
 
-This second run happened after removing the old hard scan cap of `1000`. The prior run stopped exactly at `1000`; the new run confirmed there were `1051` brain entries in scope.
+- Brain entries scanned before apply: `1112`
+- Knowledge entries scanned before apply: `39`
+- Findings before apply: `880`
+- High-confidence findings before apply: `880`
+- Brain updates applied: `876`
+- Knowledge updates applied: `4`
+- Legacy raw brain rows removed: `876`
 
-Since that run, the ingest path was also tightened:
+Final verification run immediately after apply:
 
-- raw journal events are no longer pushed into hosted brain during normal client sync
-- maintenance now removes existing raw timeline-like brain entries instead of trying to clean them as canonical memory
+- Brain entries scanned after apply: `236`
+- Knowledge entries scanned after apply: `39`
+- Findings after apply: `0`
+- High-confidence findings after apply: `0`
+
+Net result:
+
+- the hosted project brain no longer contains the old raw timeline/journal pollution
+- the live hosted dataset is now clean under the current deterministic maintenance rules
 
 ## What Was Cleaned
 
 ### 1. Knowledge metadata repair
 
-One hosted knowledge fact was missing a stable `logical_key` and got repaired.
+Four hosted knowledge facts were missing stable `logical_key` values and were repaired.
 
 - Scope: `knowledge`
 - Kind: `metadata_fix`
@@ -38,103 +46,37 @@ One hosted knowledge fact was missing a stable `logical_key` and got repaired.
 Effect:
 
 - This did not rewrite the fact text.
-- This made the entry more consistent for later recall, dedupe, and maintenance runs.
+- This made the entries more consistent for later recall, dedupe, and maintenance runs.
 
-### 2. Brain formatting cleanup
+### 2. Legacy raw brain cleanup
 
-Two `session_timeline` brain entries were reformatted.
+The live apply run removed `876` hosted brain rows that were clearly raw session timeline/journal content.
 
-Common pattern:
+Common patterns:
 
-- Excess indentation / leading spaces removed
-- Repeated whitespace collapsed
-- Text made more compact for storage consistency
+- user turns
+- assistant turns
+- tool output blobs
+- git diffs
+- test logs
+- command output
+- maintenance/debug transcripts
 
-Examples:
+These rows had been stored in hosted brain with timeline-like markers such as:
 
-#### Example A
+- `kind = session_event`
+- `category = session_timeline`
+- `lifecycle_status = timeline`
+- `kind in [user_prompt, assistant_output, tool_activity]`
 
-- Scope: `brain`
-- Kind: `formatting`
-- Confidence: `0.93`
-- Key: `timeline-1780477671688-ses-17365c6d2ffecffcjjityvvzhh-tool-activity-65ef55f0c5`
-
-Before:
-
-```text
-{
-  "project_id": "proj_0e41160331b74e6cbf2c6fe9b8087057",
-  "mode": "apply",
-  "brain_scanned": 1000,
-  ...
-```
-
-After:
-
-```text
-{
- "project_id": "proj_0e41160331b74e6cbf2c6fe9b8087057",
- "mode": "apply",
- "brain_scanned": 1000,
- ...
-```
-
-What changed:
-
-- only whitespace/indentation normalization
-- no semantic rewrite
-
-#### Example B
-
-- Scope: `brain`
-- Kind: `formatting`
-- Confidence: `0.93`
-- Key: `timeline-1780478394513-ses-17365c6d2ffecffcjjityvvzhh-tool-activity-a3eb7e2783`
-
-Before:
-
-```text
-  Determining projects to restore...
-  All projects are up-to-date for restore.
-  NebuCtx.Contracts -> ...
-```
-
-After:
-
-```text
-Determining projects to restore...
- All projects are up-to-date for restore.
- NebuCtx.Contracts -> ...
-```
-
-What changed:
-
-- leading padding stripped
-- line formatting compacted
-
-### 3. One item marked as junk
-
-One `session_timeline` brain entry was marked as junk.
-
-- Scope: `brain`
-- Kind: `junk`
-- Confidence: `0.90`
-- Target status: `junk`
-- Key: `timeline-1780475810290-ses-17365c6d2ffecffcjjityvvzhh-assistant-turn-22fe0fbdad`
-
-Why it was flagged:
-
-- It contains long planning/proposal text for the maintenance design itself.
-- That looks more like transient assistant/session output than durable project memory.
-- The junk heuristic treated it as low-value timeline noise rather than canonical fact memory.
+Maintenance now treats those rows as legacy raw data and removes them on apply.
 
 ## What Was Not Cleaned
 
-- No new duplicate merges in this second uncapped run
-- No additional knowledge projection repairs
-- No broad semantically-meaningful text rewrites
-
-That is expected: most of the heavy formatting cleanup happened in the first run.
+- No duplicate merges were needed in the final live run.
+- No formatting rewrites were needed in the final live run.
+- No junk reclassification was needed in the final live run.
+- No projection repairs were needed in the final live run.
 
 ## Root Cause Found
 
@@ -220,29 +162,30 @@ Effect:
 
 ## Current Follow-Up State
 
-The report above still includes findings from the first uncapped run, before the new ingest guard and skip rules were added.
-
-So current state is:
+Current state after the final live rerun:
 
 - root cause identified
 - ingest path fixed
 - maintenance scope fixed
+- live hosted cleanup applied
+- immediate post-apply analyze returned `0` findings
 - tests added and passing
-- one fresh production-style rerun on the updated host is still needed to produce a final clean post-fix report
 
-That rerun was blocked only by the temporary alternate host process not staying alive long enough during restart attempts, not by code/test failures.
+One operational note:
+
+- an earlier post-apply check was run in parallel with the live apply request and briefly showed stale legacy findings
+- a sequential rerun right after apply confirmed the real final state: `0` remaining findings
 
 ## Recommended Follow-Up
 
 ### High priority
 
-Run one fresh maintenance pass on the updated normal server build.
+Monitor for any new raw timeline rows after normal client activity.
 
 Reason:
 
-- confirm new ingest path stops raw timeline growth
-- confirm maintenance report no longer contains timeline/session cleanup
-- produce final post-fix audit snapshot
+- confirm the new client ingest guard holds over time
+- confirm only derived facts/candidates continue to reach hosted memory
 
 ### Medium priority
 
@@ -261,9 +204,9 @@ Reason:
 
 ### Medium priority
 
-Deploy updated server build to the normal host.
+Add dedicated maintenance-run persistence if you want audit/history in-product.
 
-Current production-style server on `192.168.1.135:4242` did not yet expose `ctx(memory, action="maintain")`, so this run had to use a repo-built alternate host.
+The one-off report is enough for now, but a stored run history would make operator review easier.
 
 ## Conclusion
 
@@ -277,4 +220,4 @@ Most important outcome of this investigation:
 
 - your expectation was right
 - raw chat/tool timeline content should not be treated as canonical hosted brain memory
-- the code path that caused that has now been narrowed and the maintenance scope has been corrected accordingly
+- the code path that caused that has now been narrowed and the live hosted data has been cleaned accordingly

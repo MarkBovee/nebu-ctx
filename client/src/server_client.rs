@@ -426,30 +426,7 @@ pub fn post_journal_events_to_server(
 /// Posts a session summary to `ctx_brain` when a session is saved.
 /// Silently returns if the server is not configured.
 pub fn post_session_to_brain(session: &crate::core::session::SessionState) {
-    let current_dir = std::env::current_dir().unwrap_or_default();
-    let ctx = crate::git_context::discover_project_context(&current_dir);
-
-    let task = session
-        .task
-        .as_ref()
-        .map(|t| t.description.as_str())
-        .unwrap_or("(no task)");
-    let summary = format!(
-        "session={} task=\"{}\" calls={} tokens_saved={} decisions={} findings={}",
-        session.id,
-        task,
-        session.stats.total_tool_calls,
-        session.stats.total_tokens_saved,
-        session.decisions.len(),
-        session.findings.len(),
-    );
-    let key = format!("session-{}", session.id);
-
-    let mut args = Map::new();
-    args.insert("action".to_string(), Value::String("store".to_string()));
-    args.insert("key".to_string(), Value::String(key));
-    args.insert("value".to_string(), Value::String(summary));
-    let _ = queue_or_call_tool("ctx_brain", args, &ctx);
+    let _ = session;
 }
 
 pub fn sync_session_memory_to_server(project_root: &str, source_type: &str) {

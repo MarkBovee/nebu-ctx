@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.37
+
+- Stop syncing legacy hosted brain session summaries from the client, teach maintenance to remove legacy `session-*`, `assistant-output-*`, and `user-prompt-*` rows, and keep those `legacy` rows out of the dashboard's canonical memory stream.
+- Fix hosted project deletion so candidate-only/empty projects can be removed cleanly by clearing `knowledge_candidates` alongside knowledge facts during project cleanup.
+- Add focused regression coverage for legacy session-summary cleanup and candidate-only project deletion.
+
 ## 0.8.36
 
 - Add deterministic hosted `ctx(memory, action="maintain")` maintenance with dashboard wiring, full-store scan coverage beyond the old 1000-row cap, and integration tests for analyze/apply behavior.

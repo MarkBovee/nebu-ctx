@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.37
+
+- Bundle the client/server follow-up that stops legacy hosted session-summary sync, removes old `session-*` / `assistant-output-*` / `user-prompt-*` brain rows during maintenance, hides legacy rows from the canonical dashboard memory stream, and fixes empty-project deletion when durable memory candidates still exist.
+
 ## 0.8.36
 
 - Bundle the client/server release that adds hosted memory maintenance, removes the old 1000-row maintenance scan cap, stops raw local journal sync from polluting hosted brain memory, and deletes legacy raw timeline rows during cleanup.

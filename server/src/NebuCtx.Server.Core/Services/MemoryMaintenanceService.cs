@@ -49,7 +49,7 @@ public sealed class MemoryMaintenanceService
         var findings = new List<MaintenanceFinding>();
         var appliedActions = new List<Dictionary<string, object?>>();
 
-        // Remove legacy raw timeline rows before canonical fact cleanup runs.
+        // Remove legacy raw timeline/session-summary rows before canonical fact cleanup runs.
         RemoveLegacyRawBrainEntries(workingBrainEntries, findings);
 
         // Normalize metadata first so later duplicate/projection logic compares stable identities.
@@ -155,7 +155,7 @@ public sealed class MemoryMaintenanceService
                 entry.Value,
                 null,
                 "deleted",
-                "Legacy raw journal/timeline row should not remain in hosted brain memory."));
+                "Legacy raw journal/timeline/session-summary row should not remain in hosted brain memory."));
         }
 
         entries.RemoveAll(entry => legacyEntries.Any(legacy => string.Equals(legacy.Key, entry.Key, StringComparison.Ordinal)));
@@ -911,7 +911,7 @@ public sealed class MemoryMaintenanceService
     }
 
     /// <summary>
-    /// Returns whether a brain row is legacy raw journal/timeline content rather than canonical memory.
+    /// Returns whether a brain row is legacy raw journal/session-summary content rather than canonical memory.
     /// </summary>
     private static bool IsLegacyRawBrainEntry(BrainEntry entry)
     {
@@ -920,6 +920,22 @@ public sealed class MemoryMaintenanceService
             || string.Equals(entry.LifecycleStatus, "timeline", StringComparison.OrdinalIgnoreCase))
         {
             return true;
+        }
+
+        if (string.Equals(entry.Kind, "legacy", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(entry.Category, "legacy", StringComparison.OrdinalIgnoreCase))
+        {
+            var normalizedKey = entry.Key?.Trim() ?? string.Empty;
+            var normalizedValue = entry.Value?.Trim() ?? string.Empty;
+            if (normalizedKey.StartsWith("session-", StringComparison.OrdinalIgnoreCase)
+                || normalizedKey.StartsWith("user-prompt-", StringComparison.OrdinalIgnoreCase)
+                || normalizedKey.StartsWith("assistant-output-", StringComparison.OrdinalIgnoreCase)
+                || normalizedValue.StartsWith("session=", StringComparison.OrdinalIgnoreCase)
+                || normalizedValue.StartsWith("user_prompt:", StringComparison.OrdinalIgnoreCase)
+                || normalizedValue.StartsWith("assistant_output:", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
         }
 
         return string.Equals(entry.Kind, "user_prompt", StringComparison.OrdinalIgnoreCase)

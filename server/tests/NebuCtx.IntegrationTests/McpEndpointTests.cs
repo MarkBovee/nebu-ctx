@@ -985,6 +985,81 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     }
 
     /// <summary>
+    /// Hosted memory maintenance removes legacy session summary rows from brain memory on apply.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_PublicCtxMemoryMaintain_Apply_RemovesLegacySessionSummaryEntries()
+    {
+        var fingerprint = new RepositoryFingerprint
+        {
+            RemoteUrl = "https://github.com/example/public-ctx-maintain-session-summary.git",
+            Host = "github.com",
+            Owner = "example",
+            RepoName = "public-ctx-maintain-session-summary",
+            DefaultBranch = "main",
+        };
+
+        string projectId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var projectStore = scope.ServiceProvider.GetRequiredService<IProjectStore>();
+            var brainStore = scope.ServiceProvider.GetRequiredService<IBrainStore>();
+            projectId = "maintain-session-summary-project";
+            await projectStore.CreateProjectAsync(new ProjectRecord
+            {
+                ProjectId = projectId,
+                Slug = "public-ctx-maintain-session-summary",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                Fingerprint = fingerprint,
+            });
+
+            await brainStore.StoreFactAsync(new BrainEntry
+            {
+                ProjectId = projectId,
+                Key = "session-20260505-064121-8900",
+                Value = "session=20260505-064121-8900 task=\"(no task)\" calls=497 tokens_saved=71287 decisions=0 findings=0",
+                Kind = "legacy",
+                Category = "legacy",
+                LogicalKey = "session-20260505-064121-8900",
+                PromotionIdentity = "legacy:maintain-session-summary-project:session-20260505-064121-8900",
+                SourceType = "legacy",
+                SourceScope = projectId,
+                LifecycleStatus = "legacy",
+                Confidence = 1.0f,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            });
+        }
+
+        var response = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx",
+            RepositoryFingerprint = fingerprint,
+            ProjectSlug = "public-ctx-maintain-session-summary",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["domain"] = "memory",
+                ["action"] = "maintain",
+                ["mode"] = "apply",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var resultPayload = await response.Content.ReadFromJsonAsync<ToolCallResponse>();
+        Assert.NotNull(resultPayload);
+        var resultJson = Assert.IsAssignableFrom<JsonElement>(resultPayload!.Result);
+        Assert.Contains(resultJson.GetProperty("findings").EnumerateArray(), finding =>
+            finding.GetProperty("kind").GetString() == "legacy_raw"
+            && finding.GetProperty("key").GetString() == "session-20260505-064121-8900"
+            && finding.GetProperty("target_status").GetString() == "deleted");
+
+        var payload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
+        Assert.NotNull(payload);
+        Assert.DoesNotContain(payload!.Brain, item => item.Key == "session-20260505-064121-8900");
+    }
+
+    /// <summary>
     /// Project resolution endpoint creates a canonical project and persists the workspace binding.
     /// </summary>
     [Fact]
@@ -1090,6 +1165,66 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
         Assert.Equal(resolved.Project.ProjectId, payload!.ProjectId);
         Assert.Contains(payload.Knowledge, item => item.Category == "ARCHITECTURE" && item.Key == "storage" && item.Value == "postgres");
         Assert.Contains(payload.Brain, item => item.Key == "session-demo");
+    }
+
+    /// <summary>
+    /// Project delete clears durable memory candidates so candidate-only projects can be removed cleanly.
+    /// </summary>
+    [Fact]
+    public async Task DashboardDeleteProject_RemovesCandidateOnlyProject()
+    {
+        var fingerprint = new RepositoryFingerprint
+        {
+            RemoteUrl = "https://github.com/example/candidate-only-project.git",
+            Host = "github.com",
+            Owner = "example",
+            RepoName = "candidate-only-project",
+            DefaultBranch = "main",
+        };
+
+        string projectId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var projectStore = scope.ServiceProvider.GetRequiredService<IProjectStore>();
+            var knowledgeStore = scope.ServiceProvider.GetRequiredService<IKnowledgeStore>();
+            projectId = "candidate-only-project";
+            await projectStore.CreateProjectAsync(new ProjectRecord
+            {
+                ProjectId = projectId,
+                Slug = "candidate-only-project",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                Fingerprint = fingerprint,
+            });
+
+            await knowledgeStore.UpsertCandidateAsync(new KnowledgeCandidateEntry
+            {
+                ProjectId = projectId,
+                PromotionIdentity = "candidate:candidate-only-project:workflow:follow-up",
+                Category = "workflow",
+                Key = "follow-up",
+                Value = "Candidate-only memory should not block project delete.",
+                LogicalKey = "workflow:follow-up",
+                SourceType = "candidate_extract",
+                SourceScope = projectId,
+                Confidence = 0.9f,
+                Evidence = "integration-test",
+                ReviewStatus = "pending_review",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            });
+        }
+
+        var deleteResponse = await _client.DeleteAsync($"/api/projects/{projectId}");
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+
+        var deletePayload = await deleteResponse.Content.ReadAsStringAsync();
+        Assert.Contains("\"deleted\":true", deletePayload, StringComparison.OrdinalIgnoreCase);
+
+        var projectsResponse = await _client.GetAsync("/api/projects");
+        Assert.Equal(HttpStatusCode.OK, projectsResponse.StatusCode);
+        var projectsPayload = await projectsResponse.Content.ReadAsStringAsync();
+        Assert.DoesNotContain(projectId, projectsPayload, StringComparison.Ordinal);
     }
 
     /// <summary>

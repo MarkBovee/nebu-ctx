@@ -2231,7 +2231,8 @@ async function loadBrain() {
     const entries = data.entries || [];
     const total = data.total_count || entries.length;
     const timelineEntries = entries.filter(e => String(e.entry_type || '').toLowerCase() === 'session_event' || String(e.lifecycle_status || '').toLowerCase() === 'timeline');
-    const canonicalEntries = entries.filter(e => !timelineEntries.includes(e));
+    const legacyEntries = entries.filter(e => String(e.entry_type || '').toLowerCase() === 'legacy');
+    const canonicalEntries = entries.filter(e => !timelineEntries.includes(e) && !legacyEntries.includes(e));
     const duplicateSlugGroups = (_cachedProjectList && _cachedProjectList._duplicate_slug_groups) || [];
     const duplicateFingerprintGroups = (_cachedProjectList && _cachedProjectList._duplicate_fingerprint_groups) || [];
 

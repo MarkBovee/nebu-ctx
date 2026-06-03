@@ -287,6 +287,7 @@ internal sealed class InMemoryKnowledgeStore : IKnowledgeStore
         lock (_lock)
         {
             var removed = _facts.RemoveAll(f => f.ProjectId == projectId);
+            removed += _candidateFacts.RemoveAll(f => f.ProjectId == projectId);
             return Task.FromResult(removed);
         }
     }

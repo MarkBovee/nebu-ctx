@@ -239,7 +239,7 @@ public sealed class PostgresKnowledgeStore : IKnowledgeStore
         await conn.OpenAsync(cancellationToken);
 
         await using var cmd = new NpgsqlCommand(
-            "DELETE FROM knowledge_entries WHERE project_id = @project_id",
+            "DELETE FROM knowledge_candidates WHERE project_id = @project_id; DELETE FROM knowledge_entries WHERE project_id = @project_id",
             conn);
         cmd.Parameters.AddWithValue("project_id", projectId);
 
