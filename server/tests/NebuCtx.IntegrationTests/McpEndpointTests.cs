@@ -1060,6 +1060,81 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
     }
 
     /// <summary>
+    /// Hosted memory maintenance removes normalized legacy session summary rows even when stored as fact/general.
+    /// </summary>
+    [Fact]
+    public async Task ToolCall_PublicCtxMemoryMaintain_Apply_RemovesNormalizedLegacySessionSummaryEntries()
+    {
+        var fingerprint = new RepositoryFingerprint
+        {
+            RemoteUrl = "https://github.com/example/public-ctx-maintain-normalized-session-summary.git",
+            Host = "github.com",
+            Owner = "example",
+            RepoName = "public-ctx-maintain-normalized-session-summary",
+            DefaultBranch = "main",
+        };
+
+        string projectId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var projectStore = scope.ServiceProvider.GetRequiredService<IProjectStore>();
+            var brainStore = scope.ServiceProvider.GetRequiredService<IBrainStore>();
+            projectId = "maintain-normalized-session-summary-project";
+            await projectStore.CreateProjectAsync(new ProjectRecord
+            {
+                ProjectId = projectId,
+                Slug = "public-ctx-maintain-normalized-session-summary",
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                Fingerprint = fingerprint,
+            });
+
+            await brainStore.StoreFactAsync(new BrainEntry
+            {
+                ProjectId = projectId,
+                Key = "session-20260505-064121-8900",
+                Value = "session=20260505-064121-8900 task=\"(no task)\" calls=497 tokens_saved=71287 decisions=0 findings=0",
+                Kind = "fact",
+                Category = "general",
+                LogicalKey = "session-20260505-064121-8900",
+                PromotionIdentity = "legacy:maintain-normalized-session-summary-project:session-20260505-064121-8900",
+                SourceType = "legacy",
+                SourceScope = projectId,
+                LifecycleStatus = "legacy",
+                Confidence = 1.0f,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            });
+        }
+
+        var response = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx",
+            RepositoryFingerprint = fingerprint,
+            ProjectSlug = "public-ctx-maintain-normalized-session-summary",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["domain"] = "memory",
+                ["action"] = "maintain",
+                ["mode"] = "apply",
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var resultPayload = await response.Content.ReadFromJsonAsync<ToolCallResponse>();
+        Assert.NotNull(resultPayload);
+        var resultJson = Assert.IsAssignableFrom<JsonElement>(resultPayload!.Result);
+        Assert.Contains(resultJson.GetProperty("findings").EnumerateArray(), finding =>
+            finding.GetProperty("kind").GetString() == "legacy_raw"
+            && finding.GetProperty("key").GetString() == "session-20260505-064121-8900"
+            && finding.GetProperty("target_status").GetString() == "deleted");
+
+        var payload = await _client.GetFromJsonAsync<ProjectMemoryResponse>($"/api/dashboard/projects/{projectId}/memory");
+        Assert.NotNull(payload);
+        Assert.DoesNotContain(payload!.Brain, item => item.Key == "session-20260505-064121-8900");
+    }
+
+    /// <summary>
     /// Project resolution endpoint creates a canonical project and persists the workspace binding.
     /// </summary>
     [Fact]

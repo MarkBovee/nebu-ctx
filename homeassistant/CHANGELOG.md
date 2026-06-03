@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.38
+
+- Bundle the client/server follow-up that removes normalized legacy hosted session-summary rows even when old raw brain entries were already reshaped into `fact/general` records with legacy metadata.
+
 ## 0.8.37
 
 - Bundle the client/server follow-up that stops legacy hosted session-summary sync, removes old `session-*` / `assistant-output-*` / `user-prompt-*` brain rows during maintenance, hides legacy rows from the canonical dashboard memory stream, and fixes empty-project deletion when durable memory candidates still exist.

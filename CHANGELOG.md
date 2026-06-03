@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.38
+
+- Remove normalized legacy hosted brain rows during maintenance even when old `session-*`, `assistant-output-*`, and `user-prompt-*` data was backfilled as `fact/general` with legacy lifecycle/source metadata.
+- Add focused regression coverage for the normalized legacy hosted memory cleanup path so raw session-summary rows stop surviving maintenance after metadata normalization.
+
 ## 0.8.37
 
 - Stop syncing legacy hosted brain session summaries from the client, teach maintenance to remove legacy `session-*`, `assistant-output-*`, and `user-prompt-*` rows, and keep those `legacy` rows out of the dashboard's canonical memory stream.

@@ -915,6 +915,9 @@ public sealed class MemoryMaintenanceService
     /// </summary>
     private static bool IsLegacyRawBrainEntry(BrainEntry entry)
     {
+        var normalizedKey = entry.Key?.Trim() ?? string.Empty;
+        var normalizedValue = entry.Value?.Trim() ?? string.Empty;
+
         if (string.Equals(entry.Kind, "session_event", StringComparison.OrdinalIgnoreCase)
             || string.Equals(entry.Category, "session_timeline", StringComparison.OrdinalIgnoreCase)
             || string.Equals(entry.LifecycleStatus, "timeline", StringComparison.OrdinalIgnoreCase))
@@ -922,20 +925,14 @@ public sealed class MemoryMaintenanceService
             return true;
         }
 
-        if (string.Equals(entry.Kind, "legacy", StringComparison.OrdinalIgnoreCase)
-            && string.Equals(entry.Category, "legacy", StringComparison.OrdinalIgnoreCase))
+        if (normalizedKey.StartsWith("session-", StringComparison.OrdinalIgnoreCase)
+            || normalizedKey.StartsWith("user-prompt-", StringComparison.OrdinalIgnoreCase)
+            || normalizedKey.StartsWith("assistant-output-", StringComparison.OrdinalIgnoreCase)
+            || normalizedValue.StartsWith("session=", StringComparison.OrdinalIgnoreCase)
+            || normalizedValue.StartsWith("user_prompt:", StringComparison.OrdinalIgnoreCase)
+            || normalizedValue.StartsWith("assistant_output:", StringComparison.OrdinalIgnoreCase))
         {
-            var normalizedKey = entry.Key?.Trim() ?? string.Empty;
-            var normalizedValue = entry.Value?.Trim() ?? string.Empty;
-            if (normalizedKey.StartsWith("session-", StringComparison.OrdinalIgnoreCase)
-                || normalizedKey.StartsWith("user-prompt-", StringComparison.OrdinalIgnoreCase)
-                || normalizedKey.StartsWith("assistant-output-", StringComparison.OrdinalIgnoreCase)
-                || normalizedValue.StartsWith("session=", StringComparison.OrdinalIgnoreCase)
-                || normalizedValue.StartsWith("user_prompt:", StringComparison.OrdinalIgnoreCase)
-                || normalizedValue.StartsWith("assistant_output:", StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
+            return true;
         }
 
         return string.Equals(entry.Kind, "user_prompt", StringComparison.OrdinalIgnoreCase)
