@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.35
+
+- Bundle the client release that adds a Copilot hook guard to block the known deferred-tool `multi_tool_use.parallel` crash path and steer batch reads back to public `ctx_*` calls.
+
 ## 0.8.34
 
 - Bundle client release that refreshes generated Copilot/public guidance to avoid the known deferred-tool `multi_tool_use.parallel` wrapper failure by steering agents to direct public `ctx_*` calls and `ctx_read(target="files", paths=[...])` batch reads.

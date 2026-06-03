@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.35
+
+- Add a Copilot PreToolUse guard that blocks the known `multi_tool_use.parallel` crash path for deferred `mcp_nebuctx_*` tools and reroutes agents toward public `ctx_*` calls instead.
+- Add regression coverage for the new Copilot hook guard so deferred nebu-ctx batch-wrapper crashes stay blocked client-side.
+
 ## 0.8.34
 
 - Refresh generated public guidance and Copilot-facing rules so agents avoid the known `multi_tool_use.parallel` wrapper bug with deferred `mcp_nebuctx_*` tools by preferring direct public `ctx_*` calls and `ctx_read(target="files", paths=[...])` for batch reads.

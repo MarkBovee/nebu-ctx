@@ -1,5 +1,6 @@
 use crate::compound_lexer;
 use crate::rewrite_registry;
+use serde_json::Value;
 use std::io::Read;
 
 fn read_stdin_string() -> Option<String> {
@@ -126,6 +127,60 @@ fn emit_rewrite(rewritten: &str) {
     print!("{}", payload);
 }
 
+// Return an explicit deny decision so Copilot surfaces a reroute message instead of crashing.
+fn emit_pretool_deny(reason: &str) {
+    let payload = serde_json::json!({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    });
+    print!("{}", payload);
+}
+
+// Stop a known Copilot wrapper crash before deferred nebu-ctx tool calls reach the host.
+fn blocked_copilot_parallel_reason(input: &str) -> Option<String> {
+    let payload: Value = serde_json::from_str(input).ok()?;
+    let tool_name = payload
+        .get("tool_name")
+        .or_else(|| payload.get("toolName"))
+        .or_else(|| payload.get("tool"))
+        .and_then(Value::as_str)?;
+    if tool_name != "multi_tool_use.parallel" {
+        return None;
+    }
+
+    let tool_uses = payload
+        .get("tool_input")
+        .or_else(|| payload.get("toolInput"))
+        .or_else(|| payload.get("input"))
+        .and_then(|value| value.get("tool_uses").or_else(|| value.get("toolUses")))
+        .and_then(Value::as_array)?;
+
+    let mut deferred_calls: Vec<String> = tool_uses
+        .iter()
+        .filter_map(|tool_use| {
+            tool_use
+                .get("recipient_name")
+                .or_else(|| tool_use.get("recipientName"))
+                .and_then(Value::as_str)
+        })
+        .filter(|name| name.contains("mcp_nebuctx_"))
+        .map(str::to_string)
+        .collect();
+    if deferred_calls.is_empty() {
+        return None;
+    }
+
+    deferred_calls.sort();
+    deferred_calls.dedup();
+    Some(format!(
+        "Blocked known host bug: multi_tool_use.parallel crashes on deferred nebu-ctx tools ({}). Call public ctx_* tools directly instead. Use ctx_read(target=\"files\", paths=[...]) for batch reads, and run repeated ctx_search calls separately.",
+        deferred_calls.join(", ")
+    ))
+}
+
 pub fn handle_redirect() {
     // Allow all native tools (Read, Grep, ListFiles) to pass through.
     // Blocking them breaks Edit (which requires native Read) and causes
@@ -175,6 +230,11 @@ pub fn handle_copilot() {
     let Some(input) = read_stdin_string() else {
         return;
     };
+
+    if let Some(reason) = blocked_copilot_parallel_reason(&input) {
+        emit_pretool_deny(&reason);
+        return;
+    }
 
     let tool = extract_tool_name(&input);
     let tool_name = match tool.as_deref() {
@@ -974,6 +1034,63 @@ mod tests {
             extract_json_field(input, "command"),
             Some(r#"curl -H "Authorization: Bearer token" https://api.com"#.to_string())
         );
+    }
+
+    #[test]
+    fn blocked_copilot_parallel_reason_detects_deferred_nebuctx_tools() {
+        let input = r#"{
+            "tool_name": "multi_tool_use.parallel",
+            "tool_input": {
+                "tool_uses": [
+                    {
+                        "recipient_name": "mcp_nebuctx_ctx_read.mcp_nebuctx_ctx_read",
+                        "parameters": { "path": "client/src/main.rs" }
+                    },
+                    {
+                        "recipient_name": "mcp_nebuctx_ctx_search.mcp_nebuctx_ctx_search",
+                        "parameters": { "pattern": "main" }
+                    }
+                ]
+            }
+        }"#;
+
+        let reason = blocked_copilot_parallel_reason(input).expect("guard should trigger");
+        assert!(reason.contains("multi_tool_use.parallel"));
+        assert!(reason.contains("mcp_nebuctx_ctx_read"));
+        assert!(reason.contains("ctx_read(target=\"files\", paths=[...])"));
+    }
+
+    #[test]
+    fn blocked_copilot_parallel_reason_ignores_public_ctx_calls() {
+        let input = r#"{
+            "tool_name": "multi_tool_use.parallel",
+            "tool_input": {
+                "tool_uses": [
+                    {
+                        "recipient_name": "ctx_read",
+                        "parameters": { "target": "files", "paths": ["a", "b"] }
+                    },
+                    {
+                        "recipient_name": "ctx_search",
+                        "parameters": { "pattern": "main" }
+                    }
+                ]
+            }
+        }"#;
+
+        assert_eq!(blocked_copilot_parallel_reason(input), None);
+    }
+
+    #[test]
+    fn blocked_copilot_parallel_reason_ignores_other_tools() {
+        let input = r#"{
+            "tool_name": "runInTerminal",
+            "tool_input": {
+                "command": "git status"
+            }
+        }"#;
+
+        assert_eq!(blocked_copilot_parallel_reason(input), None);
     }
 
     #[test]
