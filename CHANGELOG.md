@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.34
+
+- Refresh generated public guidance and Copilot-facing rules so agents avoid the known `multi_tool_use.parallel` wrapper bug with deferred `mcp_nebuctx_*` tools by preferring direct public `ctx_*` calls and `ctx_read(target="files", paths=[...])` for batch reads.
+- Add regression coverage that keeps the deferred-tool batching workaround in all generated public guidance surfaces.
+
 ## 0.8.32
 
 - Reduce the Rust client further toward a thin public boundary by physically removing dead private `ctx_*` tool-definition surface, legacy handoff/edit/delta dispatch paths, and stale internal guidance that still advertised non-public tools.
