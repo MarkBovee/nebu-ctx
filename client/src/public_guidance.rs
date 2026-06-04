@@ -10,7 +10,7 @@ fn public_issue_policy_short() -> &'static str {
 }
 
 fn public_issue_policy_long() -> &'static str {
-    "If a public nebu-ctx tool (`ctx_read`, `ctx_search`, `ctx_tree`, `ctx_shell`, `ctx(...)`) fails reproducibly, retry once if the failure may be environmental. If it still fails, do not bypass to the native equivalent. Use supported raw mode or the repo-built nebu-ctx client, then automatically create or update a GitHub issue in `MarkBovee/nebu-ctx` before final handoff. Include repro steps, expected vs actual behavior, shell/platform, and the failing tool call. Use `gh issue create --repo MarkBovee/nebu-ctx ...` or `gh issue comment` when needed."
+    "If a public nebu-ctx tool (`ctx_read`, `ctx_search`, `ctx_tree`, `ctx(...)`) fails reproducibly, retry once if the failure may be environmental. If it still fails, do not bypass to the native equivalent. Use supported raw mode or the repo-built nebu-ctx client, then automatically create or update a GitHub issue in `MarkBovee/nebu-ctx` before final handoff. Include repro steps, expected vs actual behavior, shell/platform, and the failing tool call. Use `gh issue create --repo MarkBovee/nebu-ctx ...` or `gh issue comment` when needed."
 }
 
 fn no_bypass_policy() -> &'static str {
@@ -27,7 +27,7 @@ ALWAYS use nebu-ctx MCP tools instead of native equivalents.
 
 Tool mapping (MANDATORY):
 • Read/cat/head/tail -> ctx_read(target=file|files|symbol|outline|archive, ...)
-• Shell/bash -> ctx_shell(command)
+• Shell/bash -> native Shell/Bash (nebu-ctx shell hook compresses output automatically)
 • Grep/rg/semantic search -> ctx_search(mode=regex|semantic, ...)
 • ls/find -> ctx_tree(path, depth)
 • Edit/StrReplace/Write/Delete/Glob -> native tools
@@ -43,12 +43,11 @@ Memory/state: ctx(domain=memory, action=recall|store|task|finding|decision|save|
 Memory actions use hosted persistence. No local bootstrap flow in public guidance.
 Graph/analysis: ctx(domain=graph, action=related|symbol|impact|architecture|callers|callees|diagram|build|status).
 Analytics: ctx(domain=analytics, action=report|cost|heatmap|stats|feedback|wrapped|benchmark|analyze|discover|metrics).
-ctx_shell shows [shell: ...]. Use shell_path=... to force pwsh/cmd/bash. raw=true for uncompressed.
 If public nebu-ctx tool bug reproduces after one retry, use raw mode or repo-built nebu-ctx client, then automatically create or update a GitHub issue in `MarkBovee/nebu-ctx` before handoff.
 
 CEP: 1.ACT FIRST 2.DELTA ONLY 3.STRUCTURED(+/-/~) 4.ONE LINE 5.QUALITY
 
-Prefer: ctx_read>Read | ctx_shell>Shell | ctx_search>Grep | ctx_tree>ls
+Prefer: ctx_read>Read | ctx_search>Grep | ctx_tree>ls
 Edit/write/delete: native tools.
 Never echo tool output. Never narrate. Show only changed code.
 Full instructions at ~/.claude/CLAUDE.md (imports rules/nebu-ctx.md)"
@@ -60,11 +59,11 @@ pub fn full_instruction_policy_block() -> String {
         "\
 CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalents.
 
-Public MCP surface is fixed to 5 tools: ctx_read, ctx_search, ctx_tree, ctx_shell, ctx.
+Public MCP surface is fixed to 4 tools: ctx_read, ctx_search, ctx_tree, ctx.
 
 MANDATORY tool mapping:
 • Read/cat/head/tail -> ctx_read(target=file|files|symbol|outline|archive, ...)
-• Shell/bash -> ctx_shell(command)
+• Shell/bash -> native Shell/Bash (nebu-ctx shell hook compresses output automatically)
 • Grep/rg/semantic search -> ctx_search(mode=regex|semantic, ...)
 • ls/find -> ctx_tree(path, depth)
 • Edit/StrReplace/Write/Delete/Glob -> use native tools
@@ -79,7 +78,6 @@ Cached? Use fresh=true, start_line=N, or lines:N-M.
 Use ctx(domain=memory|context|graph|analytics|agents|inspect, action=...) for higher-level workflows.
 Examples: ctx(domain=memory, action=recall, query=...) | ctx(domain=context, action=overview, task=...) | ctx(domain=graph, action=impact, path=...) | ctx(domain=agents, action=handoff, ...).
 Memory actions use hosted persistence and require `nebu-ctx connect`.
-ctx_shell shows [shell: ...]. Use shell_path=... to force pwsh/cmd/bash. raw=true for uncompressed output.
 {no_bypass}
 {issue_policy}",
         batching_policy = batching_policy(),
@@ -98,7 +96,6 @@ CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalen
 | ALWAYS USE | NEVER USE | Why |
 |------------|-----------|-----|
 | `ctx_read(target="file"|"files"|"symbol"|"outline"|"archive", ...)` | `Read` / `cat` / `head` / `tail` | Public cached read API for files, symbols, outlines, and archives |
-| `ctx_shell(command, shell_path?)` | `Shell` / `bash` / terminal | Pattern compression plus active shell visibility |
 | `ctx_search(mode="regex"|"semantic", ...)` | `Grep` / `rg` | Compact regex and semantic search results |
 | `ctx_tree(path, depth)` | `ls` / `find` | Compact directory maps |
 | `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")` | private `ctx_*` implementation details | Stable public gateway for advanced operations |
@@ -106,11 +103,11 @@ CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalen
 Public `ctx_read` targets: `file`, `files`, `symbol`, `outline`, `archive`.
 Public `ctx_search` modes: `regex`, `semantic`.
 Public `ctx` domains: `memory`, `context`, `graph`, `analytics`, `agents`, `inspect`.
-`ctx_shell` uses active shell semantics; output includes `[shell: ...]`. Use `shell_path="pwsh.exe"`, `shell_path="cmd.exe"`, or `shell_path="/bin/bash"` to force a shell per call.
+Shell commands stay on native `Shell` / `bash`; the nebu-ctx shell hook compresses output automatically.
 
 File mutation stays on native Edit/Write/Delete tools.
 
-Use private tool names only when documenting nebu-ctx internals. User-facing guidance should recommend only the 5 public tools.
+Use private tool names only when documenting nebu-ctx internals. User-facing guidance should recommend only the 4 public tools.
 
 {batching_policy}
 
@@ -137,7 +134,6 @@ CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalen
 | ALWAYS USE | NEVER USE | Why |
 |------------|-----------|-----|
 | `ctx_read(target="file"|"files"|"symbol"|"outline"|"archive", ...)` | `Read` / `cat` / `head` / `tail` | Public cached read API for files, symbols, outlines, and archives |
-| `ctx_shell(command, shell_path?)` | `Shell` / `bash` / terminal | Pattern compression plus active shell visibility |
 | `ctx_search(mode="regex"|"semantic", ...)` | `Grep` / `rg` | Compact regex and semantic search results |
 | `ctx_tree(path, depth)` | `ls` / `find` | Compact directory maps |
 | `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")` | private `ctx_*` implementation details | Stable public gateway for advanced operations |
@@ -145,9 +141,9 @@ CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalen
 Public `ctx_read` targets: `file`, `files`, `symbol`, `outline`, `archive`.
 Public `ctx_search` modes: `regex`, `semantic`.
 Public `ctx` domains: `memory`, `context`, `graph`, `analytics`, `agents`, `inspect`.
-`ctx_shell` uses active shell semantics; output includes `[shell: ...]`. Use `shell_path="pwsh.exe"`, `shell_path="cmd.exe"`, or `shell_path="/bin/bash"` to force a shell per call.
+Shell commands stay on native `Shell` / `bash`; the nebu-ctx shell hook compresses output automatically.
 
-Use private tool names only when documenting nebu-ctx internals. User-facing guidance should recommend only the 5 public tools.
+Use private tool names only when documenting nebu-ctx internals. User-facing guidance should recommend only the 4 public tools.
 
 {batching_policy}
 
@@ -175,7 +171,7 @@ fallback only if a nebu-ctx tool is unavailable: use native equivalents.
 pub fn rules_cursor_mdc() -> String {
     format!(
         r#"---
-description: "nebu-ctx: ALWAYS use the public 5-tool MCP surface instead of native or private tool names"
+description: "nebu-ctx: ALWAYS use the public 4-tool MCP surface instead of native or private tool names"
 alwaysApply: true
 ---
 
@@ -189,7 +185,6 @@ CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalen
 | ALWAYS USE | NEVER USE | Why |
 |------------|-----------|-----|
 | `ctx_read(target="file"|"files"|"symbol"|"outline"|"archive", ...)` | `Read` | Public cached read API for files, symbols, outlines, and archives |
-| `ctx_shell` | `Shell` | Pattern-based compression plus active shell visibility |
 | `ctx_search(mode="regex"|"semantic", ...)` | `Grep` | Compact regex and semantic search results |
 | `ctx_tree` | `ls`, `find` | Compact directory maps with file counts |
 | `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")` | private `ctx_*` implementation details | Stable public gateway for advanced operations |
@@ -199,7 +194,7 @@ CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalen
 - `ctx_read` targets: `file`, `files`, `symbol`, `outline`, `archive`
 - `ctx_search` modes: `regex`, `semantic`
 - `ctx` domains: `memory`, `context`, `graph`, `analytics`, `agents`, `inspect`
-- `ctx_shell` uses active shell semantics; output includes `[shell: ...]`. Use `shell` to force a specific executable per call.
+- Shell commands stay on native `Shell`; the nebu-ctx shell hook compresses output automatically.
 
 ## Memory
 
@@ -226,7 +221,7 @@ CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalen
 
 pub fn cursor_rules_template() -> String {
     format!(
-        "# nebu-ctx — Context Engineering Layer\n\nPREFER nebu-ctx MCP tools over native equivalents for token savings:\n\n| PREFER | OVER | Why |\n|--------|------|-----|\n| `ctx_read(target=...)` | `Read` | Cached, public read contract |\n| `ctx_shell(command, shell_path?)` | `Shell` | Pattern compression plus active shell visibility |\n| `ctx_search(mode=...)` | `Grep` | Compact ripgrep-backed results |\n| `ctx_tree(path, depth)` | `ls` / `find` | Directory maps |\n\nEdit files: use native Edit/StrReplace. Write, Delete, Glob — use normally.\n{}\n{}\n",
+        "# nebu-ctx — Context Engineering Layer\n\nPREFER nebu-ctx MCP tools over native equivalents for token savings:\n\n| PREFER | OVER | Why |\n|--------|------|-----|\n| `ctx_read(target=...)` | `Read` | Cached, public read contract |\n| `ctx_search(mode=...)` | `Grep` | Compact ripgrep-backed results |\n| `ctx_tree(path, depth)` | `ls` / `find` | Directory maps |\n\nEdit files: use native Edit/StrReplace. Write, Delete, Glob — use normally.\nShell commands stay on native Shell; the nebu-ctx shell hook compresses output.\n{}\n{}\n",
         batching_policy(),
         public_issue_policy_long()
     )
@@ -234,7 +229,7 @@ pub fn cursor_rules_template() -> String {
 
 pub fn kiro_steering_template() -> String {
     format!(
-        "---\ninclusion: always\n---\n\n{}\n\n# nebu-ctx — Context Engineering Layer\n\nThe workspace has the `nebu-ctx` MCP server installed. You MUST prefer nebu-ctx tools over native equivalents for token efficiency and caching.\n\n## Mandatory Tool Preferences\n\n| Use this | Instead of | Why |\n|----------|-----------|-----|\n| `ctx_read` | `readFile`, `readCode` | Cached reads, 10 compression modes, re-reads cost ~13 tokens |\n| `ctx_read` with `target: \"files\"` | `readMultipleFiles` | Batch cached reads in one public call |\n| `ctx_shell` | `executeBash` | Pattern compression for git/npm/test output |\n| `ctx_search` | `grepSearch` | Compact, .gitignore-aware results |\n| `ctx_tree` | `listDirectory` | Compact directory maps with file counts |\n\n## When to use native Kiro tools instead\n\n- `fsWrite` / `fsAppend` — always use native (nebu-ctx doesn't write files)\n- `strReplace` — always use native (precise string replacement)\n- `semanticRename` / `smartRelocate` — always use native (IDE integration)\n- `getDiagnostics` — always use native (language server diagnostics)\n- `deleteFile` — always use native\n\n## Session management\n\n- At the start of a long task, call `ctx(domain=\"context\", action=\"overview\", task=...)` to map relevant project surface\n- Use `ctx(domain=\"memory\", action=\"wakeup\")` or `ctx(domain=\"memory\", action=\"recall\", query=...)` to restore useful context\n- Use `ctx(domain=\"memory\", action=\"remember\", ...)` to persist important discoveries across sessions\n\n## Rules\n\n- Public nebu-ctx surface is fixed to 5 tools: `ctx_read`, `ctx_search`, `ctx_tree`, `ctx_shell`, `ctx`\n- For large files, use `ctx_read` with `mode: \"signatures\"` or `mode: \"map\"` first\n- For re-reading a file you already read, call `ctx_read` again (cache hit = ~13 tok)\n- {}\n- When running tests or build commands, use `ctx_shell` for compressed output\n- {}\n",
+        "---\ninclusion: always\n---\n\n{}\n\n# nebu-ctx — Context Engineering Layer\n\nThe workspace has the `nebu-ctx` MCP server installed. You MUST prefer nebu-ctx tools over native equivalents for token efficiency and caching.\n\n## Mandatory Tool Preferences\n\n| Use this | Instead of | Why |\n|----------|-----------|-----|\n| `ctx_read` | `readFile`, `readCode` | Cached reads, 10 compression modes, re-reads cost ~13 tokens |\n| `ctx_read` with `target: \"files\"` | `readMultipleFiles` | Batch cached reads in one public call |\n| `ctx_search` | `grepSearch` | Compact, .gitignore-aware results |\n| `ctx_tree` | `listDirectory` | Compact directory maps with file counts |\n\n## When to use native Kiro tools instead\n\n- `fsWrite` / `fsAppend` — always use native (nebu-ctx doesn't write files)\n- `strReplace` — always use native (precise string replacement)\n- `semanticRename` / `smartRelocate` — always use native (IDE integration)\n- `getDiagnostics` — always use native (language server diagnostics)\n- `deleteFile` — always use native\n- `executeBash` — always use native; the nebu-ctx shell hook compresses output automatically\n\n## Session management\n\n- At the start of a long task, call `ctx(domain=\"context\", action=\"overview\", task=...)` to map relevant project surface\n- Use `ctx(domain=\"memory\", action=\"wakeup\")` or `ctx(domain=\"memory\", action=\"recall\", query=...)` to restore useful context\n- Use `ctx(domain=\"memory\", action=\"remember\", ...)` to persist important discoveries across sessions\n\n## Rules\n\n- Public nebu-ctx surface is fixed to 4 tools: `ctx_read`, `ctx_search`, `ctx_tree`, `ctx`\n- For large files, use `ctx_read` with `mode: \"signatures\"` or `mode: \"map\"` first\n- For re-reading a file you already read, call `ctx_read` again (cache hit = ~13 tok)\n- {}\n- When running tests or build commands, use native `executeBash` — the nebu-ctx shell hook compresses output\n- {}\n",
         KIRO_STEERING_VERSION,
         batching_policy(),
         public_issue_policy_long()
@@ -243,14 +238,14 @@ pub fn kiro_steering_template() -> String {
 
 pub fn claude_md_block_content() -> String {
     format!(
-        "<!-- nebu-ctx -->\n<!-- {} -->\n## nebu-ctx — Context Runtime\n\nAlways prefer nebu-ctx MCP tools over native equivalents:\n- `ctx_read` instead of `Read` / `cat`\n- `ctx_shell` instead of `bash` / `Shell`\n- `ctx_search` instead of `Grep` / `rg`\n- `ctx_tree` instead of `ls` / `find`\n- Use `ctx_read(target=\"files\", paths=[...])` instead of `multi_tool_use.parallel` with deferred `mcp_nebuctx_*` tools\n- Native Edit/StrReplace, Write, Delete, Glob stay unchanged\n- If a public nebu-ctx tool breaks reproducibly, use raw mode or repo-built nebu-ctx client, then automatically create or update a GitHub issue before handoff\n\nFull rules: @rules/nebu-ctx.md\n\nVerify setup: run `/mcp` to check nebu-ctx is connected, `/memory` to confirm this file loaded.\n<!-- /nebu-ctx -->",
+        "<!-- nebu-ctx -->\n<!-- {} -->\n## nebu-ctx — Context Runtime\n\nAlways prefer nebu-ctx MCP tools over native equivalents:\n- `ctx_read` instead of `Read` / `cat`\n- `ctx_search` instead of `Grep` / `rg`\n- `ctx_tree` instead of `ls` / `find`\n- Shell commands stay on native `Shell` / `bash`; the nebu-ctx shell hook compresses output automatically\n- Use `ctx_read(target=\"files\", paths=[...])` instead of `multi_tool_use.parallel` with deferred `mcp_nebuctx_*` tools\n- Native Edit/StrReplace, Write, Delete, Glob stay unchanged\n- If a public nebu-ctx tool breaks reproducibly, use raw mode or repo-built nebu-ctx client, then automatically create or update a GitHub issue before handoff\n\nFull rules: @rules/nebu-ctx.md\n\nVerify setup: run `/mcp` to check nebu-ctx is connected, `/memory` to confirm this file loaded.\n<!-- /nebu-ctx -->",
         CLAUDE_MD_BLOCK_VERSION
     )
 }
 
 pub fn hermes_rules_template() -> String {
     format!(
-        "# lean-ctx — Context Engineering Layer\n\nPREFER nebu-ctx MCP tools over native equivalents for token savings:\n\n| PREFER | OVER | Why |\n|--------|------|-----|\n| `ctx_read(target=..., mode)` | `Read` / `cat` | Cached public read modes, re-reads ~13 tokens |\n| `ctx_shell(command, shell_path?)` | `Shell` / `bash` | Pattern compression plus active shell visibility |\n| `ctx_search(mode=regex|semantic, ...)` | `Grep` / `rg` | Compact search results |\n| `ctx_tree(path, depth)` | `ls` / `find` | Compact directory maps |\n\n- Native Edit/StrReplace stay unchanged.\n- Write, Delete, Glob — use normally.\n- `ctx_shell` uses active shell semantics; output includes `[shell: ...]`. Use `shell_path` to force a specific executable per call.\n- {}\n- {}\n\nctx_read modes: full|map|signatures|diff|task|reference|aggressive|entropy|lines:N-M. Auto-selects optimal mode.\nRe-reads cost ~13 tokens (cached).\n\nUse only the public 5-tool surface in guidance.\n",
+        "# lean-ctx — Context Engineering Layer\n\nPREFER nebu-ctx MCP tools over native equivalents for token savings:\n\n| PREFER | OVER | Why |\n|--------|------|-----|\n| `ctx_read(target=..., mode)` | `Read` / `cat` | Cached public read modes, re-reads ~13 tokens |\n| `ctx_search(mode=regex|semantic, ...)` | `Grep` / `rg` | Compact search results |\n| `ctx_tree(path, depth)` | `ls` / `find` | Compact directory maps |\n\n- Native Edit/StrReplace stay unchanged.\n- Write, Delete, Glob — use normally.\n- Shell commands stay on native `Shell` / `bash`; the nebu-ctx shell hook compresses output automatically.\n- {}\n- {}\n\nctx_read modes: full|map|signatures|diff|task|reference|aggressive|entropy|lines:N-M. Auto-selects optimal mode.\nRe-reads cost ~13 tokens (cached).\n\nUse only the public 4-tool surface in guidance.\n",
         batching_policy(),
         public_issue_policy_long()
     )
@@ -258,14 +253,14 @@ pub fn hermes_rules_template() -> String {
 
 pub fn pi_agents_template() -> String {
     format!(
-        "# nebu-ctx — Public MCP Guidance for Pi\n\nnebu-ctx is installed as a Pi Package with first-class MCP support. User-facing guidance should recommend only the public 5-tool MCP surface: `ctx_read`, `ctx_search`, `ctx_tree`, `ctx_shell`, and `ctx`.\n\n## Public MCP Surface\n\n- `ctx_read(target=\"file\"|\"files\"|\"symbol\"|\"outline\"|\"archive\", ...)`\n- `ctx_search(mode=\"regex\"|\"semantic\", ...)`\n- `ctx_tree(path, depth)`\n- `ctx_shell(command, shell_path?)`\n- `ctx(domain=\"memory\"|\"context\"|\"graph\"|\"analytics\"|\"agents\"|\"inspect\", action=\"...\")`\n\n## Guidance Rules\n\n- Prefer the 5 public tools above in all visible instructions and examples.\n- Do not recommend direct private `ctx_*` tool names unless you are explicitly documenting internal implementation details.\n- Use native edit/write/delete tools for mutations; nebu-ctx's public surface is read/search/tree/shell/ctx.\n- `ctx_shell` uses active shell semantics; output includes `[shell: ...]`. Use `shell_path` to force a specific executable per call.\n- {}\n\n## Public Examples\n\n```text\nctx_read(target=\"file\", path=\"src/main.rs\")\nctx_read(target=\"symbol\", name=\"main\", file=\"src/main.rs\")\nctx_search(mode=\"regex\", pattern=\"pub fn\", path=\"src/\")\nctx_search(mode=\"semantic\", query=\"session state persistence\", path=\"src/\")\nctx_tree(\".\", 2)\nctx_shell(\"git status\")\nctx(domain=\"memory\", action=\"recall\", query=\"session state decisions\")\n```\n\n## Memory policy\n\n- Use `ctx(domain=\"memory\", action=\"save\"|\"recall\")` for task state, findings, and decisions that should survive across chats.\n- Use `ctx(domain=\"memory\", action=\"store\")` for durable hosted project facts.\n- The stop/compact hooks already persist session state into the nebu-ctx server; rely on that instead of chat history for reusable memory.\n\n## No manual prefixing needed\n\nThe Pi extension handles routing automatically. Use the public nebu-ctx surface directly in guidance and examples.\n",
+        "# nebu-ctx — Public MCP Guidance for Pi\n\nnebu-ctx is installed as a Pi Package with first-class MCP support. User-facing guidance should recommend only the public 4-tool MCP surface: `ctx_read`, `ctx_search`, `ctx_tree`, and `ctx`.\n\n## Public MCP Surface\n\n- `ctx_read(target=\"file\"|\"files\"|\"symbol\"|\"outline\"|\"archive\", ...)`\n- `ctx_search(mode=\"regex\"|\"semantic\", ...)`\n- `ctx_tree(path, depth)`\n- `ctx(domain=\"memory\"|\"context\"|\"graph\"|\"analytics\"|\"agents\"|\"inspect\", action=\"...\")`\n\n## Guidance Rules\n\n- Prefer the 4 public tools above in all visible instructions and examples.\n- Do not recommend direct private `ctx_*` tool names unless you are explicitly documenting internal implementation details.\n- Use native edit/write/delete tools for mutations; nebu-ctx's public surface is read/search/tree/ctx.\n- Shell commands stay on native shell; the nebu-ctx shell hook compresses output automatically.\n- {}\n\n## Public Examples\n\n```text\nctx_read(target=\"file\", path=\"src/main.rs\")\nctx_read(target=\"symbol\", name=\"main\", file=\"src/main.rs\")\nctx_search(mode=\"regex\", pattern=\"pub fn\", path=\"src/\")\nctx_search(mode=\"semantic\", query=\"session state persistence\", path=\"src/\")\nctx_tree(\".\", 2)\nctx(domain=\"memory\", action=\"recall\", query=\"session state decisions\")\n```\n\n## Memory policy\n\n- Use `ctx(domain=\"memory\", action=\"save\"|\"recall\")` for task state, findings, and decisions that should survive across chats.\n- Use `ctx(domain=\"memory\", action=\"store\")` for durable hosted project facts.\n- The stop/compact hooks already persist session state into the nebu-ctx server; rely on that instead of chat history for reusable memory.\n\n## No manual prefixing needed\n\nThe Pi extension handles routing automatically. Use the public nebu-ctx surface directly in guidance and examples.\n",
         public_issue_policy_long()
     )
 }
 
 pub fn windsurf_rules_template() -> String {
     format!(
-        "# nebu-ctx — Public MCP Guidance\n\nnebu-ctx is configured as an MCP server. In guidance, always recommend only the public 5-tool MCP surface:\n\n- Read files, symbols, outlines, or archives -> `ctx_read(target=\"file\"|\"files\"|\"symbol\"|\"outline\"|\"archive\", ...)`\n- Shell commands -> `ctx_shell(command)` instead of built-in Shell\n- Search code -> `ctx_search(mode=\"regex\"|\"semantic\", ...)` instead of built-in Grep\n- List directories -> `ctx_tree(path, depth)` instead of ls/find\n- Memory, context, graph, analytics, agents, and inspect operations -> `ctx(domain=\"memory\"|\"context\"|\"graph\"|\"analytics\"|\"agents\"|\"inspect\", action=\"...\")`\n\nDo not recommend direct private `ctx_*` tool names in user-facing rules.\nUse native Edit/Write/Delete tools for mutations.\n{}\nWrite, StrReplace, Delete have no public nebu-ctx equivalent — use them normally.\n",
+        "# nebu-ctx — Public MCP Guidance\n\nnebu-ctx is configured as an MCP server. In guidance, always recommend only the public 4-tool MCP surface:\n\n- Read files, symbols, outlines, or archives -> `ctx_read(target=\"file\"|\"files\"|\"symbol\"|\"outline\"|\"archive\", ...)`\n- Shell commands stay on native Shell; the nebu-ctx shell hook compresses output automatically\n- Search code -> `ctx_search(mode=\"regex\"|\"semantic\", ...)` instead of built-in Grep\n- List directories -> `ctx_tree(path, depth)` instead of ls/find\n- Memory, context, graph, analytics, agents, and inspect operations -> `ctx(domain=\"memory\"|\"context\"|\"graph\"|\"analytics\"|\"agents\"|\"inspect\", action=\"...\")`\n\nDo not recommend direct private `ctx_*` tool names in user-facing rules.\nUse native Edit/Write/Delete tools for mutations.\n{}\nWrite, StrReplace, Delete have no public nebu-ctx equivalent — use them normally.\n",
         public_issue_policy_long()
     )
 }
@@ -321,7 +316,7 @@ mod tests {
             assert!(text.contains("ctx_read"));
             assert!(text.contains("ctx_search"));
             assert!(text.contains("ctx_tree"));
-            assert!(text.contains("ctx_shell"));
+            assert!(!text.contains("ctx_shell"));
             assert!(text.contains("ctx"));
             assert!(!text.contains("project-bootstrap"));
             assert!(!text.contains("shell="));

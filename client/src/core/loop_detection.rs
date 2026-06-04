@@ -356,9 +356,9 @@ mod tests {
         let cfg = LoopDetectionConfig::default();
         let mut detector = LoopDetector::with_config(&cfg);
         for _ in 0..cfg.blocked_threshold {
-            detector.record_call("ctx_shell", "same_fp");
+            detector.record_call("ctx_read", "same_fp");
         }
-        let result = detector.record_call("ctx_shell", "same_fp");
+        let result = detector.record_call("ctx_read", "same_fp");
         assert_eq!(result.level, ThrottleLevel::Blocked);
         assert!(result.message.unwrap().contains("LOOP DETECTED"));
     }
@@ -395,7 +395,7 @@ mod tests {
         for _ in 0..5 {
             detector.record_call("ctx_read", "fp_a");
         }
-        detector.record_call("ctx_shell", "fp_b");
+        detector.record_call("ctx_search", "fp_b");
         let stats = detector.stats();
         assert_eq!(stats.len(), 1);
         assert_eq!(stats[0].1, 5);
@@ -478,7 +478,7 @@ mod tests {
     fn is_search_tool_detection() {
         assert!(LoopDetector::is_search_tool("ctx_search"));
         assert!(!LoopDetector::is_search_tool("ctx_read"));
-        assert!(!LoopDetector::is_search_tool("ctx_shell"));
+        assert!(!LoopDetector::is_search_tool("ctx_tree"));
         assert!(!LoopDetector::is_search_tool("ctx_semantic_search"));
     }
 

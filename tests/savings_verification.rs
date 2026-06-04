@@ -548,7 +548,7 @@ fn audit_full_savings_pipeline() {
         );
     }
 
-    // 5. ctx_shell — real compression
+    // 5. shell hook — real compression
     {
         let raw_output = generate_git_log_patch(10);
         let original = count_tokens(&raw_output);
@@ -562,7 +562,7 @@ fn audit_full_savings_pipeline() {
             0.0
         };
 
-        eprintln!("\n  ctx_shell (git log -p, 10 commits):");
+        eprintln!("\n  shell hook (git log -p, 10 commits):");
         eprintln!("    raw tokens:       {original}");
         eprintln!("    compressed tokens: {compressed_tokens}");
         eprintln!("    savings:          {saved} ({ratio:.1}%)");

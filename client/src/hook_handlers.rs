@@ -680,7 +680,7 @@ fn build_session_snapshot_xml(project_root: &str, source: &str) -> String {
 fn session_start_routing_block() -> String {
     r#"<context_window_protection>
   Use nebu-ctx MCP tools instead of raw native tools to save tokens:
-  - ctx_read / ctx_search / ctx_shell / ctx_tree instead of Read / Grep / Bash / ls
+  - ctx_read / ctx_search / ctx_tree instead of Read / Grep / ls
   - ctx for hosted memory, graph, analytics, and agent actions
   - Bash only for: git, mkdir, rm, mv, navigation
   Skills, roles, and decisions from this session remain active until revoked.

@@ -332,7 +332,7 @@ mod tests {
                     success: true,
                 },
                 Action {
-                    tool: "ctx_shell".to_string(),
+                    tool: "ctx_search".to_string(),
                     description: String::new(),
                     timestamp: Utc::now(),
                     duration_ms: 200,

@@ -20,7 +20,7 @@ pub const SERVER_ONLY_TOOLS: &[&str] = &[
     "ctx_session",
 ];
 
-const PUBLIC_TOOL_NAMES: &[&str] = &["ctx_read", "ctx_search", "ctx_tree", "ctx_shell", "ctx"];
+const PUBLIC_TOOL_NAMES: &[&str] = &["ctx_read", "ctx_search", "ctx_tree", "ctx"];
 
 /// Tools that prefer server routing but fall back to local file storage when not configured.
 const SERVER_PREFERRED_TOOLS: &[&str] = &[];
@@ -205,7 +205,7 @@ impl ServerHandler for NebuCtxServer {
         let original_name = request.name.as_ref().to_string();
         if !PUBLIC_TOOL_NAMES.contains(&original_name.as_str()) {
             return Err(ErrorData::invalid_params(
-                "Public MCP surface only supports: ctx_read, ctx_search, ctx_tree, ctx_shell, ctx",
+                "Public MCP surface only supports: ctx_read, ctx_search, ctx_tree, ctx",
                 None,
             ));
         }
@@ -451,8 +451,7 @@ impl ServerHandler for NebuCtxServer {
             }
         }
 
-        let skip_auto_context = name == "ctx_shell"
-            || name == "ctx_search"
+        let skip_auto_context = name == "ctx_search"
             || (name == "ctx"
                 && args.as_ref().is_some_and(|args| {
                     let domain = args.get("domain").and_then(|value| value.as_str());
@@ -501,31 +500,14 @@ impl ServerHandler for NebuCtxServer {
             let mut detector = self.loop_detector.write().await;
 
             let is_search = crate::core::loop_detection::LoopDetector::is_search_tool(name);
-            let is_search_shell = name == "ctx_shell" && {
-                let cmd = args
-                    .as_ref()
-                    .and_then(|a| a.get("command"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
-                crate::core::loop_detection::LoopDetector::is_search_shell_command(cmd)
-            };
 
-            if is_search || is_search_shell {
+            if is_search {
                 let search_pattern = args.as_ref().and_then(|a| {
                     a.get("pattern")
                         .or_else(|| a.get("query"))
                         .and_then(|v| v.as_str())
                 });
-                let shell_pattern = if is_search_shell {
-                    args.as_ref()
-                        .and_then(|a| a.get("command"))
-                        .and_then(|v| v.as_str())
-                        .and_then(helpers::extract_search_pattern_from_command)
-                } else {
-                    None
-                };
-                let pat = search_pattern.or(shell_pattern.as_deref());
-                detector.record_search(name, &fp, pat)
+                detector.record_search(name, &fp, search_pattern)
             } else {
                 detector.record_call(name, &fp)
             }
@@ -553,7 +535,7 @@ impl ServerHandler for NebuCtxServer {
             use crate::core::archive;
             let archivable = matches!(
                 name,
-                "ctx_shell" | "ctx_read" | "ctx_multi_read" | "ctx_search" | "ctx_tree"
+                "ctx_read" | "ctx_multi_read" | "ctx_search" | "ctx_tree"
             );
             if archivable && archive::should_archive(&result_text) {
                 let cmd = helpers::get_str(args, "command")
@@ -610,22 +592,6 @@ impl ServerHandler for NebuCtxServer {
             }
 
             crate::tools::autonomy::maybe_auto_dedup(&self.autonomy, &mut cache);
-        }
-
-        if name == "ctx_shell" {
-            let cmd = helpers::get_str(args, "command").unwrap_or_default();
-            let output_tokens = crate::core::tokens::count_tokens(&result_text);
-            let calls = self.tool_calls.read().await;
-            let last_original = calls.last().map(|c| c.original_tokens).unwrap_or(0);
-            drop(calls);
-            if let Some(hint) = crate::tools::autonomy::shell_efficiency_hint(
-                &self.autonomy,
-                &cmd,
-                last_original,
-                output_tokens,
-            ) {
-                result_text = format!("{result_text}\n{hint}");
-            }
         }
 
         {
@@ -955,17 +921,17 @@ mod tests {
     #[test]
     fn test_unified_tool_count() {
         let tools = crate::tool_defs::unified_tool_defs();
-        assert_eq!(tools.len(), 5, "Expected 5 unified tools");
+        assert_eq!(tools.len(), 4, "Expected 4 unified tools");
     }
 
     #[test]
-    fn public_tool_count_is_exactly_five() {
+    fn public_tool_count_is_exactly_four() {
         let tools = crate::tool_defs::unified_tool_defs();
         let names: Vec<&str> = tools.iter().map(|t| t.name.as_ref()).collect();
         assert_eq!(
             names,
-            vec!["ctx_read", "ctx_search", "ctx_tree", "ctx_shell", "ctx"],
-            "Expected the canonical 5-tool public MCP surface"
+            vec!["ctx_read", "ctx_search", "ctx_tree", "ctx"],
+            "Expected the canonical 4-tool public MCP surface"
         );
     }
 
@@ -979,8 +945,8 @@ mod tests {
 
         assert_eq!(
             tools.len(),
-            5,
-            "Manifest should expose exactly 5 public tools"
+            4,
+            "Manifest should expose exactly 4 public tools"
         );
     }
 
@@ -1053,25 +1019,6 @@ mod tests {
         assert!(
             !schema.contains("ctx_multi_read"),
             "public ctx_read schema should not leak private ctx_multi_read details: {schema}"
-        );
-    }
-
-    #[test]
-    fn ctx_shell_public_schema_uses_shell_path_and_not_shell() {
-        let tools = crate::tool_defs::unified_tool_defs();
-        let shell = tools
-            .iter()
-            .find(|tool| tool.name.as_ref() == "ctx_shell")
-            .expect("ctx_shell should remain public");
-        let schema = serde_json::to_string(&*shell.input_schema).unwrap();
-
-        assert!(
-            schema.contains("shell_path"),
-            "ctx_shell public schema must advertise shell_path: {schema}"
-        );
-        assert!(
-            !schema.contains("\"shell\""),
-            "ctx_shell public schema should not advertise legacy shell directly: {schema}"
         );
     }
 
@@ -1334,46 +1281,6 @@ mod tests {
     }
 
     #[test]
-    fn ctx_shell_does_not_prepend_auto_context() {
-        let _lock = crate::core::data_dir::test_env_lock();
-        let data = tempfile::tempdir().unwrap();
-        let repo = tempfile::tempdir().unwrap();
-        std::env::set_var("NEBU_CTX_DATA_DIR", data.path());
-        std::env::set_var("NEBU_CTX_HOME", data.path());
-        std::fs::create_dir(repo.path().join(".git")).unwrap();
-
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        let engine = crate::engine::ContextEngine::with_project_root(repo.path());
-        let text = rt
-            .block_on(engine.call_tool_text(
-                "ctx_shell",
-                Some(serde_json::json!({
-                    "command": "echo shell-clean"
-                })),
-            ))
-            .expect("ctx_shell should succeed");
-
-        assert!(
-            text.contains("shell-clean"),
-            "unexpected shell text: {text}"
-        );
-        assert!(
-            text.contains("[shell:"),
-            "ctx_shell should expose active shell: {text}"
-        );
-        assert!(
-            !text.contains("--- AUTO CONTEXT ---") && !text.contains("PROJECT OVERVIEW"),
-            "ctx_shell should not leak auto context into normal shell output: {text}"
-        );
-
-        std::env::remove_var("NEBU_CTX_DATA_DIR");
-        std::env::remove_var("NEBU_CTX_HOME");
-    }
-
-    #[test]
     fn ctx_search_does_not_prepend_auto_context() {
         let _lock = crate::core::data_dir::test_env_lock();
         let data = tempfile::tempdir().unwrap();
@@ -1455,91 +1362,9 @@ mod tests {
     }
 
     #[test]
-    fn ctx_shell_allows_per_call_shell_override() {
-        if cfg!(windows) || !std::path::Path::new("/bin/bash").exists() {
-            return;
-        }
-
-        let _lock = crate::core::data_dir::test_env_lock();
-        let data = tempfile::tempdir().unwrap();
-        let repo = tempfile::tempdir().unwrap();
-        std::env::set_var("NEBU_CTX_DATA_DIR", data.path());
-        std::env::set_var("NEBU_CTX_HOME", data.path());
-        std::fs::create_dir(repo.path().join(".git")).unwrap();
-
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        let engine = crate::engine::ContextEngine::with_project_root(repo.path());
-        let text = rt
-            .block_on(engine.call_tool_text(
-                "ctx_shell",
-                Some(serde_json::json!({
-                    "command": "echo $BASH_VERSION",
-                    "shell_path": "/bin/bash"
-                })),
-            ))
-            .expect("ctx_shell with shell override should succeed");
-
-        assert!(
-            text.contains("[shell: bash -c]"),
-            "unexpected shell note: {text}"
-        );
-        assert!(
-            !text.trim().ends_with("[shell: bash -c]"),
-            "command output missing: {text}"
-        );
-
-        std::env::remove_var("NEBU_CTX_DATA_DIR");
-        std::env::remove_var("NEBU_CTX_HOME");
-    }
-
-    #[test]
-    fn ctx_shell_allows_per_call_fish_override() {
-        if cfg!(windows) || !std::path::Path::new("/usr/bin/fish").exists() {
-            return;
-        }
-
-        let _lock = crate::core::data_dir::test_env_lock();
-        let data = tempfile::tempdir().unwrap();
-        let repo = tempfile::tempdir().unwrap();
-        std::env::set_var("NEBU_CTX_DATA_DIR", data.path());
-        std::env::set_var("NEBU_CTX_HOME", data.path());
-        std::fs::create_dir(repo.path().join(".git")).unwrap();
-
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        let engine = crate::engine::ContextEngine::with_project_root(repo.path());
-        let text = rt
-            .block_on(engine.call_tool_text(
-                "ctx_shell",
-                Some(serde_json::json!({
-                    "command": "echo fish-override-ok",
-                    "shell_path": "/usr/bin/fish"
-                })),
-            ))
-            .expect("ctx_shell with fish shell override should succeed");
-
-        assert!(
-            text.contains("fish-override-ok"),
-            "unexpected shell output: {text}"
-        );
-        assert!(
-            text.contains("[shell: fish -c]"),
-            "expected fish shell note: {text}"
-        );
-
-        std::env::remove_var("NEBU_CTX_DATA_DIR");
-        std::env::remove_var("NEBU_CTX_HOME");
-    }
-
-    #[test]
     fn lazy_tool_count_matches_public_surface() {
         let tools = crate::tool_defs::lazy_tool_defs();
-        assert_eq!(tools.len(), 5, "Expected 5 lazy/public tools");
+        assert_eq!(tools.len(), 4, "Expected 4 lazy/public tools");
     }
 
     #[test]

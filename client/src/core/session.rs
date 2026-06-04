@@ -111,7 +111,6 @@ pub struct SessionStats {
     pub total_tokens_input: u64,
     pub cache_hits: u32,
     pub files_read: u32,
-    pub commands_run: u32,
     pub intents_inferred: u32,
     pub intents_explicit: u32,
     pub unsaved_changes: u32,
@@ -338,10 +337,6 @@ impl SessionState {
 
     pub fn record_cache_hit(&mut self) {
         self.stats.cache_hits += 1;
-    }
-
-    pub fn record_command(&mut self) {
-        self.stats.commands_run += 1;
     }
 
     /// Returns the effective working directory for shell commands.

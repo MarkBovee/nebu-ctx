@@ -74,13 +74,13 @@
 ## Tool Routing Architecture
 
 ```
-Public MCP surface = ["ctx_read", "ctx_search", "ctx_tree", "ctx_shell", "ctx"]
+Public MCP surface = ["ctx_read", "ctx_search", "ctx_tree", "ctx"]
 
 SERVER_ONLY_TOOLS      = ["ctx_brain", "ctx_gain", "ctx_cost", "ctx_heatmap", "ctx_stats"]
 SERVER_PREFERRED_TOOLS = ["ctx_knowledge", "ctx_session"]
 ```
 
-- Public clients only see the 5-tool MCP contract.
+- Public clients only see the 4-tool MCP contract.
 - The Rust client translates `ctx(domain, action)` into internal local or server-backed handlers.
 - `SERVER_ONLY_TOOLS`: error if server unreachable — no local fallback.
 - `SERVER_PREFERRED_TOOLS`: route to the host when configured; fall back locally only when no host is configured at all.

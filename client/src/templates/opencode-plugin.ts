@@ -8,9 +8,9 @@ const SESSION_STARTUP = "startup"
 const SESSION_COMPACT = "compact"
 const ROUTING_BLOCK = `<context_window_protection>
   Use nebu-ctx MCP tools instead of raw native tools to save tokens:
-  - ctx_read / ctx_search / ctx_shell / ctx_tree instead of Read / Grep / Bash / ls
+  - ctx_read / ctx_search / ctx_tree instead of Read / Grep / ls
+  - Use native Bash/Shell directly; the nebu-ctx shell hook compresses output automatically
   - ctx_batch_execute for multi-step research (one call replaces many)
-  - Bash only for: git, mkdir, rm, mv, navigation
   Skills, roles, and decisions from this session remain active until revoked.
 </context_window_protection>`
 const ROUTING_MARKERS = ["<context_window_protection>", "ctx_read", "ctx_search"]

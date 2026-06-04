@@ -315,7 +315,7 @@ mod tests {
     #[test]
     fn detect_patterns_from_episodes() {
         let episodes: Vec<Episode> = (0..5)
-            .map(|_| make_episode_with_tools(&["ctx_read", "ctx_shell", "ctx_read"]))
+            .map(|_| make_episode_with_tools(&["ctx_read", "ctx_search", "ctx_read"]))
             .collect();
 
         let mut store = ProceduralStore::new("test");
@@ -335,7 +335,7 @@ mod tests {
             name: "deploy-workflow".to_string(),
             description: "Deploy".to_string(),
             steps: vec![ProcedureStep {
-                tool: "ctx_shell".to_string(),
+                tool: "ctx_search".to_string(),
                 description: "cargo build".to_string(),
                 optional: false,
             }],
@@ -427,12 +427,12 @@ mod tests {
             description: String::new(),
             steps: vec![
                 ProcedureStep {
-                    tool: "ctx_shell".to_string(),
+                    tool: "ctx_search".to_string(),
                     description: "test".to_string(),
                     optional: false,
                 },
                 ProcedureStep {
-                    tool: "ctx_shell".to_string(),
+                    tool: "ctx_search".to_string(),
                     description: "build".to_string(),
                     optional: true,
                 },

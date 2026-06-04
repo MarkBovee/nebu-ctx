@@ -1083,7 +1083,7 @@ mod tests {
             status_output
         );
 
-        let diff_output = "client/src/shell.rs\nclient/src/tools/ctx_shell.rs\n";
+        let diff_output = "client/src/shell.rs\nclient/src/tools/ctx_search.rs\n";
         assert_eq!(
             compress("git diff --name-only", diff_output).unwrap(),
             diff_output

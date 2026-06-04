@@ -96,7 +96,7 @@ pub fn write_config_with_options(
 }
 
 pub fn auto_approve_tools() -> Vec<&'static str> {
-    vec!["ctx_read", "ctx_shell", "ctx_search", "ctx_tree", "ctx"]
+    vec!["ctx_read", "ctx_search", "ctx_tree", "ctx"]
 }
 
 fn server_entry(binary: &str, data_dir: &str, include_auto_approve: bool) -> Value {
@@ -1210,7 +1210,7 @@ mod tests {
         let approved = json["mcpServers"]["nebu-ctx"]["autoApprove"]
             .as_array()
             .expect("autoApprove should be an array");
-        assert_eq!(approved.len(), 5);
+        assert_eq!(approved.len(), 4);
     }
 
     #[test]
@@ -1287,11 +1287,10 @@ args = ["x"]
     fn auto_approve_contains_core_tools() {
         let tools = auto_approve_tools();
         assert!(tools.contains(&"ctx_read"));
-        assert!(tools.contains(&"ctx_shell"));
         assert!(tools.contains(&"ctx_search"));
         assert!(tools.contains(&"ctx_tree"));
         assert!(tools.contains(&"ctx"));
-        assert_eq!(tools.len(), 5);
+        assert_eq!(tools.len(), 4);
     }
 
     #[test]

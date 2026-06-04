@@ -924,7 +924,7 @@ pub fn format_cep_report() -> String {
                 "  {wrn}⚠  MCP tools configured but not being used by your AI client.{r}"
             ));
             o.push(
-                "     Your AI client may be using native Read/Shell instead of ctx_read/ctx_shell."
+                "     Your AI client may be using native Read/Shell instead of ctx_read."
                     .to_string(),
             );
             o.push(format!(
@@ -938,7 +938,7 @@ pub fn format_cep_report() -> String {
                 "  {wrn}⚠  MCP server not configured.{r} Shell hook compresses output, but"
             ));
             o.push(
-                "     full token savings require MCP tools (ctx_read, ctx_shell, ctx_search)."
+                "     full token savings require MCP tools (ctx_read, ctx_search, ctx_tree)."
                     .to_string(),
             );
             o.push(format!(

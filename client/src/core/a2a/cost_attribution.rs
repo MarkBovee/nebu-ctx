@@ -319,7 +319,7 @@ mod tests {
         let mut store = CostStore::default();
         store.record_tool_call("agent-1", "mcp", "ctx_read", 5000, 200);
         store.record_tool_call("agent-1", "mcp", "ctx_read", 3000, 150);
-        store.record_tool_call("agent-2", "cursor", "ctx_shell", 1000, 100);
+        store.record_tool_call("agent-2", "cursor", "ctx_search", 1000, 100);
 
         assert_eq!(store.agents.len(), 2);
         assert_eq!(store.tools.len(), 2);
@@ -337,7 +337,7 @@ mod tests {
     fn format_report() {
         let mut store = CostStore::default();
         store.record_tool_call("agent-a", "mcp", "ctx_read", 10000, 500);
-        store.record_tool_call("agent-b", "cursor", "ctx_shell", 2000, 100);
+        store.record_tool_call("agent-b", "cursor", "ctx_search", 2000, 100);
 
         let report = format_cost_report(&store, 5);
         assert!(report.contains("Cost Attribution Report"));

@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging;
 public sealed class ToolRegistry
 {
     private static readonly string[] HostedExecutableToolNames = ["ctx"];
-    private static readonly string[] MetadataOnlyPublicToolNames = ["ctx_read", "ctx_search", "ctx_shell", "ctx_tree"];
+    private static readonly string[] MetadataOnlyPublicToolNames = ["ctx_read", "ctx_search", "ctx_tree"];
     private readonly FrozenDictionary<string, IToolHandler> _handlers;
     private readonly ILogger<ToolRegistry> _logger;
     private readonly TelemetryStore _telemetryStore;
@@ -205,23 +205,6 @@ public sealed class ToolRegistry
                         ["depth"] = new Dictionary<string, object?> { ["type"] = "integer" },
                         ["show_hidden"] = new Dictionary<string, object?> { ["type"] = "boolean" },
                     },
-                },
-            },
-            "ctx_shell" => new ToolDefinition
-            {
-                Name = "ctx_shell",
-                Description = "Run shell command (compressed output). Output includes active shell. raw=true skips compression. cwd sets working directory. shell_path overrides executable per call.",
-                InputSchema = new Dictionary<string, object?>
-                {
-                    ["type"] = "object",
-                    ["properties"] = new Dictionary<string, object?>
-                    {
-                        ["command"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "Shell command" },
-                        ["raw"] = new Dictionary<string, object?> { ["type"] = "boolean", ["description"] = "Skip compression for full output" },
-                        ["cwd"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "Working directory (defaults to last cd or project root)" },
-                        ["shell_path"] = new Dictionary<string, object?> { ["type"] = "string", ["description"] = "Optional shell executable or path for this call. Legacy alias: shell." },
-                    },
-                    ["required"] = new[] { "command" },
                 },
             },
             "ctx" => new ToolDefinition

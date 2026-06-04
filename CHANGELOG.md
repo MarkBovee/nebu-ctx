@@ -2,6 +2,12 @@
 
 ## 0.9.0
 
+### Removed
+
+- Drop the public `ctx_shell` MCP tool from the canonical 4-tool public surface (`ctx_read`, `ctx_search`, `ctx_tree`, `ctx`). Shell execution stays available through the native `Shell` / `Bash` tool, where the nebu-ctx shell hook compresses output automatically. Update guidance, docs, server placeholders, and benchmark seeds to match the new surface.
+
+## 0.9.0
+
 - Ship the `memory-system-enhancements` change set: accurate session tool-call tracking across all tools, public `nebu-ctx memory list` browsing with filters and sort, lifecycle inspection (`stats`, `promotions`, `stale`, `scoring`) for brain and knowledge, contextual memory surfacing via Claude/Copilot hooks with cooldown and byte budget, cross-domain correlation with promotion traces, and `nebu-ctx memory export` / `nebu-ctx memory import` with overwrite control and roundtrip fidelity.
 - Add 7 OpenSpec specs, 57 tasks, 35 new server tests, and 9 new client unit tests covering browsing, lifecycle, surfacing, correlation, and portability.
 - Promote `SourceScope` reuse as `source_session_id` in the new `promotion_trace` DTO and add 6 `knowledge_entries` columns + Postgres migration to track brain-to-knowledge promotion provenance.

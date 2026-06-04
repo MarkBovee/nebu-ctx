@@ -1,13 +1,13 @@
 # nebu-ctx — Context Engineering Layer (Global)
 
-You have the nebu-ctx MCP server available. Use the public 5-tool surface in guidance: `ctx_read`, `ctx_search`, `ctx_tree`, `ctx_shell`, and `ctx`.
+You have the nebu-ctx MCP server available. Use the public 4-tool surface in guidance: `ctx_read`, `ctx_search`, `ctx_tree`, and `ctx`.
 
 ## Tool Replacement Rules
 
 | NEVER use | ALWAYS use instead |
 |-----------|-------------------|
 | `Read` / `View` / `cat` / `head` / `tail` | `ctx_read(target="file"|"files"|"symbol"|"outline"|"archive", ...)` |
-| `Bash` (any shell command) | `ctx_shell(command)` |
+| `Bash` / `Shell` (any shell command) | Native shell; nebu-ctx shell hook compresses output automatically |
 | `Grep` / `Search` / `rg` | `ctx_search(mode="regex"|"semantic", ...)` |
 | `ListFiles` / `ListDirectory` / `ls` / `find` | `ctx_tree(path, depth)` |
 | private `ctx_*` implementation details | `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")` |
@@ -18,7 +18,6 @@ You have the nebu-ctx MCP server available. Use the public 5-tool surface in gui
 ctx_read(target="file", path="src/main.rs")
 ctx_read(target="symbol", name="main", file="src/main.rs")
 ctx_read(target="outline", path="src/lib.rs")
-ctx_shell("git status")
 ctx_search(mode="regex", pattern="pub fn", path="src/")
 ctx_search(mode="semantic", query="session state persistence", path="src/")
 ctx_tree(".", 2)
@@ -27,10 +26,7 @@ ctx(domain="memory", action="recall", query="session state decisions")
 
 Write, Edit, and other mutation tools have no public nebu-ctx equivalent — use them normally.
 
-CRITICAL: Every time you reach for Read, Bash, Grep, or ListFiles in guidance, stop and use the public nebu-ctx equivalent instead.
-
-`ctx_shell` uses active shell semantics; output includes `[shell: ...]`. Use `shell` to force `pwsh.exe`, `cmd.exe`, `/bin/bash`, or another executable per call.
-Do not bypass `ctx_shell` with native Bash when a nebu-ctx shell path exists. If `ctx_shell` misbehaves, retry once, then use supported raw mode or the repo-built nebu-ctx client and file/update an issue instead of falling back to the native command.
+CRITICAL: Every time you reach for Read, Grep, or ListFiles in guidance, stop and use the public nebu-ctx equivalent instead. For shell commands, use native Bash/Shell directly.
 
 ## Memory policy
 

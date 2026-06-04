@@ -234,8 +234,8 @@ pub fn check_permission(token: &AuthToken, required: &str) -> bool {
         if resp and "result" in resp:
             tools = [t["name"] for t in resp["result"].get("tools", [])]
         
-        critical_tools = ["ctx_read", "ctx_search", "ctx_semantic_search", 
-                         "ctx_metrics", "ctx_tree", "ctx_shell", "ctx_overview"]
+        critical_tools = ["ctx_read", "ctx_search", "ctx_semantic_search",
+                         "ctx_metrics", "ctx_tree", "ctx_overview"]
         for tool in critical_tools:
             check(f"Has tool: {tool}", tools,
                   lambda t, name=tool: name in t)
@@ -371,18 +371,6 @@ pub fn check_permission(token: &AuthToken, required: &str) -> bool {
               lambda r: "uptime" in text.lower() or "Uptime" in text)
         check("Shows CEP compliance", resp,
               lambda r: "cep" in text.lower())
-        
-        # === Test 10: ctx_shell ===
-        print("\n--- Test 10: ctx_shell ---")
-        resp = client.request("tools/call", {
-            "name": "ctx_shell",
-            "arguments": {"command": "echo 'hello from lean-ctx e2e test'"}
-        }, 10)
-        text = get_text(resp)
-        
-        check("Shell command executes", resp, lambda r: r is not None)
-        check("Returns command output", resp,
-              lambda r: "hello" in text.lower() or "lean-ctx" in text.lower())
         
         # === Test 11: Reindex reports embedding status ===
         print("\n--- Test 11: Reindex with embeddings ---")

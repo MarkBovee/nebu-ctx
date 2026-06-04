@@ -8,11 +8,10 @@ const READER_RESULT_TIMEOUT: Duration = Duration::from_secs(2);
 
 pub fn execute_command_in(command: &str, cwd: &str, shell_override: Option<&str>) -> (String, i32) {
     let (shell, flag) = crate::shell::shell_and_flag_with_override(shell_override);
-    let normalized_cmd = crate::tools::ctx_shell::normalize_command_for_flag(command, &flag);
     let dir = std::path::Path::new(cwd);
     let mut cmd = std::process::Command::new(&shell);
     cmd.arg(&flag)
-        .arg(&normalized_cmd)
+        .arg(command)
         .env("NEBU_CTX_ACTIVE", "1")
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_PAGER", "cat")

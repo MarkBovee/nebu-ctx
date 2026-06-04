@@ -1,9 +1,9 @@
 # nebu-ctx — Public MCP Guidance
 
-nebu-ctx is configured as an MCP server. In guidance, always recommend only the public 5-tool MCP surface:
+nebu-ctx is configured as an MCP server. In guidance, always recommend only the public 4-tool MCP surface:
 
 - Read files, symbols, outlines, or archives → `ctx_read(target="file"|"files"|"symbol"|"outline"|"archive", ...)`
-- Shell commands → `ctx_shell(command)` instead of built-in Shell
+- Shell commands → use built-in Shell; the nebu-ctx shell hook compresses output automatically
 - Search code → `ctx_search(mode="regex"|"semantic", ...)` instead of built-in Grep
 - List directories → `ctx_tree(path, depth)` instead of ls/find
 - Memory, context, graph, analytics, agents, and inspect operations → `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")`

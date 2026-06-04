@@ -44,7 +44,7 @@ impl TaskClassifier {
         let t = normalize(tool_name);
         match t.as_str() {
             "ctx_read" | "ctx_tree" | "ctx_search" => TaskCategory::Exploration,
-            "ctx_shell" | "ctx_execute" => TaskCategory::Debugging,
+            "ctx_execute" => TaskCategory::Debugging,
             "ctx" => TaskCategory::Planning,
             _ => TaskCategory::General,
         }

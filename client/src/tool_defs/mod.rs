@@ -14,7 +14,7 @@ pub fn tool_def(name: &'static str, description: &'static str, schema_value: Val
     Tool::new(name, description, Arc::new(schema))
 }
 
-const CORE_TOOL_NAMES: &[&str] = &["ctx_read", "ctx_shell", "ctx_search", "ctx_tree", "ctx"];
+const CORE_TOOL_NAMES: &[&str] = &["ctx_read", "ctx_search", "ctx_tree", "ctx"];
 
 pub fn lazy_tool_defs() -> Vec<Tool> {
     unified_tool_defs()
@@ -99,20 +99,6 @@ pub fn public_discoverable_tool_defs() -> Vec<(&'static str, &'static str, Value
                     "depth": { "type": "integer" },
                     "show_hidden": { "type": "boolean" }
                 }
-            }),
-        ),
-        (
-            "ctx_shell",
-            "Run shell command (compressed output). Output includes active shell. raw=true skips compression. cwd sets working directory. shell_path overrides executable per call.",
-            serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "command": { "type": "string", "description": "Shell command" },
-                    "raw": { "type": "boolean", "description": "Skip compression for full output" },
-                    "cwd": { "type": "string", "description": "Working directory (defaults to last cd or project root)" },
-                    "shell_path": { "type": "string", "description": "Optional shell executable or path for this call. Legacy alias: shell." }
-                },
-                "required": ["command"]
             }),
         ),
         (

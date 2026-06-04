@@ -376,7 +376,6 @@ mod tests {
     fn shared_rules_contain_tool_mapping() {
         let content = crate::public_guidance::rules_shared_markdown();
         assert!(content.contains("ctx_read"));
-        assert!(content.contains("ctx_shell"));
         assert!(content.contains("ctx_search"));
         assert!(content.contains("ctx_tree"));
         assert!(content.contains("ctx(domain=\"memory\""));
@@ -412,7 +411,7 @@ mod tests {
         ));
         assert!(content.contains("Public `ctx_search` modes: `regex`, `semantic`."));
         assert!(content.contains("ctx(domain=\"memory\""));
-        assert!(content.contains("only the 5 public tools"));
+        assert!(content.contains("only the 4 public tools"));
     }
 
     #[test]

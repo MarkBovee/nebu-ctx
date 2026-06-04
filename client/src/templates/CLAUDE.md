@@ -5,7 +5,6 @@ Use only the public nebu-ctx MCP surface when guidance needs nebu-ctx tools:
 | PREFER | OVER | Why |
 |--------|------|-----|
 | `ctx_read(target="file"|"files"|"symbol"|"outline"|"archive", ...)` | Read / cat / head / tail | Public cached read API for files, symbols, outlines, and archives |
-| `ctx_shell(command, shell?)` | Bash (shell commands) | Pattern-based compression plus active shell visibility |
 | `ctx_search(mode="regex"|"semantic", ...)` | Grep / rg | Compact regex and semantic search results |
 | `ctx_tree(path, depth)` | ls / find | Compact directory maps with file counts |
 | `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")` | private `ctx_*` implementation details | Stable public gateway for advanced operations |
@@ -15,8 +14,7 @@ Use only the public nebu-ctx MCP surface when guidance needs nebu-ctx tools:
 - `ctx_read` targets: `file`, `files`, `symbol`, `outline`, `archive`
 - `ctx_search` modes: `regex`, `semantic`
 - `ctx` domains: `memory`, `context`, `graph`, `analytics`, `agents`, `inspect`
-- `ctx_shell` uses active shell semantics; output includes `[shell: ...]`. Use `shell` to force a specific executable per call.
-- Do not bypass `ctx_shell` with native Bash when a nebu-ctx shell path exists. If `ctx_shell` misbehaves, retry once, then use supported raw mode or the repo-built nebu-ctx client and file/update an issue instead of falling back to the native command.
+- Use native Bash/Shell directly; the nebu-ctx shell hook compresses output automatically. If shell output ever misbehaves, retry once, then use supported raw mode or the repo-built nebu-ctx client and file/update an issue instead of falling back to a public shell wrapper tool.
 
 ## File Editing
 

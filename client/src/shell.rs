@@ -263,8 +263,7 @@ fn exec_direct(args: &[String]) -> i32 {
 
 pub fn exec(command: &str) -> i32 {
     let (shell, shell_flag) = shell_and_flag();
-    let command = crate::tools::ctx_shell::normalize_command_for_shell(command);
-    let command = command.as_str();
+    let command = command;
 
     if std::env::var("NEBU_CTX_DISABLED").is_ok() || std::env::var("NEBU_CTX_ACTIVE").is_ok() {
         return exec_inherit(command, &shell, &shell_flag);
@@ -952,10 +951,6 @@ fn compress_if_beneficial(command: &str, output: &str) -> String {
     }
 
     if crate::core::patterns::git::is_inspection_command(command) {
-        return output.to_string();
-    }
-
-    if crate::tools::ctx_shell::contains_auth_flow(output) {
         return output.to_string();
     }
 
@@ -1844,14 +1839,14 @@ mod passthrough_tests {
     #[test]
     fn git_inspection_status_short_stays_verbatim() {
         let raw =
-            "M client/src/shell.rs\n M client/src/tools/ctx_shell.rs\n?? tests/git-wrapper.txt\n";
+            "M client/src/shell.rs\n M client/src/tools/ctx_search.rs\n?? tests/git-wrapper.txt\n";
         let result = compress_if_beneficial("git status --short --untracked-files=all", raw);
         assert_eq!(result, raw);
     }
 
     #[test]
     fn git_inspection_diff_stat_stays_verbatim() {
-        let raw = " client/src/shell.rs           | 12 ++++++------\n client/src/tools/ctx_shell.rs |  8 ++++----\n 2 files changed, 10 insertions(+), 10 deletions(-)\n";
+        let raw = " client/src/shell.rs           | 12 ++++++------\n client/src/tools/ctx_search.rs |  8 ++++----\n 2 files changed, 10 insertions(+), 10 deletions(-)\n";
         let result = compress_if_beneficial("git diff --stat", raw);
         assert_eq!(result, raw);
     }

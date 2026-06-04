@@ -458,7 +458,7 @@ fn print_help() {
     println!(
         "nebu-ctx {version} — Thin Context Runtime for AI Agents
 
-Public MCP surface: ctx_read, ctx_search, ctx_tree, ctx_shell, ctx
+Public MCP surface: ctx_read, ctx_search, ctx_tree, ctx
 
 USAGE:
     nebu-ctx                          Start MCP server (stdio)

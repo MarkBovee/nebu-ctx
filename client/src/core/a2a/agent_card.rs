@@ -176,7 +176,7 @@ mod tests {
 
     #[test]
     fn generates_valid_card() {
-        let tools = vec!["ctx_read".to_string(), "ctx_shell".to_string()];
+        let tools = vec!["ctx_read".to_string(), "ctx_search".to_string()];
         let card = generate_agent_card(&tools, "3.0.0", Some(3344));
 
         assert_eq!(card.name, "nebu-ctx");

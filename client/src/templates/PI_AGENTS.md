@@ -1,22 +1,20 @@
 # nebu-ctx — Public MCP Guidance for Pi
 
-nebu-ctx is installed as a Pi Package with first-class MCP support. User-facing guidance should recommend only the public 5-tool MCP surface: `ctx_read`, `ctx_search`, `ctx_tree`, `ctx_shell`, and `ctx`.
+nebu-ctx is installed as a Pi Package with first-class MCP support. User-facing guidance should recommend only the public 4-tool MCP surface: `ctx_read`, `ctx_search`, `ctx_tree`, and `ctx`.
 
 ## Public MCP Surface
 
 - `ctx_read(target="file"|"files"|"symbol"|"outline"|"archive", ...)`
 - `ctx_search(mode="regex"|"semantic", ...)`
 - `ctx_tree(path, depth)`
-- `ctx_shell(command, shell?)`
 - `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")`
 
 ## Guidance Rules
 
-- Prefer the 5 public tools above in all visible instructions and examples.
+- Prefer the 4 public tools above in all visible instructions and examples.
 - Do not recommend direct private `ctx_*` tool names unless you are explicitly documenting internal implementation details.
-- Use native edit/write/delete tools for mutations; nebu-ctx's public surface is read/search/tree/shell/ctx.
-- `ctx_shell` uses active shell semantics; output includes `[shell: ...]`. Use `shell` to force a specific executable per call.
-- Do not bypass `ctx_shell` with native shell commands when a nebu-ctx shell path exists. If it misbehaves, retry once, then use supported raw mode or the repo-built nebu-ctx client and file/update an issue instead of falling back to the native command.
+- Use native edit/write/delete tools for mutations; nebu-ctx's public surface is read/search/tree/ctx.
+- Use native shell commands directly; the nebu-ctx shell hook compresses output automatically. If shell output ever misbehaves, retry once, then use supported raw mode or the repo-built nebu-ctx client and file/update an issue instead of falling back to a public shell wrapper tool.
 
 ## Public Examples
 
@@ -26,7 +24,6 @@ ctx_read(target="symbol", name="main", file="src/main.rs")
 ctx_search(mode="regex", pattern="pub fn", path="src/")
 ctx_search(mode="semantic", query="session state persistence", path="src/")
 ctx_tree(".", 2)
-ctx_shell("git status")
 ctx(domain="memory", action="recall", query="session state decisions")
 ```
 
@@ -42,9 +39,10 @@ ctx(domain="memory", action="recall", query="session state decisions")
 The Pi extension handles routing automatically. Use the public nebu-ctx surface directly in guidance and examples:
 
 ```text
-ctx_shell("git status")
-ctx_shell("cargo test")
-ctx_shell("kubectl get pods")
+ctx_read(target="file", path="src/main.rs")
+ctx_search(mode="regex", pattern="pub fn", path="src/")
+ctx_tree(".", 2)
+ctx(domain="memory", action="recall", query="session state decisions")
 ```
 
 ## Checking status

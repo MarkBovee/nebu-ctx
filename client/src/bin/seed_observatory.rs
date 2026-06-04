@@ -34,11 +34,6 @@ fn seed_events() {
         ),
         ("ctx_read", "map", "src/core/agents.rs", 3800, 3420, 5),
         ("ctx_read", "full", "src/dashboard/mod.rs", 6100, 4270, 14),
-        ("ctx_shell", "auto", "cargo test", 12000, 4800, 320),
-        ("ctx_shell", "auto", "cargo check", 3400, 1360, 180),
-        ("ctx_shell", "auto", "git status", 800, 320, 45),
-        ("ctx_shell", "auto", "git diff --stat", 2200, 880, 60),
-        ("ctx_shell", "auto", "npm run build", 5600, 2240, 250),
         ("ctx_search", "bm25", "EventKind", 1500, 1200, 25),
         ("ctx_search", "bm25", "fn emit", 900, 720, 18),
         ("ctx_search", "bm25", "pub struct", 2400, 1920, 30),
@@ -46,7 +41,6 @@ fn seed_events() {
         ("ctx_read", "full", "src/core/feedback.rs", 3100, 2170, 9),
         ("ctx_read", "map", "src/core/session.rs", 4500, 4050, 7),
         ("ctx_read", "signatures", "src/lib.rs", 800, 720, 3),
-        ("ctx_shell", "auto", "cargo fmt", 400, 160, 35),
         (
             "ctx_read",
             "entropy",
@@ -63,17 +57,13 @@ fn seed_events() {
             2520,
             11,
         ),
-        ("ctx_shell", "auto", "rg 'TODO' src/", 600, 240, 15),
         ("ctx_read", "map", "src/core/buddy.rs", 2800, 2520, 6),
         ("ctx_read", "full", "src/core/compressor.rs", 4800, 3360, 13),
         ("ctx_search", "bm25", "compression", 2100, 1680, 28),
-        ("ctx_shell", "auto", "cargo build --release", 800, 320, 1500),
         ("ctx_read", "aggressive", "src/core/stats.rs", 2900, 2030, 8),
         ("ctx_read", "full", "src/core/tokens.rs", 1200, 840, 4),
-        ("ctx_shell", "auto", "git log --oneline -10", 500, 200, 20),
         ("ctx_read", "map", "Cargo.toml", 1800, 1620, 5),
         ("ctx_read", "full", "src/core/filters.rs", 3400, 2380, 10),
-        ("ctx_shell", "auto", "ls -la src/core/", 900, 360, 8),
     ];
 
     for (tool, mode, path, orig, saved, dur) in &tools {
@@ -142,7 +132,6 @@ fn seed_events() {
     let agent_actions = vec![
         ("cursor-45821-abc", "register", Some("ctx_read")),
         ("cursor-45821-abc", "handoff", None),
-        ("cursor-45821-def", "register", Some("ctx_shell")),
         ("cursor-45821-def", "sync", None),
         ("cursor-45821-abc", "diary", Some("ctx_search")),
         ("cursor-45821-ghi", "register", Some("ctx_read")),

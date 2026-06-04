@@ -59,20 +59,6 @@ pub fn unified_tool_defs() -> Vec<Tool> {
             }),
         ),
         tool_def(
-            "ctx_shell",
-            "Run shell command (compressed output). Output includes active shell. raw=true skips compression. cwd sets working directory. shell_path overrides executable per call.",
-            json!({
-                "type": "object",
-                "properties": {
-                    "command": { "type": "string", "description": "Shell command" },
-                    "raw": { "type": "boolean", "description": "Skip compression for full output" },
-                    "cwd": { "type": "string", "description": "Working directory (defaults to last cd or project root)" },
-                    "shell_path": { "type": "string", "description": "Optional shell executable or path for this call. Legacy alias: shell." }
-                },
-                "required": ["command"]
-            }),
-        ),
-        tool_def(
             "ctx",
             "High-level meta-tool. domain=memory|context|graph|analytics|agents|inspect with action selecting the operation inside that domain.",
             json!({

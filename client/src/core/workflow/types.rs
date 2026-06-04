@@ -114,18 +114,17 @@ impl WorkflowSpec {
                     allowed_tools: Some(vec![
                         "ctx".to_string(),
                         "ctx_workflow".to_string(),
-                        "ctx_shell".to_string(),
                         "ctx_cost".to_string(),
                         "ctx_heatmap".to_string(),
                         "ctx_feedback".to_string(),
                     ]),
-                    requires_evidence: Some(vec!["tool:ctx_shell".to_string()]),
+                    requires_evidence: Some(vec!["tool:ctx_cost".to_string()]),
                 },
                 StateSpec {
                     name: "done".to_string(),
                     description: Some("Complete.".to_string()),
                     allowed_tools: Some(vec!["ctx".to_string(), "ctx_workflow".to_string()]),
-                    requires_evidence: Some(vec!["tool:ctx_shell".to_string()]),
+                    requires_evidence: Some(vec!["tool:ctx_feedback".to_string()]),
                 },
             ],
             transitions: vec![

@@ -1,5 +1,5 @@
 ---
-description: "nebu-ctx: use the public 5-tool MCP surface instead of native or private tool names"
+description: "nebu-ctx: use the public 4-tool MCP surface instead of native or private tool names"
 globs: **/*
 alwaysApply: true
 ---
@@ -14,7 +14,6 @@ Use only the public nebu-ctx MCP surface in guidance.
 | PREFER | OVER | Why |
 |--------|------|-----|
 | `ctx_read(target="file"|"files"|"symbol"|"outline"|"archive", ...)` | `Read` | Public cached read API for files, symbols, outlines, and archives |
-| `ctx_shell` | `Shell` | Pattern-based compression for git, npm, cargo, docker, tsc |
 | `ctx_search(mode="regex"|"semantic", ...)` | `Grep` | Compact regex and semantic search results |
 | `ctx_tree` | `ls`, `find` | Compact directory maps with file counts |
 | `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")` | private `ctx_*` implementation details | Stable public gateway for advanced operations |
@@ -36,7 +35,7 @@ ctx_search(mode="semantic", query="session state persistence", path="src/")
 ctx(domain="memory", action="recall", query="session state decisions")
 ```
 
-Use private `ctx_*` names only when documenting nebu-ctx internals. Public-facing guidance should stick to the 5 tools above.
+Use private `ctx_*` names only when documenting nebu-ctx internals. Public-facing guidance should stick to the 4 tools above.
 
 ## File Editing
 
@@ -93,5 +92,5 @@ Every token costs money. This applies to input, output, AND thinking tokens.
 
 ## Scope Guard
 
-Only recommend `ctx_read`, `ctx_search`, `ctx_tree`, `ctx_shell`, and `ctx` in public-facing rules.
+Only recommend `ctx_read`, `ctx_search`, `ctx_tree`, and `ctx` in public-facing rules.
 <!-- /lean-ctx -->

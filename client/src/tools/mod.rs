@@ -43,7 +43,6 @@ pub mod ctx_search;
 pub mod ctx_semantic_search;
 pub mod ctx_session;
 pub mod ctx_share;
-pub mod ctx_shell;
 pub mod ctx_smart_read;
 pub mod ctx_symbol;
 pub mod ctx_task;
@@ -419,9 +418,6 @@ impl NebuCtxServer {
 
         let mut session = self.session.write().await;
         session.record_tool_call(saved as u64, original as u64);
-        if tool == "ctx_shell" {
-            session.record_command();
-        }
         if session.should_save() {
             let _ = session.save();
         }

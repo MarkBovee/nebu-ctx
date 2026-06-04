@@ -93,7 +93,7 @@ fn build_full_instructions(crp_mode: CrpMode, client_name: &str) -> String {
     };
 
     let base = format!(
-        "{}\n\nCEP v1: 1.ACT FIRST 2.DELTA ONLY (Fn refs) 3.STRUCTURED (+/-/~) 4.ONE LINE PER ACTION 5.QUALITY ANCHOR\n\n{}\n\n{session_block}{knowledge_block}{gotcha_block}\n--- TOOL PREFERENCE (LITM-END) ---\nPrefer: ctx_read over Read | ctx_shell over Shell | ctx_search over Grep | ctx_tree over ls\nEdit files: native Edit/StrReplace/Write/Delete tools.\nWrite, Delete, Glob -> use normally.",
+        "{}\n\nCEP v1: 1.ACT FIRST 2.DELTA ONLY (Fn refs) 3.STRUCTURED (+/-/~) 4.ONE LINE PER ACTION 5.QUALITY ANCHOR\n\n{}\n\n{session_block}{knowledge_block}{gotcha_block}\n--- TOOL PREFERENCE (LITM-END) ---\nPrefer: ctx_read over Read | ctx_search over Grep | ctx_tree over ls\nEdit files: native Edit/StrReplace/Write/Delete tools.\nWrite, Delete, Glob -> use normally.",
         crate::public_guidance::full_instruction_policy_block(),
         crate::core::protocol::instruction_decoder_block(),
     );

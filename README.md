@@ -179,17 +179,18 @@ Production storage model:
 
 ## Tool Routing
 
-The client now exposes exactly 5 public MCP tools.
+The client now exposes exactly 4 public MCP tools.
 
 | Public tool | Purpose |
 |:---|:---|
 | `ctx_read` | Read files, multiple files, symbols, outlines, and archived output |
 | `ctx_search` | Regex and semantic code search |
 | `ctx_tree` | Directory structure and file counts |
-| `ctx_shell` | Shell execution with compressed output |
 | `ctx` | Higher-level memory, context, graph, analytics, agent, and inspect workflows |
 
 Internally, the Rust client still routes these public calls to local handlers or server-backed tool handlers as needed. That internal routing is deliberately hidden from the MCP contract so agents only learn one small surface.
+
+For shell execution, use the native `Shell` / `Bash` tool. The nebu-ctx shell hook (installed via `nebu-ctx setup`) wraps that command and compresses its output automatically.
 
 ## Current MCP Tool Surface
 
@@ -245,17 +246,6 @@ Use `ctx_tree` for:
 - directory listings
 - shallow project orientation
 - compact file-count views
-
-### `ctx_shell`
-
-Use `ctx_shell` for:
-
-- command execution
-- compressed CLI output
-- raw output when needed via `raw=true`
-- active shell visibility via `[shell: ...]`
-
-`ctx_shell` runs with the active shell for the current platform/session. On Windows that may be `pwsh.exe`, `powershell.exe`, `cmd.exe`, or a POSIX-style shell override. Use `shell` to force a specific executable for one call.
 
 ### `ctx`
 

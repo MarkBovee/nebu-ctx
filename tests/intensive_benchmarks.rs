@@ -863,7 +863,6 @@ fn guard_essential_instructions_present() {
     let required = vec![
         "ALWAYS use nebu-ctx MCP tools",
         "ctx_read",
-        "ctx_shell",
         "ctx_search",
         "ctx_tree",
         "CEP v1",
