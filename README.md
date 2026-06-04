@@ -25,6 +25,7 @@
   <a href="#architecture">Architecture</a> ·
   <a href="#tool-routing">Tool Routing</a> ·
   <a href="docs/MEMORY.md">Memory</a> ·
+  <a href="docs/TOOLS.md">Tools</a> ·
   <a href="#dashboard">Dashboard</a> ·
   <a href="#development">Development</a>
 </p>
@@ -151,14 +152,19 @@ Main surfaces:
 
 - `client/src/main.rs`: thin CLI entrypoint
 - `client/src/cli/dispatch.rs`: CLI surface and command routing
+- `client/src/cli/memory.rs`: `nebu-ctx memory list | lifecycle | export | import` subcommands
+- `client/src/core/contextual_surface.rs`: hook-driven memory suggestion engine
 - `client/src/hook_handlers.rs`: hook logic for Claude Code / Copilot CLI flows
 - `client/src/mcp_server/mod.rs`: MCP routing and server-backed tool decisions
 - `client/src/mcp_server/dispatch.rs`: local MCP tool dispatch
 - `client/src/server_client.rs`: current HTTP client for host communication
 - `server/src/NebuCtx.Server.Host/`: .NET host and dashboard endpoints
 - `server/src/NebuCtx.Server.Core/`: tool registry, telemetry, validation, shared host logic
+- `server/src/NebuCtx.Server.Core/Services/MemoryLifecycleService.cs`: lifecycle stats, promotions, stale, scoring
 - `server/src/NebuCtx.Tools/`: one server tool handler per directory
 - `server/src/NebuCtx.Contracts/`: shared DTOs
+- `server/src/NebuCtx.Contracts/Mcp/MemoryListContracts.cs`: browsing filter and result DTOs
+- `server/src/NebuCtx.Contracts/Mcp/PromotionTrace.cs`: brain-to-knowledge traceability DTO
 
 Runtime ports:
 
@@ -283,7 +289,8 @@ Public memory calls go to `POST /v1/tools/call` with `name="ctx"` and `arguments
 Internally the host routes memory actions like this:
 
 - `task`, `finding`, `decision`, `save`, `load`, `status`, `reset`, `list`, `cleanup` -> hosted session state
-- `store`, `set`, `remember`, `recall`, `consolidate`, `promote`, `upkeep`, `wakeup`, `triage`, `remove` -> hosted canonical knowledge
+- `remember`, `recall`, `search`, `list`, `lifecycle`, `status`, `remove`, `categories`, `timeline`, `consolidate`, `promote`, `candidates`, `review_candidate`, `upkeep`, `wakeup`, `triage`, `import` -> hosted canonical knowledge
+- `store`, `ingest`, `recall`, `list`, `lifecycle`, `forget`, `import` -> hosted brain (server-only, no public client fallback)
 
 Example: store a durable fact
 
@@ -338,9 +345,87 @@ curl -fsS \
   http://127.0.0.1:4242/v1/tools/call
 ```
 
+Example: list or inspect lifecycle (0.9.0+)
+
+```bash
+curl -fsS \
+  -H "Authorization: Bearer <token>" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"ctx","arguments":{"domain":"memory","action":"list","memory_type":"knowledge","category":"decision","limit":25}}' \
+  http://127.0.0.1:4242/v1/tools/call
+
+curl -fsS \
+  -H "Authorization: Bearer <token>" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"ctx","arguments":{"domain":"memory","action":"lifecycle","lifecycle_subaction":"stats","memory_type":"knowledge"}}' \
+  http://127.0.0.1:4242/v1/tools/call
+```
+
 For operator inspection, the dashboard exposes per-project memory on `GET /api/dashboard/projects/{projectId}/memory` and triage apply on `POST /api/dashboard/projects/{projectId}/memory/triage?mode=apply`.
 
 Full memory flow docs, including hooks, storage layers, recall paths, and dashboard cleanup proposal: `docs/MEMORY.md`.
+
+## Memory System
+
+The memory system is hosted on the .NET side and exposed through `ctx(domain="memory", action=...)` over MCP. As of 0.9.0 the memory surface covers recall, browsing, lifecycle inspection, contextual surfacing via hooks, cross-domain correlation between brain and knowledge, and portable export/import.
+
+### Browsing
+
+List memories with category, time range, source type, lifecycle status, sort, limit, and offset filters. Backward compatible with existing `recall` and `remember` paths.
+
+```bash
+nebu-ctx memory list --type knowledge \
+  --category decision --since 30d --limit 25 --json
+
+nebu-ctx memory list --type brain --status stale --limit 50
+```
+
+### Lifecycle
+
+Inspect health stats, promotion candidates, stale rows, and per-memory scoring breakdown for both brain and knowledge.
+
+```bash
+nebu-ctx memory lifecycle stats --type knowledge
+nebu-ctx memory lifecycle promotions --type brain --limit 10
+nebu-ctx memory lifecycle stale --type knowledge --days 30
+nebu-ctx memory lifecycle scoring --type brain --category decision --key memory-owner
+```
+
+### Contextual surfacing via hooks
+
+The client hook system surfaces memory suggestions inline during `PostToolUse`, `PreCompact`, and `UserPromptSubmit` for Claude Code / Copilot CLI style flows. Suggestions prefer contextual facts over static high-confidence memory, with a 1024-byte byte budget and a per-tool cooldown to avoid spam. The system is non-intrusive: nothing changes if the host is unreachable.
+
+### Cross-domain correlation
+
+Knowledge entries carry a `promotion_trace` that links back to the brain session event, brain key, category, value, and timestamp that produced them. New `knowledge_entries` columns track `promotion_action`, `promotion_session_id`, `promotion_timestamp`, and the originating brain key/category/value/timestamp. Knowledge listings can be filtered by source session or source brain key for traceability.
+
+```bash
+nebu-ctx memory list --type knowledge --source-session <session-id>
+nebu-ctx memory list --type knowledge --source-brain-key memory-owner
+```
+
+### Portability
+
+Export and import full memory sets as versioned JSON, with overwrite control and roundtrip fidelity for transfer between environments.
+
+```bash
+nebu-ctx memory export --type knowledge --category decision --since 30d \
+  --output knowledge-export.json
+
+nebu-ctx memory import knowledge-export.json --type knowledge --overwrite
+```
+
+Export schema (`schema_version: "1"`) includes `export_info` (timestamp, version, memory_type, filters_applied, memory_counts) and a `memories` array. Import reports `added`, `updated`, and `skipped` counts and honours `overwrite` to skip-or-replace existing entries.
+
+### Architecture and constraints
+
+- Public MCP surface stays at 5 tools; all new capabilities flow through the existing `ctx` meta-tool with `domain="memory"` and new actions, or through the `nebu-ctx memory ...` CLI subcommands.
+- All additions are backward compatible with existing `ctx memory recall` and `remember` paths.
+- Storage model unchanged: PostgreSQL in production, in-memory stubs in tests.
+- Server-only and server-preferred routing preserved: `ctx_brain` stays server-only with no public client fallback.
+- Telemetry and analytics tools remain untouched.
+
+Full requirements, design decisions, and per-capability specs live under `openspec/specs/memory-{brain,core,knowledge,lifecycle}-enhanced/`, `memory-browsing/`, `memory-correlation/`, and `memory-portability/`. The archived change proposal sits under `openspec/changes/archive/2026-06-04-memory-system-enhancements/`.
 
 ## Hook System
 
@@ -394,11 +479,17 @@ The dashboard is not a separate frontend deployment. It is part of the host proc
 - shell command execution and compression-aware workflows
 - local file/context tools
 - hook orchestration and rules injection
+- contextual memory surfacing during PostToolUse, PreCompact, and UserPromptSubmit
 - project-local state and fallback behavior for selected tools
+- `nebu-ctx memory ...` operator subcommands that wrap hosted memory actions
 
 ### Host-backed capabilities
 
 - persistent session, knowledge, and brain stores
+- memory browsing with category, time, source, and lifecycle filters
+- memory lifecycle stats, promotion candidates, stale rows, and scoring breakdown
+- cross-domain correlation with promotion trace from brain session events to knowledge
+- portable export/import of memory with schema versioning and overwrite control
 - route extraction and analytics surfaces
 - telemetry ingestion and observability
 - dashboard APIs and UI
@@ -528,7 +619,14 @@ The current user-facing CLI surface includes, among others:
 - `nebu-ctx doctor`
 - `nebu-ctx uninstall`
 - `nebu-ctx mcp`
+- `nebu-ctx memory list`
+- `nebu-ctx memory lifecycle`
+- `nebu-ctx memory export`
+- `nebu-ctx memory import`
+- `nebu-ctx project-bootstrap`
 - `nebu-ctx -c "..."`
+
+The `nebu-ctx memory ...` subcommands wrap the corresponding `ctx(domain="memory", action=...)` MCP actions for operator use. The 0.9.0 surface covers `list`, `lifecycle` (`stats` / `promotions` / `stale` / `scoring`), `export`, and `import` for both brain and knowledge. The new commands are server-backed; the client refuses to run them without a connected host.
 
 If you still see older server-routing terminology in low-level internals, treat that as cleanup debt rather than the current product model.
 
