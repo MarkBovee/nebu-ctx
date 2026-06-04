@@ -3,7 +3,7 @@
 ## Purpose
 Define the canonical public MCP-tool surface for nebu-ctx after the removal of `ctx_shell`. This spec makes the new four-tool surface and the rule that `ctx_shell` is no longer a supported public tool explicit and testable.
 
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Public nebu-ctx MCP surface exposes exactly four tools
 The public MCP tool surface SHALL consist of exactly four tool names: `ctx_read`, `ctx_search`, `ctx_tree`, and `ctx`. The name `ctx_shell` SHALL NOT be exposed as a public tool.

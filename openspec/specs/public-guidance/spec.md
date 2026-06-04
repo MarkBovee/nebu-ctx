@@ -2,7 +2,6 @@
 
 ## Purpose
 Define one canonical public-guidance policy for nebu-ctx so all instruction and rules surfaces stay aligned on tool mapping, no-bypass behavior, and reproducible bug handling.
-
 ## Requirements
 ### Requirement: Public nebu-ctx guidance has one canonical policy source
 The client SHALL define public nebu-ctx guidance semantics from one canonical policy source and SHALL render all supported instruction and rules outputs from that source instead of maintaining separate independent policy text.
@@ -41,3 +40,4 @@ Public nebu-ctx guidance SHALL distinguish between an unavailable public path an
 - **WHEN** no public nebu-ctx path exists for the requested mutation or workflow
 - **THEN** the guidance MAY direct the agent to use native tools
 - **AND** it SHALL keep that exception separate from the buggy-public-path case
+
