@@ -1,5 +1,6 @@
 namespace NebuCtx.Storage.Postgres;
 
+using NebuCtx.Contracts.Mcp;
 using Npgsql;
 
 /// <summary>
@@ -224,6 +225,100 @@ public sealed class PostgresBrainStore : IBrainStore
         }
 
         return entries;
+    }
+
+    /// <inheritdoc />
+    public async Task<(IReadOnlyList<BrainEntry> Entries, int Total)> ListFilteredAsync(string projectId, MemoryListFilter filter, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        var (whereClause, parameters) = BuildBrainListWhereClause(projectId, filter);
+        var orderBy = BuildBrainListOrderBy(filter);
+
+        var limit = Math.Clamp(filter.Limit <= 0 ? 20 : filter.Limit, 1, MemoryListFilter.MaxLimit);
+        var offset = Math.Max(0, filter.Offset);
+
+        var countCmd = new NpgsqlCommand($"SELECT COUNT(*) FROM brain_entries WHERE {whereClause}", conn);
+        foreach (var (k, v) in parameters) countCmd.Parameters.AddWithValue(k, v ?? DBNull.Value);
+        var total = (int)(long)(await countCmd.ExecuteScalarAsync(cancellationToken) ?? 0L);
+
+        var sql = $"SELECT key, value, created_at, updated_at, kind, category, logical_key, promotion_identity, source_type, source_scope, lifecycle_status, confidence, evidence, superseded_by, invalidated_by FROM brain_entries WHERE {whereClause} ORDER BY {orderBy} LIMIT @limit OFFSET @offset";
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        foreach (var (k, v) in parameters) cmd.Parameters.AddWithValue(k, v ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("limit", limit);
+        cmd.Parameters.AddWithValue("offset", offset);
+
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        var entries = new List<BrainEntry>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            entries.Add(new BrainEntry
+            {
+                ProjectId = projectId,
+                Key = reader.GetString(0),
+                Value = reader.GetString(1),
+                CreatedAt = reader.GetFieldValue<DateTimeOffset>(2),
+                UpdatedAt = reader.GetFieldValue<DateTimeOffset>(3),
+                Kind = reader.GetString(4),
+                Category = reader.GetString(5),
+                LogicalKey = reader.GetString(6),
+                PromotionIdentity = reader.GetString(7),
+                SourceType = reader.GetString(8),
+                SourceScope = reader.GetString(9),
+                LifecycleStatus = reader.GetString(10),
+                Confidence = reader.GetFloat(11),
+                Evidence = reader.GetString(12),
+                SupersededBy = reader.GetString(13),
+                InvalidatedBy = reader.GetString(14),
+            });
+        }
+        return (entries, total);
+    }
+
+    private static (string Where, Dictionary<string, object?> Parameters) BuildBrainListWhereClause(string projectId, MemoryListFilter filter)
+    {
+        var clauses = new List<string> { "project_id = @project_id" };
+        var parameters = new Dictionary<string, object?> { ["project_id"] = projectId };
+        if (!string.IsNullOrEmpty(filter.Category))
+        {
+            clauses.Add("(category = @category OR kind = @category)");
+            parameters["category"] = filter.Category;
+        }
+        if (!string.IsNullOrEmpty(filter.SourceType))
+        {
+            clauses.Add("source_type = @source_type");
+            parameters["source_type"] = filter.SourceType;
+        }
+        if (!string.IsNullOrEmpty(filter.LifecycleStatus))
+        {
+            clauses.Add("lifecycle_status = @lifecycle_status");
+            parameters["lifecycle_status"] = filter.LifecycleStatus;
+        }
+        if (filter.CreatedAfter.HasValue)
+        {
+            clauses.Add("created_at >= @created_after");
+            parameters["created_after"] = filter.CreatedAfter.Value;
+        }
+        if (filter.CreatedBefore.HasValue)
+        {
+            clauses.Add("created_at <= @created_before");
+            parameters["created_before"] = filter.CreatedBefore.Value;
+        }
+        return (string.Join(" AND ", clauses), parameters);
+    }
+
+    private static string BuildBrainListOrderBy(MemoryListFilter filter)
+    {
+        var direction = string.Equals(filter.SortDirection, "asc", StringComparison.OrdinalIgnoreCase) ? "ASC" : "DESC";
+        return filter.SortField.ToLowerInvariant() switch
+        {
+            "created" => $"created_at {direction}",
+            "updated" => $"updated_at {direction}",
+            "confidence" => $"confidence {direction}",
+            "key" => $"key {direction}",
+            _ => $"updated_at {direction}",
+        };
     }
 
     /// <inheritdoc />

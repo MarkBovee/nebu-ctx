@@ -95,6 +95,12 @@ public static class PostgresSchemaInitializer
             ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS retrieval_count INT NOT NULL DEFAULT 0;
             ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS last_retrieved_at TIMESTAMPTZ;
             ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS history_json JSONB NOT NULL DEFAULT '[]'::jsonb;
+            ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS promoted_from_brain_key TEXT NOT NULL DEFAULT '';
+            ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS promoted_from_brain_category TEXT NOT NULL DEFAULT '';
+            ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS promoted_from_brain_value TEXT NOT NULL DEFAULT '';
+            ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS promoted_from_timestamp TIMESTAMPTZ;
+            ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS promotion_action TEXT NOT NULL DEFAULT 'remember';
+            ALTER TABLE knowledge_entries ADD COLUMN IF NOT EXISTS promotion_timestamp TIMESTAMPTZ;
             UPDATE knowledge_entries
             SET logical_key = CASE WHEN logical_key = '' THEN key ELSE logical_key END,
                 promotion_identity = CASE WHEN promotion_identity = '' THEN concat('legacy:', project_id, ':', category, ':', key) ELSE promotion_identity END,

@@ -246,6 +246,7 @@ impl SessionState {
         self.stats.total_tool_calls += 1;
         self.stats.total_tokens_saved += tokens_saved;
         self.stats.total_tokens_input += tokens_input;
+        self.increment();
     }
 
     pub fn record_intent(&mut self, mut intent: IntentRecord) {
@@ -287,6 +288,7 @@ impl SessionState {
         agent_id: Option<&str>,
         client_name: Option<&str>,
     ) {
+        self.stats.total_tool_calls += 1;
         let now = Utc::now();
         let mut push = |key: String| {
             self.evidence.push(EvidenceRecord {

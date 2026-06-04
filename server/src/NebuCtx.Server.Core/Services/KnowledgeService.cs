@@ -5,6 +5,7 @@ using System.Text.Json;
 
 using Microsoft.Extensions.Logging;
 
+using NebuCtx.Contracts.Mcp;
 using NebuCtx.Storage;
 
 /// <summary>
@@ -54,6 +55,26 @@ public sealed class KnowledgeService
         string sourceType = "remember",
         string? sourceScope = null,
         string? promotionIdentity = null,
+        CancellationToken cancellationToken = default)
+    {
+        await RememberAsync(projectId, category, key, value, confidence, sourceType, sourceScope, promotionIdentity, null, cancellationToken);
+    }
+
+    /// <summary>
+    /// Stores or updates a knowledge fact with optional promotion-trace metadata.
+    /// The trace is preserved on first write; later writes keep the original
+    /// trace so the link to the source brain event is not lost.
+    /// </summary>
+    public async Task RememberAsync(
+        string projectId,
+        string category,
+        string key,
+        string value,
+        float confidence,
+        string sourceType,
+        string? sourceScope,
+        string? promotionIdentity,
+        PromotionTrace? promotionTrace,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(category)) throw new ArgumentException("Category is required.", nameof(category));
@@ -106,6 +127,12 @@ public sealed class KnowledgeService
         var clampedConfidence = Math.Clamp(confidence, 0f, 1f);
         var lifecycleScore = ComputeLifecycleScore(clampedConfidence, confirmationCount, now, existing?.LastRetrievedAt, existing?.RetrievalCount ?? 0);
 
+        var trace = promotionTrace;
+        if (trace is null && existing is not null)
+        {
+            trace = BuildTraceFromEntry(existing);
+        }
+
         await _knowledgeStore.UpsertFactAsync(new KnowledgeEntry
         {
             ProjectId = projectId,
@@ -126,7 +153,35 @@ public sealed class KnowledgeService
             RetrievalCount = existing?.RetrievalCount ?? 0,
             LastRetrievedAt = existing?.LastRetrievedAt,
             History = history,
+            PromotedFromBrainKey = trace?.SourceBrainKey ?? existing?.PromotedFromBrainKey ?? string.Empty,
+            PromotedFromBrainCategory = trace?.SourceBrainCategory ?? existing?.PromotedFromBrainCategory ?? string.Empty,
+            PromotedFromBrainValue = trace?.SourceBrainValue ?? existing?.PromotedFromBrainValue ?? string.Empty,
+            PromotedFromTimestamp = trace?.SourceTimestamp ?? existing?.PromotedFromTimestamp,
+            PromotionAction = trace?.PromotionAction ?? existing?.PromotionAction ?? "remember",
+            PromotionTimestamp = trace?.PromotionTimestamp ?? existing?.PromotionTimestamp,
         }, cancellationToken);
+    }
+
+    private static PromotionTrace? BuildTraceFromEntry(KnowledgeEntry entry)
+    {
+        if (string.IsNullOrEmpty(entry.PromotedFromBrainKey)
+            && string.IsNullOrEmpty(entry.PromotedFromBrainCategory)
+            && string.IsNullOrEmpty(entry.PromotedFromBrainValue)
+            && !entry.PromotedFromTimestamp.HasValue
+            && !entry.PromotionTimestamp.HasValue)
+        {
+            return null;
+        }
+        return new PromotionTrace
+        {
+            SourceSessionId = entry.SourceScope,
+            SourceBrainKey = entry.PromotedFromBrainKey,
+            SourceBrainCategory = entry.PromotedFromBrainCategory,
+            SourceBrainValue = entry.PromotedFromBrainValue,
+            SourceTimestamp = entry.PromotedFromTimestamp,
+            PromotionAction = entry.PromotionAction,
+            PromotionTimestamp = entry.PromotionTimestamp,
+        };
     }
 
     /// <summary>
@@ -140,11 +195,16 @@ public sealed class KnowledgeService
     /// <returns>Matching knowledge entries ordered by confidence descending.</returns>
     public Task<IReadOnlyList<KnowledgeEntry>> RecallAsync(string projectId, string? category, string query, int limit = 10, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(query)) throw new ArgumentException("Query is required for recall.", nameof(query));
-
-        _logger.LogDebug("Recalling knowledge for project {ProjectId} query='{Query}' category='{Category}'", projectId, query, category ?? "*");
-
         return RecallAndRefreshAsync(projectId, category, query, limit, cancellationToken);
+    }
+
+    /// <summary>
+    /// Loads a single knowledge fact. Used by import flows that need to
+    /// decide between skip / overwrite.
+    /// </summary>
+    public Task<KnowledgeEntry?> GetFactAsync(string projectId, string category, string key, CancellationToken cancellationToken = default)
+    {
+        return _knowledgeStore.GetFactAsync(projectId, category, key, cancellationToken);
     }
 
     /// <summary>
@@ -185,6 +245,21 @@ public sealed class KnowledgeService
     public Task<IReadOnlyList<(string Category, int Count)>> GetCategoriesAsync(string projectId, CancellationToken cancellationToken = default)
     {
         return _knowledgeStore.GetCategoriesAsync(projectId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Lists knowledge facts that match the supplied filter, returning the page and total
+    /// count before limit/offset. Used by <c>ctx_knowledge list</c> and the
+    /// <c>ctx memory list</c> CLI surface.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="filter">Filter and sort parameters.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Tuple of (entries for this page, total matching count before pagination).</returns>
+    public Task<(IReadOnlyList<KnowledgeEntry> Entries, int Total)> ListAsync(string projectId, MemoryListFilter filter, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        return _knowledgeStore.ListFilteredAsync(projectId, filter, cancellationToken);
     }
 
     /// <summary>
@@ -449,7 +524,7 @@ public sealed class KnowledgeService
 
             if (!RequiresCandidateReview(item))
             {
-                await RememberAsync(projectId, item.Category, item.Key, item.Value, item.Confidence, item.SourceType, item.SourceScope, item.PromotionIdentity, cancellationToken);
+                await RememberAsync(projectId, item.Category, item.Key, item.Value, item.Confidence, item.SourceType, item.SourceScope, item.PromotionIdentity, ToTrace(item), cancellationToken);
                 promoted++;
                 continue;
             }
@@ -759,6 +834,7 @@ public sealed class KnowledgeService
     private static IReadOnlyList<KnowledgePromotionItem> BuildPromotionItems(CloudSessionState state)
     {
         var items = new List<KnowledgePromotionItem>();
+        var now = DateTimeOffset.UtcNow;
 
         for (var index = 0; index < state.Findings.Count; index++)
         {
@@ -776,6 +852,12 @@ public sealed class KnowledgeService
                 Confidence = 0.7f,
                 SourceType = "consolidate",
                 SourceScope = state.SessionId,
+                PromotedFromBrainKey = $"finding-{index + 1}",
+                PromotedFromBrainCategory = "finding",
+                PromotedFromBrainValue = Truncate(finding.Trim(), 256),
+                PromotedFromTimestamp = now,
+                PromotionAction = "consolidation",
+                PromotionTimestamp = now,
             });
         }
 
@@ -795,6 +877,12 @@ public sealed class KnowledgeService
                 Confidence = 0.85f,
                 SourceType = "consolidate",
                 SourceScope = state.SessionId,
+                PromotedFromBrainKey = $"decision-{index + 1}",
+                PromotedFromBrainCategory = "decision",
+                PromotedFromBrainValue = Truncate(decision.Trim(), 256),
+                PromotedFromTimestamp = now,
+                PromotionAction = "consolidation",
+                PromotionTimestamp = now,
             });
         }
 
@@ -809,10 +897,39 @@ public sealed class KnowledgeService
                 Confidence = 0.8f,
                 SourceType = "consolidate",
                 SourceScope = state.SessionId,
+                PromotedFromBrainKey = "session-summary",
+                PromotedFromBrainCategory = "session",
+                PromotedFromBrainValue = Truncate(summary, 256),
+                PromotedFromTimestamp = now,
+                PromotionAction = "consolidation",
+                PromotionTimestamp = now,
             });
         }
 
         return items;
+    }
+
+    private static string Truncate(string value, int max)
+    {
+        if (value.Length <= max) return value;
+        var end = max;
+        while (end > 0 && !char.IsWhiteSpace(value[end - 1])) end--;
+        if (end == 0) end = max;
+        return value[..end].TrimEnd() + "…";
+    }
+
+    private static PromotionTrace ToTrace(KnowledgePromotionItem item)
+    {
+        return new PromotionTrace
+        {
+            SourceSessionId = item.SourceScope,
+            SourceBrainKey = item.PromotedFromBrainKey,
+            SourceBrainCategory = item.PromotedFromBrainCategory,
+            SourceBrainValue = item.PromotedFromBrainValue,
+            SourceTimestamp = item.PromotedFromTimestamp,
+            PromotionAction = string.IsNullOrEmpty(item.PromotionAction) ? "manual_promote" : item.PromotionAction,
+            PromotionTimestamp = item.PromotionTimestamp ?? DateTimeOffset.UtcNow,
+        };
     }
 
     /// <summary>
@@ -1336,4 +1453,22 @@ public sealed class KnowledgePromotionItem
 
     /// <summary>Optional evidence payload supporting the candidate.</summary>
     public string Evidence { get; set; } = string.Empty;
+
+    /// <summary>Key of the original brain entry this candidate was promoted from.</summary>
+    public string PromotedFromBrainKey { get; set; } = string.Empty;
+
+    /// <summary>Category of the original brain entry this candidate was promoted from.</summary>
+    public string PromotedFromBrainCategory { get; set; } = string.Empty;
+
+    /// <summary>Truncated value of the original brain entry.</summary>
+    public string PromotedFromBrainValue { get; set; } = string.Empty;
+
+    /// <summary>Timestamp the original brain event was created.</summary>
+    public DateTimeOffset? PromotedFromTimestamp { get; set; }
+
+    /// <summary>How the candidate was promoted: manual_promote, auto_promote, consolidation.</summary>
+    public string PromotionAction { get; set; } = "manual_promote";
+
+    /// <summary>Timestamp the candidate was promoted to knowledge.</summary>
+    public DateTimeOffset? PromotionTimestamp { get; set; }
 }

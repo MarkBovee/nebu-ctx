@@ -1,5 +1,6 @@
 pub mod connect;
 pub mod dispatch;
+pub mod memory;
 pub(crate) mod shell_init;
 
 pub use dispatch::run;

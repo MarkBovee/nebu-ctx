@@ -9,4 +9,8 @@
     <ProjectReference Include="..\NebuCtx.Server.Core\NebuCtx.Server.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="NebuCtx.IntegrationTests" />
+  </ItemGroup>
+
 </Project>

@@ -367,15 +367,21 @@ impl ServerHandler for NebuCtxServer {
         let name = resolved_name.as_str();
         let args = &resolved_args;
 
-        // Route server-only and server-preferred tools through the configured server.
-        let server_fallback_warning = if SERVER_ONLY_TOOLS.contains(&name) {
-            match route_to_server(name, args).await {
-                ServerRoutingResult::Success(s) => {
-                    // Record telemetry so the dashboard reflects hosted tool usage.
-                    self.record_call(name, 0, 0, None).await;
-                    return Ok(CallToolResult::success(vec![Content::text(s)]));
-                }
-                ServerRoutingResult::NotConfigured => {
+            // Route server-only and server-preferred tools through the configured server.
+            let server_fallback_warning = if SERVER_ONLY_TOOLS.contains(&name) {
+                match route_to_server(name, args).await {
+                    ServerRoutingResult::Success(s) => {
+                        // Record telemetry so the dashboard reflects hosted tool usage.
+                        self.record_call(name, 0, 0, None).await;
+                        // Also update session tool calls for server-only tools
+                        let mut session = self.session.write().await;
+                        session.stats.total_tool_calls += 1;
+                        if session.should_save() {
+                            let _ = session.save();
+                        }
+                        return Ok(CallToolResult::success(vec![Content::text(s)]));
+                    }
+                    ServerRoutingResult::NotConfigured => {
                     let msg = format!(
                         "{} requires a server connection. Run: nebu-ctx connect",
                         required_server_surface(name)
@@ -396,6 +402,12 @@ impl ServerHandler for NebuCtxServer {
                 ServerRoutingResult::Success(s) => {
                     // Record telemetry so the dashboard reflects hosted tool usage.
                     self.record_call(name, 0, 0, None).await;
+                    // Also update session tool calls for server-only tools
+                    let mut session = self.session.write().await;
+                    session.stats.total_tool_calls += 1;
+                    if session.should_save() {
+                        let _ = session.save();
+                    }
                     return Ok(CallToolResult::success(vec![Content::text(s)]));
                 }
                 ServerRoutingResult::NotConfigured if server_is_configured => {

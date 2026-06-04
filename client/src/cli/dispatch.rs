@@ -254,6 +254,10 @@ pub fn run() {
                 }
                 return;
             }
+            "memory" => {
+                super::memory::cmd_memory(&rest);
+                return;
+            }
             "failures" | "failure-memory" | "bugs" | "bug-memory" => {
                 super::connect::cmd_bug_memory(&rest);
                 return;
@@ -475,6 +479,7 @@ COMMANDS:
     status [--json]                   Show setup and host connection status
     sync [status|flush] [--json]      Inspect or replay queued server-bound sync items
     doctor [--fix] [--json]           Run diagnostics (and optionally repair)
+    memory list [...]                 Browse canonical memories (filters: --category, --since, --source-type, --limit, --offset, --sort-field, --sort-direction, --promoted-from-session, --promoted-from-brain-key)
     report-issue [options]            Create/update bug issue with local draft fallback
     hook <...>                        Internal hook entrypoints
     on-brief                          Print shell startup brief

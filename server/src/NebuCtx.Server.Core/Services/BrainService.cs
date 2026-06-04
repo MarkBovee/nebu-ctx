@@ -2,6 +2,7 @@ namespace NebuCtx.Server.Core.Services;
 
 using Microsoft.Extensions.Logging;
 
+using NebuCtx.Contracts.Mcp;
 using NebuCtx.Storage;
 
 /// <summary>
@@ -128,6 +129,21 @@ public sealed class BrainService
     /// <returns>True when the entry existed and was deleted.</returns>
     public Task<bool> DeleteAsync(string projectId, string key, CancellationToken cancellationToken = default)
         => _brainStore.DeleteAsync(projectId, key, cancellationToken);
+
+    /// <summary>
+    /// Lists brain memory entries that match the supplied filter, returning the page and
+    /// total count before limit/offset. Used by <c>ctx_brain list</c> and the
+    /// <c>ctx memory list</c> CLI surface.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="filter">Filter and sort parameters.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Tuple of (entries for this page, total matching count before pagination).</returns>
+    public Task<(IReadOnlyList<BrainEntry> Entries, int Total)> ListAsync(string projectId, MemoryListFilter filter, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        return _brainStore.ListFilteredAsync(projectId, filter, cancellationToken);
+    }
 
     /// <summary>
     /// Re-ranks brain entries with lightweight token scoring so natural-language recall is more forgiving.

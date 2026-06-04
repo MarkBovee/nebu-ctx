@@ -1,6 +1,7 @@
 namespace NebuCtx.ProjectIdentityTests;
 
 using System.Collections.Concurrent;
+using NebuCtx.Contracts.Mcp;
 using NebuCtx.Contracts.Projects;
 using NebuCtx.Server.Core;
 using NebuCtx.Storage;
@@ -369,6 +370,9 @@ public class ProjectResolutionTests
         public Task<IReadOnlyList<BrainEntry>> ListAllAsync(string projectId, int limit = 200, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<BrainEntry>>([]);
 
+        public Task<(IReadOnlyList<BrainEntry> Entries, int Total)> ListFilteredAsync(string projectId, MemoryListFilter filter, CancellationToken cancellationToken = default)
+            => Task.FromResult<(IReadOnlyList<BrainEntry>, int)>((Array.Empty<BrainEntry>(), 0));
+
         public Task<bool> DeleteAsync(string projectId, string key, CancellationToken cancellationToken = default)
             => Task.FromResult(false);
 
@@ -387,6 +391,7 @@ public class ProjectResolutionTests
         public Task<IReadOnlyList<(string Category, int Count)>> GetCategoriesAsync(string projectId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<(string Category, int Count)>>([]);
         public Task<int> GetFactCountAsync(string projectId, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public Task<IReadOnlyList<KnowledgeEntry>> ListAllForProjectAsync(string projectId, int limit = 500, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<KnowledgeEntry>>([]);
+        public Task<(IReadOnlyList<KnowledgeEntry> Entries, int Total)> ListFilteredAsync(string projectId, MemoryListFilter filter, CancellationToken cancellationToken = default) => Task.FromResult<(IReadOnlyList<KnowledgeEntry>, int)>((Array.Empty<KnowledgeEntry>(), 0));
         public Task<bool> RemoveFactAsync(string projectId, string category, string key, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public Task<int> ReassignProjectAsync(string fromProjectId, string toProjectId, CancellationToken cancellationToken = default) => Task.FromResult(0);

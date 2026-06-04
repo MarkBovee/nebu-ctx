@@ -2,6 +2,7 @@ namespace NebuCtx.Storage.Postgres;
 
 using System.Text.Json;
 
+using NebuCtx.Contracts.Mcp;
 using Npgsql;
 
 /// <summary>
@@ -33,12 +34,16 @@ public sealed class PostgresKnowledgeStore : IKnowledgeStore
                 project_id, category, key, value, confidence, created_at, updated_at,
                 logical_key, promotion_identity, source_type, source_scope,
                 lifecycle_status, lifecycle_score, confirmation_count, last_confirmed_at,
-                retrieval_count, last_retrieved_at, history_json)
+                retrieval_count, last_retrieved_at, history_json,
+                promoted_from_brain_key, promoted_from_brain_category, promoted_from_brain_value,
+                promoted_from_timestamp, promotion_action, promotion_timestamp)
             VALUES (
                 @project_id, @category, @key, @value, @confidence, @created_at, @updated_at,
                 @logical_key, @promotion_identity, @source_type, @source_scope,
                 @lifecycle_status, @lifecycle_score, @confirmation_count, @last_confirmed_at,
-                @retrieval_count, @last_retrieved_at, @history_json::jsonb)
+                @retrieval_count, @last_retrieved_at, @history_json::jsonb,
+                @promoted_from_brain_key, @promoted_from_brain_category, @promoted_from_brain_value,
+                @promoted_from_timestamp, @promotion_action, @promotion_timestamp)
             ON CONFLICT (project_id, category, key) DO UPDATE SET
                 value      = EXCLUDED.value,
                 confidence = EXCLUDED.confidence,
@@ -54,7 +59,13 @@ public sealed class PostgresKnowledgeStore : IKnowledgeStore
                 last_confirmed_at = EXCLUDED.last_confirmed_at,
                 retrieval_count = EXCLUDED.retrieval_count,
                 last_retrieved_at = EXCLUDED.last_retrieved_at,
-                history_json = EXCLUDED.history_json
+                history_json = EXCLUDED.history_json,
+                promoted_from_brain_key = EXCLUDED.promoted_from_brain_key,
+                promoted_from_brain_category = EXCLUDED.promoted_from_brain_category,
+                promoted_from_brain_value = EXCLUDED.promoted_from_brain_value,
+                promoted_from_timestamp = EXCLUDED.promoted_from_timestamp,
+                promotion_action = EXCLUDED.promotion_action,
+                promotion_timestamp = EXCLUDED.promotion_timestamp
             """,
             conn);
 
@@ -76,6 +87,12 @@ public sealed class PostgresKnowledgeStore : IKnowledgeStore
         cmd.Parameters.AddWithValue("retrieval_count", entry.RetrievalCount);
         cmd.Parameters.AddWithValue("last_retrieved_at", (object?)entry.LastRetrievedAt ?? DBNull.Value);
         cmd.Parameters.AddWithValue("history_json", JsonSerializer.Serialize(entry.History));
+        cmd.Parameters.AddWithValue("promoted_from_brain_key", entry.PromotedFromBrainKey);
+        cmd.Parameters.AddWithValue("promoted_from_brain_category", entry.PromotedFromBrainCategory);
+        cmd.Parameters.AddWithValue("promoted_from_brain_value", entry.PromotedFromBrainValue);
+        cmd.Parameters.AddWithValue("promoted_from_timestamp", (object?)entry.PromotedFromTimestamp ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("promotion_action", entry.PromotionAction);
+        cmd.Parameters.AddWithValue("promotion_timestamp", (object?)entry.PromotionTimestamp ?? DBNull.Value);
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -136,7 +153,7 @@ public sealed class PostgresKnowledgeStore : IKnowledgeStore
         }
 
         filters.Add($"({string.Join(" OR ", matchClauses)})");
-        var sql = $"SELECT project_id, category, key, value, confidence, created_at, updated_at, logical_key, promotion_identity, source_type, source_scope, lifecycle_status, lifecycle_score, confirmation_count, last_confirmed_at, retrieval_count, last_retrieved_at, history_json FROM knowledge_entries WHERE {string.Join(" AND ", filters)} ORDER BY lifecycle_score DESC, confidence DESC, updated_at DESC LIMIT @limit";
+        var sql = $"SELECT project_id, category, key, value, confidence, created_at, updated_at, logical_key, promotion_identity, source_type, source_scope, lifecycle_status, lifecycle_score, confirmation_count, last_confirmed_at, retrieval_count, last_retrieved_at, history_json, promoted_from_brain_key, promoted_from_brain_category, promoted_from_brain_value, promoted_from_timestamp, promotion_action, promotion_timestamp FROM knowledge_entries WHERE {string.Join(" AND ", filters)} ORDER BY lifecycle_score DESC, confidence DESC, updated_at DESC LIMIT @limit";
 
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("project_id", projectId);
@@ -213,6 +230,89 @@ public sealed class PostgresKnowledgeStore : IKnowledgeStore
         cmd.Parameters.AddWithValue("limit", limit);
 
         return await ReadEntriesAsync(cmd, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<(IReadOnlyList<KnowledgeEntry> Entries, int Total)> ListFilteredAsync(string projectId, MemoryListFilter filter, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        var (whereClause, parameters) = BuildKnowledgeListWhereClause(projectId, filter);
+        var orderBy = BuildKnowledgeListOrderBy(filter);
+
+        var limit = Math.Clamp(filter.Limit <= 0 ? 20 : filter.Limit, 1, MemoryListFilter.MaxLimit);
+        var offset = Math.Max(0, filter.Offset);
+
+        var countCmd = new NpgsqlCommand($"SELECT COUNT(*) FROM knowledge_entries WHERE {whereClause}", conn);
+        foreach (var (k, v) in parameters) countCmd.Parameters.AddWithValue(k, v ?? DBNull.Value);
+        var total = (int)(long)(await countCmd.ExecuteScalarAsync(cancellationToken) ?? 0L);
+
+        var sql = $"SELECT project_id, category, key, value, confidence, created_at, updated_at, logical_key, promotion_identity, source_type, source_scope, lifecycle_status, lifecycle_score, confirmation_count, last_confirmed_at, retrieval_count, last_retrieved_at, history_json, promoted_from_brain_key, promoted_from_brain_category, promoted_from_brain_value, promoted_from_timestamp, promotion_action, promotion_timestamp FROM knowledge_entries WHERE {whereClause} ORDER BY {orderBy} LIMIT @limit OFFSET @offset";
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        foreach (var (k, v) in parameters) cmd.Parameters.AddWithValue(k, v ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("limit", limit);
+        cmd.Parameters.AddWithValue("offset", offset);
+
+        var entries = await ReadEntriesAsync(cmd, cancellationToken);
+        return (entries, total);
+    }
+
+    private static (string Where, Dictionary<string, object?> Parameters) BuildKnowledgeListWhereClause(string projectId, MemoryListFilter filter)
+    {
+        var clauses = new List<string> { "project_id = @project_id" };
+        var parameters = new Dictionary<string, object?> { ["project_id"] = projectId };
+        if (!string.IsNullOrEmpty(filter.Category))
+        {
+            clauses.Add("category = @category");
+            parameters["category"] = filter.Category;
+        }
+        if (!string.IsNullOrEmpty(filter.SourceType))
+        {
+            clauses.Add("source_type = @source_type");
+            parameters["source_type"] = filter.SourceType;
+        }
+        if (!string.IsNullOrEmpty(filter.LifecycleStatus))
+        {
+            clauses.Add("lifecycle_status = @lifecycle_status");
+            parameters["lifecycle_status"] = filter.LifecycleStatus;
+        }
+        if (filter.CreatedAfter.HasValue)
+        {
+            clauses.Add("created_at >= @created_after");
+            parameters["created_after"] = filter.CreatedAfter.Value;
+        }
+        if (filter.CreatedBefore.HasValue)
+        {
+            clauses.Add("created_at <= @created_before");
+            parameters["created_before"] = filter.CreatedBefore.Value;
+        }
+        if (!string.IsNullOrEmpty(filter.PromotedFromSession))
+        {
+            clauses.Add("source_scope = @promoted_from_session");
+            parameters["promoted_from_session"] = filter.PromotedFromSession;
+        }
+        if (!string.IsNullOrEmpty(filter.PromotedFromBrainKey))
+        {
+            clauses.Add("logical_key = @promoted_from_brain_key");
+            parameters["promoted_from_brain_key"] = filter.PromotedFromBrainKey;
+        }
+        return (string.Join(" AND ", clauses), parameters);
+    }
+
+    private static string BuildKnowledgeListOrderBy(MemoryListFilter filter)
+    {
+        var direction = string.Equals(filter.SortDirection, "asc", StringComparison.OrdinalIgnoreCase) ? "ASC" : "DESC";
+        return filter.SortField.ToLowerInvariant() switch
+        {
+            "created" => $"created_at {direction}",
+            "updated" => $"updated_at {direction}",
+            "confidence" => $"confidence {direction}",
+            "retrieval_count" => $"retrieval_count {direction}",
+            "relevance" => $"lifecycle_score {direction}, confidence {direction}",
+            "key" => $"category {direction}, key {direction}",
+            _ => $"lifecycle_score {direction}, confidence {direction}, updated_at {direction}",
+        };
     }
 
     /// <inheritdoc />
@@ -405,6 +505,12 @@ public sealed class PostgresKnowledgeStore : IKnowledgeStore
                 RetrievalCount = reader.GetInt32(15),
                 LastRetrievedAt = reader.IsDBNull(16) ? null : reader.GetFieldValue<DateTimeOffset>(16),
                 History = JsonSerializer.Deserialize<List<KnowledgeHistoryEntry>>(historyJson) ?? [],
+                PromotedFromBrainKey = reader.GetString(18),
+                PromotedFromBrainCategory = reader.GetString(19),
+                PromotedFromBrainValue = reader.GetString(20),
+                PromotedFromTimestamp = reader.IsDBNull(21) ? null : reader.GetFieldValue<DateTimeOffset>(21),
+                PromotionAction = reader.GetString(22),
+                PromotionTimestamp = reader.IsDBNull(23) ? null : reader.GetFieldValue<DateTimeOffset>(23),
             });
         }
 

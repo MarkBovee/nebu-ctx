@@ -496,6 +496,7 @@ pub fn handle_user_prompt_submit() {
         &trimmed,
     );
     sync_memory_if_possible(&project_root, "user_turn");
+    emit_contextual_suggestions(&project_root, &trimmed);
 }
 
 /// AssistantOutputSubmit hook: fired by editor plugins when assistant text is
@@ -555,13 +556,14 @@ fn build_session_snapshot_xml(project_root: &str, source: &str) -> String {
     let knowledge = crate::core::knowledge::ProjectKnowledge::load_or_create(project_root);
 
     let has_session = session.is_some();
-    let high_confidence_facts: Vec<_> = knowledge
-        .facts
-        .iter()
-        .filter(|f| f.is_current() && f.confidence >= 0.7)
-        .collect();
+    let suggester = crate::core::contextual_surface::ContextualSuggester::from_env();
+    let surfacing_query = session
+        .as_ref()
+        .and_then(|s| s.task.as_ref().map(|t| t.description.clone()))
+        .unwrap_or_else(|| source.to_string());
+    let surfacing_suggestions = suggester.suggest(&surfacing_query, &knowledge);
 
-    if !has_session && high_confidence_facts.is_empty() {
+    if !has_session && surfacing_suggestions.is_empty() {
         return String::new();
     }
 
@@ -616,30 +618,39 @@ fn build_session_snapshot_xml(project_root: &str, source: &str) -> String {
         }
     }
 
-    // P5: Key knowledge facts or hosted wake-up briefing.
-    if let Some(hosted) = fetch_hosted_wakeup_briefing(project_root) {
+    // P5: Contextual suggestions take priority over the static wake-up briefing.
+    if !surfacing_suggestions.is_empty() {
+        parts.push(crate::core::contextual_surface::render_suggestions_block(&surfacing_suggestions));
+    } else if let Some(hosted) = fetch_hosted_wakeup_briefing(project_root) {
         parts.push(format!(
             "<knowledge>\n{}\n</knowledge>",
             xml_escape(&hosted)
         ));
-    } else if !high_confidence_facts.is_empty() {
-        let facts_text: Vec<String> = high_confidence_facts
+    } else {
+        let high_confidence_facts: Vec<_> = knowledge
+            .facts
             .iter()
-            .rev()
-            .take(5)
-            .map(|f| {
-                format!(
-                    "- [{}] {}: {}",
-                    xml_escape(&f.category),
-                    xml_escape(&f.key),
-                    xml_escape(&f.value)
-                )
-            })
+            .filter(|f| f.is_current() && f.confidence >= 0.7)
             .collect();
-        parts.push(format!(
-            "<knowledge>\n{}\n</knowledge>",
-            facts_text.join("\n")
-        ));
+        if !high_confidence_facts.is_empty() {
+            let facts_text: Vec<String> = high_confidence_facts
+                .iter()
+                .rev()
+                .take(5)
+                .map(|f| {
+                    format!(
+                        "- [{}] {}: {}",
+                        xml_escape(&f.category),
+                        xml_escape(&f.key),
+                        xml_escape(&f.value)
+                    )
+                })
+                .collect();
+            parts.push(format!(
+                "<knowledge>\n{}\n</knowledge>",
+                facts_text.join("\n")
+            ));
+        }
     }
 
     if parts.is_empty() {
@@ -691,7 +702,43 @@ fn post_promoted_facts_to_server(project_root: &str) {
     crate::server_client::post_knowledge_to_server(project_root);
 }
 
-/// PostToolUse telemetry handler: reads the hook event JSON from stdin,
+/// Builds a textual representation of a tool execution suitable for
+/// relevance scoring. Stays well below MAX_CONTEXT_BYTES so callers can
+/// pass it directly to the contextual suggester.
+fn build_tool_context(tool_name: &str, command: Option<&str>, response: Option<&str>) -> String {
+    let mut parts: Vec<String> = Vec::with_capacity(3);
+    parts.push(tool_name.to_string());
+    if let Some(cmd) = command {
+        parts.push(cmd.to_string());
+    }
+    if let Some(resp) = response {
+        let trimmed = resp.trim();
+        if !trimmed.is_empty() {
+            parts.push(crate::core::sanitize::telemetry_command_preview(trimmed)
+                .unwrap_or_else(|| trimmed.chars().take(200).collect()));
+        }
+    }
+    parts.join("\n")
+}
+
+/// Emits a `{"additionalContext": ...}` JSON line to stdout when the
+/// contextual suggester has relevant knowledge to surface. No output when
+/// surfacing is disabled, the project has no knowledge, or no fact clears
+/// the configured threshold.
+fn emit_contextual_suggestions(project_root: &str, query: &str) {
+    if project_root.is_empty() || query.trim().is_empty() {
+        return;
+    }
+    let knowledge = crate::core::knowledge::ProjectKnowledge::load_or_create(project_root);
+    if knowledge.facts.is_empty() {
+        return;
+    }
+    let suggester = crate::core::contextual_surface::ContextualSuggester::from_env();
+    let suggestions = suggester.suggest(query, &knowledge);
+    if let Some(json) = crate::core::contextual_surface::render_additional_context_json(&suggestions) {
+        println!("{json}");
+    }
+}
 /// extracts the tool name and rough token sizes, and fires a telemetry
 /// event to the server. Wired to Claude Code `PostToolUse` and Copilot
 /// CLI `postToolUse`.
@@ -775,6 +822,8 @@ pub fn handle_post_tool_use() {
             .filter(|slug| !slug.is_empty()),
         command_preview,
     });
+
+    emit_contextual_suggestions(&project_root, &build_tool_context(&tool_name, command.as_deref(), tool_response.as_deref()));
 }
 
 /// Tool activity hook: records tool activity into the local journal without

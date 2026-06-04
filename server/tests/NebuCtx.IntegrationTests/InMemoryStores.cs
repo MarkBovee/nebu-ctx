@@ -2,6 +2,7 @@ namespace NebuCtx.IntegrationTests;
 
 using System.Collections.Concurrent;
 
+using NebuCtx.Contracts.Mcp;
 using NebuCtx.Contracts.Projects;
 using NebuCtx.Storage;
 
@@ -160,6 +161,37 @@ internal sealed class InMemoryBrainStore : IBrainStore
         return Task.FromResult<IReadOnlyList<BrainEntry>>(results);
     }
 
+    public Task<(IReadOnlyList<BrainEntry> Entries, int Total)> ListFilteredAsync(string projectId, MemoryListFilter filter, CancellationToken cancellationToken = default)
+    {
+        var matches = _entries
+            .Where(kv => kv.Key.ProjectId == projectId)
+            .Select(kv => kv.Value)
+            .Where(e => string.IsNullOrEmpty(filter.Category) || e.Category == filter.Category || e.Kind == filter.Category)
+            .Where(e => string.IsNullOrEmpty(filter.SourceType) || e.SourceType == filter.SourceType)
+            .Where(e => string.IsNullOrEmpty(filter.LifecycleStatus) || e.LifecycleStatus == filter.LifecycleStatus)
+            .Where(e => !filter.CreatedAfter.HasValue || e.CreatedAt >= filter.CreatedAfter.Value)
+            .Where(e => !filter.CreatedBefore.HasValue || e.CreatedAt <= filter.CreatedBefore.Value)
+            .ToList();
+        var total = matches.Count;
+        var direction = string.Equals(filter.SortDirection, "asc", StringComparison.OrdinalIgnoreCase) ? 1 : -1;
+        IEnumerable<BrainEntry> ordered = filter.SortField.ToLowerInvariant() switch
+        {
+            "created" => matches.OrderBy(e => e.CreatedAt),
+            "confidence" => matches.OrderBy(e => e.Confidence),
+            "key" => matches.OrderBy(e => e.Key),
+            _ => matches.OrderBy(e => e.UpdatedAt),
+        };
+        if (direction < 0)
+        {
+            ordered = ordered.Reverse();
+        }
+        var sorted = ordered.ToList();
+        var limit = Math.Clamp(filter.Limit <= 0 ? 20 : filter.Limit, 1, MemoryListFilter.MaxLimit);
+        var offset = Math.Max(0, filter.Offset);
+        var page = sorted.Skip(offset).Take(limit).ToList();
+        return Task.FromResult<(IReadOnlyList<BrainEntry>, int)>((page, total));
+    }
+
     public Task<bool> DeleteAsync(string projectId, string key, CancellationToken cancellationToken = default)
     {
         var removed = _entries.TryRemove((projectId, key), out _);
@@ -268,6 +300,47 @@ internal sealed class InMemoryKnowledgeStore : IKnowledgeStore
         {
             var results = _facts.Where(f => f.ProjectId == projectId).Take(limit).ToList();
             return Task.FromResult<IReadOnlyList<KnowledgeEntry>>(results);
+        }
+    }
+
+    public Task<(IReadOnlyList<KnowledgeEntry> Entries, int Total)> ListFilteredAsync(string projectId, MemoryListFilter filter, CancellationToken cancellationToken = default)
+    {
+        lock (_lock)
+        {
+            var matches = _facts
+                .Where(f => f.ProjectId == projectId)
+                .Where(f => string.IsNullOrEmpty(filter.Category) || f.Category == filter.Category)
+                .Where(f => string.IsNullOrEmpty(filter.SourceType) || f.SourceType == filter.SourceType)
+                .Where(f => string.IsNullOrEmpty(filter.LifecycleStatus) || f.LifecycleStatus == filter.LifecycleStatus)
+                .Where(f => !filter.CreatedAfter.HasValue || f.CreatedAt >= filter.CreatedAfter.Value)
+                .Where(f => !filter.CreatedBefore.HasValue || f.CreatedAt <= filter.CreatedBefore.Value)
+                .Where(f => string.IsNullOrEmpty(filter.PromotedFromSession) || f.SourceScope == filter.PromotedFromSession)
+                .Where(f => string.IsNullOrEmpty(filter.PromotedFromBrainKey) || f.PromotedFromBrainKey == filter.PromotedFromBrainKey)
+                .ToList();
+            var total = matches.Count;
+            var direction = string.Equals(filter.SortDirection, "asc", StringComparison.OrdinalIgnoreCase) ? 1 : -1;
+            IEnumerable<KnowledgeEntry> ordered = filter.SortField.ToLowerInvariant() switch
+            {
+                "created" => matches.OrderBy(f => f.CreatedAt),
+                "updated" => matches.OrderBy(f => f.UpdatedAt),
+                "confidence" => matches.OrderBy(f => f.Confidence),
+                "retrieval_count" => matches.OrderBy(f => f.RetrievalCount),
+                "key" => matches.OrderBy(f => f.Category).ThenBy(f => f.Key),
+                "relevance" => matches.OrderByDescending(f => f.LifecycleScore)
+                    .ThenByDescending(f => f.Confidence),
+                _ => matches.OrderByDescending(f => f.LifecycleScore)
+                    .ThenByDescending(f => f.Confidence)
+                    .ThenByDescending(f => f.UpdatedAt),
+            };
+            if (direction > 0)
+            {
+                ordered = ordered.Reverse();
+            }
+            var sorted = ordered.ToList();
+            var limit = Math.Clamp(filter.Limit <= 0 ? 20 : filter.Limit, 1, MemoryListFilter.MaxLimit);
+            var offset = Math.Max(0, filter.Offset);
+            var page = sorted.Skip(offset).Take(limit).ToList();
+            return Task.FromResult<(IReadOnlyList<KnowledgeEntry>, int)>((page, total));
         }
     }
 

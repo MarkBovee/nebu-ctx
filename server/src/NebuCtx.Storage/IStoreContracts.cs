@@ -1,5 +1,6 @@
 namespace NebuCtx.Storage;
 
+using NebuCtx.Contracts.Mcp;
 using NebuCtx.Contracts.Projects;
 
 /// <summary>
@@ -140,6 +141,17 @@ public interface IBrainStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>All brain entries up to the specified limit.</returns>
     Task<IReadOnlyList<BrainEntry>> ListAllAsync(string projectId, int limit = 200, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists brain memory entries matching the supplied filter, returning both the page
+    /// and the total count before limit/offset. Used by the <c>list</c> action of
+    /// <c>ctx_brain</c> and the <c>ctx memory list</c> CLI surface.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="filter">Filter and sort parameters.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Tuple of (entries for this page, total matching count before pagination).</returns>
+    Task<(IReadOnlyList<BrainEntry> Entries, int Total)> ListFilteredAsync(string projectId, MemoryListFilter filter, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Deletes a specific brain memory entry by project and key.
@@ -313,6 +325,17 @@ public interface IKnowledgeStore
     Task<IReadOnlyList<KnowledgeEntry>> ListAllForProjectAsync(string projectId, int limit = 500, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Lists knowledge facts matching the supplied filter, returning both the page
+    /// and the total count before limit/offset. Used by the <c>list</c> action of
+    /// <c>ctx_knowledge</c> and the <c>ctx memory list</c> CLI surface.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="filter">Filter and sort parameters.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Tuple of (entries for this page, total matching count before pagination).</returns>
+    Task<(IReadOnlyList<KnowledgeEntry> Entries, int Total)> ListFilteredAsync(string projectId, MemoryListFilter filter, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Deletes a specific knowledge fact by category and key.
     /// </summary>
     /// <param name="projectId">Project identifier.</param>
@@ -427,6 +450,24 @@ public sealed class KnowledgeEntry
 
     /// <summary>When this fact was last retrieved through hosted recall or wake-up selection.</summary>
     public DateTimeOffset? LastRetrievedAt { get; set; }
+
+    /// <summary>Key of the original brain entry this fact was promoted from. Empty when not promoted.</summary>
+    public string PromotedFromBrainKey { get; set; } = string.Empty;
+
+    /// <summary>Category of the original brain entry this fact was promoted from. Empty when not promoted.</summary>
+    public string PromotedFromBrainCategory { get; set; } = string.Empty;
+
+    /// <summary>Truncated value of the original brain entry. Empty when not promoted.</summary>
+    public string PromotedFromBrainValue { get; set; } = string.Empty;
+
+    /// <summary>Timestamp the original brain event was created. Null when not promoted.</summary>
+    public DateTimeOffset? PromotedFromTimestamp { get; set; }
+
+    /// <summary>Action that promoted this fact: remember, manual_promote, auto_promote, consolidation.</summary>
+    public string PromotionAction { get; set; } = "remember";
+
+    /// <summary>Timestamp this fact was promoted to knowledge. Null when added directly via remember.</summary>
+    public DateTimeOffset? PromotionTimestamp { get; set; }
 
     /// <summary>Historical revisions retained when the canonical fact changes over time.</summary>
     public List<KnowledgeHistoryEntry> History { get; set; } = [];

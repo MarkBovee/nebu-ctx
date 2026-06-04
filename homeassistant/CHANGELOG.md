@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.0
+
+- Bundle the client/server release that ships `memory-system-enhancements`: `nebu-ctx memory list` / `lifecycle` / `export` / `import`, contextual memory surfacing via Claude/Copilot hooks, brain-to-knowledge correlation with promotion traces, accurate session tool-call tracking, and the new `MemoryList`/`MemoryListItem`/`PromotionTrace` MCP contracts. Adds 6 `knowledge_entries` columns + Postgres migration for promotion provenance.
+
 ## 0.8.38
 
 - Bundle the client/server follow-up that removes normalized legacy hosted session-summary rows even when old raw brain entries were already reshaped into `fact/general` records with legacy metadata.
