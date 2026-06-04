@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.9.0
+## 0.10.0
 
 - Bundle the client/server release that drops `ctx_shell` from the public MCP surface. The add-on now exposes exactly four public tools (`ctx_read`, `ctx_search`, `ctx_tree`, `ctx`); shell execution continues to flow through the native `Shell` / `Bash` path with the nebu-ctx shell hook compressing output.
 

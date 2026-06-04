@@ -1,10 +1,10 @@
 # Changelog
 
-## 0.9.0
+## 0.10.0
 
 ### Removed
 
-- Drop the public `ctx_shell` MCP tool from the canonical 4-tool public surface (`ctx_read`, `ctx_search`, `ctx_tree`, `ctx`). Shell execution stays available through the native `Shell` / `Bash` tool, where the nebu-ctx shell hook compresses output automatically. Update guidance, docs, server placeholders, and benchmark seeds to match the new surface.
+- Drop the public `ctx_shell` MCP tool from the canonical public surface. The public surface now exposes exactly four tools: `ctx_read`, `ctx_search`, `ctx_tree`, and `ctx`. Shell execution stays available through the native `Shell` / `Bash` tool, where the nebu-ctx shell hook compresses output automatically. Updated guidance, rules templates, docs, dashboard strings, server tool registry, integration tests, and benchmark seeds to match the new surface. Existing agents that call `ctx_shell` will get a clear `unknown tool` error from the MCP server.
 
 ## 0.9.0
 
