@@ -171,6 +171,7 @@ ADDON_DOCKERFILE=Dockerfile bash tests/local-addon-test.sh
 - If a task touches Postgres-backed behavior, validate `ctx(domain="memory", action="recall", ...)` over HTTP before claiming the server path is healthy.
 - `dotnet test` requires no live Postgres — `NebuCtxTestFactory` handles all isolation.
 - Do not bypass nebu-ctx wrapper/routing in agent workflows when a nebu-ctx path exists. No direct native fallback just because wrapper output is inconvenient, lossy, or buggy.
+- When a host exposes deferred `mcp_nebuctx_*` tools, do not use `multi_tool_use.parallel` to call them. Invoke the public `ctx_*` tool directly, prefer `ctx_read(target="files", paths=[...])` for batch reads, and run repeated `ctx_search` calls sequentially so host-side deferred-tool binding does not fail with `undefined.invoke`.
 - If nebu-ctx wrapper behavior is wrong, stay inside nebu-ctx path: retry once, use supported raw mode (`--raw` / `raw=true`) when available, or run the repo-built client via `cargo run --manifest-path client/Cargo.toml -- ...` instead of bypassing to the native command. Then file/update a GitHub issue.
 - For complex hosted `curl`/`jq` debugging, avoid deeply nested one-line `bash -lc` quoting. Prefer small sequential steps: write the raw JSON response to a temp file first, then run a separate `jq` summary/read on that file.
 - When building JSON payloads for shell calls, prefer a temp request file or a simple literal payload over nested `jq -n` inside extra shell quoting.

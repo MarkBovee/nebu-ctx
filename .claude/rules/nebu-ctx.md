@@ -1,5 +1,5 @@
 # nebu-ctx — Context Engineering Layer
-<!-- nebu-ctx-rules-v12 -->
+<!-- nebu-ctx-rules-v13 -->
 
 CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalents. This is NOT optional.
 
@@ -16,6 +16,8 @@ Public `ctx_read` targets: `file`, `files`, `symbol`, `outline`, `archive`.
 Public `ctx_search` modes: `regex`, `semantic`.
 Public `ctx` domains: `memory`, `context`, `graph`, `analytics`, `agents`, `inspect`.
 `ctx_shell` uses active shell semantics; output includes `[shell: ...]`. Use `shell="pwsh.exe"`, `shell="cmd.exe"`, or `shell="/bin/bash"` to force a shell per call.
+
+When a host exposes deferred `mcp_nebuctx_*` tools, do NOT send them through `multi_tool_use.parallel`. Call the public `ctx_*` tool directly, use `ctx_read(target="files", paths=[...])` for multi-file reads, and run repeated `ctx_search` calls sequentially. This avoids the known host-side parallel wrapper failure where deferred MCP tools can surface as `Cannot read properties of undefined (reading 'invoke')`.
 
 Use private tool names only when documenting nebu-ctx internals. User-facing guidance should recommend only the 5 public tools.
 
