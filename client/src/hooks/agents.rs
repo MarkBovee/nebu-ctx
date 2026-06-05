@@ -467,11 +467,12 @@ pub(super) fn install_copilot_hook(global: bool) {
 }
 
 fn install_copilot_pretooluse_hook(global: bool) {
-    let binary = resolve_binary_path();
-    let rewrite_cmd = format!("{binary} hook rewrite");
-    let redirect_cmd = format!("{binary} hook redirect");
+    // Use bash-compatible path for the "bash" key and the host-native path for "powershell".
+    // Copilot CLI selects the correct runner automatically based on the current OS.
+    let bash_binary = resolve_binary_path_for_bash();
+    let ps_binary = resolve_binary_path();
 
-    let hook_config = copilot_hook_payload(&binary, rewrite_cmd, redirect_cmd);
+    let hook_config = copilot_hook_payload(&bash_binary, &ps_binary);
 
     let hook_path = if global {
         let Some(home) = dirs::home_dir() else { return };
@@ -526,37 +527,39 @@ fn install_copilot_pretooluse_hook(global: bool) {
     }
 }
 
-fn copilot_hook_payload(
-    binary: &str,
-    rewrite_cmd: String,
-    redirect_cmd: String,
-) -> serde_json::Value {
+fn copilot_hook_payload(bash_binary: &str, ps_binary: &str) -> serde_json::Value {
+    // Each entry carries both "bash" (Linux/macOS) and "powershell" (Windows) keys.
+    // Copilot CLI picks the one that matches the current OS.
     serde_json::json!({
         "version": 1,
         "hooks": {
             "preToolUse": [
                 {
                     "type": "command",
-                    "bash": rewrite_cmd,
+                    "bash": format!("{bash_binary} hook rewrite"),
+                    "powershell": format!("{ps_binary} hook rewrite"),
                     "timeoutSec": 15
                 },
                 {
                     "type": "command",
-                    "bash": redirect_cmd,
+                    "bash": format!("{bash_binary} hook redirect"),
+                    "powershell": format!("{ps_binary} hook redirect"),
                     "timeoutSec": 5
                 }
             ],
             "postToolUse": [
                 {
                     "type": "command",
-                    "bash": format!("{binary} hook post-tool-use"),
+                    "bash": format!("{bash_binary} hook post-tool-use"),
+                    "powershell": format!("{ps_binary} hook post-tool-use"),
                     "timeoutSec": 10
                 }
             ],
             "postSession": [
                 {
                     "type": "command",
-                    "bash": format!("{binary} hook stop"),
+                    "bash": format!("{bash_binary} hook stop"),
+                    "powershell": format!("{ps_binary} hook stop"),
                     "timeoutSec": 30
                 }
             ]
@@ -706,11 +709,7 @@ mod memory_hook_tests {
 
     #[test]
     fn copilot_hook_payload_routes_shared_memory_handlers() {
-        let payload = copilot_hook_payload(
-            "nebu-ctx",
-            "nebu-ctx hook rewrite".to_string(),
-            "nebu-ctx hook redirect".to_string(),
-        );
+        let payload = copilot_hook_payload("nebu-ctx", "nebu-ctx");
 
         let hooks = payload["hooks"].as_object().unwrap();
         assert!(hooks.contains_key("postToolUse"));
@@ -719,7 +718,12 @@ mod memory_hook_tests {
             hooks["postToolUse"][0]["bash"],
             "nebu-ctx hook post-tool-use"
         );
+        assert_eq!(
+            hooks["postToolUse"][0]["powershell"],
+            "nebu-ctx hook post-tool-use"
+        );
         assert_eq!(hooks["postSession"][0]["bash"], "nebu-ctx hook stop");
+        assert_eq!(hooks["postSession"][0]["powershell"], "nebu-ctx hook stop");
     }
 
     #[test]

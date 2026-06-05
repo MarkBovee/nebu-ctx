@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.1
+
+### Fixed
+
+- Add `powershell` runner key alongside `bash` in Copilot CLI hooks (`~/.github/hooks/hooks.json`). Copilot CLI picks the correct runner per OS, so hooks no longer block on Windows where `bash` is not guaranteed to be in PATH.
+- Remove stale `ctx_shell` reference from `autoApprove` list in Copilot MCP config writer and docs (`docs/TOOLS.md`, `.cursorrules`). The public surface has been exactly four tools since 0.10.0.
+
 ## 0.10.0
 
 ### Removed

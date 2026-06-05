@@ -1,6 +1,6 @@
 ## Public MCP Surface
 
-`nebu-ctx` exposes exactly 5 public MCP tools.
+`nebu-ctx` exposes exactly 4 public MCP tools.
 
 This is intentional:
 
@@ -8,14 +8,13 @@ This is intentional:
 - less tool-selection noise for agents
 - one stable mental model across local and server-backed behavior
 
-## The 5 Tools
+## The 4 Tools
 
 | Tool | Purpose |
 |:---|:---|
 | `ctx_read` | Read files, multi-file batches, symbols, outlines, and archived output |
 | `ctx_search` | Regex and semantic code search |
 | `ctx_tree` | Directory listings with file counts |
-| `ctx_shell` | Shell commands with compressed output |
 | `ctx` | Higher-level memory, context, graph, analytics, agent, and inspect workflows |
 
 ## `ctx_read`
@@ -112,23 +111,6 @@ Use `ctx_tree` to orient quickly in a project.
   "arguments": {
     "path": "client/src",
     "depth": 2
-  }
-}
-```
-
-## `ctx_shell`
-
-Use `ctx_shell` for shell commands. Output is compressed by default and begins with `[shell: ...]` so agents can see the active shell semantics. Use `shell` to force a specific executable for one call. Git inspection commands such as `git status --short` and `git diff --name-only/--stat` are preserved verbatim so commit workflows can trust the exact file list.
-
-### Example
-
-```json
-{
-  "name": "ctx_shell",
-  "arguments": {
-    "command": "cargo test --manifest-path client/Cargo.toml",
-    "cwd": "/repo",
-    "shell": "/bin/bash"
   }
 }
 ```

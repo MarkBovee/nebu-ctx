@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.1
+
+- Fix Copilot CLI hooks to include a `powershell` runner key alongside `bash` so hooks work on Windows without requiring bash in PATH. Also removes the stale `ctx_shell` entry from the MCP config `autoApprove` list.
+
 ## 0.10.0
 
 - Bundle the client/server release that drops `ctx_shell` from the public MCP surface. The add-on now exposes exactly four public tools (`ctx_read`, `ctx_search`, `ctx_tree`, `ctx`); shell execution continues to flow through the native `Shell` / `Bash` path with the nebu-ctx shell hook compressing output.
