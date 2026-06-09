@@ -446,7 +446,7 @@ pub fn run_setup_with_options(opts: SetupOptions) -> Result<SetupReport, String>
                     name: "Copilot hooks".to_string(),
                     status: "updated".to_string(),
                     path: Some("~/.github/hooks/hooks.json".to_string()),
-                    note: Some("preToolUse + postToolUse + postSession hooks".to_string()),
+                    note: Some("PreToolUse + PostToolUse + PostSession hooks".to_string()),
                 });
             }
             _ => {}

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.3
+
+- Bundle the client release that rewrites Copilot hook installs to the working `PreToolUse` / `PostToolUse` / `PostSession` hooks.json schema and preserves unrelated custom hook events during refresh.
+
 ## 0.10.2
 
 - Bundle the client/server release that fixes duplicate-basename `ctx_read` labels by showing project-relative paths and adds execution-tier cost summaries so cheap-first routing savings are visible in reports.

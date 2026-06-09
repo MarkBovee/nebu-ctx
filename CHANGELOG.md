@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.3
+
+### Fixed
+
+- Rewrite Copilot hooks (`~/.github/hooks/hooks.json`, project `.github/hooks/hooks.json`) to the working `PreToolUse` / `PostToolUse` / `PostSession` schema with `command`, `windows`, `linux`, and `osx` keys so installs match the known-good hook example instead of the stale lowercase `bash` / `powershell` format.
+- Preserve unrelated custom Copilot hook events when nebu-ctx refreshes its own hook entries instead of replacing the entire `hooks` object.
+
 ## 0.10.2
 
 ### Changed

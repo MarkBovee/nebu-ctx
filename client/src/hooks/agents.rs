@@ -467,8 +467,7 @@ pub(super) fn install_copilot_hook(global: bool) {
 }
 
 fn install_copilot_pretooluse_hook(global: bool) {
-    // Use bash-compatible path for the "bash" key and the host-native path for "powershell".
-    // Copilot CLI selects the correct runner automatically based on the current OS.
+    // Use platform-specific command fields that match the working Copilot hooks schema.
     let bash_binary = resolve_binary_path_for_bash();
     let ps_binary = resolve_binary_path();
 
@@ -485,15 +484,7 @@ fn install_copilot_pretooluse_hook(global: bool) {
         dir.join("hooks.json")
     };
 
-    let needs_write = if hook_path.exists() {
-        let content = std::fs::read_to_string(&hook_path).unwrap_or_default();
-        !content.contains("hook rewrite")
-            || content.contains("\"PreToolUse\"")
-            || !content.contains("hook stop")
-            || !content.contains("hook post-tool-use")
-    } else {
-        true
-    };
+    let needs_write = hook_config_needs_update(&hook_path);
 
     if !needs_write {
         return;
@@ -504,8 +495,15 @@ fn install_copilot_pretooluse_hook(global: bool) {
             &std::fs::read_to_string(&hook_path).unwrap_or_default(),
         ) {
             if let Some(obj) = existing.as_object_mut() {
-                obj.insert("version".to_string(), serde_json::json!(1));
-                obj.insert("hooks".to_string(), hook_config["hooks"].clone());
+                obj.remove("version");
+                let hooks = obj
+                    .entry("hooks".to_string())
+                    .or_insert_with(|| serde_json::json!({}));
+                if let Some(hooks_obj) = hooks.as_object_mut() {
+                    merge_copilot_hooks(hooks_obj, &hook_config["hooks"]);
+                } else {
+                    obj.insert("hooks".to_string(), hook_config["hooks"].clone());
+                }
                 write_file(
                     &hook_path,
                     &serde_json::to_string_pretty(&existing).unwrap(),
@@ -527,40 +525,81 @@ fn install_copilot_pretooluse_hook(global: bool) {
     }
 }
 
+// Detect when the installed Copilot hooks.json is missing the current nebu-ctx entries.
+fn hook_config_needs_update(hook_path: &std::path::Path) -> bool {
+    let content = std::fs::read_to_string(hook_path).unwrap_or_default();
+    if content.is_empty() {
+        return true;
+    }
+
+    if !content.contains("hook rewrite")
+        || !content.contains("hook stop")
+        || !content.contains("hook post-tool-use")
+    {
+        return true;
+    }
+
+    content.contains("\"preToolUse\"")
+        || content.contains("\"postToolUse\"")
+        || content.contains("\"postSession\"")
+        || content.contains("\"bash\"")
+        || content.contains("\"powershell\"")
+        || content.contains("\"timeoutSec\"")
+        || content.contains("\"version\"")
+}
+
+// Replace only the nebu-ctx-owned Copilot hook events and preserve unrelated custom hooks.
+fn merge_copilot_hooks(
+    hooks_obj: &mut serde_json::Map<String, serde_json::Value>,
+    desired_hooks: &serde_json::Value,
+) {
+    for legacy_event_name in ["preToolUse", "postToolUse", "postSession"] {
+        hooks_obj.remove(legacy_event_name);
+    }
+
+    if let Some(desired_obj) = desired_hooks.as_object() {
+        for (event_name, event_value) in desired_obj {
+            hooks_obj.insert(event_name.clone(), event_value.clone());
+        }
+    }
+}
+
+// Build the Copilot hooks.json payload using the schema that Copilot currently accepts.
 fn copilot_hook_payload(bash_binary: &str, ps_binary: &str) -> serde_json::Value {
-    // Each entry carries both "bash" (Linux/macOS) and "powershell" (Windows) keys.
-    // Copilot CLI picks the one that matches the current OS.
     serde_json::json!({
-        "version": 1,
         "hooks": {
-            "preToolUse": [
+            "PreToolUse": [
                 {
                     "type": "command",
-                    "bash": format!("{bash_binary} hook rewrite"),
-                    "powershell": format!("{ps_binary} hook rewrite"),
-                    "timeoutSec": 15
+                    "command": format!("{bash_binary} hook rewrite"),
+                    "windows": format!("{ps_binary} hook rewrite"),
+                    "linux": format!("{bash_binary} hook rewrite"),
+                    "osx": format!("{bash_binary} hook rewrite")
                 },
                 {
                     "type": "command",
-                    "bash": format!("{bash_binary} hook redirect"),
-                    "powershell": format!("{ps_binary} hook redirect"),
-                    "timeoutSec": 5
+                    "command": format!("{bash_binary} hook redirect"),
+                    "windows": format!("{ps_binary} hook redirect"),
+                    "linux": format!("{bash_binary} hook redirect"),
+                    "osx": format!("{bash_binary} hook redirect")
                 }
             ],
-            "postToolUse": [
+            "PostToolUse": [
                 {
                     "type": "command",
-                    "bash": format!("{bash_binary} hook post-tool-use"),
-                    "powershell": format!("{ps_binary} hook post-tool-use"),
-                    "timeoutSec": 10
+                    "command": format!("{bash_binary} hook post-tool-use"),
+                    "windows": format!("{ps_binary} hook post-tool-use"),
+                    "linux": format!("{bash_binary} hook post-tool-use"),
+                    "osx": format!("{bash_binary} hook post-tool-use")
                 }
             ],
-            "postSession": [
+            "PostSession": [
                 {
                     "type": "command",
-                    "bash": format!("{bash_binary} hook stop"),
-                    "powershell": format!("{ps_binary} hook stop"),
-                    "timeoutSec": 30
+                    "command": format!("{bash_binary} hook stop"),
+                    "windows": format!("{ps_binary} hook stop"),
+                    "linux": format!("{bash_binary} hook stop"),
+                    "osx": format!("{bash_binary} hook stop")
                 }
             ]
         }
@@ -690,7 +729,10 @@ pub(super) fn install_opencode_hook() {
 
 #[cfg(test)]
 mod memory_hook_tests {
-    use super::{claude_hook_payload, copilot_hook_payload, write_vscode_mcp_file};
+    use super::{
+        claude_hook_payload, copilot_hook_payload, hook_config_needs_update, merge_copilot_hooks,
+        write_vscode_mcp_file,
+    };
 
     #[test]
     fn claude_hook_payload_contains_memory_lifecycle_hooks() {
@@ -712,18 +754,107 @@ mod memory_hook_tests {
         let payload = copilot_hook_payload("nebu-ctx", "nebu-ctx");
 
         let hooks = payload["hooks"].as_object().unwrap();
-        assert!(hooks.contains_key("postToolUse"));
-        assert!(hooks.contains_key("postSession"));
+        assert!(hooks.contains_key("PostToolUse"));
+        assert!(hooks.contains_key("PostSession"));
         assert_eq!(
-            hooks["postToolUse"][0]["bash"],
+            hooks["PostToolUse"][0]["command"],
             "nebu-ctx hook post-tool-use"
         );
         assert_eq!(
-            hooks["postToolUse"][0]["powershell"],
+            hooks["PostToolUse"][0]["windows"],
             "nebu-ctx hook post-tool-use"
         );
-        assert_eq!(hooks["postSession"][0]["bash"], "nebu-ctx hook stop");
-        assert_eq!(hooks["postSession"][0]["powershell"], "nebu-ctx hook stop");
+        assert_eq!(hooks["PostSession"][0]["command"], "nebu-ctx hook stop");
+        assert_eq!(hooks["PostSession"][0]["windows"], "nebu-ctx hook stop");
+    }
+
+    #[test]
+    fn hook_config_needs_update_flags_legacy_copilot_schema() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("hooks.json");
+        std::fs::write(
+            &path,
+            r#"{
+    "version": 1,
+    "hooks": {
+        "preToolUse": [{
+            "type": "command",
+            "bash": "nebu-ctx hook rewrite",
+            "powershell": "nebu-ctx hook rewrite",
+            "timeoutSec": 15
+        }],
+        "postToolUse": [{
+            "type": "command",
+            "bash": "nebu-ctx hook post-tool-use",
+            "powershell": "nebu-ctx hook post-tool-use",
+            "timeoutSec": 10
+        }],
+        "postSession": [{
+            "type": "command",
+            "bash": "nebu-ctx hook stop",
+            "powershell": "nebu-ctx hook stop",
+            "timeoutSec": 30
+        }]
+    }
+}"#,
+        )
+        .unwrap();
+
+        assert!(hook_config_needs_update(&path));
+    }
+
+    #[test]
+    fn merge_copilot_hooks_preserves_custom_events() {
+        let mut hooks = serde_json::json!({
+                "CustomEvent": [{
+                        "type": "command",
+                        "command": "echo custom"
+                }]
+        })
+        .as_object()
+        .unwrap()
+        .clone();
+
+        let desired = copilot_hook_payload("nebu-ctx", "nebu-ctx");
+        merge_copilot_hooks(&mut hooks, &desired["hooks"]);
+
+        assert!(hooks.contains_key("CustomEvent"));
+        assert!(hooks.contains_key("PreToolUse"));
+        assert_eq!(hooks["CustomEvent"][0]["command"], "echo custom");
+    }
+
+    #[test]
+    fn merge_copilot_hooks_replaces_legacy_schema_entries() {
+        let mut hooks = serde_json::json!({
+            "preToolUse": [{
+                "type": "command",
+                "bash": "nebu-ctx hook rewrite"
+            }],
+            "postToolUse": [{
+                "type": "command",
+                "bash": "nebu-ctx hook post-tool-use"
+            }],
+            "postSession": [{
+                "type": "command",
+                "bash": "nebu-ctx hook stop"
+            }],
+            "CustomEvent": [{
+                "type": "command",
+                "command": "echo custom"
+            }]
+        })
+        .as_object()
+        .unwrap()
+        .clone();
+
+        let desired = copilot_hook_payload("nebu-ctx", "nebu-ctx");
+        merge_copilot_hooks(&mut hooks, &desired["hooks"]);
+
+        assert!(!hooks.contains_key("preToolUse"));
+        assert!(!hooks.contains_key("postToolUse"));
+        assert!(!hooks.contains_key("postSession"));
+        assert!(hooks.contains_key("PreToolUse"));
+        assert!(hooks.contains_key("CustomEvent"));
     }
 
     #[test]
