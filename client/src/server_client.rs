@@ -447,8 +447,8 @@ pub fn sync_session_memory_to_server(project_root: &str, source_type: &str) {
         }
     }
 
-    if let Some(events) = recent_events
-        .or_else(|| crate::core::brain_memory::load_events(project_root).ok())
+    if let Some(events) =
+        recent_events.or_else(|| crate::core::brain_memory::load_events(project_root).ok())
     {
         let candidates = crate::core::brain_memory::derive_durable_memory_candidates(
             project_root,
@@ -942,7 +942,9 @@ mod tests {
             })
             .collect();
         assert!(!brain_entries.is_empty());
-        assert!(brain_entries.iter().all(|entry| entry.payload["arguments"]["kind"] != "session_event"));
+        assert!(brain_entries
+            .iter()
+            .all(|entry| entry.payload["arguments"]["kind"] != "session_event"));
     }
 
     #[test]

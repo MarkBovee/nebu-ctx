@@ -64,7 +64,10 @@ pub fn estimate_cost(model_key: Option<&str>, input: u64, output: u64, cached: u
 fn classify_execution_tier(agent_type: &str, model_key: Option<&str>) -> &'static str {
     let normalized = model_key.unwrap_or(agent_type).trim().to_lowercase();
 
-    if normalized.contains("nano") || normalized.contains("mini") || normalized.contains("flash-lite") {
+    if normalized.contains("nano")
+        || normalized.contains("mini")
+        || normalized.contains("flash-lite")
+    {
         return "light";
     }
 
@@ -76,7 +79,10 @@ fn classify_execution_tier(agent_type: &str, model_key: Option<&str>) -> &'stati
         return "deep";
     }
 
-    if normalized.contains("high") || normalized.contains("sonnet") || normalized.contains("gpt-5.4") {
+    if normalized.contains("high")
+        || normalized.contains("sonnet")
+        || normalized.contains("gpt-5.4")
+    {
         return "heavy";
     }
 
@@ -88,7 +94,8 @@ fn summarize_execution_tiers(store: &CostStore) -> Vec<(String, u64, u64, u64, f
     let mut summary: HashMap<String, (u64, u64, u64, f64)> = HashMap::new();
 
     for agent in store.agents.values() {
-        let tier = classify_execution_tier(&agent.agent_type, agent.model_key.as_deref()).to_string();
+        let tier =
+            classify_execution_tier(&agent.agent_type, agent.model_key.as_deref()).to_string();
         let entry = summary.entry(tier).or_insert((0, 0, 0, 0.0));
         entry.0 += agent.total_calls;
         entry.1 += agent.total_input_tokens;

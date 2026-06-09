@@ -78,7 +78,8 @@ Run: nebu-ctx connect --endpoint <url> --token <token>"
     })?;
     let client = ServerClient::new(connection);
 
-    let memory_type = option_value(args, &["--type", "-t"]).unwrap_or_else(|| "knowledge".to_string());
+    let memory_type =
+        option_value(args, &["--type", "-t"]).unwrap_or_else(|| "knowledge".to_string());
     let tool_name = match memory_type.as_str() {
         "brain" => "ctx_brain",
         "knowledge" => "ctx_knowledge",
@@ -164,14 +165,8 @@ fn print_memory_list_human(result: &Value) {
     for (i, m) in memories.iter().enumerate() {
         let key = m.get("key").and_then(|v| v.as_str()).unwrap_or("?");
         let category = m.get("category").and_then(|v| v.as_str()).unwrap_or("-");
-        let value = m
-            .get("value")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let confidence = m
-            .get("confidence")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0);
+        let value = m.get("value").and_then(|v| v.as_str()).unwrap_or("");
+        let confidence = m.get("confidence").and_then(|v| v.as_f64()).unwrap_or(0.0);
         let status = m
             .get("lifecycle_status")
             .and_then(|v| v.as_str())
@@ -201,7 +196,8 @@ fn run_memory_lifecycle(args: &[String]) -> Result<()> {
     })?;
     let client = ServerClient::new(connection);
 
-    let memory_type = option_value(args, &["--type", "-t"]).unwrap_or_else(|| "knowledge".to_string());
+    let memory_type =
+        option_value(args, &["--type", "-t"]).unwrap_or_else(|| "knowledge".to_string());
     let tool_name = match memory_type.as_str() {
         "brain" => "ctx_brain",
         "knowledge" => "ctx_knowledge",
@@ -260,7 +256,8 @@ Run: nebu-ctx connect --endpoint <url> --token <token>"
     })?;
     let client = ServerClient::new(connection);
 
-    let memory_type = option_value(args, &["--type", "-t"]).unwrap_or_else(|| "knowledge".to_string());
+    let memory_type =
+        option_value(args, &["--type", "-t"]).unwrap_or_else(|| "knowledge".to_string());
     let tool_name = match memory_type.as_str() {
         "brain" => "ctx_brain",
         "knowledge" => "ctx_knowledge",
@@ -325,12 +322,10 @@ Run: nebu-ctx connect --endpoint <url> --token <token>"
         "schema_version": "1",
     });
 
-    let serialized =
-        serde_json::to_string_pretty(&export).context("serializing export")?;
+    let serialized = serde_json::to_string_pretty(&export).context("serializing export")?;
 
     if let Some(path) = option_value(args, &["--output", "-o"]) {
-        std::fs::write(&path, &serialized)
-            .with_context(|| format!("writing export to {path}"))?;
+        std::fs::write(&path, &serialized).with_context(|| format!("writing export to {path}"))?;
         println!("Wrote {count} memories to {path}");
     } else {
         println!("{serialized}");
@@ -343,8 +338,8 @@ fn run_memory_import(args: &[String]) -> Result<()> {
         anyhow::bail!("missing import file path.\nUsage: nebu-ctx memory import <file> [--type brain|knowledge] [--overwrite]");
     }
     let path = &args[0];
-    let raw = std::fs::read_to_string(path)
-        .with_context(|| format!("reading import file {path}"))?;
+    let raw =
+        std::fs::read_to_string(path).with_context(|| format!("reading import file {path}"))?;
     let payload: Value = serde_json::from_str(&raw)
         .with_context(|| format!("parsing import file {path} as JSON"))?;
 
@@ -365,7 +360,8 @@ Run: nebu-ctx connect --endpoint <url> --token <token>"
     })?;
     let client = ServerClient::new(connection);
 
-    let memory_type = option_value(args, &["--type", "-t"]).unwrap_or_else(|| "knowledge".to_string());
+    let memory_type =
+        option_value(args, &["--type", "-t"]).unwrap_or_else(|| "knowledge".to_string());
     let tool_name = match memory_type.as_str() {
         "brain" => "ctx_brain",
         "knowledge" => "ctx_knowledge",

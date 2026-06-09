@@ -297,7 +297,10 @@ mod tests {
         for text in rendered {
             assert!(text.contains("multi_tool_use.parallel"));
             assert!(text.contains("mcp_nebuctx"));
-            assert!(text.contains("target=files") || text.contains("ctx_read(target=\"files\", paths=[...])"));
+            assert!(
+                text.contains("target=files")
+                    || text.contains("ctx_read(target=\"files\", paths=[...])")
+            );
         }
     }
 

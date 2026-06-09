@@ -620,7 +620,9 @@ fn build_session_snapshot_xml(project_root: &str, source: &str) -> String {
 
     // P5: Contextual suggestions take priority over the static wake-up briefing.
     if !surfacing_suggestions.is_empty() {
-        parts.push(crate::core::contextual_surface::render_suggestions_block(&surfacing_suggestions));
+        parts.push(crate::core::contextual_surface::render_suggestions_block(
+            &surfacing_suggestions,
+        ));
     } else if let Some(hosted) = fetch_hosted_wakeup_briefing(project_root) {
         parts.push(format!(
             "<knowledge>\n{}\n</knowledge>",
@@ -714,8 +716,10 @@ fn build_tool_context(tool_name: &str, command: Option<&str>, response: Option<&
     if let Some(resp) = response {
         let trimmed = resp.trim();
         if !trimmed.is_empty() {
-            parts.push(crate::core::sanitize::telemetry_command_preview(trimmed)
-                .unwrap_or_else(|| trimmed.chars().take(200).collect()));
+            parts.push(
+                crate::core::sanitize::telemetry_command_preview(trimmed)
+                    .unwrap_or_else(|| trimmed.chars().take(200).collect()),
+            );
         }
     }
     parts.join("\n")
@@ -735,7 +739,9 @@ fn emit_contextual_suggestions(project_root: &str, query: &str) {
     }
     let suggester = crate::core::contextual_surface::ContextualSuggester::from_env();
     let suggestions = suggester.suggest(query, &knowledge);
-    if let Some(json) = crate::core::contextual_surface::render_additional_context_json(&suggestions) {
+    if let Some(json) =
+        crate::core::contextual_surface::render_additional_context_json(&suggestions)
+    {
         println!("{json}");
     }
 }
@@ -823,7 +829,10 @@ pub fn handle_post_tool_use() {
         command_preview,
     });
 
-    emit_contextual_suggestions(&project_root, &build_tool_context(&tool_name, command.as_deref(), tool_response.as_deref()));
+    emit_contextual_suggestions(
+        &project_root,
+        &build_tool_context(&tool_name, command.as_deref(), tool_response.as_deref()),
+    );
 }
 
 /// Tool activity hook: records tool activity into the local journal without

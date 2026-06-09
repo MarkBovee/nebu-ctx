@@ -140,9 +140,18 @@ impl ContextualSuggester {
             return cached;
         }
 
-        let ranked = rank_facts(query, knowledge, self.config.threshold, self.config.max_suggestions);
+        let ranked = rank_facts(
+            query,
+            knowledge,
+            self.config.threshold,
+            self.config.max_suggestions,
+        );
         if let Ok(mut guard) = self.cache.lock() {
-            *guard = Some((cache_key, Instant::now() + self.config.cooldown, ranked.clone()));
+            *guard = Some((
+                cache_key,
+                Instant::now() + self.config.cooldown,
+                ranked.clone(),
+            ));
         }
         ranked
     }
@@ -215,7 +224,12 @@ fn tokenize(input: &str) -> HashSet<String> {
         .collect()
 }
 
-fn score_fact(fact: &KnowledgeFact, query_tokens: &HashSet<String>, query: &str, now: chrono::DateTime<Utc>) -> f32 {
+fn score_fact(
+    fact: &KnowledgeFact,
+    query_tokens: &HashSet<String>,
+    query: &str,
+    now: chrono::DateTime<Utc>,
+) -> f32 {
     let fact_text = format!("{} {} {}", fact.category, fact.key, fact.value).to_ascii_lowercase();
     let fact_tokens: HashSet<String> = fact_text
         .split(|ch: char| !ch.is_alphanumeric())
@@ -235,8 +249,8 @@ fn score_fact(fact: &KnowledgeFact, query_tokens: &HashSet<String>, query: &str,
         .iter()
         .filter(|token| fact_text.contains(token.as_str()))
         .count();
-    let phrase_hit = (!query.trim().is_empty()
-        && fact_text.contains(&query.to_ascii_lowercase())) as u8 as f32;
+    let phrase_hit =
+        (!query.trim().is_empty() && fact_text.contains(&query.to_ascii_lowercase())) as u8 as f32;
 
     if exact_hits == 0 && partial_hits == 0 && phrase_hit == 0.0 {
         return 0.0;
@@ -251,7 +265,11 @@ fn score_fact(fact: &KnowledgeFact, query_tokens: &HashSet<String>, query: &str,
     // Temporal boost: facts touched in the last 14 days get a small lift.
     let last_activity = fact.last_retrieved.unwrap_or(fact.last_confirmed);
     let age_days = (now - last_activity).num_days().max(0) as f32;
-    let recency_boost = if age_days <= 14.0 { 0.10 * (1.0 - age_days / 14.0) } else { 0.0 };
+    let recency_boost = if age_days <= 14.0 {
+        0.10 * (1.0 - age_days / 14.0)
+    } else {
+        0.0
+    };
     score += recency_boost;
     score.clamp(0.0, 1.0)
 }
@@ -309,7 +327,10 @@ pub fn render_suggestions_block(suggestions: &[ContextualSuggestion]) -> String 
         ));
     }
     let body = lines.join("\n");
-    let block = format!("<context_suggestions reason=\"{}\">\n{}\n</context_suggestions>", "hook_surfacing", body);
+    let block = format!(
+        "<context_suggestions reason=\"{}\">\n{}\n</context_suggestions>",
+        "hook_surfacing", body
+    );
     if block.len() <= MAX_CONTEXT_BYTES {
         return block;
     }
@@ -429,7 +450,10 @@ mod tests {
         let now = Utc::now();
         let mut expired = fact("build", "old-build", "legacy make build", 0.95);
         expired.valid_until = Some(now - chrono::Duration::days(1));
-        let knowledge = knowledge_with(vec![expired, fact("build", "pnpm-test", "pnpm test runner", 0.95)]);
+        let knowledge = knowledge_with(vec![
+            expired,
+            fact("build", "pnpm-test", "pnpm test runner", 0.95),
+        ]);
         let result = suggester.suggest("how do I run pnpm tests", &knowledge);
         assert!(result.iter().all(|s| s.key != "old-build"));
     }
