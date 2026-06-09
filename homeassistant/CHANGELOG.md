@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.2
+
+- Bundle the client/server release that fixes duplicate-basename `ctx_read` labels by showing project-relative paths and adds execution-tier cost summaries so cheap-first routing savings are visible in reports.
+
 ## 0.10.1
 
 - Fix Copilot CLI hooks to include a `powershell` runner key alongside `bash` so hooks work on Windows without requiring bash in PATH. Also removes the stale `ctx_shell` entry from the MCP config `autoApprove` list.

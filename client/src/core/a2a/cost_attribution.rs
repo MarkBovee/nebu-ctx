@@ -60,6 +60,56 @@ pub fn estimate_cost(model_key: Option<&str>, input: u64, output: u64, cached: u
     quote.cost.estimate_usd(input, output, 0, cached)
 }
 
+/// Classify one agent or model into the execution tier used by cheap-first routing.
+fn classify_execution_tier(agent_type: &str, model_key: Option<&str>) -> &'static str {
+    let normalized = model_key.unwrap_or(agent_type).trim().to_lowercase();
+
+    if normalized.contains("nano") || normalized.contains("mini") || normalized.contains("flash-lite") {
+        return "light";
+    }
+
+    if normalized.contains("xhigh")
+        || normalized.contains("opus")
+        || normalized.contains("pro")
+        || normalized.contains("architect")
+    {
+        return "deep";
+    }
+
+    if normalized.contains("high") || normalized.contains("sonnet") || normalized.contains("gpt-5.4") {
+        return "heavy";
+    }
+
+    "standard"
+}
+
+/// Aggregate cost data by execution tier so routing savings stay visible in reports.
+fn summarize_execution_tiers(store: &CostStore) -> Vec<(String, u64, u64, u64, f64)> {
+    let mut summary: HashMap<String, (u64, u64, u64, f64)> = HashMap::new();
+
+    for agent in store.agents.values() {
+        let tier = classify_execution_tier(&agent.agent_type, agent.model_key.as_deref()).to_string();
+        let entry = summary.entry(tier).or_insert((0, 0, 0, 0.0));
+        entry.0 += agent.total_calls;
+        entry.1 += agent.total_input_tokens;
+        entry.2 += agent.total_output_tokens;
+        entry.3 += agent.cost_usd;
+    }
+
+    let mut rows: Vec<_> = summary
+        .into_iter()
+        .map(|(tier, (calls, input, output, cost))| (tier, calls, input, output, cost))
+        .collect();
+    rows.sort_by(|left, right| {
+        right
+            .4
+            .partial_cmp(&left.4)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| left.0.cmp(&right.0))
+    });
+    rows
+}
+
 static COST_BUFFER: Mutex<Option<CostStore>> = Mutex::new(None);
 
 impl CostStore {
@@ -262,6 +312,17 @@ pub fn format_cost_report(store: &CostStore, limit: usize) -> String {
     }
     lines.push(String::new());
 
+    let execution_tiers = summarize_execution_tiers(store);
+    if !execution_tiers.is_empty() {
+        lines.push("Execution Tiers by Cost:".to_string());
+        for (tier, calls, input, output, cost) in execution_tiers {
+            lines.push(format!(
+                "  - {tier}: {calls} calls, {input} in + {output} out tok, ${cost:.4}"
+            ));
+        }
+        lines.push(String::new());
+    }
+
     let top_agents = store.top_agents(limit);
     if !top_agents.is_empty() {
         lines.push("Top Agents by Cost:".to_string());
@@ -336,13 +397,16 @@ mod tests {
     #[test]
     fn format_report() {
         let mut store = CostStore::default();
-        store.record_tool_call("agent-a", "mcp", "ctx_read", 10000, 500);
-        store.record_tool_call("agent-b", "cursor", "ctx_search", 2000, 100);
+        store.record_tool_call("agent-a", "gpt-5.4-mini", "ctx_read", 10000, 500);
+        store.record_tool_call("agent-b", "gpt-5.4", "ctx_search", 2000, 100);
 
         let report = format_cost_report(&store, 5);
         assert!(report.contains("Cost Attribution Report"));
         assert!(report.contains("agent-a"));
         assert!(report.contains("ctx_read"));
+        assert!(report.contains("Execution Tiers by Cost"));
+        assert!(report.contains("light:"));
+        assert!(report.contains("heavy:"));
     }
 
     #[test]

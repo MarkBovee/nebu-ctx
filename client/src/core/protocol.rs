@@ -67,10 +67,35 @@ pub fn detect_project_root_or_cwd(file_path: &str) -> String {
 
 pub fn shorten_path(path: &str) -> String {
     let p = Path::new(path);
-    if let Some(name) = p.file_name() {
-        return name.to_string_lossy().to_string();
+    let canonical = crate::core::pathutil::safe_canonicalize_or_self(p);
+
+    if let Some(project_root) = detect_project_root(canonical.to_string_lossy().as_ref()) {
+        let project_root_path = Path::new(&project_root);
+        if let Ok(relative) = canonical.strip_prefix(project_root_path) {
+            let relative_text = relative.to_string_lossy();
+            if !relative_text.is_empty() {
+                return relative_text.to_string();
+            }
+        }
     }
-    path.to_string()
+
+    let components: Vec<String> = canonical
+        .components()
+        .filter_map(|component| {
+            let text = component.as_os_str().to_string_lossy();
+            if text.is_empty() || text == "/" {
+                return None;
+            }
+            Some(text.to_string())
+        })
+        .collect();
+
+    if components.is_empty() {
+        return path.to_string();
+    }
+
+    let take_count = components.len().min(3);
+    components[components.len() - take_count..].join("/")
 }
 
 pub fn format_savings(original: usize, compressed: usize) -> String {
@@ -334,6 +359,29 @@ mod tests {
         assert_eq!(
             detected.as_deref(),
             Some(real_root.to_string_lossy().as_ref())
+        );
+    }
+
+    #[test]
+    fn shorten_path_returns_project_relative_path_for_duplicate_basenames() {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo_root = tmp.path().join("repo");
+        let skill_a = repo_root.join("skills").join("alpha").join("SKILL.md");
+        let skill_b = repo_root.join("skills").join("beta").join("SKILL.md");
+
+        std::fs::create_dir_all(repo_root.join(".git")).unwrap();
+        std::fs::create_dir_all(skill_a.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(skill_b.parent().unwrap()).unwrap();
+        std::fs::write(&skill_a, "---\nname: alpha\n---").unwrap();
+        std::fs::write(&skill_b, "---\nname: beta\n---").unwrap();
+
+        assert_eq!(
+            shorten_path(skill_a.to_str().unwrap()),
+            "skills/alpha/SKILL.md"
+        );
+        assert_eq!(
+            shorten_path(skill_b.to_str().unwrap()),
+            "skills/beta/SKILL.md"
         );
     }
 

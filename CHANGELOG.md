@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.2
+
+### Changed
+
+- Make `ctx_read`/`ctx_multi_read` labels stable for duplicate basenames by shortening paths relative to the detected project root instead of collapsing them to the bare file name.
+- Extend client-side cost attribution reporting with execution-tier summaries so cheap-first routing savings are visible by `light`, `standard`, `heavy`, and `deep` buckets.
+
 ## 0.10.1
 
 ### Fixed
