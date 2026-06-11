@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.4
+
+- Bundle the client/server release that imports VS Code Copilot repo memories into hosted knowledge during normal sync and resolves `.code-workspace` files with relative folder paths.
+
 ## 0.10.3
 
 - Bundle the client release that rewrites Copilot hook installs to the working `PreToolUse` / `PostToolUse` / `PostSession` hooks.json schema and preserves unrelated custom hook events during refresh.
