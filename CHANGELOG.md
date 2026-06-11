@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.4
+
+### Fixed
+
+- Import VS Code Copilot repo memories from `workspaceStorage/<id>/GitHub.copilot-chat/memory-tool/memories/repo` into hosted knowledge during the normal client memory sync flow, including removal of hosted entries when local repo-memory lines disappear.
+- Resolve `.code-workspace` files with relative `folders[].path` entries when mapping a project root to the correct Copilot repo-memory store.
+
 ## 0.10.3
 
 ### Fixed

@@ -8,9 +8,31 @@ use md5::{Digest, Md5};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const HOSTED_MEMORY_SYNC_DEBOUNCE_SECS: i64 = 30;
+const COPILOT_REPO_MEMORY_SOURCE_TYPE: &str = "copilot_repo_memory";
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+struct RepoMemoryStateEntry {
+    category: String,
+    key: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+struct RepoMemorySyncState {
+    digest: String,
+    entries: Vec<RepoMemoryStateEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RepoMemoryRecord {
+    category: String,
+    key: String,
+    value: String,
+    source_scope: String,
+}
 
 pub struct ServerClient {
     connection: ServerConnection,
@@ -434,6 +456,8 @@ pub fn sync_session_memory_to_server(project_root: &str, source_type: &str) {
         return;
     }
 
+    let repo_memory_synced = sync_copilot_repo_memories_to_server(project_root);
+
     if !should_sync_hosted_memory(project_root) {
         return;
     }
@@ -461,13 +485,97 @@ pub fn sync_session_memory_to_server(project_root: &str, source_type: &str) {
         }
     }
 
-    if synced_anything {
+    if synced_anything || repo_memory_synced {
         let _ = write_hosted_memory_sync_marker(project_root, now_unix_seconds());
         let _ = write_journal_sync_marker(
             project_root,
             latest_journal_event_millis(project_root).unwrap_or_default(),
         );
     }
+}
+
+// Import Copilot repo memory markdown files from VS Code workspaceStorage into hosted knowledge.
+fn sync_copilot_repo_memories_to_server(project_root: &str) -> bool {
+    let Some(memory_dir) = find_copilot_repo_memory_dir(project_root) else {
+        return false;
+    };
+
+    let Ok(records) = load_repo_memory_records(&memory_dir) else {
+        return false;
+    };
+
+    let previous_state = read_repo_memory_sync_state(project_root).unwrap_or_default();
+    if records.is_empty() && previous_state.entries.is_empty() {
+        return false;
+    }
+
+    let digest = hash_repo_memory_records(&records);
+    if previous_state.digest == digest {
+        return false;
+    }
+
+    let ctx = crate::git_context::discover_project_context(Path::new(project_root));
+    let current_entries: Vec<RepoMemoryStateEntry> = records
+        .iter()
+        .map(|record| RepoMemoryStateEntry {
+            category: record.category.clone(),
+            key: record.key.clone(),
+        })
+        .collect();
+
+    let removed_entries: Vec<RepoMemoryStateEntry> = previous_state
+        .entries
+        .iter()
+        .filter(|entry| !current_entries.contains(entry))
+        .cloned()
+        .collect();
+
+    if !records.is_empty() {
+        let memories: Vec<Value> = records
+            .iter()
+            .map(|record| {
+                serde_json::json!({
+                    "category": record.category,
+                    "key": record.key,
+                    "value": record.value,
+                    "confidence": 0.98,
+                    "source_type": COPILOT_REPO_MEMORY_SOURCE_TYPE,
+                    "source_scope": record.source_scope,
+                })
+            })
+            .collect();
+
+        let mut import_args = Map::new();
+        import_args.insert("action".to_string(), Value::String("import".to_string()));
+        import_args.insert(
+            "import_payload".to_string(),
+            serde_json::json!({ "memories": memories }),
+        );
+        import_args.insert("overwrite".to_string(), Value::Bool(true));
+
+        if queue_or_call_tool("ctx_knowledge", import_args, &ctx).is_err() {
+            return false;
+        }
+    }
+
+    for entry in &removed_entries {
+        let mut remove_args = Map::new();
+        remove_args.insert("action".to_string(), Value::String("remove".to_string()));
+        remove_args.insert(
+            "category".to_string(),
+            Value::String(entry.category.clone()),
+        );
+        remove_args.insert("key".to_string(), Value::String(entry.key.clone()));
+        if queue_or_call_tool("ctx_knowledge", remove_args, &ctx).is_err() {
+            return false;
+        }
+    }
+
+    let next_state = RepoMemorySyncState {
+        digest,
+        entries: current_entries,
+    };
+    write_repo_memory_sync_state(project_root, &next_state).is_ok()
 }
 
 fn load_recent_unsynced_journal_events(
@@ -492,6 +600,340 @@ fn latest_journal_event_millis(project_root: &str) -> Option<i64> {
         .ok()?
         .last()
         .map(|event| event.timestamp.timestamp_millis())
+}
+
+// Resolve the VS Code workspaceStorage repo-memory directory for the current project root.
+fn find_copilot_repo_memory_dir(project_root: &str) -> Option<PathBuf> {
+    let normalized_project_root = normalize_compare_path(project_root)?;
+
+    for user_dir in candidate_vscode_user_dirs() {
+        let workspace_storage = user_dir.join("workspaceStorage");
+        let Ok(entries) = std::fs::read_dir(&workspace_storage) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let workspace_dir = entry.path();
+            let workspace_json = workspace_dir.join("workspace.json");
+            if !workspace_json.exists() {
+                continue;
+            }
+
+            if workspace_matches_project(&workspace_json, &normalized_project_root) {
+                let memory_dir = workspace_dir
+                    .join("GitHub.copilot-chat")
+                    .join("memory-tool")
+                    .join("memories")
+                    .join("repo");
+                if memory_dir.is_dir() {
+                    return Some(memory_dir);
+                }
+            }
+        }
+    }
+
+    None
+}
+
+fn candidate_vscode_user_dirs() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+
+    if let Ok(explicit) = std::env::var("NEBU_CTX_VSCODE_USER_DATA_DIR") {
+        let trimmed = explicit.trim();
+        if !trimmed.is_empty() {
+            candidates.push(PathBuf::from(trimmed));
+        }
+    }
+
+    if let Ok(appdata) = std::env::var("APPDATA") {
+        let trimmed = appdata.trim();
+        if !trimmed.is_empty() {
+            let base = PathBuf::from(trimmed);
+            candidates.push(base.join("Code").join("User"));
+            candidates.push(base.join("Code - Insiders").join("User"));
+        }
+    }
+
+    if let Some(home) = crate::config::preferred_os_home_dir() {
+        candidates.push(
+            home.join("scoop")
+                .join("persist")
+                .join("vscode")
+                .join("data")
+                .join("user-data")
+                .join("User"),
+        );
+        candidates.push(
+            home.join("AppData")
+                .join("Roaming")
+                .join("Code")
+                .join("User"),
+        );
+        candidates.push(
+            home.join("AppData")
+                .join("Roaming")
+                .join("Code - Insiders")
+                .join("User"),
+        );
+    }
+
+    let mut unique = Vec::new();
+    for candidate in candidates {
+        if candidate.is_dir()
+            && !unique
+                .iter()
+                .any(|existing: &PathBuf| existing == &candidate)
+        {
+            unique.push(candidate);
+        }
+    }
+    unique
+}
+
+fn workspace_matches_project(workspace_json: &Path, normalized_project_root: &str) -> bool {
+    let payload = std::fs::read_to_string(workspace_json).ok();
+    let Some(raw) = payload else {
+        return false;
+    };
+
+    let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&raw) else {
+        return false;
+    };
+    if let Some(folder) = parsed.get("folder").and_then(Value::as_str) {
+        return file_uri_matches_project(folder, normalized_project_root);
+    }
+
+    if let Some(workspace_file) = parsed.get("workspace").and_then(Value::as_str) {
+        return workspace_file_matches_project(workspace_file, normalized_project_root);
+    }
+
+    false
+}
+
+fn workspace_file_matches_project(workspace_uri: &str, normalized_project_root: &str) -> bool {
+    let Some(workspace_path) = file_uri_to_path(workspace_uri) else {
+        return false;
+    };
+    let workspace_dir = workspace_path.parent().unwrap_or_else(|| Path::new("."));
+    let content = std::fs::read_to_string(&workspace_path).ok();
+    let Some(raw) = content else {
+        return false;
+    };
+    let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&raw) else {
+        return false;
+    };
+    let Some(folders) = parsed.get("folders").and_then(Value::as_array) else {
+        return false;
+    };
+    folders.iter().any(|folder| {
+        workspace_folder_matches_project(folder, workspace_dir, normalized_project_root)
+    })
+}
+
+fn workspace_folder_matches_project(
+    folder: &Value,
+    workspace_dir: &Path,
+    normalized_project_root: &str,
+) -> bool {
+    folder
+        .get("path")
+        .and_then(Value::as_str)
+        .and_then(|path| resolve_workspace_folder_path(workspace_dir, path))
+        .is_some_and(|path| path == normalized_project_root)
+        || folder
+            .get("uri")
+            .and_then(Value::as_str)
+            .is_some_and(|uri| file_uri_matches_project(uri, normalized_project_root))
+}
+
+fn resolve_workspace_folder_path(workspace_dir: &Path, folder_path: &str) -> Option<String> {
+    let candidate = PathBuf::from(folder_path);
+    let resolved = if candidate.is_absolute() {
+        candidate
+    } else {
+        workspace_dir.join(candidate)
+    };
+
+    normalize_compare_path(resolved.to_string_lossy().as_ref())
+}
+
+fn file_uri_matches_project(uri: &str, normalized_project_root: &str) -> bool {
+    file_uri_to_path(uri)
+        .and_then(|path| normalize_compare_path(path.to_string_lossy().as_ref()))
+        .is_some_and(|path| path == normalized_project_root)
+}
+
+fn file_uri_to_path(uri: &str) -> Option<PathBuf> {
+    let trimmed = uri.trim();
+    let path_part = trimmed.strip_prefix("file://")?;
+    let decoded = percent_decode(path_part).ok()?;
+    if cfg!(windows) {
+        let without_prefix = decoded.strip_prefix('/').unwrap_or(&decoded);
+        Some(PathBuf::from(without_prefix.replace('/', "\\")))
+    } else {
+        Some(PathBuf::from(decoded))
+    }
+}
+
+fn percent_decode(input: &str) -> Result<String> {
+    let mut bytes = Vec::with_capacity(input.len());
+    let input_bytes = input.as_bytes();
+    let mut index = 0;
+    while index < input_bytes.len() {
+        if input_bytes[index] == b'%' && index + 2 < input_bytes.len() {
+            let hex = std::str::from_utf8(&input_bytes[index + 1..index + 3])
+                .map_err(|error| anyhow!(error.to_string()))?;
+            let value = u8::from_str_radix(hex, 16).map_err(|error| anyhow!(error.to_string()))?;
+            bytes.push(value);
+            index += 3;
+            continue;
+        }
+        bytes.push(input_bytes[index]);
+        index += 1;
+    }
+    String::from_utf8(bytes).map_err(|error| anyhow!(error.to_string()))
+}
+
+fn normalize_compare_path(path: &str) -> Option<String> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let normalized = trimmed.replace('\\', "/").trim_end_matches('/').to_string();
+    if cfg!(windows) {
+        Some(normalized.to_lowercase())
+    } else {
+        Some(normalized)
+    }
+}
+
+fn load_repo_memory_records(memory_dir: &Path) -> Result<Vec<RepoMemoryRecord>> {
+    let mut markdown_files: Vec<PathBuf> = std::fs::read_dir(memory_dir)
+        .map_err(|error| anyhow!(error.to_string()))?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("md"))
+        })
+        .collect();
+    markdown_files.sort();
+
+    let mut records = Vec::new();
+    for file_path in markdown_files {
+        let source_scope = file_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default()
+            .to_string();
+        if source_scope.is_empty() {
+            continue;
+        }
+
+        let category = file_path
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .map(normalize_identity_token)
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| "repo-memory".to_string());
+
+        let content =
+            std::fs::read_to_string(&file_path).map_err(|error| anyhow!(error.to_string()))?;
+        for (index, line) in extract_repo_memory_lines(&content).into_iter().enumerate() {
+            records.push(RepoMemoryRecord {
+                category: category.clone(),
+                key: format!("{}-{}", category, index + 1),
+                value: line,
+                source_scope: source_scope.clone(),
+            });
+        }
+    }
+
+    Ok(records)
+}
+
+fn extract_repo_memory_lines(content: &str) -> Vec<String> {
+    content.lines().filter_map(clean_repo_memory_line).collect()
+}
+
+fn clean_repo_memory_line(line: &str) -> Option<String> {
+    let trimmed = line.trim();
+    if trimmed.is_empty()
+        || trimmed.starts_with('#')
+        || trimmed.starts_with("<!--")
+        || trimmed.starts_with("```")
+    {
+        return None;
+    }
+
+    let without_bullet = trimmed
+        .strip_prefix("- ")
+        .or_else(|| trimmed.strip_prefix("* "))
+        .or_else(|| trimmed.strip_prefix("+ "))
+        .unwrap_or(trimmed);
+    let without_number = strip_markdown_number_prefix(without_bullet).unwrap_or(without_bullet);
+    let cleaned = without_number.trim();
+    if cleaned.is_empty() {
+        None
+    } else {
+        Some(cleaned.to_string())
+    }
+}
+
+fn strip_markdown_number_prefix(line: &str) -> Option<&str> {
+    let mut digits = 0usize;
+    for ch in line.chars() {
+        if ch.is_ascii_digit() {
+            digits += 1;
+            continue;
+        }
+        break;
+    }
+
+    if digits == 0 {
+        return None;
+    }
+
+    let rest = &line[digits..];
+    rest.strip_prefix('.')
+        .map(str::trim_start)
+        .filter(|tail| !tail.is_empty())
+}
+
+fn hash_repo_memory_records(records: &[RepoMemoryRecord]) -> String {
+    let mut hasher = Md5::new();
+    for record in records {
+        hasher.update(record.category.as_bytes());
+        hasher.update(record.key.as_bytes());
+        hasher.update(record.value.as_bytes());
+        hasher.update(record.source_scope.as_bytes());
+    }
+    format!("{:x}", hasher.finalize())
+}
+
+fn repo_memory_sync_state_path(project_root: &str) -> Result<PathBuf> {
+    let project_hash = crate::core::project_hash::hash_project_root(project_root);
+    Ok(crate::core::data_dir::nebu_ctx_data_dir()
+        .map_err(anyhow::Error::msg)?
+        .join("sync")
+        .join("memory")
+        .join(format!("{project_hash}.repo_memories.json")))
+}
+
+fn read_repo_memory_sync_state(project_root: &str) -> Option<RepoMemorySyncState> {
+    let path = repo_memory_sync_state_path(project_root).ok()?;
+    let raw = std::fs::read_to_string(path).ok()?;
+    serde_json::from_str(&raw).ok()
+}
+
+fn write_repo_memory_sync_state(project_root: &str, state: &RepoMemorySyncState) -> Result<()> {
+    let path = repo_memory_sync_state_path(project_root)?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|error| anyhow!(error.to_string()))?;
+    }
+    let payload =
+        serde_json::to_string_pretty(state).map_err(|error| anyhow!(error.to_string()))?;
+    std::fs::write(path, payload).map_err(|error| anyhow!(error.to_string()))
 }
 
 fn should_sync_hosted_memory(project_root: &str) -> bool {
@@ -738,6 +1180,7 @@ pub fn replay_queued_index_sync(payload: serde_json::Value) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     fn test_project_context(root: &std::path::Path) -> ProjectContext {
         ProjectContext {
@@ -1004,5 +1447,152 @@ mod tests {
         let items = entry.payload["arguments"]["items"].as_array().unwrap();
         assert_eq!(items[0]["category"], "root_cause");
         assert_eq!(items[0]["evidence"], "derived_from=assistant");
+    }
+
+    #[test]
+    fn find_copilot_repo_memory_dir_matches_workspace_storage_folder() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let temp = tempfile::tempdir().unwrap();
+        let user_dir = temp.path().join("User");
+        let workspace_id = "workspace-123";
+        let project_root = temp.path().join("project-root");
+        let workspace_dir = user_dir.join("workspaceStorage").join(workspace_id);
+        let memory_dir = workspace_dir
+            .join("GitHub.copilot-chat")
+            .join("memory-tool")
+            .join("memories")
+            .join("repo");
+
+        fs::create_dir_all(&memory_dir).unwrap();
+        fs::create_dir_all(&project_root).unwrap();
+        fs::write(
+            workspace_dir.join("workspace.json"),
+            format!(
+                "{{\n  \"folder\": \"file:///{}\"\n}}",
+                project_root
+                    .to_string_lossy()
+                    .replace('\\', "/")
+                    .replace(':', "%3A")
+            ),
+        )
+        .unwrap();
+
+        std::env::set_var("NEBU_CTX_VSCODE_USER_DATA_DIR", &user_dir);
+        let found = find_copilot_repo_memory_dir(&project_root.to_string_lossy()).unwrap();
+        assert_eq!(found, memory_dir);
+    }
+
+    #[test]
+    fn workspace_file_matches_project_resolves_relative_folder_paths() {
+        let temp = tempfile::tempdir().unwrap();
+        let workspace_root = temp.path().join("workspace");
+        let project_root = workspace_root.join("repos").join("example-project");
+        fs::create_dir_all(&project_root).unwrap();
+
+        let workspace_file = workspace_root.join("example.code-workspace");
+        fs::create_dir_all(&workspace_root).unwrap();
+        fs::write(
+            &workspace_file,
+            r#"{
+  "folders": [
+    { "path": "repos/example-project" }
+  ]
+}"#,
+        )
+        .unwrap();
+
+        let workspace_uri = format!(
+            "file:///{}",
+            workspace_file
+                .to_string_lossy()
+                .replace('\\', "/")
+                .replace(':', "%3A")
+        );
+        let normalized_project_root =
+            normalize_compare_path(&project_root.to_string_lossy()).unwrap();
+
+        assert!(workspace_file_matches_project(
+            &workspace_uri,
+            &normalized_project_root
+        ));
+    }
+
+    #[test]
+    fn load_repo_memory_records_parses_markdown_bullets() {
+        let temp = tempfile::tempdir().unwrap();
+        let repo_dir = temp.path().join("repo");
+        fs::create_dir_all(&repo_dir).unwrap();
+        fs::write(
+            repo_dir.join("aspire-testing.md"),
+            "# Heading\n- First fact\n- Second fact\n\n<!-- note -->\n",
+        )
+        .unwrap();
+
+        let records = load_repo_memory_records(&repo_dir).unwrap();
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[0].category, "aspire-testing");
+        assert_eq!(records[0].key, "aspire-testing-1");
+        assert_eq!(records[0].value, "First fact");
+        assert_eq!(records[1].key, "aspire-testing-2");
+    }
+
+    #[test]
+    fn sync_session_memory_to_server_imports_repo_memories_when_present() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let temp = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", temp.path());
+        std::env::set_var("NEBU_CTX_HOME", temp.path().join("home"));
+
+        let user_dir = temp.path().join("User");
+        let workspace_id = "workspace-123";
+        let project_root = temp.path().join("project-root");
+        let workspace_dir = user_dir.join("workspaceStorage").join(workspace_id);
+        let memory_dir = workspace_dir
+            .join("GitHub.copilot-chat")
+            .join("memory-tool")
+            .join("memories")
+            .join("repo");
+        fs::create_dir_all(&memory_dir).unwrap();
+        fs::create_dir_all(&project_root).unwrap();
+        fs::write(
+            workspace_dir.join("workspace.json"),
+            format!(
+                "{{\n  \"folder\": \"file:///{}\"\n}}",
+                project_root
+                    .to_string_lossy()
+                    .replace('\\', "/")
+                    .replace(':', "%3A")
+            ),
+        )
+        .unwrap();
+        fs::write(
+            memory_dir.join("pim-parsing.md"),
+            "- OnePIM extKey can be null\n- Guard with ?.StartsWith\n",
+        )
+        .unwrap();
+
+        std::env::set_var("NEBU_CTX_VSCODE_USER_DATA_DIR", &user_dir);
+        sync_session_memory_to_server(&project_root.to_string_lossy(), "session_save");
+
+        let entries = crate::core::sync_outbox::load_entries().unwrap();
+        let import_entry = entries
+            .iter()
+            .find(|item| {
+                item.kind == crate::core::sync_outbox::OutboxOperationKind::ServerToolCall
+                    && item.payload["tool_name"].as_str().unwrap_or_default() == "ctx_knowledge"
+                    && item.payload["arguments"]["action"]
+                        .as_str()
+                        .unwrap_or_default()
+                        == "import"
+            })
+            .expect("repo memory import should be queued");
+
+        let memories = import_entry.payload["arguments"]["import_payload"]["memories"]
+            .as_array()
+            .expect("memories array");
+        assert_eq!(memories.len(), 2);
+        assert!(memories
+            .iter()
+            .all(|item| item["source_type"] == COPILOT_REPO_MEMORY_SOURCE_TYPE));
     }
 }
