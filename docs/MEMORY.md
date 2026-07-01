@@ -1,6 +1,6 @@
 # Memory System
 
-`nebu-ctx` gebruikt 4 memory-lagen met elk eigen doel:
+`nebu-ctx` gebruikt 5 memory-lagen met elk eigen doel:
 
 - `Session memory`: lokale, werkende state van huidige run. Snel, tijdelijk, project-scoped.
 - `Journal memory`: lokale ruwe lifecycle-events. Prompt/assistant/tool-output voor extractie en debug.
@@ -18,6 +18,7 @@ In productie leeft hosted memory in PostgreSQL. Client houdt daarnaast lokale pr
 | Journal | local `journal/<project-hash>/` | current project + recent sessions | raw user prompts, assistant outputs, tool outcomes, lifecycle markers |
 | Brain | hosted Postgres | project | derived facts, decisions, constraints, preferences, corrections |
 | Knowledge | local `knowledge/<project-hash>/knowledge.json` and hosted Postgres projection | project | public recall, wakeup briefing, lifecycle/triage |
+| Shared | hosted Postgres projection keyed by the active server token | user-wide | durable cross-machine facts, shared recall, feedback lifecycle |
 
 ## Public vs Internal Surface
 
@@ -115,6 +116,8 @@ Knowledge blijft publieke retrieval/projectielaag bovenop canonieke memory:
 - recall/search resultaten
 - dashboard memory health en triage
 - local fallback facts wanneer host niet beschikbaar is
+
+Tijdens normale sync importeert de client ook VS Code Copilot repo memories uit `workspaceStorage/<id>/GitHub.copilot-chat/memory-tool/memories/repo` naar hosted knowledge, zodat lokale repo-memories en hosted recall op elkaar aansluiten.
 
 ## Trigger And Hook Flow
 

@@ -1,8 +1,12 @@
 # Changelog
 
+## 0.10.5
+
+- Bundle the client/server release that adds shared user-wide hosted memory writes for durable knowledge and candidate facts plus public feedback aliases (`upvote`, `downvote`, `confirm`, `reject`).
+
 ## 0.10.4
 
-- Add shared user-wide hosted memory writes for durable knowledge and candidate facts, plus public feedback aliases (`upvote`, `downvote`, `confirm`, `reject`) that map onto the existing candidate lifecycle.
+- Bundle the client/server release that imports VS Code Copilot repo memories into hosted knowledge during normal sync and resolves `.code-workspace` files with relative folder paths.
 
 ## 0.10.3
 
