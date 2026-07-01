@@ -98,12 +98,16 @@ public sealed class CtxToolHandler : IToolHandler
             "promote" => await ExecutePromoteAsync(arguments, context, cancellationToken),
             "candidates" => await ExecuteCandidatesAsync(arguments, context, cancellationToken),
             "review_candidate" => await ExecuteReviewCandidateAsync(arguments, context, cancellationToken),
+            "upvote" => await ExecuteReviewCandidateAsync(WithDecision(arguments, "accept"), context, cancellationToken),
+            "confirm" => await ExecuteReviewCandidateAsync(WithDecision(arguments, "accept"), context, cancellationToken),
+            "downvote" => await ExecuteReviewCandidateAsync(WithDecision(arguments, "reject"), context, cancellationToken),
+            "reject" => await ExecuteReviewCandidateAsync(WithDecision(arguments, "reject"), context, cancellationToken),
             "upkeep" => await _knowledgeService.UpkeepAsync(context.ProjectId, cancellationToken),
             "wakeup" => await _knowledgeService.BuildWakeupAsync(context.ProjectId, cancellationToken),
             "maintain" => await ExecuteMaintainAsync(arguments, context, cancellationToken),
             "triage" => await ExecuteTriageAsync(arguments, context, cancellationToken),
             "remove" => await ExecuteRemoveAsync(arguments, context, cancellationToken),
-            _ => throw new ArgumentException("Unknown hosted memory action. Use one of: task, finding, decision, save, load, status, reset, list, cleanup, store, set, remember, recall, search, categories, timeline, consolidate, promote, candidates, review_candidate, upkeep, wakeup, maintain, triage, remove"),
+            _ => throw new ArgumentException("Unknown hosted memory action. Use one of: task, finding, decision, save, load, status, reset, list, cleanup, store, set, remember, recall, search, categories, timeline, consolidate, promote, candidates, review_candidate, upvote, downvote, confirm, reject, upkeep, wakeup, maintain, triage, remove"),
         };
     }
 
@@ -223,6 +227,18 @@ public sealed class CtxToolHandler : IToolHandler
         var promotionIdentity = GetStringArg(arguments, "promotion_identity") ?? throw new ArgumentException("'promotion_identity' is required for memory review_candidate.");
         var decision = GetStringArg(arguments, "decision") ?? throw new ArgumentException("'decision' is required for memory review_candidate.");
         return await _knowledgeService.ReviewCandidateAsync(context.ProjectId, promotionIdentity, decision, cancellationToken);
+    }
+
+    /// <summary>
+    /// Copies a review payload and injects a decision alias.
+    /// </summary>
+    private static Dictionary<string, object?> WithDecision(Dictionary<string, object?> arguments, string decision)
+    {
+        var cloned = new Dictionary<string, object?>(arguments)
+        {
+            ["decision"] = decision,
+        };
+        return cloned;
     }
 
     /// <summary>

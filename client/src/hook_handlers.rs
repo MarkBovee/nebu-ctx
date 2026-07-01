@@ -1,7 +1,7 @@
 use crate::compound_lexer;
 use crate::rewrite_registry;
 use serde_json::Value;
-use std::io::Read;
+use std::{collections::HashSet, io::Read};
 
 fn read_stdin_string() -> Option<String> {
     let mut input = String::new();
@@ -37,10 +37,56 @@ fn fetch_hosted_wakeup_briefing(project_root: &str) -> Option<String> {
     }
 
     let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));
+    let mut briefings = Vec::new();
+
+    if let Some(briefing) = hosted_wakeup_briefing_for_context(&ctx) {
+        briefings.push(briefing);
+    }
+
+    if let Some(shared_ctx) = crate::server_client::shared_memory_project_context(&ctx) {
+        if let Some(briefing) = hosted_wakeup_briefing_for_context(&shared_ctx) {
+            briefings.push(briefing);
+        }
+    }
+
+    combine_wakeup_briefings(briefings)
+}
+
+fn combine_wakeup_briefings(briefings: Vec<String>) -> Option<String> {
+    const EMPTY_WAKEUP: &str = "No hosted memory available for wake-up.";
+    let mut seen = HashSet::new();
+    let mut lines = Vec::new();
+
+    for briefing in briefings {
+        for line in briefing.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed == EMPTY_WAKEUP {
+                continue;
+            }
+
+            let owned = trimmed.to_string();
+            if seen.insert(owned.clone()) {
+                lines.push(owned);
+            }
+        }
+    }
+
+    if lines.is_empty() {
+        None
+    } else {
+        Some(lines.join("\n"))
+    }
+}
+
+fn hosted_wakeup_briefing_for_context(
+    project_context: &crate::models::ProjectContext,
+) -> Option<String> {
     let client = crate::server_client::ServerClient::load().ok()?;
     let mut args = serde_json::Map::new();
     args.insert("action".to_string(), serde_json::json!("wakeup"));
-    let value = client.call_tool("ctx_knowledge", args, &ctx).ok()?;
+    let value = client
+        .call_tool("ctx_knowledge", args, project_context)
+        .ok()?;
     let briefing = value.get("briefing")?.as_str()?.trim().to_string();
     if briefing.is_empty() {
         None

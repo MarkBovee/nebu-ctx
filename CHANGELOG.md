@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.4
+
+### Changed
+
+- Add shared user-wide hosted memory writes for durable knowledge and candidate facts, plus public feedback aliases (`upvote`, `downvote`, `confirm`, `reject`) that map onto the existing candidate lifecycle.
+
 ## 0.10.3
 
 ### Fixed

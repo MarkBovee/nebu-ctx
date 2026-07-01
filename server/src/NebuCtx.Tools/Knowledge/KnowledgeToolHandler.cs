@@ -11,7 +11,7 @@ using System.Text.Json;
 
 /// <summary>
 /// Tool handler for ctx_knowledge — project-scoped categorized knowledge store.
-/// Actions: remember, recall, search, status, remove, categories, timeline, consolidate, promote, candidates, review_candidate, upkeep, wakeup, triage.
+/// Actions: remember, recall, search, status, remove, categories, timeline, consolidate, promote, candidates, review_candidate, upkeep, wakeup, triage, upvote, downvote, confirm, reject.
 /// </summary>
 public sealed class KnowledgeToolHandler : IToolHandler
 {
@@ -33,7 +33,7 @@ public sealed class KnowledgeToolHandler : IToolHandler
     public string Name => "ctx_knowledge";
 
     /// <inheritdoc />
-    public string Description => "Project-scoped categorized knowledge store. Actions: remember, recall, search, list, lifecycle, status, remove, categories, timeline, consolidate, promote, candidates, review_candidate, upkeep, wakeup, triage.";
+    public string Description => "Project-scoped categorized knowledge store. Actions: remember, recall, search, list, lifecycle, status, remove, categories, timeline, consolidate, promote, candidates, review_candidate, upvote, downvote, confirm, reject, upkeep, wakeup, triage.";
 
     /// <inheritdoc />
     public Dictionary<string, object?> InputSchema => new()
@@ -44,8 +44,8 @@ public sealed class KnowledgeToolHandler : IToolHandler
             ["action"] = new Dictionary<string, object?>
             {
                 ["type"] = "string",
-                ["description"] = "Action: remember, recall, search, list, lifecycle, status, remove, categories, timeline, consolidate, promote, candidates, review_candidate, upkeep, wakeup, triage, import",
-                ["enum"] = new[] { "remember", "recall", "search", "list", "lifecycle", "status", "remove", "categories", "timeline", "consolidate", "promote", "candidates", "review_candidate", "upkeep", "wakeup", "triage", "import" },
+                ["description"] = "Action: remember, recall, search, list, lifecycle, status, remove, categories, timeline, consolidate, promote, candidates, review_candidate, upvote, downvote, confirm, reject, upkeep, wakeup, triage, import",
+                ["enum"] = new[] { "remember", "recall", "search", "list", "lifecycle", "status", "remove", "categories", "timeline", "consolidate", "promote", "candidates", "review_candidate", "upvote", "downvote", "confirm", "reject", "upkeep", "wakeup", "triage", "import" },
             },
             ["mode"] = new Dictionary<string, object?>
             {
@@ -204,11 +204,15 @@ public sealed class KnowledgeToolHandler : IToolHandler
             "promote"     => await ExecutePromoteAsync(arguments, context, cancellationToken),
             "candidates"  => await ExecuteCandidatesAsync(arguments, context, cancellationToken),
             "review_candidate" => await ExecuteReviewCandidateAsync(arguments, context, cancellationToken),
+            "upvote" => await ExecuteReviewCandidateAsync(WithDecision(arguments, "accept"), context, cancellationToken),
+            "confirm" => await ExecuteReviewCandidateAsync(WithDecision(arguments, "accept"), context, cancellationToken),
+            "downvote" => await ExecuteReviewCandidateAsync(WithDecision(arguments, "reject"), context, cancellationToken),
+            "reject" => await ExecuteReviewCandidateAsync(WithDecision(arguments, "reject"), context, cancellationToken),
             "upkeep"      => await _knowledgeService.UpkeepAsync(context.ProjectId, cancellationToken),
             "wakeup"      => await _knowledgeService.BuildWakeupAsync(context.ProjectId, cancellationToken),
             "triage"      => await ExecuteTriageAsync(arguments, context, cancellationToken),
             "import"      => await ExecuteImportAsync(arguments, context, cancellationToken),
-            _             => throw new ArgumentException($"Unknown knowledge action: '{action}'. Use: remember, recall, search, list, lifecycle, status, remove, categories, timeline, consolidate, promote, candidates, review_candidate, upkeep, wakeup, triage, import"),
+            _             => throw new ArgumentException($"Unknown knowledge action: '{action}'. Use: remember, recall, search, list, lifecycle, status, remove, categories, timeline, consolidate, promote, candidates, review_candidate, upvote, downvote, confirm, reject, upkeep, wakeup, triage, import"),
         };
     }
 
@@ -358,6 +362,18 @@ public sealed class KnowledgeToolHandler : IToolHandler
         var promotionIdentity = GetStringArg(arguments, "promotion_identity") ?? throw new ArgumentException("'promotion_identity' is required for review_candidate.");
         var decision = GetStringArg(arguments, "decision") ?? throw new ArgumentException("'decision' is required for review_candidate.");
         return await _knowledgeService.ReviewCandidateAsync(context.ProjectId, promotionIdentity, decision, cancellationToken);
+    }
+
+    /// <summary>
+    /// Copies a review payload and injects a decision alias.
+    /// </summary>
+    private static Dictionary<string, object?> WithDecision(Dictionary<string, object?> arguments, string decision)
+    {
+        var cloned = new Dictionary<string, object?>(arguments)
+        {
+            ["decision"] = decision,
+        };
+        return cloned;
     }
 
     /// <summary>

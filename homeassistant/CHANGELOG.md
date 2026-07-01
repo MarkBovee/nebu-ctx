@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.4
+
+- Add shared user-wide hosted memory writes for durable knowledge and candidate facts, plus public feedback aliases (`upvote`, `downvote`, `confirm`, `reject`) that map onto the existing candidate lifecycle.
+
 ## 0.10.3
 
 - Bundle the client release that rewrites Copilot hook installs to the working `PreToolUse` / `PostToolUse` / `PostSession` hooks.json schema and preserves unrelated custom hook events during refresh.

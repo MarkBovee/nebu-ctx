@@ -237,6 +237,16 @@ impl ServerHandler for NebuCtxServer {
                     "memory" => match action {
                         "task" | "finding" | "decision" | "save" | "load" | "status" | "reset" | "list" | "cleanup" => "ctx_session",
                         "recall" | "search" | "consolidate" | "promote" | "candidates" | "review_candidate" | "upkeep" | "triage" | "timeline" | "categories" | "wakeup" | "remove" => "ctx_knowledge",
+                        "upvote" | "confirm" => {
+                            args.insert("action".to_string(), serde_json::Value::String("review_candidate".to_string()));
+                            args.insert("decision".to_string(), serde_json::Value::String("accept".to_string()));
+                            "ctx_knowledge"
+                        }
+                        "downvote" | "reject" => {
+                            args.insert("action".to_string(), serde_json::Value::String("review_candidate".to_string()));
+                            args.insert("decision".to_string(), serde_json::Value::String("reject".to_string()));
+                            "ctx_knowledge"
+                        }
                         "store" | "set" | "remember" => {
                             args.insert("action".to_string(), serde_json::Value::String("remember".to_string()));
                             if !args.contains_key("category") {
@@ -245,7 +255,7 @@ impl ServerHandler for NebuCtxServer {
                             "ctx_knowledge"
                         }
                         _ => return Err(ErrorData::invalid_params(
-                            "Unknown memory action. Use one of: task, finding, decision, save, load, status, reset, list, cleanup, store, set, remember, recall, search, categories, timeline, consolidate, promote, candidates, review_candidate, upkeep, triage, wakeup, remove",
+                            "Unknown memory action. Use one of: task, finding, decision, save, load, status, reset, list, cleanup, store, set, remember, recall, search, categories, timeline, consolidate, promote, candidates, review_candidate, upvote, downvote, confirm, reject, upkeep, triage, wakeup, remove",
                             None,
                         )),
                     },
@@ -1156,17 +1166,22 @@ mod tests {
             .unwrap();
         let engine = crate::engine::ContextEngine::new();
 
-        for action in ["store", "set", "remember"] {
+        for action in [
+            "store", "set", "remember", "upvote", "downvote", "confirm", "reject",
+        ] {
+            let mut payload = serde_json::json!({
+                "domain": "memory",
+                "action": action,
+            });
+            if matches!(action, "store" | "set" | "remember") {
+                payload["key"] = serde_json::Value::String(format!("alias-{action}"));
+                payload["value"] = serde_json::Value::String("memory alias smoke".to_string());
+            } else {
+                payload["promotion_identity"] =
+                    serde_json::Value::String(format!("alias-{action}"));
+            }
             let text = rt
-                .block_on(engine.call_tool_text(
-                    "ctx",
-                    Some(serde_json::json!({
-                        "domain": "memory",
-                        "action": action,
-                        "key": format!("alias-{action}"),
-                        "value": "memory alias smoke"
-                    })),
-                ))
+                .block_on(engine.call_tool_text("ctx", Some(payload)))
                 .expect("memory write alias should return a hosted-memory message");
 
             assert!(

@@ -1,7 +1,7 @@
 use crate::config;
 use crate::models::{
-    ProjectContext, ProjectResolutionRequest, ProjectResolutionResponse, ServerConnection,
-    TelemetryIngestRequest, ToolCallRequest, ToolCallResponse, ToolListResponse,
+    ProjectContext, ProjectResolutionRequest, ProjectResolutionResponse, RepositoryFingerprint,
+    ServerConnection, TelemetryIngestRequest, ToolCallRequest, ToolCallResponse, ToolListResponse,
 };
 use anyhow::{anyhow, Context, Result};
 use md5::{Digest, Md5};
@@ -249,6 +249,7 @@ pub struct IndexSyncEdge {
 pub fn post_knowledge_to_server(project_root: &str) {
     let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));
     let knowledge = crate::core::knowledge::ProjectKnowledge::load_or_create(project_root);
+    let shared_context = shared_memory_project_context(&ctx);
 
     let items: Vec<Value> = knowledge
         .facts
@@ -281,7 +282,11 @@ pub fn post_knowledge_to_server(project_root: &str) {
     let mut args = Map::new();
     args.insert("action".to_string(), Value::String("promote".to_string()));
     args.insert("items".to_string(), Value::Array(items));
-    let _ = queue_or_call_tool("ctx_knowledge", args, &ctx);
+    let _ = queue_or_call_tool("ctx_knowledge", args.clone(), &ctx);
+    if let Some(shared_context) = shared_context.as_ref() {
+        let shared_args = namespace_shared_memory_arguments(&ctx, &args);
+        let _ = queue_or_call_tool("ctx_knowledge", shared_args, shared_context);
+    }
 }
 
 pub fn post_brain_facts_to_server(
@@ -333,6 +338,7 @@ pub fn post_durable_memory_candidates_to_server(
     }
 
     let ctx = crate::git_context::discover_project_context(std::path::Path::new(project_root));
+    let shared_context = shared_memory_project_context(&ctx);
     let items = candidates
         .iter()
         .map(|candidate| {
@@ -353,7 +359,11 @@ pub fn post_durable_memory_candidates_to_server(
     let mut args = Map::new();
     args.insert("action".to_string(), Value::String("promote".to_string()));
     args.insert("items".to_string(), Value::Array(items));
-    let _ = queue_or_call_tool("ctx_knowledge", args, &ctx);
+    let _ = queue_or_call_tool("ctx_knowledge", args.clone(), &ctx);
+    if let Some(shared_context) = shared_context.as_ref() {
+        let shared_args = namespace_shared_memory_arguments(&ctx, &args);
+        let _ = queue_or_call_tool("ctx_knowledge", shared_args, shared_context);
+    }
 }
 
 pub fn post_journal_events_to_server(
@@ -427,6 +437,92 @@ pub fn post_journal_events_to_server(
 /// Silently returns if the server is not configured.
 pub fn post_session_to_brain(session: &crate::core::session::SessionState) {
     let _ = session;
+}
+
+/// Builds the synthetic project context used for shared user-wide memory.
+pub(crate) fn shared_memory_project_context(
+    project_context: &ProjectContext,
+) -> Option<ProjectContext> {
+    let client = ServerClient::load().ok()?;
+    Some(shared_memory_project_context_from_token(
+        project_context,
+        &client.connection.token,
+    ))
+}
+
+/// Applies a repo-specific namespace to shared-memory writes so repositories
+/// using the same token do not overwrite each other's shared facts.
+fn namespace_shared_memory_arguments(
+    project_context: &ProjectContext,
+    arguments: &Map<String, Value>,
+) -> Map<String, Value> {
+    let mut namespaced = arguments.clone();
+    let namespace = shared_memory_namespace(project_context);
+    if let Some(Value::Array(items)) = namespaced.get_mut("items") {
+        for item in items {
+            if let Some(object) = item.as_object_mut() {
+                namespace_shared_memory_item(object, &namespace);
+            }
+        }
+    }
+
+    namespaced
+}
+
+/// Prefixes the fields that participate in shared-memory uniqueness checks.
+fn namespace_shared_memory_item(item: &mut serde_json::Map<String, Value>, namespace: &str) {
+    for field in ["key", "logical_key", "promotion_identity", "source_scope"] {
+        if let Some(Value::String(value)) = item.get_mut(field) {
+            *value = format!("{namespace}:{value}");
+        }
+    }
+}
+
+/// Builds a stable repository namespace for shared-memory writes.
+fn shared_memory_namespace(project_context: &ProjectContext) -> String {
+    let basis = project_context
+        .fingerprint
+        .remote_url
+        .as_deref()
+        .or(project_context.fingerprint.host.as_deref())
+        .or(project_context.fingerprint.owner.as_deref())
+        .or(project_context.fingerprint.repo_name.as_deref())
+        .unwrap_or(project_context.project_slug.as_str());
+
+    let mut hasher = Md5::new();
+    hasher.update(basis.trim().as_bytes());
+    format!("repo-{:x}", hasher.finalize())
+}
+
+/// Derives a stable shared-memory project context from the active server token.
+fn shared_memory_project_context_from_token(
+    project_context: &ProjectContext,
+    token: &str,
+) -> ProjectContext {
+    let token_hash = shared_memory_namespace_hash(token);
+    let mut checkout_binding = project_context.checkout_binding.clone();
+    checkout_binding.client_label = Some("shared-memory".to_string());
+
+    ProjectContext {
+        project_slug: format!("shared-memory-{}", &token_hash[..12]),
+        project_root: project_context.project_root.clone(),
+        fingerprint: RepositoryFingerprint {
+            remote_url: Some(format!("nebu-ctx://shared/{token_hash}")),
+            host: Some("nebu-ctx".to_string()),
+            owner: Some("shared".to_string()),
+            repo_name: Some(format!("user-{token_hash}")),
+            default_branch: Some("main".to_string()),
+        },
+        checkout_binding,
+        project_metadata: None,
+    }
+}
+
+/// Hashes the server token into a deterministic shared-memory namespace id.
+fn shared_memory_namespace_hash(token: &str) -> String {
+    let mut hasher = Md5::new();
+    hasher.update(token.trim().as_bytes());
+    format!("{:x}", hasher.finalize())
 }
 
 pub fn sync_session_memory_to_server(project_root: &str, source_type: &str) {
@@ -806,6 +902,24 @@ mod tests {
             deterministic_promotion_identity(" promote ", "session-1", "decision", "memory owner");
         assert_eq!(first, second);
         assert!(first.contains("promote:session-1:decision:memory-owner:"));
+    }
+
+    #[test]
+    fn shared_memory_project_context_is_stable_for_same_token() {
+        let base = test_project_context(std::path::Path::new("/tmp/project"));
+
+        let first = shared_memory_project_context_from_token(&base, "token-1");
+        let second = shared_memory_project_context_from_token(&base, "token-1");
+        let third = shared_memory_project_context_from_token(&base, "token-2");
+
+        assert_eq!(first.project_slug, second.project_slug);
+        assert_eq!(first.fingerprint.repo_name, second.fingerprint.repo_name);
+        assert_ne!(first.project_slug, third.project_slug);
+        assert!(first.project_slug.starts_with("shared-memory-"));
+        assert_eq!(
+            first.checkout_binding.client_label.as_deref(),
+            Some("shared-memory")
+        );
     }
 
     #[test]

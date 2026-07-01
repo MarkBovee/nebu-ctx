@@ -6,6 +6,7 @@
 - `Journal memory`: lokale ruwe lifecycle-events. Prompt/assistant/tool-output voor extractie en debug.
 - `Brain memory`: hosted canonieke feiten. Typed, fact-only, project-scoped.
 - `Knowledge memory`: hosted/public projection voor recall, wake-up, triage, dashboard.
+- `Shared memory`: hosted user-wide projection derived from the same durable facts, keyed by the active server token so it follows the user across machines.
 
 In productie leeft hosted memory in PostgreSQL. Client houdt daarnaast lokale project-state en offline fallback bij onder `~/.nebu-ctx/` of `NEBU_CTX_DATA_DIR`.
 
@@ -26,6 +27,7 @@ Client routeert dat intern zo:
 
 - `task`, `finding`, `decision`, `save`, `load`, `status`, `reset`, `list`, `cleanup` -> `ctx_session`
 - `store`, `set`, `remember`, `recall`, `search`, `categories`, `timeline`, `consolidate`, `promote`, `upkeep`, `triage`, `wakeup`, `remove` -> `ctx_knowledge`
+- `upvote`, `downvote`, `confirm`, `reject` -> `ctx_knowledge` review aliases mapped to the same candidate lifecycle
 
 `ctx_brain` is intern/server-only. Hooks en editor adapters gebruiken die voor typed hosted brain facts. Externe clients horen via publieke surface niet rechtstreeks `ctx_brain` aan te roepen.
 
