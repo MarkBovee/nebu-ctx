@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.6
+
+### Fixed
+
+- Prevent VS Code GitHub Copilot from crashing on direct deferred nebu-ctx tool bindings by denying the unsupported alias and directing calls to the public MCP surface.
+
 ## 0.10.5
 
 ### Changed

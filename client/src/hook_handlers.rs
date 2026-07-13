@@ -227,6 +227,23 @@ fn blocked_copilot_parallel_reason(input: &str) -> Option<String> {
     ))
 }
 
+// Stop direct deferred nebu-ctx aliases before Copilot invokes a missing host binding.
+fn blocked_copilot_deferred_tool_reason(input: &str) -> Option<String> {
+    let payload: Value = serde_json::from_str(input).ok()?;
+    let tool_name = payload
+        .get("tool_name")
+        .or_else(|| payload.get("toolName"))
+        .or_else(|| payload.get("tool"))
+        .and_then(Value::as_str)?;
+    if !tool_name.contains("mcp_nebuctx_") {
+        return None;
+    }
+
+    Some(format!(
+        "Blocked known host bug: direct deferred nebu-ctx tool '{tool_name}' has no reliable Copilot binding. Call the public ctx_* tool directly instead. Use ctx_read(target=\"files\", paths=[...]) for batch reads."
+    ))
+}
+
 pub fn handle_redirect() {
     // Allow all native tools (Read, Grep, ListFiles) to pass through.
     // Blocking them breaks Edit (which requires native Read) and causes
@@ -276,6 +293,11 @@ pub fn handle_copilot() {
     let Some(input) = read_stdin_string() else {
         return;
     };
+
+    if let Some(reason) = blocked_copilot_deferred_tool_reason(&input) {
+        emit_pretool_deny(&reason);
+        return;
+    }
 
     if let Some(reason) = blocked_copilot_parallel_reason(&input) {
         emit_pretool_deny(&reason);
@@ -1162,6 +1184,45 @@ mod tests {
         assert!(reason.contains("multi_tool_use.parallel"));
         assert!(reason.contains("mcp_nebuctx_ctx_read"));
         assert!(reason.contains("ctx_read(target=\"files\", paths=[...])"));
+    }
+
+    #[test]
+    fn blocked_copilot_deferred_tool_reason_detects_direct_alias() {
+        let input = r#"{
+            "tool_name": "mcp_nebuctx_ctx_read.mcp_nebuctx_ctx_read",
+            "tool_input": {
+                "target": "files",
+                "paths": ["a", "b"]
+            }
+        }"#;
+
+        let reason = blocked_copilot_deferred_tool_reason(input).expect("guard should trigger");
+        assert!(reason.contains("mcp_nebuctx_ctx_read"));
+        assert!(reason.contains("ctx_read(target=\"files\", paths=[...])"));
+    }
+
+    #[test]
+    fn blocked_copilot_deferred_tool_reason_ignores_public_ctx_read() {
+        let input = r#"{
+            "tool_name": "ctx_read",
+            "tool_input": {
+                "target": "files",
+                "paths": ["a", "b"]
+            }
+        }"#;
+
+        assert_eq!(blocked_copilot_deferred_tool_reason(input), None);
+    }
+
+    #[test]
+    fn blocked_copilot_deferred_tool_reason_accepts_supported_field_names() {
+        for field_name in ["tool_name", "toolName", "tool"] {
+            let input =
+                format!(r#"{{"{field_name}": "mcp_nebuctx_ctx_search.mcp_nebuctx_ctx_search"}}"#);
+            assert!(blocked_copilot_deferred_tool_reason(&input).is_some());
+        }
+
+        assert_eq!(blocked_copilot_deferred_tool_reason("not json"), None);
     }
 
     #[test]

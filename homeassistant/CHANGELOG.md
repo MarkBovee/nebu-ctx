@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.6
+
+- Bundle the client release that prevents VS Code GitHub Copilot from crashing on direct deferred nebu-ctx tool bindings.
+
 ## 0.10.5
 
 - Bundle the client/server release that adds shared user-wide hosted memory writes for durable knowledge and candidate facts plus public feedback aliases (`upvote`, `downvote`, `confirm`, `reject`).
