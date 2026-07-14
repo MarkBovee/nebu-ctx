@@ -239,7 +239,7 @@ public sealed class PostgresBrainStore : IBrainStore
         var limit = Math.Clamp(filter.Limit <= 0 ? 20 : filter.Limit, 1, MemoryListFilter.MaxLimit);
         var offset = Math.Max(0, filter.Offset);
 
-        var countCmd = new NpgsqlCommand($"SELECT COUNT(*) FROM brain_entries WHERE {whereClause}", conn);
+        await using var countCmd = new NpgsqlCommand($"SELECT COUNT(*) FROM brain_entries WHERE {whereClause}", conn);
         foreach (var (k, v) in parameters) countCmd.Parameters.AddWithValue(k, v ?? DBNull.Value);
         var total = (int)(long)(await countCmd.ExecuteScalarAsync(cancellationToken) ?? 0L);
 

@@ -3,6 +3,7 @@ namespace NebuCtx.Server.Core;
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using NebuCtx.Contracts.Telemetry;
 
 /// <summary>
@@ -38,6 +39,16 @@ public sealed class TelemetryStore
     // Set by TelemetryHydrationService after startup hydration completes.
     // Null until hydration wires persistence, so replayed events are never double-written.
     private Func<PersistedTelemetryEvent, Task>? _persistCallback;
+    private readonly ILogger<TelemetryStore>? _logger;
+
+    /// <summary>
+    /// Initializes a new telemetry store. Logger is optional — tests construct without DI.
+    /// </summary>
+    /// <param name="logger">Optional logger for persist-failure diagnostics.</param>
+    public TelemetryStore(ILogger<TelemetryStore>? logger = null)
+    {
+        _logger = logger;
+    }
 
     /// <summary>
     /// Immutable telemetry snapshot used by dashboard payload builders.
@@ -420,7 +431,10 @@ public sealed class TelemetryStore
         var callback = _persistCallback;
         if (callback is not null)
         {
-            _ = Task.Run(() => callback(ToPersistedEvent(newEvent)));
+            var ev = ToPersistedEvent(newEvent);
+            _ = Task.Run(() => callback(ev))
+                .ContinueWith(t => _logger?.LogWarning(t.Exception, "Telemetry persist failed"),
+                    CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
         }
     }
 
@@ -553,7 +567,10 @@ public sealed class TelemetryStore
         var callback = _persistCallback;
         if (callback is not null)
         {
-            _ = Task.Run(() => callback(ToPersistedEvent(newEvent)));
+            var ev = ToPersistedEvent(newEvent);
+            _ = Task.Run(() => callback(ev))
+                .ContinueWith(t => _logger?.LogWarning(t.Exception, "Telemetry ingest persist failed"),
+                    CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
         }
     }
 

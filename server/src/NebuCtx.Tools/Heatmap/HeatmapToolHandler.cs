@@ -3,6 +3,7 @@ namespace NebuCtx.Tools.Heatmap;
 using System.Text;
 using System.Text.Json;
 using NebuCtx.Server.Core;
+using NebuCtx.Tools.Analytics;
 
 /// <summary>
 /// MCP tool handler for ctx_heatmap — shows which files are accessed most frequently.
@@ -45,8 +46,6 @@ public sealed class HeatmapToolHandler(TelemetryStore telemetry) : IToolHandler
         },
         ["required"] = new[] { "action" },
     };
-
-    private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
 
     /// <inheritdoc/>
     public Task<object> ExecuteAsync(
@@ -185,7 +184,7 @@ public sealed class HeatmapToolHandler(TelemetryStore telemetry) : IToolHandler
                 .Select(f => new { path = f.Key, count = f.Value }),
         };
 
-        return JsonSerializer.Serialize(payload, IndentedJson);
+        return JsonSerializer.Serialize(payload, AnalyticsSnapshotHelpers.IndentedJson);
     }
 
     /// <summary>Returns the parent directory path of a file path string.</summary>

@@ -147,11 +147,7 @@ pub fn handle(
         }
 
         for (dir, files) in &by_dir {
-            let dir_display = if dir.len() > 50 {
-                format!("...{}", &dir[dir.len() - 47..])
-            } else {
-                dir.clone()
-            };
+            let dir_display = truncate_dir_display(dir, 50);
 
             if files.len() <= 5 {
                 output.push(format!("{dir_display}/  {}", files.join(" ")));
@@ -260,4 +256,45 @@ fn file_line_count(path: &str) -> usize {
     std::fs::read_to_string(path)
         .map(|c| c.lines().count())
         .unwrap_or(0)
+}
+
+fn truncate_dir_display(dir: &str, max_len: usize) -> String {
+    if dir.len() <= max_len {
+        return dir.to_string();
+    }
+    let target = dir.len() - max_len + 3;
+    let cut = dir[target..]
+        .char_indices()
+        .next()
+        .map(|(i, _)| target + i)
+        .unwrap_or(dir.len());
+    format!("...{}", &dir[cut..])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_truncate_ascii() {
+        let dir = "/a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z";
+        let result = truncate_dir_display(dir, 20);
+        assert!(result.starts_with("..."));
+        assert_eq!(result.len(), 20);
+    }
+
+    #[test]
+    fn test_truncate_multibyte() {
+        let dir = "α/β/γ/δ/ε/ζ/η/θ/ι/κ/λ/μ/ν/ξ/ο/π/ρ/σ/τ/υ/φ/χ/ψ/ω";
+        let result = truncate_dir_display(dir, 20);
+        assert!(result.starts_with("..."));
+        // Must not panic and must be valid UTF-8
+        let _ = result.as_str();
+    }
+
+    #[test]
+    fn test_truncate_short() {
+        let dir = "/short/path";
+        assert_eq!(truncate_dir_display(dir, 50), dir);
+    }
 }

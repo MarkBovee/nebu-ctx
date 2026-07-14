@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using NebuCtx.Contracts.Configuration;
 using NebuCtx.Server.Host;
 using NebuCtx.Storage;
 using NebuCtx.Storage.Postgres;
@@ -30,6 +31,13 @@ public sealed class NebuCtxTestFactory : WebApplicationFactory<Program>
 
         builder.ConfigureTestServices(services =>
         {
+            // Disable rate limiting in tests — parallel test runs exhaust the shared token bucket.
+            services.AddOptions<ServerOptions>().Configure(o =>
+            {
+                o.MaxRequestsPerSecond = 10000;
+                o.RateBurst = 10000;
+            });
+
             Replace<IProjectStore>(services, new InMemoryProjectStore());
             Replace<ICheckoutBindingStore>(services, new InMemoryCheckoutBindingStore());
             Replace<IBrainStore>(services, new InMemoryBrainStore());

@@ -1,5 +1,5 @@
 mod dispatch;
-mod execute;
+
 pub mod helpers;
 
 use rmcp::handler::server::ServerHandler;
@@ -103,7 +103,9 @@ impl ServerHandler for NebuCtxServer {
                     session.project_root = None;
                 }
             }
-            let _ = session.save();
+            if let Err(e) = session.save() {
+                tracing::warn!("Failed to save session on connect: {e}");
+            }
         }
 
         let agent_name = name.clone();
@@ -114,7 +116,10 @@ impl ServerHandler for NebuCtxServer {
                 return;
             }
             if let Some(home) = dirs::home_dir() {
-                let _ = crate::rules_inject::inject_all_rules(&home);
+                let result = crate::rules_inject::inject_all_rules(&home);
+                if !result.errors.is_empty() {
+                    tracing::warn!("Rule injection errors: {:?}", result.errors);
+                }
             }
             crate::hooks::refresh_installed_hooks();
             crate::core::version_check::check_background();
@@ -134,7 +139,9 @@ impl ServerHandler for NebuCtxServer {
                 let mut registry = crate::core::agents::AgentRegistry::load_or_create();
                 registry.cleanup_stale(24);
                 let id = registry.register("mcp", effective_role, &agent_root);
-                let _ = registry.save();
+                if let Err(e) = registry.save() {
+                    tracing::warn!("Failed to save agent registry: {e}");
+                }
                 if let Ok(mut guard) = agent_id_handle.try_write() {
                     *guard = Some(id);
                 }
@@ -387,7 +394,9 @@ impl ServerHandler for NebuCtxServer {
                     let mut session = self.session.write().await;
                     session.stats.total_tool_calls += 1;
                     if session.should_save() {
-                        let _ = session.save();
+                        if let Err(e) = session.save() {
+                            tracing::warn!("Failed to save session after server-only tool: {e}");
+                        }
                     }
                     return Ok(CallToolResult::success(vec![Content::text(s)]));
                 }
@@ -416,7 +425,9 @@ impl ServerHandler for NebuCtxServer {
                     let mut session = self.session.write().await;
                     session.stats.total_tool_calls += 1;
                     if session.should_save() {
-                        let _ = session.save();
+                        if let Err(e) = session.save() {
+                            tracing::warn!("Failed to save session after server-preferred tool: {e}");
+                        }
                     }
                     return Ok(CallToolResult::success(vec![Content::text(s)]));
                 }
@@ -647,7 +658,9 @@ impl ServerHandler for NebuCtxServer {
                     }
                 }
                 if session.should_save() {
-                    let _ = session.save();
+                    if let Err(e) = session.save() {
+                        tracing::warn!("Failed to save session during intent handling: {e}");
+                    }
                 }
             }
 

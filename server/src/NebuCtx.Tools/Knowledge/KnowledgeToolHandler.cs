@@ -595,7 +595,7 @@ public sealed class KnowledgeToolHandler : IToolHandler
                     await _knowledgeService.RemoveAsync(context.ProjectId, category, key, cancellationToken);
                 }
 
-                await _knowledgeService.RememberAsync(context.ProjectId, category, key, value, confidence, sourceType, sourceScope, null, CancellationToken.None);
+                await _knowledgeService.RememberAsync(context.ProjectId, category, key, value, confidence, sourceType, sourceScope, null, cancellationToken);
                 if (existing is not null)
                 {
                     updated++;

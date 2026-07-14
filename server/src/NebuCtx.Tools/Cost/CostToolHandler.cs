@@ -3,6 +3,7 @@ namespace NebuCtx.Tools.Cost;
 using System.Text;
 using System.Text.Json;
 using NebuCtx.Server.Core;
+using NebuCtx.Tools.Analytics;
 
 /// <summary>
 /// MCP tool handler for ctx_cost — reports token usage and estimated cost per session and per tool.
@@ -13,8 +14,6 @@ using NebuCtx.Server.Core;
 public sealed class CostToolHandler(TelemetryStore telemetry) : IToolHandler
 {
     private const decimal PricePerMillionTokens = 2.50m;
-
-    private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
 
     /// <inheritdoc/>
     public string Name => "ctx_cost";
@@ -76,13 +75,7 @@ public sealed class CostToolHandler(TelemetryStore telemetry) : IToolHandler
     /// <param name="snapshot">Current telemetry snapshot.</param>
     /// <param name="projectId">Project identifier to filter by, or null for global view.</param>
     /// <returns>Read-only dictionary of command telemetry keyed by tool name.</returns>
-    private static IReadOnlyDictionary<string, TelemetryStore.CommandTelemetrySnapshot> GetCommands(
-        TelemetryStore.Snapshot snapshot, string? projectId)
-        => projectId is null
-            ? snapshot.Commands
-            : snapshot.PerProject.TryGetValue(projectId, out var proj)
-                ? proj.Commands
-                : new Dictionary<string, TelemetryStore.CommandTelemetrySnapshot>(StringComparer.OrdinalIgnoreCase);
+
 
     /// <summary>Builds a human-readable cost summary report.</summary>
     /// <param name="snapshot">Current telemetry snapshot.</param>
@@ -90,7 +83,7 @@ public sealed class CostToolHandler(TelemetryStore telemetry) : IToolHandler
     /// <returns>Markdown-formatted cost report string.</returns>
     private static string BuildReport(TelemetryStore.Snapshot snapshot, string? projectId)
     {
-        var commands = GetCommands(snapshot, projectId);
+        var commands = AnalyticsSnapshotHelpers.GetCommands(snapshot, projectId);
         var totalInput = commands.Values.Sum(c => c.InputTokens);
         var totalOutput = commands.Values.Sum(c => c.OutputTokens);
         var totalTokens = totalInput + totalOutput;
@@ -116,7 +109,7 @@ public sealed class CostToolHandler(TelemetryStore telemetry) : IToolHandler
     /// <returns>Markdown-formatted per-tool cost breakdown string.</returns>
     private static string BuildTools(TelemetryStore.Snapshot snapshot, string? projectId)
     {
-        var commands = GetCommands(snapshot, projectId);
+        var commands = AnalyticsSnapshotHelpers.GetCommands(snapshot, projectId);
         var sb = new StringBuilder();
         sb.AppendLine("## Cost by Tool");
         sb.AppendLine();
@@ -140,7 +133,7 @@ public sealed class CostToolHandler(TelemetryStore telemetry) : IToolHandler
     /// <returns>Single-line status string with total token count and estimated cost.</returns>
     private static string BuildStatus(TelemetryStore.Snapshot snapshot, string? projectId)
     {
-        var commands = GetCommands(snapshot, projectId);
+        var commands = AnalyticsSnapshotHelpers.GetCommands(snapshot, projectId);
         var totalTokens = commands.Values.Sum(c => c.InputTokens + c.OutputTokens);
         var cost = EstimateCost(totalTokens);
         var projectSuffix = projectId is not null ? $" (project: {projectId})" : string.Empty;
@@ -154,7 +147,7 @@ public sealed class CostToolHandler(TelemetryStore telemetry) : IToolHandler
     /// <returns>Indented JSON string with token totals, cost estimate, and per-tool breakdown.</returns>
     private static string BuildJson(TelemetryStore.Snapshot snapshot, string? projectId)
     {
-        var commands = GetCommands(snapshot, projectId);
+        var commands = AnalyticsSnapshotHelpers.GetCommands(snapshot, projectId);
         var totalInput = commands.Values.Sum(c => c.InputTokens);
         var totalOutput = commands.Values.Sum(c => c.OutputTokens);
         var totalTokens = totalInput + totalOutput;
@@ -179,6 +172,6 @@ public sealed class CostToolHandler(TelemetryStore telemetry) : IToolHandler
                 }),
         };
 
-        return JsonSerializer.Serialize(payload, IndentedJson);
+        return JsonSerializer.Serialize(payload, AnalyticsSnapshotHelpers.IndentedJson);
     }
 }

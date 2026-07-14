@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.8
+
+- Bundle the 0.10.8 client/server release: CI verification workflow, client correctness fixes (UTF-8 panic, silent save failures, dead code removal), server correctness fixes (NpgsqlCommand disposal, telemetry persist logging, cancellation propagation), analytics handler deduplication, `RUSTSEC-2026-0204` fix, and rate-limit test flakiness fix.
+
 ## 0.10.7
 
 - Bundle the client release that stops `ctx_tree` from leaking the one-time session wake-up briefing block, and that fixes stale installed agent instruction files (including the standalone GitHub Copilot CLI's `~/.copilot/copilot-instructions.md`) by adding the missing rules target and bumping the rules version so updates actually propagate.

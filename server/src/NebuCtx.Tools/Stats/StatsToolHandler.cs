@@ -3,6 +3,7 @@ namespace NebuCtx.Tools.Stats;
 using System.Text;
 using System.Text.Json;
 using NebuCtx.Server.Core;
+using NebuCtx.Tools.Analytics;
 
 /// <summary>
 /// MCP tool handler for ctx_stats — per-project tool-usage statistics.
@@ -12,7 +13,7 @@ using NebuCtx.Server.Core;
 /// </summary>
 public sealed class StatsToolHandler(TelemetryStore telemetry) : IToolHandler
 {
-    private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
+
     /// <inheritdoc/>
     public string Name => "ctx_stats";
 
@@ -131,6 +132,6 @@ public sealed class StatsToolHandler(TelemetryStore telemetry) : IToolHandler
             }),
         };
 
-        return JsonSerializer.Serialize(payload, IndentedJson);
+        return JsonSerializer.Serialize(payload, AnalyticsSnapshotHelpers.IndentedJson);
     }
 }

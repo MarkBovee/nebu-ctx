@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.10.8
+
+### Added
+
+- CI verification workflow (`.github/workflows/ci.yml`) running `cargo test` + non-blocking `clippy` on client, `dotnet build` + `dotnet test` on server, triggered on every PR and push to `main`.
+- New `AnalyticsSnapshotHelpers` shared class consolidating duplicated `IndentedJson` and `GetCommands` across Cost, Gain, Heatmap, and Stats handlers.
+
+### Fixed
+
+- `ctx_overview.rs` UTF-8 byte-slice panic when truncating a directory path containing multi-byte characters for display.
+- Seven silent `let _ = .save()` / `inject_all_rules()` call sites now log on failure via `tracing::warn!`.
+- Removed dead `mcp_server/execute.rs` and `tools/ctx_execute.rs` modules (zero callers, 4 compiler warnings).
+- `PostgresBrainStore.ListFilteredAsync` and `PostgresKnowledgeStore.ListFilteredAsync` — missing `await using` on `countCmd` (resource leak).
+- `TelemetryStore` fire-and-forget persist failures now logged via optional `ILogger<TelemetryStore?`.
+- `KnowledgeToolHandler.ExecuteImportAsync` no longer hardcodes `CancellationToken.None` on the final `RememberAsync` call.
+- Rate limit flakiness in integration tests — `NebuCtxTestFactory` now disables rate limiting in test environment.
+- Bump `crossbeam-epoch` 0.9.18→0.9.20 (`RUSTSEC-2026-0204`).
+
 ## 0.10.7
 
 ### Fixed

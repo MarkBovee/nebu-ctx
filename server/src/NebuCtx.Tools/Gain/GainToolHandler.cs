@@ -3,6 +3,7 @@ namespace NebuCtx.Tools.Gain;
 using System.Text;
 using System.Text.Json;
 using NebuCtx.Server.Core;
+using NebuCtx.Tools.Analytics;
 
 /// <summary>
 /// MCP tool handler for ctx_gain — reports token-savings and tool-usage analytics.
@@ -11,7 +12,6 @@ using NebuCtx.Server.Core;
 /// </summary>
 public sealed class GainToolHandler(TelemetryStore telemetry) : IToolHandler
 {
-    private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
     /// <inheritdoc/>
     public string Name => "ctx_gain";
 
@@ -70,7 +70,7 @@ public sealed class GainToolHandler(TelemetryStore telemetry) : IToolHandler
     /// <returns>Markdown-formatted report string.</returns>
     private static string BuildReport(TelemetryStore.Snapshot snapshot, string? projectId)
     {
-        var commands = GetCommands(snapshot, projectId);
+        var commands = AnalyticsSnapshotHelpers.GetCommands(snapshot, projectId);
         var sb = new StringBuilder();
 
         var totalCalls = commands.Values.Sum(c => c.Count);
@@ -101,7 +101,7 @@ public sealed class GainToolHandler(TelemetryStore telemetry) : IToolHandler
     /// <returns>Activity score summary string.</returns>
     private static string BuildScore(TelemetryStore.Snapshot snapshot, string? projectId)
     {
-        var commands = GetCommands(snapshot, projectId);
+        var commands = AnalyticsSnapshotHelpers.GetCommands(snapshot, projectId);
         var totalCalls = commands.Values.Sum(c => c.Count);
         var totalTokens = commands.Values.Sum(c => c.InputTokens + c.OutputTokens);
         var score = totalCalls > 0 ? (int)Math.Min(100, totalCalls * 2 + totalTokens / 1000) : 0;
@@ -115,7 +115,7 @@ public sealed class GainToolHandler(TelemetryStore telemetry) : IToolHandler
     /// <returns>Markdown-formatted task breakdown string.</returns>
     private static string BuildTasks(TelemetryStore.Snapshot snapshot, string? projectId)
     {
-        var commands = GetCommands(snapshot, projectId);
+        var commands = AnalyticsSnapshotHelpers.GetCommands(snapshot, projectId);
         var sb = new StringBuilder();
         sb.AppendLine("## Task Breakdown");
         sb.AppendLine();
@@ -187,7 +187,7 @@ public sealed class GainToolHandler(TelemetryStore telemetry) : IToolHandler
     /// <returns>Markdown-formatted wrapped summary string.</returns>
     private static string BuildWrapped(TelemetryStore.Snapshot snapshot, string? projectId)
     {
-        var commands = GetCommands(snapshot, projectId);
+        var commands = AnalyticsSnapshotHelpers.GetCommands(snapshot, projectId);
         var totalCalls = commands.Values.Sum(c => c.Count);
         var topTool = commands.Values.OrderByDescending(c => c.Count).FirstOrDefault();
 
@@ -209,7 +209,7 @@ public sealed class GainToolHandler(TelemetryStore telemetry) : IToolHandler
     /// <returns>Indented JSON string with tool-call counts and token totals.</returns>
     private static string BuildJson(TelemetryStore.Snapshot snapshot, string? projectId)
     {
-        var commands = GetCommands(snapshot, projectId);
+        var commands = AnalyticsSnapshotHelpers.GetCommands(snapshot, projectId);
         var payload = new
         {
             total_tool_calls = commands.Values.Sum(c => c.Count),
@@ -221,7 +221,7 @@ public sealed class GainToolHandler(TelemetryStore telemetry) : IToolHandler
                 .Select(c => new { name = c.Name, count = c.Count, input_tokens = c.InputTokens, output_tokens = c.OutputTokens }),
         };
 
-        return JsonSerializer.Serialize(payload, IndentedJson);
+        return JsonSerializer.Serialize(payload, AnalyticsSnapshotHelpers.IndentedJson);
     }
 
     /// <summary>
@@ -230,11 +230,5 @@ public sealed class GainToolHandler(TelemetryStore telemetry) : IToolHandler
     /// <param name="snapshot">Current telemetry snapshot.</param>
     /// <param name="projectId">Project identifier to filter by, or null for global view.</param>
     /// <returns>Read-only dictionary of command telemetry keyed by tool name.</returns>
-    private static IReadOnlyDictionary<string, TelemetryStore.CommandTelemetrySnapshot> GetCommands(
-        TelemetryStore.Snapshot snapshot, string? projectId)
-        => projectId is null
-            ? snapshot.Commands
-            : snapshot.PerProject.TryGetValue(projectId, out var proj)
-                ? proj.Commands
-                : new Dictionary<string, TelemetryStore.CommandTelemetrySnapshot>(StringComparer.OrdinalIgnoreCase);
+
 }

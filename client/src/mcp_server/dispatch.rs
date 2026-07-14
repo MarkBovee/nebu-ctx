@@ -153,7 +153,9 @@ impl NebuCtxServer {
                                 registry.cleanup_stale(24);
                                 let role = std::env::var("NEBU_CTX_AGENT_ROLE").ok();
                                 let id = registry.register("mcp", role.as_deref(), &root);
-                                let _ = registry.save();
+                                if let Err(e) = registry.save() {
+                                    tracing::warn!("Failed to save agent registry in dispatch: {e}");
+                                }
                                 *current = Some(id);
                             }
                         }
