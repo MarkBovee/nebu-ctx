@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.7
+
+- Bundle the client release that stops `ctx_tree` from leaking the one-time session wake-up briefing block, and that fixes stale installed agent instruction files (including the standalone GitHub Copilot CLI's `~/.copilot/copilot-instructions.md`) by adding the missing rules target and bumping the rules version so updates actually propagate.
+
 ## 0.10.6
 
 - Bundle the client release that prevents VS Code GitHub Copilot from crashing on direct deferred nebu-ctx tool bindings.

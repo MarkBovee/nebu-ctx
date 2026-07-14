@@ -462,6 +462,7 @@ impl ServerHandler for NebuCtxServer {
         }
 
         let skip_auto_context = name == "ctx_search"
+            || name == "ctx_tree"
             || (name == "ctx"
                 && args.as_ref().is_some_and(|args| {
                     let domain = args.get("domain").and_then(|value| value.as_str());
@@ -1328,6 +1329,42 @@ mod tests {
         assert!(
             !text.contains("--- AUTO CONTEXT ---") && !text.contains("PROJECT OVERVIEW"),
             "ctx_search should not leak auto context into search output: {text}"
+        );
+
+        std::env::remove_var("NEBU_CTX_DATA_DIR");
+        std::env::remove_var("NEBU_CTX_HOME");
+    }
+
+    #[test]
+    fn ctx_tree_does_not_prepend_auto_context() {
+        let _lock = crate::core::data_dir::test_env_lock();
+        let data = tempfile::tempdir().unwrap();
+        let repo = tempfile::tempdir().unwrap();
+        std::env::set_var("NEBU_CTX_DATA_DIR", data.path());
+        std::env::set_var("NEBU_CTX_HOME", data.path());
+        std::fs::create_dir(repo.path().join(".git")).unwrap();
+        std::fs::write(repo.path().join("tree.txt"), "tree-clean\n").unwrap();
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let engine = crate::engine::ContextEngine::with_project_root(repo.path());
+        let text = rt
+            .block_on(engine.call_tool_text(
+                "ctx_tree",
+                Some(serde_json::json!({
+                    "path": repo.path().to_string_lossy().to_string(),
+                    "depth": 2
+                })),
+            ))
+            .expect("ctx_tree should succeed");
+
+        assert!(
+            !text.contains("--- AUTO CONTEXT ---")
+                && !text.contains("PROJECT OVERVIEW")
+                && !text.contains("WAKE-UP BRIEFING"),
+            "ctx_tree should not leak the wake-up auto context block into directory output: {text}"
         );
 
         std::env::remove_var("NEBU_CTX_DATA_DIR");

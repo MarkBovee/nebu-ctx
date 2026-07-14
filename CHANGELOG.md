@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.7
+
+### Fixed
+
+- Stop prepending the one-time session wake-up "AUTO CONTEXT"/"WAKE-UP BRIEFING" block to `ctx_tree` output; only `ctx_search` was excluded before, so `ctx_tree` leaked it on the first call of a session (#28).
+- Bump `RULES_VERSION` so installed agent instruction files actually pick up content changes again — `inject_rules()` only rewrites a file when the version marker is missing, so any generator content change without a matching version bump silently never propagates to already-installed files.
+- Add the standalone GitHub Copilot CLI's global instructions file (`~/.copilot/copilot-instructions.md`) as a `rules_inject` target; it was missing from `build_rules_targets()` entirely (distinct from the VS Code Copilot Chat extension's `github-copilot-instructions.md`), so it was never refreshed by `nebu-ctx setup`.
+
 ## 0.10.6
 
 ### Fixed

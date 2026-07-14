@@ -1,7 +1,14 @@
 pub const RULES_MARKER: &str = "# nebu-ctx — Context Engineering Layer";
 pub const LEGACY_RULES_MARKER: &str = "# lean-ctx — Context Engineering Layer";
 pub const RULES_END_MARKER: &str = "<!-- /lean-ctx -->";
-pub const RULES_VERSION: &str = "nebu-ctx-rules-v14";
+// ponytail: RULES_VERSION must be bumped whenever this file's rendered
+// content changes. inject_rules() (rules_inject.rs) treats an installed
+// rules file as up to date purely by checking this string is present, so a
+// content change without a version bump leaves already-installed files
+// (~/.copilot/copilot-instructions.md, ~/.claude/rules/nebu-ctx.md, etc.)
+// permanently stale. This is what caused v14 files to keep the removed
+// ctx_shell guidance after it was dropped from this module.
+pub const RULES_VERSION: &str = "nebu-ctx-rules-v15";
 pub const CLAUDE_MD_BLOCK_VERSION: &str = "nebu-ctx-claude-v4";
 pub const KIRO_STEERING_VERSION: &str = "<!-- nebu-ctx-kiro-v3 -->";
 

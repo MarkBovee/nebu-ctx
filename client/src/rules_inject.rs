@@ -255,6 +255,7 @@ fn is_tool_detected(target: &RulesTarget, home: &std::path::Path) -> bool {
         }
         "Codex CLI" => home.join(".codex").exists() || command_exists("codex"),
         "VS Code / Copilot" => detect_vscode_installed(home),
+        "Copilot CLI" => home.join(".copilot").exists() || command_exists("copilot"),
         "OpenCode" => home.join(".config/opencode").exists(),
         _ => false,
     }
@@ -319,6 +320,15 @@ fn build_rules_targets(home: &std::path::Path) -> Vec<RulesTarget> {
         RulesTarget {
             name: "VS Code / Copilot",
             path: copilot_instructions_path(home),
+            format: RulesFormat::SharedMarkdown,
+        },
+        // Standalone GitHub Copilot CLI (`~/.copilot/copilot-instructions.md`)
+        // is a distinct product/path from the VS Code Copilot Chat extension
+        // above and was previously missing from this list entirely, so it
+        // could never be detected as outdated or refreshed by `setup`.
+        RulesTarget {
+            name: "Copilot CLI",
+            path: home.join(".copilot/copilot-instructions.md"),
             format: RulesFormat::SharedMarkdown,
         },
         RulesTarget {
@@ -531,6 +541,20 @@ mod tests {
     fn target_count() {
         let home = std::path::PathBuf::from("/tmp/fake_home");
         let targets = build_rules_targets(&home);
-        assert_eq!(targets.len(), 4);
+        assert_eq!(targets.len(), 5);
+    }
+
+    #[test]
+    fn copilot_cli_target_uses_dedicated_instructions_path() {
+        let home = std::path::PathBuf::from("/tmp/fake_home");
+        let targets = build_rules_targets(&home);
+        let copilot_cli = targets
+            .iter()
+            .find(|t| t.name == "Copilot CLI")
+            .expect("Copilot CLI target should be present");
+        assert_eq!(
+            copilot_cli.path,
+            home.join(".copilot/copilot-instructions.md")
+        );
     }
 }
