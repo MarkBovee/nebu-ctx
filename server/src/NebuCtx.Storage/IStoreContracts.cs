@@ -618,6 +618,9 @@ public sealed class CloudSessionState
     /// <summary>Version counter, incremented on each save.</summary>
     public int Version { get; set; }
 
+    /// <summary>Schema version for the session state JSONB envelope. 0 = unversioned (legacy), 1 = current.</summary>
+    public int SchemaVersion { get; set; } = 1;
+
     /// <summary>Current task description set by the agent.</summary>
     public string? Task { get; set; }
 

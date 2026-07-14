@@ -65,6 +65,14 @@ public sealed class ToolCallRequest
     /// </summary>
     [JsonPropertyName("project_metadata")]
     public ProjectMetadataEnvelope? ProjectMetadata { get; set; }
+
+    /// <summary>
+    /// Deterministic operation identity for idempotent request processing.
+    /// Computed client-side from (kind, project_id, content_hash) before first send.
+    /// When present, the server checks for duplicate before processing.
+    /// </summary>
+    [JsonPropertyName("operation_id")]
+    public string? OperationId { get; set; }
 }
 
 /// <summary>

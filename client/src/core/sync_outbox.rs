@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use md5::{Digest, Md5};
 use serde::{Deserialize, Serialize};
 
 use crate::config_io;
@@ -18,6 +19,7 @@ pub enum OutboxOperationKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutboxEntry {
     pub id: String,
+    pub operation_id: String,
     pub kind: OutboxOperationKind,
     pub created_at: i64,
     pub attempts: u32,
@@ -25,9 +27,27 @@ pub struct OutboxEntry {
     pub payload: serde_json::Value,
 }
 
+/// Computes a deterministic operation identity from the outbox entry kind and payload content.
+/// The hash excludes the entry id, created_at, and attempts so retries after restart produce the same id.
+pub fn compute_operation_id(kind: &OutboxOperationKind, payload: &serde_json::Value) -> String {
+    let kind_tag = match kind {
+        OutboxOperationKind::TelemetryIngest => "telemetry",
+        OutboxOperationKind::ServerToolCall => "toolcall",
+        OutboxOperationKind::CodeIndexSync => "indexsync",
+    };
+    let payload_bytes = serde_json::to_vec(payload).unwrap_or_default();
+    let mut hasher = Md5::new();
+    hasher.update(kind_tag.as_bytes());
+    hasher.update(b":");
+    hasher.update(&payload_bytes);
+    format!("op-{:x}", hasher.finalize())
+}
+
 pub fn enqueue(kind: OutboxOperationKind, payload: serde_json::Value) -> Result<String, String> {
+    let operation_id = compute_operation_id(&kind, &payload);
     let entry = OutboxEntry {
         id: generate_entry_id(),
+        operation_id,
         kind,
         created_at: now_unix_seconds(),
         attempts: 0,

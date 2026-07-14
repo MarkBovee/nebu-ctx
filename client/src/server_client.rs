@@ -43,6 +43,8 @@ pub struct QueuedServerToolCall {
     pub tool_name: String,
     pub arguments: Map<String, Value>,
     pub project_context: QueuedProjectContext,
+    #[serde(default)]
+    pub operation_id: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -156,6 +158,7 @@ impl ServerClient {
                 repository_fingerprint,
                 checkout_binding: Some(project_context.checkout_binding.clone()),
                 project_metadata: project_context.project_metadata.clone(),
+                operation_id: None,
             },
         )?;
 
@@ -1164,14 +1167,16 @@ pub fn queue_or_call_tool(
         }
     }
 
+    let queued = QueuedServerToolCall {
+        tool_name: tool_name.to_string(),
+        arguments,
+        project_context: project_context.into(),
+        operation_id: None,
+    };
     crate::core::sync_outbox::enqueue(
         crate::core::sync_outbox::OutboxOperationKind::ServerToolCall,
-        serde_json::to_value(QueuedServerToolCall {
-            tool_name: tool_name.to_string(),
-            arguments,
-            project_context: project_context.into(),
-        })
-        .context("failed to serialize queued server tool call")?,
+        serde_json::to_value(queued)
+            .context("failed to serialize queued server tool call")?,
     )
     .map(|_| ())
     .map_err(anyhow::Error::msg)

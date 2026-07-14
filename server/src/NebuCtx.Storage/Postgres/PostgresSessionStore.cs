@@ -58,6 +58,7 @@ public sealed class PostgresSessionStore : ISessionStore
     {
         state.UpdatedAt = DateTimeOffset.UtcNow;
         state.Version++;
+        state.SchemaVersion = 1; // migrate-on-write: unversioned rows get upgraded on next save
 
         var json = JsonSerializer.Serialize(state, JsonOptions);
 

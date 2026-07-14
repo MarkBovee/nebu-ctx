@@ -255,6 +255,7 @@ mod tests {
                     ("value".to_string(), serde_json::json!("replayed")),
                 ]),
                 project_context: (&context).into(),
+                operation_id: None,
             })
             .unwrap(),
         )

@@ -102,6 +102,8 @@ pub struct ToolCallRequest {
     #[serde(rename = "checkout_binding", alias = "workspace_binding")]
     pub checkout_binding: Option<CheckoutBinding>,
     pub project_metadata: Option<ProjectMetadataEnvelope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operation_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
