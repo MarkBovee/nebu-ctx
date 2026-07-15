@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.10
+
+- Bundle the 0.10.10 server release: fix dashboard JS syntax error, add JS syntax check to CI.
+
 ## 0.10.9
 
 - Bundle the 0.10.9 server release: dashboard memory health card, triage/maintenance UI, fetch-with-state helpers, brain kind normalization (`""` → `"fact"`), consistent brain-kind clear-by-type matching.

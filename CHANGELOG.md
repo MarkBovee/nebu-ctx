@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.10.10
+
+### Fixed
+
+- Dashboard JS syntax error (extra `}` in template literal inside `loadProjectMemory`).
+
+### Added
+
+- CI now validates dashboard HTML JavaScript syntax via `node --check` during the server build step.
+
 ## 0.10.9
 
 ### Added
