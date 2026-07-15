@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.9
+
+- Bundle the 0.10.9 server release: dashboard memory health card, triage/maintenance UI, fetch-with-state helpers, brain kind normalization (`""` → `"fact"`), consistent brain-kind clear-by-type matching.
+
 ## 0.10.8
 
 - Bundle the 0.10.8 client/server release: CI verification workflow, client correctness fixes (UTF-8 panic, silent save failures, dead code removal), server correctness fixes (NpgsqlCommand disposal, telemetry persist logging, cancellation propagation), analytics handler deduplication, `RUSTSEC-2026-0204` fix, and rate-limit test flakiness fix.

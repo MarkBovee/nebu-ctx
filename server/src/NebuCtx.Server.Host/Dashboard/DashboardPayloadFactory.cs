@@ -216,7 +216,7 @@ public static class DashboardPayloadFactory
             return entry.Kind;
         }
 
-        return "other";
+        return "fact";
     }
 
     /// <summary>

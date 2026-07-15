@@ -275,7 +275,8 @@ public static class DashboardDataEndpoints
         {
             var entries = await brainStore.ListAllAsync(projectId, 1000, ct);
             var keys = entries
-                .Where(entry => string.Equals(entry.Kind, entryType, StringComparison.OrdinalIgnoreCase))
+                .Where(entry => string.Equals(entry.Kind, entryType, StringComparison.OrdinalIgnoreCase)
+                    || (string.Equals(entryType, "fact", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(entry.Kind)))
                 .Select(entry => entry.Key)
                 .Distinct(StringComparer.Ordinal)
                 .ToArray();

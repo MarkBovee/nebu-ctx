@@ -1692,19 +1692,17 @@ let knowledgeSimulation = null;
 let knowledgeProjects = [];
 async function loadKnowledge() {
   const container = $('view-knowledge');
-  if (!container.dataset.built) showLoading(container);
-  try {
-    if (inFlight.get('knowledge')) return;
-    inFlight.set('knowledge', true);
-    const data = await apiFetch('/api/knowledge', { timeoutMs: 4000 });
-    const facts = data.facts || [];
-    knowledgeProjects = data.projects || [];
-    if (!facts.length) {
-      const root = data.root || data.project_root;
+  await fetchWithState('/api/knowledge', (state, data) => {
+    if (state === 'loading' && !container.dataset.built) { showLoading(container); return; }
+    if (state === 'timeout') { showError(container, 'Knowledge is still loading. If this persists, restart the dashboard and run a few tool calls to populate facts.'); return; }
+    if (state === 'error') { showError(container, 'Could not load knowledge data.'); return; }
+    if (state === 'loaded-empty' || !data || !data.facts || !data.facts.length) {
+      const root = data && (data.root || data.project_root);
       showEmpty(container, 'No knowledge facts stored yet for this project' + (root ? ` (${root})` : '') + '. Nebu-CTX builds project knowledge automatically as you work.');
       return;
     }
-
+    const facts = data.facts;
+    knowledgeProjects = data.projects || [];
     const catCounts = {};
     facts.forEach(f => { const c = (f.category || '').split(':')[0].toUpperCase(); catCounts[c] = (catCounts[c]||0)+1; });
     const avgConf = facts.length ? Math.round(facts.reduce((s,f)=>s+(f.confidence||0),0)/facts.length*100) : 0;
@@ -1743,12 +1741,7 @@ async function loadKnowledge() {
       ${howItWorks('Knowledge Graph', 'Nebu-CTX maintains a project knowledge base where facts are stored with <strong>confidence scores</strong> that decay over time (unused facts lose confidence). Facts are organized by <strong>category</strong> (Architecture, Testing, etc.) and <strong>room</strong>. Each fact has <strong>temporal validity</strong> &mdash; it knows when it was learned and when it was last confirmed. <strong>Contradiction detection</strong> automatically resolves conflicting facts by preferring the most recent with highest confidence.<br><br><strong>Auto-hooks:</strong> At session end, the Nebu-CTX shell hook automatically forwards all high-confidence facts (≥0.7) to the server via <code>ctx_knowledge(action="remember")</code>. This means the graph is populated automatically as you work &mdash; no manual action required. You can also store facts explicitly with <code>ctx_knowledge(action="remember", fact_name="...", value="...")</code>.<br><br><strong>Deleting a project</strong> with the Del button clears both knowledge facts <em>and</em> brain memories for that project.')}`;
     container.dataset.built = 'true';
     renderKnowledgeGraph(facts);
-  } catch (e) {
-    showError(container, (e && e.message === 'timeout')
-      ? 'Knowledge is still loading. If this persists, restart the dashboard and run a few tool calls to populate facts.'
-      : 'Could not load knowledge data.'
-    );
-  } finally { inFlight.delete('knowledge'); }
+  });
 }
 
 function renderKnowledgeGraph(facts) {
@@ -2120,16 +2113,85 @@ async function clearKnowledgeProject(projectId, name) {
   } catch (e) { alert('Failed to clear project knowledge.'); }
 }
 
+async function fetchWithState(url, onState, opts) {
+  onState('loading');
+  try {
+    const data = await apiFetch(url, Object.assign({ timeoutMs: 12000 }, opts));
+    if (!data || (Array.isArray(data) && data.length === 0) || (typeof data === 'object' && !Array.isArray(data) && Object.keys(data).length === 0)) {
+      onState('loaded-empty', data);
+    } else {
+      onState('loaded-data', data);
+    }
+    return data;
+  } catch (e) {
+    const err = (e && e.message === 'timeout') ? 'timeout' : 'error';
+    onState(err, e);
+    return null;
+  }
+}
+
+async function runTriage(projectId, mode) {
+  const host = $('memoryProjectDetail');
+  if (!host) return;
+  const statusEl = document.createElement('div');
+  statusEl.style.cssText = 'margin-top:8px;padding:8px 12px;border-radius:6px;font-size:12px';
+  statusEl.textContent = mode === 'apply' ? 'Applying triage...' : 'Analyzing memory...';
+  host.insertBefore(statusEl, host.firstChild);
+  try {
+    const data = await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory/triage?mode=${mode}`, { method: 'POST', timeoutMs: 15000 });
+    const findings = [];
+    if (data && data.duplicate_groups && data.duplicate_groups.length) findings.push(`${data.duplicate_groups.length} duplicate groups`);
+    if (data && data.stale_candidates && data.stale_candidates.length) findings.push(`${data.stale_candidates.length} stale candidates`);
+    if (data && data.junk_candidates && data.junk_candidates.length) findings.push(`${data.junk_candidates.length} junk candidates`);
+    if (data && data.applied_actions && data.applied_actions.length) findings.push(`${data.applied_actions.length} actions applied`);
+    statusEl.style.cssText = 'margin-top:8px;padding:8px 12px;border-radius:6px;font-size:12px;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);color:var(--text)';
+    statusEl.innerHTML = findings.length
+      ? (mode === 'apply' ? 'Triage applied: ' : 'Analysis found: ') + findings.join(', ')
+      : (mode === 'apply' ? 'Triage applied — no issues found.' : 'No issues found in analysis.');
+    await loadProjectMemory(projectId);
+  } catch (e) {
+    statusEl.style.cssText = 'margin-top:8px;padding:8px 12px;border-radius:6px;font-size:12px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);color:var(--red)';
+    statusEl.textContent = mode === 'apply' ? 'Triage apply failed: ' + (e.message || 'unknown error') : 'Analysis failed: ' + (e.message || 'unknown error');
+  }
+}
+
+async function runMaintenance(projectId, mode) {
+  const host = $('memoryProjectDetail');
+  if (!host) return;
+  const statusEl = document.createElement('div');
+  statusEl.style.cssText = 'margin-top:8px;padding:8px 12px;border-radius:6px;font-size:12px';
+  statusEl.textContent = 'Running maintenance...';
+  host.insertBefore(statusEl, host.firstChild);
+  try {
+    const data = await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory/maintain?mode=${mode}`, { method: 'POST', timeoutMs: 30000 });
+    statusEl.style.cssText = 'margin-top:8px;padding:8px 12px;border-radius:6px;font-size:12px;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);color:var(--text)';
+    statusEl.textContent = data && data.summary ? `Maintenance complete: ${data.summary}` : 'Maintenance complete.';
+    await loadProjectMemory(projectId);
+  } catch (e) {
+    statusEl.style.cssText = 'margin-top:8px;padding:8px 12px;border-radius:6px;font-size:12px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);color:var(--red)';
+    statusEl.textContent = 'Maintenance failed: ' + (e.message || 'unknown error');
+  }
+}
+
 async function loadProjectMemory(projectId) {
   const host = $('memoryProjectDetail');
   if (!host || !projectId) return;
-  host.innerHTML = '<div class="loading-state">Loading project memory...</div>';
-  try {
-    const payload = await apiFetch(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory`, { timeoutMs: 12000 });
+  await fetchWithState(`/api/dashboard/projects/${encodeURIComponent(projectId)}/memory?include_triage=true`, (state, data) => {
+    if (state === 'loading') {
+      host.innerHTML = '<div class="loading-state">Loading project memory...</div>';
+      return;
+    }
+    if (state === 'error' || state === 'timeout') {
+      host.innerHTML = '<div class="empty-state"><h2>Could not load project memory</h2><p>Refresh the dashboard and try again.</p></div>';
+      return;
+    }
+    const payload = data || {};
     const knowledge = payload.knowledge || [];
     const brain = payload.brain || [];
     const flags = payload.flags || {};
     const health = payload.health || {};
+    const triage = payload.triage || {};
+    const candidates = payload.candidates || [];
     const latestKnowledge = knowledge.length ? new Date(knowledge.reduce((latest, item) => item.updated_at > latest ? item.updated_at : latest, knowledge[0].updated_at)).toLocaleString() : '—';
     const latestBrain = brain.length ? new Date(brain[0].created_at).toLocaleString() : '—';
     const brainTypeCounts = brain.reduce((acc, entry) => {
@@ -2137,6 +2199,16 @@ async function loadProjectMemory(projectId) {
       acc[key] = (acc[key] || 0) + 1;
       return acc;
     }, {});
+    const triageFindings = [];
+    if (triage.duplicate_groups && triage.duplicate_groups.length) triageFindings.push(`${triage.duplicate_groups.length} duplicate groups`);
+    if (triage.stale_candidates && triage.stale_candidates.length) triageFindings.push(`${triage.stale_candidates.length} stale`);
+    if (triage.junk_candidates && triage.junk_candidates.length) triageFindings.push(`${triage.junk_candidates.length} junk`);
+    if (triage.applied_actions && triage.applied_actions.length) triageFindings.push(`${triage.applied_actions.length} applied`);
+    const lifecycleStates = { current: 0, stale: 0, merged: 0, superseded: 0, junk: 0, invalidated: 0 };
+    knowledge.forEach(f => {
+      const s = String(f.lifecycle_status || '').toLowerCase();
+      if (lifecycleStates[s] !== undefined) lifecycleStates[s]++;
+    });
     host.innerHTML = `
       <div class="row r4" style="margin-bottom:16px">
         <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${knowledge.length}</div><div class="hl">Project Facts</div></div>
@@ -2144,11 +2216,27 @@ async function loadProjectMemory(projectId) {
         <div class="hc"><div class="hv" style="color:var(--blue);font-size:16px">${esc(latestKnowledge)}</div><div class="hl">Latest Fact</div></div>
         <div class="hc"><div class="hv" style="color:var(--yellow);font-size:16px">${esc(latestBrain)}</div><div class="hl">Latest Memory</div></div>
       </div>
-      <div class="row r4" style="margin-bottom:16px">
-        <div class="hc"><div class="hv" style="color:var(--blue);font-size:24px">${payload.source_file_count || 0}</div><div class="hl">Source Files</div></div>
-        <div class="hc"><div class="hv" style="color:var(--purple);font-size:24px">${health.current_facts || 0}</div><div class="hl">Current Facts</div></div>
-        <div class="hc"><div class="hv" style="color:var(--yellow);font-size:24px">${health.non_current_facts || 0}</div><div class="hl">Non-current</div></div>
-        <div class="hc"><div class="hv" style="color:var(--green);font-size:24px">${Math.round((health.average_lifecycle_score || 0) * 100)}%</div><div class="hl">Lifecycle Health</div></div>
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px">
+          <h3 style="margin:0">Memory Health</h3>
+          <div style="display:flex;gap:6px;font-size:11px">
+            <span class="tag tg">${health.current_facts || 0} current</span>
+            <span class="tag ty">${health.non_current_facts || 0} stale</span>
+            <span class="tag tb">${health.history_entries || 0} history</span>
+          </div>
+        </div>
+        <div class="row r4">
+          <div class="hc"><div class="hv" style="color:var(--green);font-size:20px">${Math.round((health.average_lifecycle_score || 0) * 100)}%</div><div class="hl">Lifecycle Score</div></div>
+          <div class="hc"><div class="hv" style="color:var(--purple);font-size:20px">${(health.density_score || 0).toFixed(1)}</div><div class="hl">Density</div></div>
+          <div class="hc"><div class="hv" style="color:var(--blue);font-size:14px">${health.last_maintenance_at ? new Date(health.last_maintenance_at).toLocaleDateString() : '—'}</div><div class="hl">Last Maintenance</div></div>
+          <div class="hc"><div class="hv" style="color:var(--muted);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(health.maintenance_summary || '—')}</div><div class="hl">Summary</div></div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="runTriage(${jsArg(payload.project_id)},'preview')" style="font-size:11px;color:var(--blue);background:rgba(96,165,250,0.08);border:1px solid rgba(96,165,250,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Analyze</button>
+          <button onclick="runTriage(${jsArg(payload.project_id)},'apply')" style="font-size:11px;color:var(--green);background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Apply Triage</button>
+          <button onclick="runMaintenance(${jsArg(payload.project_id)},'preview')" style="font-size:11px;color:var(--yellow);background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:6px;padding:4px 10px;cursor:pointer">Maintenance Preview</button>
+          ${triageFindings.length ? `<span style="font-size:11px;color:var(--muted);padding:4px 0">${triageFindings.join(' · ')}</span>` : ''}
+        </div>
       </div>
       <div class="card" style="margin-bottom:16px">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
@@ -2218,16 +2306,26 @@ async function loadProjectMemory(projectId) {
             </tr>`;
           }).join('')}</tbody></table></div>` : '<div class="empty-state" style="padding:32px"><h2>No memories</h2><p>No project-scoped brain memories stored yet.</p></div>'}
         </div>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap">
+        <span><span class="tag tg" style="font-size:9px">current</span> active fact</span>
+        <span><span class="tag ty" style="font-size:9px">stale</span> low confidence</span>
+        <span><span class="tag tb" style="font-size:9px">history</span> merged/superseded</span>
+        <span><span class="tag td" style="font-size:9px">invalidated</span> deprecated</span>
       </div>`;
-  } catch (e) {
-    host.innerHTML = '<div class="empty-state"><h2>Could not load project memory</h2><p>Refresh the dashboard and try again.</p></div>';
-  }
+  });
+}
 }
 
 async function loadBrain() {
   const container = $('view-brain');
-  try {
-    const data = await apiFetch('/api/brain');
+  await fetchWithState('/api/brain', async (state, data) => {
+    if (state === 'loading') { showLoading(container); return; }
+    if (state === 'error' || state === 'timeout') { showError(container, 'Could not load brain memory data.'); return; }
+    if (state === 'loaded-empty' || !data) {
+      showEmpty(container, 'No brain entries stored yet. Run tool calls to populate memory.');
+      return;
+    }
     const entries = data.entries || [];
     const total = data.total_count || entries.length;
     const timelineEntries = entries.filter(e => String(e.entry_type || '').toLowerCase() === 'session_event' || String(e.lifecycle_status || '').toLowerCase() === 'timeline');
@@ -2236,7 +2334,6 @@ async function loadBrain() {
     const duplicateSlugGroups = (_cachedProjectList && _cachedProjectList._duplicate_slug_groups) || [];
     const duplicateFingerprintGroups = (_cachedProjectList && _cachedProjectList._duplicate_fingerprint_groups) || [];
 
-    // Group entries by project
     const byProject = {};
     for (const e of entries) {
       const name = e.project_name || e.project_id || 'unknown';
@@ -2382,7 +2479,7 @@ async function loadBrain() {
       const select = $('memoryProjectSelect');
       if (select && select.value) await loadProjectMemory(select.value);
     }
-  } catch (e) { showError(container, 'Could not load brain memory data.'); }
+  });
 }
 
 let _cachedProjectList = null;

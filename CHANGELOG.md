@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.9
+
+### Added
+
+- Dashboard memory health card in project memory view: lifecycle score, density, last maintenance, history count, maintenance summary, and consistent lifecycle-state legend.
+- `fetchWithState` helper for consistent loading/error/empty/data rendering across memory views.
+- Triage findings display with Analyze, Apply Triage, and Maintenance Preview buttons wired to existing server endpoints.
+
+### Fixed
+
+- `ClassifyBrainEntryType` defaults null/empty kind to `"fact"` instead of `"other"` — brain-kind counts, display labels, and bulk-clear operations now agree on the same normalized value.
+- Clear-by-type endpoint matches null/empty `Kind` when `entryType=fact` so entries shown as `fact` are actually cleared on bulk operation.
+
 ## 0.10.8
 
 ### Added
