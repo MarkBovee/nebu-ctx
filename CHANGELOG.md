@@ -12,6 +12,7 @@
 
 - `ClassifyBrainEntryType` defaults null/empty kind to `"fact"` instead of `"other"` — brain-kind counts, display labels, and bulk-clear operations now agree on the same normalized value.
 - Clear-by-type endpoint matches null/empty `Kind` when `entryType=fact` so entries shown as `fact` are actually cleared on bulk operation.
+- CI now validates dashboard HTML JavaScript syntax via `node --check` during the server build step.
 
 ## 0.10.8
 

@@ -35,6 +35,23 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Check dashboard JS syntax
+        run: |
+          python3 -c "
+          import re, sys
+          with open('server/src/NebuCtx.Server.Host/Dashboard/dashboard.html') as f:
+              c = f.read()
+          for m in re.finditer(r'<script[^>]*>(.*?)</script>', c, re.DOTALL):
+              with open('/tmp/dash.js', 'w') as out:
+                  out.write(m.group(1))
+              import subprocess
+              r = subprocess.run(['node', '--check', '/tmp/dash.js'], capture_output=True, text=True)
+              if r.returncode:
+                  print(f'JS syntax error in dashboard.html: {r.stderr}')
+                  sys.exit(1)
+          print('dashboard.html JS syntax OK')
+          "
+
       - name: Build
         run: dotnet build server/NebuCtx.slnx -p:AllowMissingPrunePackageData=true
 
