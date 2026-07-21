@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.10.11
+
+### Added
+
+- Auto-recall hook for OpenCode: `tui.prompt.append` fires `nebu-ctx hook auto-recall` on substantive user questions (≥40 chars with `?`), injects top-3 relevant facts as `<knowledge>` block.
+- on-brief banner now shows local fact count in dimmed gray when in a project with cached knowledge.
+- Session routing block now explicitly instructs agents to query hosted memory before investigating or editing.
+- 90-day retention cleanup: `RemoveExpiredFactsAsync` deletes stale knowledge entries older than 90 days during maintenance.
+
+### Fixed
+
+- Wakeup briefing no longer suppressed by local contextual suggestions — both are shown together.
+- Freshly stored facts now get a temporal lifecycle boost (0.2 → 0 over 7 days) so recent entries appear in wakeup top-8.
+- `ServerClient` HTTP calls now use a configured `ureq::Agent` with 3s connect / 8s global timeout instead of default 30s+.
+- OpenCode rules (v16): replaced passive "Proactive" section with ordered "Workflow — always follow this order" procedure.
+- AGENTS.md: new Memory Usage section with recall/store instructions.
+
 ## 0.10.10
 
 ### Fixed

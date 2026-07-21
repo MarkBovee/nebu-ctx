@@ -36,6 +36,16 @@ struct RepoMemoryRecord {
 
 pub struct ServerClient {
     connection: ServerConnection,
+    agent: ureq::Agent,
+}
+
+fn build_agent() -> ureq::Agent {
+    ureq::Agent::new_with_config(
+        ureq::config::Config::builder()
+            .timeout_global(Some(std::time::Duration::from_secs(8)))
+            .timeout_connect(Some(std::time::Duration::from_secs(3)))
+            .build(),
+    )
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -93,11 +103,11 @@ impl ServerClient {
         let connection = config::load_connection()?.ok_or_else(|| {
             anyhow!("No server connection saved. Run `nebu-ctx connect --endpoint <url> --token <token>`.")
         })?;
-        Ok(Self { connection })
+        Ok(Self { connection, agent: build_agent() })
     }
 
     pub fn new(connection: ServerConnection) -> Self {
-        Self { connection }
+        Self { connection, agent: build_agent() }
     }
 
     pub fn endpoint(&self) -> &str {
@@ -182,7 +192,8 @@ impl ServerClient {
     where
         T: DeserializeOwned,
     {
-        let response = ureq::get(&self.url(path))
+        let response = self.agent
+            .get(&self.url(path))
             .header(
                 "Authorization",
                 &format!("Bearer {}", self.connection.token.trim()),
@@ -198,7 +209,8 @@ impl ServerClient {
         TRequest: Serialize,
     {
         let body = serde_json::to_vec(request).context("failed to serialize request")?;
-        let response = ureq::post(&self.url(path))
+        let response = self.agent
+            .post(&self.url(path))
             .header(
                 "Authorization",
                 &format!("Bearer {}", self.connection.token.trim()),

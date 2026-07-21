@@ -355,6 +355,19 @@ internal sealed class InMemoryKnowledgeStore : IKnowledgeStore
         }
     }
 
+    public Task<int> RemoveExpiredFactsAsync(string projectId, int maxAgeDays = 90, CancellationToken cancellationToken = default)
+    {
+        var cutoff = DateTimeOffset.UtcNow.AddDays(-maxAgeDays);
+        lock (_lock)
+        {
+            var count = _facts.RemoveAll(f =>
+                f.ProjectId == projectId &&
+                string.Equals(f.LifecycleStatus, "stale", StringComparison.OrdinalIgnoreCase) &&
+                f.CreatedAt < cutoff);
+            return Task.FromResult(count);
+        }
+    }
+
     public Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default)
     {
         lock (_lock)

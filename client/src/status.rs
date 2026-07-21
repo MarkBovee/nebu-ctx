@@ -271,6 +271,8 @@ pub fn print_on_brief() {
     }
 
     let version = env!("CARGO_PKG_VERSION");
+
+    // Host connection status
     let host_part = match crate::config::load_connection() {
         Ok(Some(conn)) => {
             let host = conn
@@ -283,8 +285,27 @@ pub fn print_on_brief() {
         _ => String::new(),
     };
 
+    // Local knowledge facts (no network call, instant)
+    let memory_part = std::env::current_dir()
+        .ok()
+        .and_then(|cwd| {
+            let knowledge =
+                crate::core::knowledge::ProjectKnowledge::load_or_create(
+                    &cwd.to_string_lossy(),
+                );
+            let count = knowledge.facts.len();
+            if count > 0 {
+                Some(format!(
+                    "  \x1b[2m·\x1b[0m  \x1b[2mmemory\x1b[0m \x1b[2m{count} facts\x1b[0m"
+                ))
+            } else {
+                None
+            }
+        })
+        .unwrap_or_default();
+
     println!(
-        "  \x1b[36m◈\x1b[0m \x1b[1mnebu-ctx\x1b[0m \x1b[2mv{version}\x1b[0m  \x1b[2m·\x1b[0m  \x1b[32mON\x1b[0m{host_part}"
+        "  \x1b[36m◈\x1b[0m \x1b[1mnebu-ctx\x1b[0m \x1b[2mv{version}\x1b[0m  \x1b[2m·\x1b[0m  \x1b[32mON\x1b[0m{host_part}{memory_part}"
     );
 }
 

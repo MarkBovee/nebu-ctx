@@ -125,7 +125,7 @@ public sealed class KnowledgeService
         }
 
         var clampedConfidence = Math.Clamp(confidence, 0f, 1f);
-        var lifecycleScore = ComputeLifecycleScore(clampedConfidence, confirmationCount, now, existing?.LastRetrievedAt, existing?.RetrievalCount ?? 0);
+        var lifecycleScore = ComputeLifecycleScore(clampedConfidence, confirmationCount, now, existing?.LastRetrievedAt, existing?.RetrievalCount ?? 0, createdAt);
 
         var trace = promotionTrace;
         if (trace is null && existing is not null)
@@ -627,7 +627,7 @@ public sealed class KnowledgeService
             }
 
             fact.LifecycleStatus = status;
-            fact.LifecycleScore = ComputeLifecycleScore(fact.Confidence, fact.ConfirmationCount, now, fact.LastRetrievedAt, fact.RetrievalCount) + WakeupCategoryBoost(fact.Category);
+            fact.LifecycleScore = ComputeLifecycleScore(fact.Confidence, fact.ConfirmationCount, now, fact.LastRetrievedAt, fact.RetrievalCount, fact.CreatedAt) + WakeupCategoryBoost(fact.Category);
             fact.UpdatedAt = now;
             await _knowledgeStore.UpsertFactAsync(fact, cancellationToken);
             rescored++;
@@ -1094,7 +1094,7 @@ public sealed class KnowledgeService
         {
             entry.RetrievalCount++;
             entry.LastRetrievedAt = now;
-            entry.LifecycleScore = ComputeLifecycleScore(entry.Confidence, entry.ConfirmationCount, now, entry.LastRetrievedAt, entry.RetrievalCount);
+            entry.LifecycleScore = ComputeLifecycleScore(entry.Confidence, entry.ConfirmationCount, now, entry.LastRetrievedAt, entry.RetrievalCount, entry.CreatedAt);
             await _knowledgeStore.UpsertFactAsync(entry, cancellationToken);
         }
 
@@ -1352,7 +1352,7 @@ public sealed class KnowledgeService
     /// <summary>
     /// Computes a simple lifecycle score from confidence, confirmations, and retrieval history.
     /// </summary>
-    public static float ComputeLifecycleScore(float confidence, int confirmationCount, DateTimeOffset referenceTime, DateTimeOffset? lastRetrievedAt, int retrievalCount)
+    public static float ComputeLifecycleScore(float confidence, int confirmationCount, DateTimeOffset referenceTime, DateTimeOffset? lastRetrievedAt, int retrievalCount, DateTimeOffset? createdAt = null)
     {
         var confirmationBoost = Math.Min(0.3f, Math.Max(0, confirmationCount - 1) * 0.05f);
         var retrievalBoost = Math.Min(0.2f, retrievalCount * 0.01f);
@@ -1363,7 +1363,22 @@ public sealed class KnowledgeService
             recencyBoost = (float)Math.Max(0.0, 0.2 - Math.Min(0.2, hours / 168.0 * 0.2));
         }
 
-        return Math.Clamp(confidence + confirmationBoost + retrievalBoost + recencyBoost, 0f, 1.5f);
+        // Fresh facts get a temporal boost that decays linearly over the first week.
+        var freshnessBoost = 0f;
+        if (createdAt.HasValue)
+        {
+            var ageHours = Math.Max(0.0, (referenceTime - createdAt.Value).TotalHours);
+            if (ageHours <= 168)
+            {
+                freshnessBoost = (float)(0.2 * (1.0 - ageHours / 168.0));
+            }
+        }
+        else
+        {
+            freshnessBoost = 0.2f;
+        }
+
+        return Math.Clamp(confidence + confirmationBoost + retrievalBoost + recencyBoost + freshnessBoost, 0f, 1.5f);
     }
 
     /// <summary>

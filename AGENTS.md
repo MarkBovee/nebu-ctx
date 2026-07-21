@@ -163,6 +163,12 @@ For HA addon validation (builds from source):
 ADDON_DOCKERFILE=Dockerfile bash tests/local-addon-test.sh
 ```
 
+## Memory Usage
+
+- **Read memories proactively.** Before starting any substantive work, call `ctx(domain=memory, action=recall, query=...)` with a concise summary of the task. This surfaces relevant past decisions, findings, and facts.
+- **Store key findings.** After a discovery or decision, call `ctx(domain=memory, action=store, category=..., key=..., value=...)` to persist it. The hook pipeline also auto-captures activity, but explicit stores ensure important facts are preserved.
+- **Check wakeup briefing.** The `handle_session_start` hook injects a hosted wakeup briefing into the context window at session start — review it before diving into new work.
+
 ## Practical Guidance
 
 - Before writing a new tool handler, check if a similar one exists under `server/src/NebuCtx.Tools/`.

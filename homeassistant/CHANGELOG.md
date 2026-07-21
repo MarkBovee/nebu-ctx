@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.11
+
+- Bundle the 0.10.11 client/server release: auto-recall hook (OpenCode `tui.prompt.append`), memory freshness boost for recent facts, 90-day stale retention cleanup, wakeup briefing fix, server client timeout hardening, workflow-ordered OpenCode rules v16.
+
 ## 0.10.10
 
 - Bundle the 0.10.10 server release: fix dashboard JS syntax error, add JS syntax check to CI.

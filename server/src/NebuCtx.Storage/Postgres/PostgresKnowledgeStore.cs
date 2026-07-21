@@ -333,6 +333,21 @@ public sealed class PostgresKnowledgeStore : IKnowledgeStore
     }
 
     /// <inheritdoc />
+    public async Task<int> RemoveExpiredFactsAsync(string projectId, int maxAgeDays = 90, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        await using var cmd = new NpgsqlCommand(
+            "DELETE FROM knowledge_entries WHERE project_id = @project_id AND lifecycle_status = 'stale' AND created_at < @cutoff",
+            conn);
+        cmd.Parameters.AddWithValue("project_id", projectId);
+        cmd.Parameters.AddWithValue("cutoff", DateTimeOffset.UtcNow.AddDays(-maxAgeDays));
+
+        return await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default)
     {
         await using var conn = new NpgsqlConnection(_connectionString);

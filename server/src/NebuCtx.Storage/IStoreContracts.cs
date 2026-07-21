@@ -346,6 +346,15 @@ public interface IKnowledgeStore
     Task<bool> RemoveFactAsync(string projectId, string category, string key, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Deletes all stale knowledge facts older than the specified age.
+    /// </summary>
+    /// <param name="projectId">Project identifier.</param>
+    /// <param name="maxAgeDays">Maximum age in days before deletion.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of entries deleted.</returns>
+    Task<int> RemoveExpiredFactsAsync(string projectId, int maxAgeDays = 90, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Deletes all persisted knowledge facts for a project.
     /// </summary>
     /// <param name="projectId">Project identifier.</param>

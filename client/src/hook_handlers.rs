@@ -463,6 +463,96 @@ pub fn handle_pre_compact() {
     }
 }
 
+/// Auto-recall hook: fired by the OpenCode plugin when the user types a prompt
+/// that introduces a new topic or asks a question.
+///
+/// Reads the prompt, calls hosted memory recall, and outputs relevant facts
+/// as an `additionalContext` JSON line so the plugin can inject them into
+/// the prompt before it reaches the LLM.
+///
+/// Only fires for prompts ≥40 chars containing a question mark — trivial
+/// follow-ups and affirmations are skipped so mid-session chitchat doesn't
+/// trigger a server round-trip.
+///
+/// Wired to OpenCode `tui.prompt.append`.
+pub fn handle_auto_recall() {
+    let Some(input) = read_stdin_string() else {
+        return;
+    };
+
+    let prompt = extract_first_json_field(&input, &["prompt", "text"]).unwrap_or_default();
+    let trimmed = prompt.trim().to_string();
+    // Only trigger on substantive questions — not follow-ups or affirmations.
+    if is_trivial_prompt(&trimmed) {
+        return;
+    }
+
+    let project_root = std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+    if project_root.is_empty() {
+        return;
+    }
+
+    let ctx = crate::git_context::discover_project_context(std::path::Path::new(&project_root));
+    let client = match crate::server_client::ServerClient::load() {
+        Ok(c) => c,
+        _ => return,
+    };
+
+    let mut args = serde_json::Map::new();
+    args.insert("action".to_string(), serde_json::json!("recall"));
+    args.insert("query".to_string(), serde_json::json!(trimmed));
+    let result = client.call_tool("ctx_knowledge", args, &ctx);
+
+    let entries = match result {
+        Ok(ref map) => map.get("entries").and_then(|v| v.as_array()),
+        _ => None,
+    };
+
+    let Some(entries) = entries else {
+        return;
+    };
+
+    let lines: Vec<String> = entries
+        .iter()
+        .take(3)
+        .filter_map(|e| {
+            let cat = e.get("category")?.as_str()?;
+            let key = e.get("key")?.as_str()?;
+            let val = e.get("value")?.as_str()?;
+            let snippet: String = val.chars().take(120).collect();
+            Some(format!("- [{}] {}: {}", cat, key, snippet))
+        })
+        .collect();
+
+    if lines.is_empty() {
+        return;
+    }
+
+    let knowledge = format!("<knowledge>\n{}\n</knowledge>", lines.join("\n"));
+    let escaped = knowledge
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n");
+    println!("{{\"additionalContext\":\"{escaped}\"}}");
+}
+
+/// Returns true when prompt is too short or trivial for a memory recall.
+/// Heuristics can be extended here as patterns emerge.
+fn is_trivial_prompt(prompt: &str) -> bool {
+    let trimmed = prompt.trim();
+    // Too short to be a substantive question.
+    if trimmed.len() < 40 {
+        return true;
+    }
+    // No question mark — likely a statement or continuation, not a new topic.
+    if !trimmed.contains('?') {
+        return true;
+    }
+    false
+}
+
 /// SessionStart hook: fired by Claude Code at session start, after compact, or on resume.
 ///
 /// - `source="compact"`: Injects task/decisions/files from the most recent local session
@@ -686,12 +776,15 @@ fn build_session_snapshot_xml(project_root: &str, source: &str) -> String {
         }
     }
 
-    // P5: Contextual suggestions take priority over the static wake-up briefing.
+    // P5: Contextual suggestions (task-relevant hints, not memory)
     if !surfacing_suggestions.is_empty() {
         parts.push(crate::core::contextual_surface::render_suggestions_block(
             &surfacing_suggestions,
         ));
-    } else if let Some(hosted) = fetch_hosted_wakeup_briefing(project_root) {
+    }
+
+    // P6: Knowledge — prefer hosted wakeup briefing, fall back to local facts
+    if let Some(hosted) = fetch_hosted_wakeup_briefing(project_root) {
         parts.push(format!(
             "<knowledge>\n{}\n</knowledge>",
             xml_escape(&hosted)
@@ -753,6 +846,7 @@ fn session_start_routing_block() -> String {
   - ctx_read / ctx_search / ctx_tree instead of Read / Grep / ls
   - ctx for hosted memory, graph, analytics, and agent actions
   - Bash only for: git, mkdir, rm, mv, navigation
+  Before investigating or editing, query hosted memory first: ctx(domain=memory, action=recall, query=...)
   Skills, roles, and decisions from this session remain active until revoked.
 </context_window_protection>"#
         .to_string()

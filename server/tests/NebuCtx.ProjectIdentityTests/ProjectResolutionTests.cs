@@ -393,6 +393,7 @@ public class ProjectResolutionTests
         public Task<IReadOnlyList<KnowledgeEntry>> ListAllForProjectAsync(string projectId, int limit = 500, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<KnowledgeEntry>>([]);
         public Task<(IReadOnlyList<KnowledgeEntry> Entries, int Total)> ListFilteredAsync(string projectId, MemoryListFilter filter, CancellationToken cancellationToken = default) => Task.FromResult<(IReadOnlyList<KnowledgeEntry>, int)>((Array.Empty<KnowledgeEntry>(), 0));
         public Task<bool> RemoveFactAsync(string projectId, string category, string key, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<int> RemoveExpiredFactsAsync(string projectId, int maxAgeDays = 90, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public Task<int> ClearProjectAsync(string projectId, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public Task<int> ReassignProjectAsync(string fromProjectId, string toProjectId, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public Task UpsertCandidateAsync(KnowledgeCandidateEntry entry, CancellationToken cancellationToken = default) => Task.CompletedTask;

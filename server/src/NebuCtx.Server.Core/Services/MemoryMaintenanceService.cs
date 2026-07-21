@@ -87,6 +87,12 @@ public sealed class MemoryMaintenanceService
             knowledgeUpdates = await PersistKnowledgeChangesAsync(originalKnowledgeEntries, workingKnowledgeEntries, appliedActions, cancellationToken);
         }
 
+        var expiredRemoved = 0;
+        if (apply)
+        {
+            expiredRemoved = await _knowledgeStore.RemoveExpiredFactsAsync(projectId, 90, cancellationToken);
+        }
+
         Dictionary<string, object?>? upkeep = null;
         if (apply)
         {
@@ -103,6 +109,7 @@ public sealed class MemoryMaintenanceService
             ["high_confidence_findings"] = findings.Count(finding => finding.Confidence >= 0.9f),
             ["brain_updates"] = brainUpdates,
             ["knowledge_updates"] = knowledgeUpdates,
+            ["expired_removed"] = expiredRemoved,
             ["findings"] = findings.Select(finding => finding.ToPayload()).ToArray(),
             ["applied_actions"] = appliedActions.ToArray(),
             ["upkeep"] = upkeep,
@@ -599,7 +606,7 @@ public sealed class MemoryMaintenanceService
                 knowledgeEntry.PromotionIdentity = brainEntry.PromotionIdentity;
                 knowledgeEntry.LogicalKey = KnowledgeService.DeriveLogicalKey(category, brainEntry.Key);
                 knowledgeEntry.LastConfirmedAt ??= now;
-                knowledgeEntry.LifecycleScore = KnowledgeService.ComputeLifecycleScore(knowledgeEntry.Confidence, Math.Max(1, knowledgeEntry.ConfirmationCount), now, knowledgeEntry.LastRetrievedAt, knowledgeEntry.RetrievalCount);
+                knowledgeEntry.LifecycleScore = KnowledgeService.ComputeLifecycleScore(knowledgeEntry.Confidence, Math.Max(1, knowledgeEntry.ConfirmationCount), now, knowledgeEntry.LastRetrievedAt, knowledgeEntry.RetrievalCount, knowledgeEntry.CreatedAt);
                 continue;
             }
 

@@ -282,6 +282,7 @@ pub fn run() {
                     "pre-compact" => hook_handlers::handle_pre_compact(),
                     "session-start" => hook_handlers::handle_session_start(),
                     "user-prompt-submit" => hook_handlers::handle_user_prompt_submit(),
+                    "auto-recall" => hook_handlers::handle_auto_recall(),
                     "assistant-output-submit" => hook_handlers::handle_assistant_output_submit(),
                     "telemetry" => {
                         let tool_name = rest

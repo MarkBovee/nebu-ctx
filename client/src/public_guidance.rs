@@ -8,7 +8,7 @@ pub const RULES_END_MARKER: &str = "<!-- /lean-ctx -->";
 // (~/.copilot/copilot-instructions.md, ~/.claude/rules/nebu-ctx.md, etc.)
 // permanently stale. This is what caused v14 files to keep the removed
 // ctx_shell guidance after it was dropped from this module.
-pub const RULES_VERSION: &str = "nebu-ctx-rules-v15";
+pub const RULES_VERSION: &str = "nebu-ctx-rules-v16";
 pub const CLAUDE_MD_BLOCK_VERSION: &str = "nebu-ctx-claude-v4";
 pub const KIRO_STEERING_VERSION: &str = "<!-- nebu-ctx-kiro-v3 -->";
 
@@ -145,6 +145,12 @@ CRITICAL: ALWAYS use the public nebu-ctx MCP surface instead of native equivalen
 | `ctx_tree(path, depth)` | `ls` / `find` | Compact directory maps |
 | `ctx(domain="memory"|"context"|"graph"|"analytics"|"agents"|"inspect", action="...")` | private `ctx_*` implementation details | Stable public gateway for advanced operations |
 
+## Workflow — always follow this order:
+1. **Recall before investigate**: `ctx(domain=memory, action=recall, query="<task summary>")` — checks hosted memory for relevant facts before grep/git/log
+2. **Context first**: `ctx(domain=context, action=overview, task="...")` at session start
+3. **Store findings**: `ctx(domain=memory, action=store, category="...", key="...", value="...")` for durable facts
+4. **Compress**: `ctx(domain=context, action=compress)` when context grows large
+
 Public `ctx_read` targets: `file`, `files`, `symbol`, `outline`, `archive`.
 Public `ctx_search` modes: `regex`, `semantic`.
 Public `ctx` domains: `memory`, `context`, `graph`, `analytics`, `agents`, `inspect`.
@@ -158,11 +164,6 @@ Use private tool names only when documenting nebu-ctx internals. User-facing gui
 
 ## File editing:
 Use native Edit/StrReplace/Write/Delete tools for mutations.
-
-## Proactive (use without being asked):
-- `ctx(domain="context", action="overview", task="...")` at session start
-- `ctx(domain="context", action="compress")` when context grows large
-- `ctx(domain="memory", action="save"|"recall"|"store"|"consolidate")` when useful facts or session state should persist
 
 fallback only if a nebu-ctx tool is unavailable: use native equivalents.
 

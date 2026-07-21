@@ -199,10 +199,30 @@ export const NebuCtxOpenCodePlugin: Plugin = async ({ $, directory }) => {
     await runNebu(["hook", "telemetry", tool, String(tokensOriginal), String(tokensSaved)])
   }
 
+  async function autoRecall(promptText: string): Promise<string> {
+    if (!promptText || promptText.length < 10) return ""
+    const result = await runNebu(["hook", "auto-recall"], JSON.stringify({ prompt: promptText }))
+    const parsed = parseHookJson(String(result?.stdout ?? ""))
+    const additional = parsed?.additionalContext
+    return typeof additional === "string" ? additional.trim() : ""
+  }
+
   return {
     "shell.env": async (_input, output) => {
       output.env["NEBU_CTX_DATA_DIR"] = dataDir
       output.env["NEBU_CTX_BIN"] = nebuBinary
+    },
+
+    // Auto-recall relevant memory on every user prompt so the agent gets
+    // hosted context without having to ask. Mirrors the caveman plugin's
+    // tui.prompt.append pattern for injection.
+    "tui.prompt.append": async (input) => {
+      const promptText = (input && (input.prompt || input.text)) || ""
+      const knowledge = await autoRecall(promptText)
+      if (knowledge) {
+        return { append: knowledge }
+      }
+      return undefined
     },
 
     // Route richer OpenCode lifecycle hooks through nebu-ctx where nebu-ctx
