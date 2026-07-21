@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.12
+
+### Changed
+
+- Shell brief (`nebu-ctx on-brief`) is now off by default. Enable with `NEBU_CTX_BRIEF=1` env var.
+- CLI help trimmed from ~100 to ~30 lines: removed redundant EVAL SETUP, HOST CONNECTION, TROUBLESHOOTING sections, kept only essential usage/commands/env/examples.
+
 ## 0.10.11
 
 ### Added

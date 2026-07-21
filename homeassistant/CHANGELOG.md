@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.12
+
+- Bundle the 0.10.12 client release: shell brief `NEBU_CTX_BRIEF=1` (default off), CLI help trimmed to ~30 lines.
+
 ## 0.10.11
 
 - Bundle the 0.10.11 client/server release: auto-recall hook (OpenCode `tui.prompt.append`), memory freshness boost for recent facts, 90-day stale retention cleanup, wakeup briefing fix, server client timeout hardening, workflow-ordered OpenCode rules v16.

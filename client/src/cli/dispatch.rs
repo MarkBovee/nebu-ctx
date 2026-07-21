@@ -463,92 +463,42 @@ Public MCP surface: ctx_read, ctx_search, ctx_tree, ctx
 
 USAGE:
     nebu-ctx                          Start MCP server (stdio)
-    nebu-ctx -t \"command\"             Track command (full output + stats, no compression)
-    nebu-ctx -c \"command\"             Execute shell command with compressed output
-    nebu-ctx -c <exe> [args...]        Execute argv directly to avoid re-quoting hazards
-    nebu-ctx -c --raw \"command\"       Execute without compression (full output)
-    nebu-ctx exec \"command\"           Same as -c
+    nebu-ctx -c <cmd>                 Execute + compress output
+    nebu-ctx -c --raw <cmd>           Execute without compression
+    nebu-ctx -t <cmd>                 Track command (full output + stats)
+    nebu-ctx <command> [options]
 
 COMMANDS:
-    setup                             Install shell/editor integration
-    setup <shell>                     Print shell hook to stdout
-    setup --global                    Install shell aliases to rc/profile file
-    setup --agent <name>              Configure supported agent/editor integration
-    connect [--endpoint URL --token TOKEN]
-                                      Save and validate host connection
-    disconnect                        Remove saved host connection
-    status [--json]                   Show setup and host connection status
-    sync [status|flush] [--json]      Inspect or replay queued server-bound sync items
-    doctor [--fix] [--json]           Run diagnostics (and optionally repair)
-    memory list [...]                 Browse canonical memories (filters: --category, --since, --source-type, --limit, --offset, --sort-field, --sort-direction, --promoted-from-session, --promoted-from-brain-key)
-    report-issue [options]            Create/update bug issue with local draft fallback
-    hook <...>                        Internal hook entrypoints
-    on-brief                          Print shell startup brief
-    uninstall                         Remove shell hook, MCP configs, and data directory
-
-NOTES:
-    Memory, analytics, and workflow state route through ctx(domain=...).
-    Memory actions require a configured host connection via `nebu-ctx connect`.
-    Legacy local helper commands now fail fast outside thin-client surface.
+    setup [--agent <name>|--global|<shell>]   Shell/editor integration
+    connect [--endpoint URL --token TOKEN]    Save host connection
+    disconnect                                Remove saved connection
+    status [--json]                           Setup + host status
+    sync [status|flush] [--json]              Inspect/replay queued sync items
+    doctor [--fix] [--json]                   Diagnostics + repair
+    memory list [--category|--since|--limit]  Browse memories
+    report-issue [options]                    Create bug issue
+    uninstall                                 Remove hooks + data dir
+    on-brief                                  Print shell startup banner
+    --version, -V / --help, -h
 
 ENVIRONMENT:
-    NEBU_CTX_DISABLED=1            Bypass ALL compression + prevent shell hook from loading
-    NEBU_CTX_ENABLED=0             Prevent shell hook auto-start (nebu-ctx-on still works)
-    NEBU_CTX_RAW=1                 Same as --raw for current command
-    NEBU_CTX_AUTONOMY=false        Disable autonomous features
-    NEBU_CTX_COMPRESS=1            Force compression (even for excluded commands)
+    NEBU_CTX_DISABLED=1    Bypass all compression + prevent hook loading
+    NEBU_CTX_ENABLED=0     Prevent auto-enable at shell start
+    NEBU_CTX_RAW=1         Disable compression (like --raw)
+    NEBU_CTX_BRIEF=1       Show shell startup banner (default: off)
 
-OPTIONS:
-    --version, -V                  Show version
-    --help, -h                     Show this help
+SHELL MODES (after setup):
+    nebu-ctx-on / nebu-ctx-off / nebu-ctx-mode <track|compress|off>
+    nebu-ctx-status / nebu-ctx-raw
 
 EXAMPLES:
-    nebu-ctx -c \"git status --short --untracked-files=all\"
-    nebu-ctx -c gh pr list
-    nebu-ctx -c --raw \"cargo test --manifest-path client/Cargo.toml\"
     nebu-ctx setup
+    nebu-ctx -c \"git status\"
     nebu-ctx connect --endpoint http://127.0.0.1:4242 --token <token>
-    nebu-ctx status --json
-    nebu-ctx sync status --json
-    nebu-ctx sync flush
     nebu-ctx doctor --fix --json
-    nebu-ctx report-issue --submit --search-duplicates --title \"ctx_search invoke error\" --tool ctx_search --actual \"Cannot read properties of undefined (reading 'invoke')\"
+    nebu-ctx status --json
 
-EVAL SETUP (starship/zoxide style — always in sync with binary version):
-    # bash: add to ~/.bashrc
-    eval \"$(nebu-ctx setup bash)\"
-    # zsh: add to ~/.zshrc
-    eval \"$(nebu-ctx setup zsh)\"
-    # fish: add to ~/.config/fish/config.fish
-    nebu-ctx setup fish | source
-    # powershell: add to $PROFILE
-    nebu-ctx setup powershell | Invoke-Expression
-    nebu-ctx-on                    Enable shell aliases in track mode (full output + stats)
-    nebu-ctx-off                   Disable all shell aliases
-    nebu-ctx-mode track            Track mode: full output, stats recorded (default)
-    nebu-ctx-mode compress         Compress mode: all output compressed (power users)
-    nebu-ctx-mode off              Same as nebu-ctx-off
-    nebu-ctx-status                Show whether compression is active
-    nebu-ctx doctor                Check PATH, config, MCP, and local edge health
-    nebu-ctx doctor --fix --json   Repair + machine-readable report
-    nebu-ctx status --json         Machine-readable current status
-    nebu-ctx sync status --json    Inspect queued offline sync items
-    nebu-ctx sync flush            Replay queued offline sync items once
-
-HOST CONNECTION:
-    connect [--endpoint <url>] [--token <token>]  Save and validate a server connection
-    status                         Includes host connection status
-    disconnect                     Remove the saved server connection
-
-TROUBLESHOOTING:
-    Commands broken?     nebu-ctx-off             (fixes current session)
-    Permanent fix?       nebu-ctx uninstall       (removes all hooks)
-    Manual fix?          Edit ~/.zshrc, remove the \"nebu-ctx shell hook\" block
-    Binary missing?      Aliases auto-fallback to original commands (safe)
-    Preview setup?       nebu-ctx setup --global --dry-run
-
-WEBSITE: https://nebu-ctx.com
-GITHUB:  https://github.com/MarkBovee/nebu-ctx
+Full docs: https://nebu-ctx.com
 ",
         version = env!("CARGO_PKG_VERSION"),
     );

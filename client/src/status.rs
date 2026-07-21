@@ -264,9 +264,13 @@ fn print_human(report: &StatusReport, path: &std::path::Path) {
 
 /// Print a compact single-line colored status for shell startup.
 /// Called via `nebu-ctx on-brief` from the shell hook's `nebu-ctx-on` function.
+/// Suppressed by default; enable with `NEBU_CTX_BRIEF=1`.
 pub fn print_on_brief() {
     use std::io::IsTerminal;
     if !std::io::stdout().is_terminal() {
+        return;
+    }
+    if std::env::var("NEBU_CTX_BRIEF").as_deref() != Ok("1") {
         return;
     }
 
