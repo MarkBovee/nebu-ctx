@@ -3,9 +3,23 @@ use crate::tools::CrpMode;
 /// Claude Code truncates MCP server instructions at 2048 characters.
 /// Full instructions are installed as `~/.claude/rules/nebu-ctx.md` instead.
 const CLAUDE_CODE_INSTRUCTION_CAP: usize = 2048;
+const MCP_BOOTSTRAP_INSTRUCTION_CAP: usize = 384;
 
 pub fn build_instructions(crp_mode: CrpMode) -> String {
     build_instructions_with_client(crp_mode, "")
+}
+
+/// Builds the bounded, static guidance returned while an MCP client initializes.
+pub fn mcp_bootstrap_instructions() -> String {
+    let instructions = "\
+Use ctx_read (read), ctx_search (search), ctx_tree (list), and ctx (memory/context). Edit files with native tools. In a new VS Code/Copilot session, call one nebu-ctx tool and wait for its result before another. Args: ctx_read(target=...); ctx_search(mode=...); ctx_tree(path, depth); ctx(domain=..., action=...).";
+
+    debug_assert!(
+        instructions.len() <= MCP_BOOTSTRAP_INSTRUCTION_CAP,
+        "MCP bootstrap instructions exceed {MCP_BOOTSTRAP_INSTRUCTION_CAP} chars: {} chars",
+        instructions.len()
+    );
+    instructions.to_string()
 }
 
 pub fn build_instructions_with_client(crp_mode: CrpMode, client_name: &str) -> String {
@@ -175,4 +189,20 @@ OUTPUT EFFICIENCY:\n\
 • Never echo tool output code. Never add narration comments. Show only changed code.\n\
 • [TASK:type] and SCOPE hints included. Architecture=thorough, generate=code."
         .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mcp_bootstrap_instructions_are_bounded_and_public() {
+        let instructions = mcp_bootstrap_instructions();
+
+        assert!(instructions.len() <= MCP_BOOTSTRAP_INSTRUCTION_CAP);
+        assert!(instructions.contains("ctx_read"));
+        assert!(instructions.contains("ctx_search"));
+        assert!(instructions.contains("ctx_tree"));
+        assert!(instructions.contains("ctx(domain="));
+    }
 }

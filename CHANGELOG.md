@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.13
+
+### Fixed
+
+- MCP initialization now returns a static 313-character bootstrap instead of dynamic session and memory instructions, reducing GitHub Copilot's first-call deferred-tool registration pressure in VS Code.
+
 ## 0.10.12
 
 ### Changed

@@ -58,7 +58,8 @@ impl ServerHandler for NebuCtxServer {
     fn get_info(&self) -> ServerInfo {
         let capabilities = ServerCapabilities::builder().enable_tools().build();
 
-        let instructions = crate::instructions::build_instructions(self.crp_mode);
+        // Keep tool registration independent of dynamic session and memory loading.
+        let instructions = crate::instructions::mcp_bootstrap_instructions();
 
         InitializeResult::new(capabilities)
             .with_server_info(Implementation::new("nebu-ctx", env!("CARGO_PKG_VERSION")))
@@ -148,8 +149,8 @@ impl ServerHandler for NebuCtxServer {
             }
         });
 
-        let instructions =
-            crate::instructions::build_instructions_with_client(self.crp_mode, &name);
+        // Copilot consumes this during deferred tool setup, so the payload must stay static and small.
+        let instructions = crate::instructions::mcp_bootstrap_instructions();
         let capabilities = ServerCapabilities::builder().enable_tools().build();
 
         Ok(InitializeResult::new(capabilities)

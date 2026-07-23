@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.13
+
+- Bundle the 0.10.13 client/server release: compact static MCP initialization guidance for VS Code GitHub Copilot.
+
 ## 0.10.12
 
 - Bundle the 0.10.12 client release: shell brief `NEBU_CTX_BRIEF=1` (default off), CLI help trimmed to ~30 lines.
