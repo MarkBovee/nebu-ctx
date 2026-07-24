@@ -61,8 +61,12 @@ impl ServerHandler for NebuCtxServer {
         // Keep tool registration independent of dynamic session and memory loading.
         let instructions = crate::instructions::mcp_bootstrap_instructions();
 
+        // VS Code matches deferred tool adapters against this identity and the configured server key.
         InitializeResult::new(capabilities)
-            .with_server_info(Implementation::new("nebu-ctx", env!("CARGO_PKG_VERSION")))
+            .with_server_info(Implementation::new(
+                crate::core::editor_registry::COPILOT_MCP_SERVER_KEY,
+                env!("CARGO_PKG_VERSION"),
+            ))
             .with_instructions(instructions)
     }
 
@@ -153,8 +157,12 @@ impl ServerHandler for NebuCtxServer {
         let instructions = crate::instructions::mcp_bootstrap_instructions();
         let capabilities = ServerCapabilities::builder().enable_tools().build();
 
+        // Keep the repeated initialize response on the same identity as the discovery response.
         Ok(InitializeResult::new(capabilities)
-            .with_server_info(Implementation::new("nebu-ctx", env!("CARGO_PKG_VERSION")))
+            .with_server_info(Implementation::new(
+                crate::core::editor_registry::COPILOT_MCP_SERVER_KEY,
+                env!("CARGO_PKG_VERSION"),
+            ))
             .with_instructions(instructions))
     }
 

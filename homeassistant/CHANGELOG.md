@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.14
+
+- Bundle the 0.10.14 client/server release: align the MCP handshake identity with the VS Code GitHub Copilot server key.
+
 ## 0.10.13
 
 - Bundle the 0.10.13 client/server release: compact static MCP initialization guidance for VS Code GitHub Copilot.

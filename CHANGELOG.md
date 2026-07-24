@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.14
+
+### Fixed
+
+- MCP handshake identity now matches the VS Code/Copilot `nebuCtx` server key, preventing deferred-tool registry lookups from splitting between `nebuCtx` and `mcp_nebu-ctx_*`.
+
 ## 0.10.13
 
 ### Fixed
