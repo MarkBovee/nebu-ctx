@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.16
+
+- Bundle the 0.10.16 client/server release: fix Postgres knowledge reader column mismatch during promotion.
+
 ## 0.10.15
 
 - Bundle the 0.10.15 client/server release: restore `ctx_knowledge` compatibility for `store` and `set` actions.

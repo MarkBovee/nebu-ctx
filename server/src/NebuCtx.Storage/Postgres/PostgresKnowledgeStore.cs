@@ -108,7 +108,9 @@ public sealed class PostgresKnowledgeStore : IKnowledgeStore
             SELECT project_id, category, key, value, confidence, created_at, updated_at,
                    logical_key, promotion_identity, source_type, source_scope,
                    lifecycle_status, lifecycle_score, confirmation_count, last_confirmed_at,
-                   retrieval_count, last_retrieved_at, history_json
+                   retrieval_count, last_retrieved_at, history_json,
+                   promoted_from_brain_key, promoted_from_brain_category, promoted_from_brain_value,
+                   promoted_from_timestamp, promotion_action, promotion_timestamp
             FROM knowledge_entries
             WHERE project_id = @project_id AND category = @category AND key = @key
             LIMIT 1
@@ -218,7 +220,9 @@ public sealed class PostgresKnowledgeStore : IKnowledgeStore
             SELECT project_id, category, key, value, confidence, created_at, updated_at,
                    logical_key, promotion_identity, source_type, source_scope,
                    lifecycle_status, lifecycle_score, confirmation_count, last_confirmed_at,
-                   retrieval_count, last_retrieved_at, history_json
+                   retrieval_count, last_retrieved_at, history_json,
+                   promoted_from_brain_key, promoted_from_brain_category, promoted_from_brain_value,
+                   promoted_from_timestamp, promotion_action, promotion_timestamp
             FROM knowledge_entries
             WHERE project_id = @project_id
             ORDER BY category ASC, key ASC

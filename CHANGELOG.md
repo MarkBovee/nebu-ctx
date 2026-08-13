@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.16
+
+### Fixed
+
+- Knowledge reads now select all columns consumed by the Postgres reader, preventing ordinal errors during promotion and remember operations.
+
 ## 0.10.15
 
 ### Fixed
