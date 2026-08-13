@@ -33,7 +33,7 @@ public sealed class KnowledgeToolHandler : IToolHandler
     public string Name => "ctx_knowledge";
 
     /// <inheritdoc />
-    public string Description => "Project-scoped categorized knowledge store. Actions: remember, recall, search, list, lifecycle, status, remove, categories, timeline, consolidate, promote, candidates, review_candidate, upvote, downvote, confirm, reject, upkeep, wakeup, triage.";
+    public string Description => "Project-scoped categorized knowledge store. Actions: remember, store, set, recall, search, list, lifecycle, status, remove, categories, timeline, consolidate, promote, candidates, review_candidate, upvote, downvote, confirm, reject, upkeep, wakeup, triage.";
 
     /// <inheritdoc />
     public Dictionary<string, object?> InputSchema => new()
@@ -44,8 +44,8 @@ public sealed class KnowledgeToolHandler : IToolHandler
             ["action"] = new Dictionary<string, object?>
             {
                 ["type"] = "string",
-                ["description"] = "Action: remember, recall, search, list, lifecycle, status, remove, categories, timeline, consolidate, promote, candidates, review_candidate, upvote, downvote, confirm, reject, upkeep, wakeup, triage, import",
-                ["enum"] = new[] { "remember", "recall", "search", "list", "lifecycle", "status", "remove", "categories", "timeline", "consolidate", "promote", "candidates", "review_candidate", "upvote", "downvote", "confirm", "reject", "upkeep", "wakeup", "triage", "import" },
+                ["description"] = "Action: remember, store, set, recall, search, list, lifecycle, status, remove, categories, timeline, consolidate, promote, candidates, review_candidate, upvote, downvote, confirm, reject, upkeep, wakeup, triage, import",
+                ["enum"] = new[] { "remember", "store", "set", "recall", "search", "list", "lifecycle", "status", "remove", "categories", "timeline", "consolidate", "promote", "candidates", "review_candidate", "upvote", "downvote", "confirm", "reject", "upkeep", "wakeup", "triage", "import" },
             },
             ["mode"] = new Dictionary<string, object?>
             {
@@ -191,7 +191,7 @@ public sealed class KnowledgeToolHandler : IToolHandler
 
         return action switch
         {
-            "remember"   => await ExecuteRememberAsync(arguments, context, cancellationToken),
+            "remember" or "store" or "set" => await ExecuteRememberAsync(arguments, context, cancellationToken),
             "recall"     => await ExecuteRecallAsync(arguments, context, cancellationToken),
             "search"     => await ExecuteRecallAsync(arguments, context, cancellationToken),
             "list"       => await ExecuteListAsync(arguments, context, cancellationToken),

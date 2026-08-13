@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.15
+
+### Fixed
+
+- `ctx_knowledge` now accepts legacy `store` and `set` action aliases alongside `remember`.
+
 ## 0.10.14
 
 ### Fixed

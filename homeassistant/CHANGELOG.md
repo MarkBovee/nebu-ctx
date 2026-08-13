@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.15
+
+- Bundle the 0.10.15 client/server release: restore `ctx_knowledge` compatibility for `store` and `set` actions.
+
 ## 0.10.14
 
 - Bundle the 0.10.14 client/server release: align the MCP handshake identity with the VS Code GitHub Copilot server key.

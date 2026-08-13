@@ -445,6 +445,27 @@ public class McpEndpointTests : IClassFixture<NebuCtxTestFactory>
         Assert.Contains("Fixed opencode plugin hooks and setup flow yesterday", searchPayload, StringComparison.Ordinal);
     }
 
+    /// <summary>Legacy store action remains compatible with clients that use the public memory alias.</summary>
+    [Fact]
+    public async Task ToolCall_CtxKnowledgeStore_AcceptsLegacyAlias()
+    {
+        var response = await _client.PostAsJsonAsync("/v1/tools/call", new ToolCallRequest
+        {
+            Name = "ctx_knowledge",
+            ProjectSlug = "legacy-store-alias",
+            Arguments = new Dictionary<string, object?>
+            {
+                ["action"] = "store",
+                ["category"] = "compatibility",
+                ["key"] = "legacy-store",
+                ["value"] = "legacy action accepted",
+            },
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("legacy-store", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// Hosted knowledge categories and timeline are available through both private and public memory contracts.
     /// </summary>

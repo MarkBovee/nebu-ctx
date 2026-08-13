@@ -1,6 +1,6 @@
 name: "Nebu-CTX Server"
 description: "Context engineering MCP server with ingress dashboard and HTTP MCP endpoint"
-version: "0.10.14"
+version: "0.10.15"
 slug: "nebu_ctx"
 url: "https://github.com/MarkBovee/nebu-ctx/tree/main/homeassistant"
 image: "ghcr.io/markbovee/nebu-ctx"
